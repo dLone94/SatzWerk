@@ -429,6 +429,13 @@ behind interfaces — until the core course is worth talking about.
 - **Single learner.** The `profile` table has one row by design. It is a table
   rather than a key-value blob so that multi-user support is an added column
   rather than a rewrite.
+- **The Neon HTTP transport is the one unexercised path.** The SQL, the schema
+  and every store function are verified against a real Postgres 16, and the
+  standard TCP connection is what those tests use. Neon's HTTP client is a
+  different transport over the same verified SQL, but it has not itself been
+  run against Neon.
+- **There is no CI yet**, so the test, typecheck and build results quoted here
+  were produced locally rather than on a runner.
 - **The bundle is a single chunk** (~730 kB, 206 kB gzipped — the whole
   curriculum is typed data compiled into it). Fine for a
   personal app on localhost; route-level code splitting is the obvious first

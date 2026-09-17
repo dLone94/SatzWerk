@@ -1,105 +1,170 @@
 import { normaliseRow, toPositional, type Db, type Param, type Row } from './driver.ts';
 
 /**
- * The Postgres driver: what runs on Vercel.
+ * The Postgres driver: what runs when the app is hosted.
  *
  * A serverless function has no persistent disk, so the SQLite file the app
  * uses locally would be recreated empty on every cold start. Progress is the
- * one thing this app must not lose, so hosted deployments talk to Postgres
- * instead.
+ * one thing this app must not lose, so hosted deployments talk to Postgres.
  *
- * `@neondatabase/serverless` is used rather than `pg` because it speaks
- * Postgres over HTTP and WebSocket. A serverless function cannot hold a
- * connection pool between invocations, and a pooled client would exhaust the
- * database's connection limit under even light traffic.
+ * There are two transports, chosen by the connection string:
  *
- * SQL arrives in SQLite's `?` placeholder style and is rewritten here.
+ *  - **Neon** (`*.neon.tech`), over HTTP. A serverless function cannot hold a
+ *    connection pool between invocations, and a pooled client would exhaust
+ *    the database's connection limit under even light traffic. Neon's driver
+ *    sidesteps that by speaking Postgres over HTTP, with no TCP handshake.
+ *  - **Any other Postgres**, over TCP with `pg`. This is what a long-running
+ *    server, another host, or a local database gets — and it is what lets the
+ *    whole test suite run against a real Postgres rather than only SQLite.
+ *
+ * Both go through the same SQL. The queries are written in SQLite's `?`
+ * placeholder style and rewritten to `$1, $2, ...` here, so nothing is
+ * written twice.
  */
 
-type SqlClient = {
-  query: (sql: string, params: unknown[]) => Promise<{ rows: Row[]; rowCount: number | null }>;
-};
+interface QueryResult {
+  rows: Row[];
+  rowCount: number | null;
+}
+
+interface Session {
+  query: (sql: string, params: unknown[]) => Promise<QueryResult>;
+}
+
+/** Neon's HTTP endpoint is only worth using for Neon. */
+function isNeon(url: string): boolean {
+  try {
+    return /(^|\.)neon\.tech$/i.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
 
 export async function openPostgres(url: string): Promise<Db> {
-  const { neon, neonConfig } = await import('@neondatabase/serverless');
-  // Cache the connection negotiation across queries within one invocation.
+  return isNeon(url) ? openNeon(url) : openStandard(url);
+}
+
+/* ------------------------------------------------------------------ *
+ * Neon, over HTTP
+ * ------------------------------------------------------------------ */
+
+async function openNeon(url: string): Promise<Db> {
+  const { neon, neonConfig, Pool } = await import('@neondatabase/serverless');
   neonConfig.fetchConnectionCache = true;
 
-  const sql = neon(url, { fullResults: true }) as unknown as SqlClient;
+  const http = neon(url, { fullResults: true }) as unknown as Session;
 
-  // A transaction has to run on one session, and each `neon()` call over HTTP
-  // is its own. Transactions therefore go through a pooled client, created only
-  // when one is needed.
-  let pooled: { client: SqlClient; end: () => Promise<void> } | null = null;
-  const pooledClient = async () => {
-    if (!pooled) {
-      const { Pool } = await import('@neondatabase/serverless');
-      const pool = new Pool({ connectionString: url });
-      pooled = {
-        client: pool as unknown as SqlClient,
-        end: () => pool.end(),
-      };
+  // A transaction has to run on one session, and each HTTP query is its own.
+  // Multi-statement DDL is the same story. Both go through a pool, created
+  // only if something needs it.
+  let pool: { session: Session; end: () => Promise<void> } | null = null;
+  const pooled = async (): Promise<Session> => {
+    if (!pool) {
+      const created = new Pool({ connectionString: url });
+      pool = { session: created as unknown as Session, end: () => created.end() };
     }
-    return pooled.client;
+    return pool.session;
   };
 
-  let active: SqlClient | null = null;
-  const client = async (): Promise<SqlClient> => active ?? sql;
+  return build({
+    oneOff: async () => http,
+    session: pooled,
+    close: async () => {
+      if (pool) {
+        await pool.end();
+        pool = null;
+      }
+    },
+  });
+}
 
-  const query = async (text: string, params: Param[]) => {
-    const target = await client();
-    return target.query(toPositional(text), params);
+/* ------------------------------------------------------------------ *
+ * Any Postgres, over TCP
+ * ------------------------------------------------------------------ */
+
+async function openStandard(url: string): Promise<Db> {
+  const { Pool, types } = await import('pg');
+
+  // `pg` returns bigint and numeric as strings to avoid silent precision loss.
+  // Every such column here is a count, a sum or a credit that comfortably fits
+  // in a double, and the rest of the app expects numbers, so parse them.
+  types.setTypeParser(types.builtins.INT8, (value) => Number(value));
+  types.setTypeParser(types.builtins.NUMERIC, (value) => Number(value));
+
+  const pool = new Pool({ connectionString: url });
+  const session = pool as unknown as Session;
+
+  return build({
+    oneOff: async () => session,
+    session: async () => session,
+    close: () => pool.end(),
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Shared behaviour
+ * ------------------------------------------------------------------ */
+
+interface Transport {
+  /** For a single statement, where a dedicated session is not needed. */
+  oneOff: () => Promise<Session>;
+  /** For DDL and transactions, which need one session throughout. */
+  session: () => Promise<Session>;
+  close: () => Promise<void>;
+}
+
+function build(transport: Transport): Db {
+  // Set while a transaction is open, so every query inside it goes to the same
+  // session as the BEGIN.
+  let active: Session | null = null;
+
+  const run = async (sql: string, params: Param[]): Promise<QueryResult> => {
+    const session = active ?? (await transport.oneOff());
+    return session.query(toPositional(sql), params);
   };
 
   return {
     dialect: 'postgres',
 
-    async all<T = Row>(text: string, ...params: Param[]): Promise<T[]> {
-      const result = await query(text, params);
+    async all<T = Row>(sql: string, ...params: Param[]): Promise<T[]> {
+      const result = await run(sql, params);
       return result.rows.map((row) => normaliseRow(row)) as T[];
     },
 
-    async get<T = Row>(text: string, ...params: Param[]): Promise<T | undefined> {
-      const result = await query(text, params);
+    async get<T = Row>(sql: string, ...params: Param[]): Promise<T | undefined> {
+      const result = await run(sql, params);
       const row = result.rows[0];
       return row === undefined ? undefined : (normaliseRow(row) as T);
     },
 
-    async run(text: string, ...params: Param[]): Promise<{ changes: number }> {
-      const result = await query(text, params);
+    async run(sql: string, ...params: Param[]): Promise<{ changes: number }> {
+      const result = await run(sql, params);
       return { changes: result.rowCount ?? 0 };
     },
 
-    async exec(text: string): Promise<void> {
-      // DDL comes as several statements in one string, which the HTTP endpoint
-      // will not take, so it runs on the pooled client where multi-statement
-      // SQL is allowed.
-      const target = active ?? (await pooledClient());
-      await target.query(text, []);
+    async exec(sql: string): Promise<void> {
+      // Several statements in one string, which needs a real session.
+      const session = active ?? (await transport.session());
+      await session.query(sql, []);
     },
 
     async transaction<T>(body: () => Promise<T>): Promise<T> {
       if (active) throw new Error('transaction() cannot be nested');
-      const target = await pooledClient();
-      active = target;
-      await target.query('BEGIN', []);
+      const session = await transport.session();
+      active = session;
+      await session.query('BEGIN', []);
       try {
         const result = await body();
-        await target.query('COMMIT', []);
+        await session.query('COMMIT', []);
         return result;
       } catch (error) {
-        await target.query('ROLLBACK', []);
+        await session.query('ROLLBACK', []);
         throw error;
       } finally {
         active = null;
       }
     },
 
-    async close(): Promise<void> {
-      if (pooled) {
-        await pooled.end();
-        pooled = null;
-      }
-    },
+    close: transport.close,
   };
 }

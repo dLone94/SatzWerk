@@ -374,9 +374,9 @@ export async function recordAttempt(db: Db, input: AttemptInput, now = new Date(
     await db.run(`INSERT INTO study_days (day, seconds_active, answers, correct)
        VALUES (?, ?, 1, ?)
        ON CONFLICT (day) DO UPDATE SET
-         seconds_active = seconds_active + excluded.seconds_active,
-         answers = answers + 1,
-         correct = correct + excluded.correct`, day, Math.min(300, Math.round((input.durationMs ?? 0) / 1000)), wasCorrect ? 1 : 0);
+         seconds_active = study_days.seconds_active + excluded.seconds_active,
+         answers = study_days.answers + 1,
+         correct = study_days.correct + excluded.correct`, day, Math.min(300, Math.round((input.durationMs ?? 0) / 1000)), wasCorrect ? 1 : 0);
 
     // Step outcome for the lesson mastery rules.
     let lessonProgress: LessonProgress | undefined;
@@ -580,7 +580,7 @@ export async function listFavorites(db: Db): Promise<string[]> {
 export async function addStudyTime(db: Db, seconds: number, now = new Date()): Promise<void> {
   const day = now.toISOString().slice(0, 10);
   await db.run(`INSERT INTO study_days (day, seconds_active, answers, correct) VALUES (?, ?, 0, 0)
-     ON CONFLICT (day) DO UPDATE SET seconds_active = seconds_active + excluded.seconds_active`, day, Math.max(0, Math.min(3600, Math.round(seconds))));
+     ON CONFLICT (day) DO UPDATE SET seconds_active = study_days.seconds_active + excluded.seconds_active`, day, Math.max(0, Math.min(3600, Math.round(seconds))));
 }
 
 export interface StudyDay {
