@@ -2,10 +2,16 @@ import { createBaseLexicon, extendLexicon, type GermanLexicon } from '../core/va
 import { GRAMMAR_CONCEPTS, grammarById } from './grammar.ts';
 import { LEVEL_OUTLINES } from './outline/levelOutlines.ts';
 import { PRE_A1_PATTERNS, PRE_A1_UNIT_2 } from './pre-a1/unit2.ts';
+import { PRE_A1_U3_PATTERNS, PRE_A1_UNIT_3 } from './pre-a1/unit3.ts';
+import { PRE_A1_U4_PATTERNS, PRE_A1_UNIT_4 } from './pre-a1/unit4.ts';
+import { PRE_A1_U5_PATTERNS, PRE_A1_UNIT_5 } from './pre-a1/unit5.ts';
+import { PRE_A1_U6_PATTERNS, PRE_A1_UNIT_6 } from './pre-a1/unit6.ts';
+import { PRE_A1_LEVEL_CHECKPOINT } from './pre-a1/levelCheckpoint.ts';
 import { PRE_A1_UNIT_1 } from './pre-a1/unit1.ts';
 import type {
   CefrLevel,
   Checkpoint,
+  ErrorCategory,
   Exercise,
   GrammarConcept,
   Lesson,
@@ -44,7 +50,12 @@ function levelFromOutline(
 }
 
 export const PRE_A1: Level = {
-  ...levelFromOutline('pre-a1', [PRE_A1_UNIT_1, PRE_A1_UNIT_2], 'partial'),
+  ...levelFromOutline(
+    'pre-a1',
+    [PRE_A1_UNIT_1, PRE_A1_UNIT_2, PRE_A1_UNIT_3, PRE_A1_UNIT_4, PRE_A1_UNIT_5, PRE_A1_UNIT_6],
+    'available',
+  ),
+  checkpoint: PRE_A1_LEVEL_CHECKPOINT,
 };
 
 export const CURRICULUM: Level[] = [
@@ -55,7 +66,7 @@ export const CURRICULUM: Level[] = [
   levelFromOutline('b2', [], 'planned'),
 ];
 
-export const SENTENCE_PATTERNS: SentencePattern[] = [...PRE_A1_PATTERNS];
+export const SENTENCE_PATTERNS: SentencePattern[] = [...PRE_A1_PATTERNS, ...PRE_A1_U3_PATTERNS, ...PRE_A1_U4_PATTERNS, ...PRE_A1_U5_PATTERNS, ...PRE_A1_U6_PATTERNS];
 
 /* ------------------------------------------------------------------ *
  * Indexes
@@ -67,7 +78,10 @@ const UNIT_BY_ID = new Map(UNITS.map((unit) => [unit.id, unit]));
 const LESSONS = UNITS.flatMap((unit) => unit.lessons);
 const LESSON_BY_ID = new Map(LESSONS.map((lesson) => [lesson.id, lesson]));
 const PATTERN_BY_ID = new Map(SENTENCE_PATTERNS.map((pattern) => [pattern.id, pattern]));
-const CHECKPOINTS = UNITS.map((unit) => unit.checkpoint).filter((cp): cp is Checkpoint => Boolean(cp));
+const CHECKPOINTS = [
+  ...UNITS.map((unit) => unit.checkpoint),
+  ...CURRICULUM.map((level) => level.checkpoint),
+].filter((cp): cp is Checkpoint => Boolean(cp));
 const CHECKPOINT_BY_ID = new Map(CHECKPOINTS.map((cp) => [cp.id, cp]));
 
 export function levelById(id: string): Level | undefined {
@@ -126,6 +140,89 @@ export function unitForLesson(lessonId: string): Unit | undefined {
 /** Every exercise in a lesson, practice phase then mastery check. */
 export function lessonExercises(lesson: Lesson): Exercise[] {
   return [...lesson.exercises, ...lesson.mastery.exercises];
+}
+
+/* ------------------------------------------------------------------ *
+ * Targeted practice by error category
+ * ------------------------------------------------------------------ */
+
+/**
+ * Find the authored tasks that drill one kind of mistake.
+ *
+ * Every `trapAnswer` in the course names the category it catches, which makes
+ * the content itself an index of what each task teaches. So a learner who keeps
+ * missing articles gets the tasks whose authors anticipated an article mistake
+ * — with their specific explanations — rather than a replay of the individual
+ * sentences they happened to get wrong.
+ *
+ * Step ids are preserved on purpose: an attempt here counts towards the same
+ * review item and the same mistake as the original task.
+ */
+export function practiceForCategory(category: ErrorCategory, limit = 10): Exercise[] {
+  const sources: Exercise[] = [
+    ...availableLessons().flatMap(lessonExercises),
+    ...CHECKPOINTS.flatMap((checkpoint) => checkpoint.exercises),
+  ];
+  const wanted = new Set<ErrorCategory>([category, ...(RELATED_CATEGORIES[category] ?? [])]);
+
+  // Exact matches first, then the related skill, so a round is never thin.
+  const collect = (accept: (trapCategory: ErrorCategory) => boolean, out: Exercise[], taken: Set<string>) => {
+    for (const exercise of sources) {
+      const matching = exercise.steps.filter(
+        (step) =>
+          !taken.has(step.id) && step.answer.trapAnswers?.some((trap) => accept(trap.category)),
+      );
+      if (matching.length === 0) continue;
+      const budget = limit - [...taken].length;
+      if (budget <= 0) return;
+      const take = matching.slice(0, budget);
+      for (const step of take) taken.add(step.id);
+      out.push({ ...exercise, id: `cat-${category}-${exercise.id}`, steps: take });
+    }
+  };
+
+  const out: Exercise[] = [];
+  const taken = new Set<string>();
+  collect((trapCategory) => trapCategory === category, out, taken);
+  collect((trapCategory) => wanted.has(trapCategory), out, taken);
+  return out;
+}
+
+/**
+ * Categories that are really the same skill from the learner's point of view.
+ * Choosing the wrong article and choosing the wrong gender are one mistake with
+ * two names, so practising either should bring up both.
+ */
+const RELATED_CATEGORIES: Partial<Record<ErrorCategory, ErrorCategory[]>> = {
+  article: ['gender', 'case'],
+  gender: ['article', 'case'],
+  case: ['article', 'gender'],
+  'verb-conjugation': ['verb-tense', 'auxiliary-verb'],
+  'verb-tense': ['verb-conjugation'],
+  'auxiliary-verb': ['verb-conjugation'],
+  plural: ['gender'],
+  umlaut: ['spelling'],
+  spelling: ['umlaut', 'capitalization'],
+  capitalization: ['spelling'],
+  'missing-word': ['word-order'],
+  'extra-word': ['word-order'],
+};
+
+/** How many authored tasks exist for each category, for an honest UI. */
+export function categoryPracticeCounts(): Map<ErrorCategory, number> {
+  const counts = new Map<ErrorCategory, number>();
+  const sources: Exercise[] = [
+    ...availableLessons().flatMap(lessonExercises),
+    ...CHECKPOINTS.flatMap((checkpoint) => checkpoint.exercises),
+  ];
+  for (const exercise of sources) {
+    for (const step of exercise.steps) {
+      for (const trap of step.answer.trapAnswers ?? []) {
+        counts.set(trap.category, (counts.get(trap.category) ?? 0) + 1);
+      }
+    }
+  }
+  return counts;
 }
 
 /* ------------------------------------------------------------------ *

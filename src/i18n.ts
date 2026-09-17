@@ -62,6 +62,7 @@ export const UI = {
   statAccuracy: s('First-try accuracy', 'Верни от първи опит'),
   statStreak: s('Study streak', 'Поредни дни'),
   statStreakDays: s('{n} days', '{n} дни'),
+  statStreakDaysOne: s('{n} day', '{n} ден'),
   statStudyTime: s('Time studied', 'Учено време'),
   statAnswers: s('Answers typed', 'Написани отговори'),
   statWordsLearning: s('Words being learnt', 'Думи в процес на учене'),
@@ -91,6 +92,7 @@ export const UI = {
   statusPartial: s('In progress', 'В процес'),
   statusPlanned: s('Planned', 'Планирано'),
   levelOutcomes: s('By the end of this level you can', 'В края на това ниво можеш'),
+  levelCheckpoint: s('Level checkpoint', 'Проверка на нивото'),
   levelTopics: s('Topics', 'Теми'),
   levelGrammar: s('Grammar', 'Граматика'),
   plannedUnits: s('Planned units', 'Планирани раздели'),
@@ -233,6 +235,7 @@ export const UI = {
   vocabFilterAny: s('Any', 'Всички'),
   vocabEmpty: s('No words match those filters.', 'Няма думи, отговарящи на тези филтри.'),
   vocabCount: s('{n} words', '{n} думи'),
+  vocabCountOne: s('{n} word', '{n} дума'),
   vocabFavorite: s('Add to favourites', 'Добави в любими'),
   vocabUnfavorite: s('Remove from favourites', 'Премахни от любими'),
 
@@ -252,7 +255,9 @@ export const UI = {
   wordMistakeHistory: s('Your mistakes with this word', 'Твоите грешки с тази дума'),
   wordMasteryHistory: s('Recall history', 'История на припомнянето'),
   wordSuccesses: s('{n} successful recalls', '{n} успешни припомняния'),
+  wordSuccessesOne: s('{n} successful recall', '{n} успешно припомняне'),
   wordFailures: s('{n} failed recalls', '{n} неуспешни припомняния'),
+  wordFailuresOne: s('{n} failed recall', '{n} неуспешно припомняне'),
   wordNoHistory: s('Not practised yet.', 'Още не е упражнявана.'),
   wordNoMistakes: s('No mistakes recorded with this word.', 'Няма записани грешки с тази дума.'),
   wordGenderM: s('masculine', 'мъжки род'),
@@ -269,6 +274,11 @@ export const UI = {
   mistakesOccurrences: s('{n}×', '{n}×'),
   mistakesCorrected: s('retyped correctly {n}×', 'пренаписано правилно {n}×'),
   mistakesPractise: s('Practise these', 'Упражнявай тези'),
+  mistakesPractiseCategory: s('Practise this kind', 'Упражнявай този вид'),
+  mistakesCategoryIntro: s(
+    'Practice for a whole kind of mistake uses the course\u2019s own tasks for that skill, not a replay of the sentences you got wrong.',
+    'Упражнението за цял вид грешка използва задачите на курса за това умение, а не повторение на изреченията, които си сбъркал.',
+  ),
   mistakesResolve: s('Mark as sorted', 'Отбележи като решено'),
   mistakesByCategory: s('By kind of mistake', 'По вид грешка'),
   mistakesRecent: s('Most recent', 'Най-скорошни'),
@@ -319,6 +329,7 @@ export const UI = {
   settingsDailyTarget: s('Daily target', 'Дневна цел'),
   settingsCustom: s('Custom', 'По избор'),
   settingsMinutes: s('{n} minutes', '{n} минути'),
+  settingsMinutesOne: s('{n} minute', '{n} минута'),
   settingsAudio: s('Audio', 'Звук'),
   settingsVoice: s('Voice in use', 'Използван глас'),
   settingsData: s('Your data', 'Твоите данни'),
@@ -354,9 +365,19 @@ export const UI = {
 
 export type UiKey = keyof typeof UI;
 
-/** Look up an interface string and fill in any {placeholders}. */
+/**
+ * Look up an interface string and fill in any {placeholders}.
+ *
+ * Counters are pluralised by convention: when a key has a sibling named
+ * `<key>One` and the {n} placeholder is filled with 1, the singular form is
+ * used instead. Bulgarian and English both need this ("1 ден", not "1 дни"),
+ * and keeping it here means no call site has to remember.
+ */
 export function tr(key: UiKey, lang: TeachingLanguage, vars?: Record<string, string | number>): string {
-  let text = UI[key][lang];
+  const singular = `${key}One`;
+  const resolved =
+    Number(vars?.n) === 1 && singular in UI ? (singular as UiKey) : key;
+  let text = UI[resolved][lang];
   if (vars) {
     for (const [name, value] of Object.entries(vars)) {
       text = text.replaceAll(`{${name}}`, String(value));

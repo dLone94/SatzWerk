@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { lessonById, vocabById } from '../../content/index.ts';
-import { UI, WORD_TYPE_LABELS } from '../../i18n.ts';
+import { UI, WORD_TYPE_LABELS, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AudioButton, Card, EmptyState, formatRelativeDate } from '../components/bits.tsx';
 import { buildVocabViews, type VocabView } from '../selectors.ts';
@@ -132,9 +132,9 @@ export function WordPage() {
               <dd>{formatRelativeDate(view.item.dueAt, lang)}</dd>
               <dt>{t('wordMasteryHistory')}</dt>
               <dd>
-                {UI.wordSuccesses[lang].replace('{n}', String(view.item.successCount))}
+                {tr('wordSuccesses', lang, { n: view.item.successCount })}
                 {' · '}
-                {UI.wordFailures[lang].replace('{n}', String(view.item.failureCount))}
+                {tr('wordFailures', lang, { n: view.item.failureCount })}
               </dd>
             </dl>
           ) : (

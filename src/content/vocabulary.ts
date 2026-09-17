@@ -1,4 +1,8 @@
 import type { VocabEntry } from './types.ts';
+import { GRAMMAR_WORD_VOCAB } from './vocab/grammarWords.ts';
+import { NUMBER_VOCAB } from './vocab/numbers.ts';
+import { PERSONAL_VOCAB } from './vocab/personal.ts';
+import { TIME_VOCAB } from './vocab/time.ts';
 
 /**
  * Vocabulary for the authored Pre-A1 course.
@@ -9,9 +13,13 @@ import type { VocabEntry } from './types.ts';
  * the most common sources of article mistakes for Bulgarian speakers.
  *
  * Nouns are always taught as article + noun (`display`), never bare.
+ *
+ * Units 1 and 2 are listed here; later units live in ./vocab/ modules and are
+ * concatenated below, so `VOCABULARY` stays the single source for the whole
+ * course.
  */
 
-export const VOCABULARY: VocabEntry[] = [
+const UNIT_1_2_VOCAB: VocabEntry[] = [
   /* ---------------- Letters and sounds (Unit 1) ---------------- */
   {
     id: 'v-das-alphabet',
@@ -843,6 +851,14 @@ export const VOCABULARY: VocabEntry[] = [
       bg: 'Всяко съществително на -chen е от среден род, дори когато човекът е от женски пол. Точно като българското „момиче“.',
     },
   },
+];
+
+export const VOCABULARY: VocabEntry[] = [
+  ...UNIT_1_2_VOCAB,
+  ...NUMBER_VOCAB,
+  ...PERSONAL_VOCAB,
+  ...TIME_VOCAB,
+  ...GRAMMAR_WORD_VOCAB,
 ];
 
 const BY_ID = new Map(VOCABULARY.map((entry) => [entry.id, entry]));

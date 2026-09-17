@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { grammarById } from '../../content/index.ts';
 import { summarizeQueue, type RecallGrade } from '../../core/srs/scheduler.ts';
-import { UI } from '../../i18n.ts';
+import { UI, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AudioButton, Card, EmptyState, formatRelativeDate } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
@@ -138,7 +138,7 @@ export function ReviewPage() {
                 <span className="queue__reason">{UI[reasonKey(entry.reason)][lang]}</span>
                 <span className="queue__meta">
                   {entry.item.successCount > 0
-                    ? UI.wordSuccesses[lang].replace('{n}', String(entry.item.successCount))
+                    ? tr('wordSuccesses', lang, { n: entry.item.successCount })
                     : ''}
                 </span>
               </li>

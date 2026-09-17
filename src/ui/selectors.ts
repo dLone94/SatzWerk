@@ -5,12 +5,14 @@ import {
   availableLessons,
   lessonExercises,
   lessonsInOrder,
+  practiceForCategory,
   unitForLesson,
   vocabById,
 } from '../content/index.ts';
 import type { Bilingual, Lesson, TeachingLanguage, VocabEntry } from '../content/types.ts';
 import { isLessonComplete, lessonRequirements, type LessonProgress } from '../core/progress/lesson.ts';
 import { dueItems, dueReason, orderQueue, type ReviewItem } from '../core/srs/scheduler.ts';
+import { CATEGORY_LABELS } from '../i18n.ts';
 import type { MistakeRecord } from '../services/api/client.ts';
 
 /**
@@ -190,6 +192,25 @@ export function nextAction(
     };
   }
 
+  // A kind of mistake that keeps coming back is worth more than the individual
+  // sentences, so the dominant category is suggested by name.
+  const dominant = dominantCategory(mistakes);
+  if (dominant) {
+    return {
+      kind: 'mistakes',
+      to: '/mistakes',
+      title: bi(
+        `Practise ${CATEGORY_LABELS[dominant.category].en.toLowerCase()} mistakes`,
+        `Упражнявай грешки: ${CATEGORY_LABELS[dominant.category].bg.toLowerCase()}`,
+      ),
+      detail: bi(
+        `That has gone wrong ${dominant.count} times, and the course has ${dominant.tasks} tasks for it.`,
+        `Това се е случило ${dominant.count} пъти, а курсът има ${dominant.tasks} задачи за него.`,
+      ),
+      estimatedMinutes: 5,
+    };
+  }
+
   const recurring = mistakes.filter((mistake) => mistake.occurrences > 1);
   if (recurring.length > 0) {
     return {
@@ -211,6 +232,25 @@ export function nextAction(
     detail: bi('Nothing is due. Practising early is still an option.', 'Нищо не е дължимо. Можеш да упражняваш предварително.'),
     estimatedMinutes: 0,
   };
+}
+
+/**
+ * The error category that is costing the learner most, provided the course
+ * actually has tasks to practise it with. Needs at least three occurrences, so
+ * a single slip never becomes the headline.
+ */
+export function dominantCategory(
+  mistakes: MistakeRecord[],
+): { category: MistakeRecord['category']; count: number; tasks: number } | undefined {
+  const counts = new Map<MistakeRecord['category'], number>();
+  for (const mistake of mistakes) {
+    counts.set(mistake.category, (counts.get(mistake.category) ?? 0) + mistake.occurrences);
+  }
+  const ranked = [...counts]
+    .map(([category, count]) => ({ category, count, tasks: practiceForCategory(category).length }))
+    .filter((entry) => entry.count >= 3 && entry.tasks > 0)
+    .sort((a, b) => b.count - a.count);
+  return ranked[0];
 }
 
 export interface PlanItem {

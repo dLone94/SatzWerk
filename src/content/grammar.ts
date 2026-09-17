@@ -1,3 +1,4 @@
+import { GRAMMAR_CONCEPTS_2 } from './grammar2.ts';
 import type { Bilingual, Block, GrammarConcept } from './types.ts';
 
 const bi = (en: string, bg: string): Bilingual => ({ en, bg });
@@ -88,7 +89,7 @@ const articlesBlocks: Block[] = [
   },
 ];
 
-export const GRAMMAR_CONCEPTS: GrammarConcept[] = [
+const UNIT_1_2_CONCEPTS: GrammarConcept[] = [
   {
     id: 'g-noun-capitals',
     title: bi('Nouns are written with a capital letter', 'Съществителните се пишат с главна буква'),
@@ -179,8 +180,8 @@ export const GRAMMAR_CONCEPTS: GrammarConcept[] = [
         t: 'callout',
         tone: 'tip',
         text: bi(
-          'You may have spotted "einen" in the second sentence. That is the accusative form of ein for masculine nouns. You will practise it properly at A1 — for now just notice that masculine words change more than the others.',
-          'Забеляза ли „einen“ във второто изречение? Това е винителната форма на ein при мъжки род. Ще я упражняваш подробно в A1 — засега само забележи, че думите от мъжки род се менят повече от останалите.',
+          'You may have spotted "einen" in the second sentence. That is the accusative form of ein for masculine nouns. Unit 4 comes back to it properly — for now just notice that masculine words change more than the others.',
+          'Забеляза ли „einen“ във второто изречение? Това е винителната форма на ein при мъжки род. Раздел 4 се връща към нея подробно — засега само забележи, че думите от мъжки род се менят повече от останалите.',
         ),
       },
       {
@@ -469,6 +470,8 @@ export const GRAMMAR_CONCEPTS: GrammarConcept[] = [
     ],
   },
 ];
+
+export const GRAMMAR_CONCEPTS: GrammarConcept[] = [...UNIT_1_2_CONCEPTS, ...GRAMMAR_CONCEPTS_2];
 
 const BY_ID = new Map(GRAMMAR_CONCEPTS.map((concept) => [concept.id, concept]));
 

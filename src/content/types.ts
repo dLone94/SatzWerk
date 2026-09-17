@@ -331,6 +331,8 @@ export interface Level {
   /** CEFR "I can ..." outcomes for the whole level. */
   outcomes: Bilingual[];
   units: Unit[];
+  /** A checkpoint spanning the whole level, taken after its units. */
+  checkpoint?: Checkpoint;
   /** Topic / grammar outline for levels that are not authored yet. */
   outline?: {
     topics: Bilingual[];

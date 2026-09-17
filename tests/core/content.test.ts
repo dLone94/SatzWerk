@@ -16,7 +16,7 @@ import {
 } from '../../src/content/index.ts';
 import type { Bilingual, Exercise, TeachingLanguage } from '../../src/content/types.ts';
 import { validateAnswer } from '../../src/core/validation/validate.ts';
-import { tokenize } from '../../src/core/validation/text.ts';
+import { splitScaffold, tokenize } from '../../src/core/validation/text.ts';
 
 const opts = { lexicon: LEXICON };
 
@@ -251,6 +251,32 @@ describe('authored answers are consistent with the validator', () => {
     expect(failures).toEqual([]);
   });
 
+  it('never glues a scaffold tail onto the gap', () => {
+    // The player renders "before [input] after" and seeds the input with the
+    // scaffold's leading letters, so whatever the learner types is graded as the
+    // whole answer. A tail glued straight onto the gap therefore contradicts the
+    // answer: "ein___zwanzig" graded against "einundzwanzig" would show the word
+    // and then "zwanzig" again. A tail separated by a space is fine, because it
+    // is surrounding sentence context ("Wo ___ du?").
+    const failures: string[] = [];
+    for (const { exercise } of allExercises()) {
+      for (const step of exercise.steps) {
+        if (!step.scaffold) continue;
+        const { after, seed } = splitScaffold(step.scaffold);
+        if (after && !/^[\s.,!?]/.test(after)) {
+          failures.push(`${step.id}: scaffold "${step.scaffold}" glues "${after}" onto the gap`);
+        }
+        // A seed that is the entire answer leaves nothing to recall.
+        for (const answer of step.answer.accepted) {
+          if (seed && seed.length >= answer.length) {
+            failures.push(`${step.id}: seed "${seed}" gives away the whole answer "${answer}"`);
+          }
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
   it('gives multiple-choice steps a correct option that matches the answer', () => {
     const failures: string[] = [];
     for (const { exercise } of allExercises()) {
@@ -282,9 +308,15 @@ describe('authored answers are consistent with the validator', () => {
   it('requires a retype for every sentence-level exercise', () => {
     const failures: string[] = [];
     for (const { exercise } of allExercises()) {
-      // Open writing has no single canonical answer, so there is nothing to
-      // retype; the Coach handles that feedback instead.
-      if (exercise.kind === 'freeWriting') continue;
+      // Some exercises have nothing to retype: open writing has no single
+      // canonical answer, and a multiple-choice answer was clicked, not typed.
+      if (
+        exercise.kind === 'freeWriting' ||
+        exercise.kind === 'multipleChoice' ||
+        exercise.kind === 'listenChoose'
+      ) {
+        continue;
+      }
       const hasSentence = exercise.steps.some((step) => step.answer.shape === 'sentence');
       if (hasSentence && exercise.mandatoryRetype === false) {
         failures.push(`${exercise.id}: sentences must trigger a retype`);
@@ -320,7 +352,9 @@ describe('both teaching paths are authored, not translated placeholders', () => 
     const cyrillic = /[\u0400-\u04FF]/;
     // Words that only appear in English prose. A Bulgarian field containing one
     // of these was copied from the English path rather than written.
-    const englishOnly = / (the|you|your|with|and|from|this|that|for|of|are|was) /i;
+    // Deliberately excludes words that exist in German too ("was", "die",
+    // "in"), which would otherwise flag legitimate shared German text.
+    const englishOnly = / (the|you|your|with|and|from|this|that|for|of|are) /i;
     const targets: Array<{ id: string; node: unknown }> = [
       ...availableLessons().map((lesson) => ({ id: lesson.id, node: lesson as unknown })),
       ...allCheckpoints().map((cp) => ({ id: cp.id, node: cp as unknown })),

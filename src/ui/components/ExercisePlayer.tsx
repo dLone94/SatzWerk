@@ -126,11 +126,14 @@ export function ExercisePlayer({
   const total = playables.length;
   const presentation = presentationFor(support.support);
 
-  // Pre-open the hints the adaptive support level unlocks.
+  // Pre-open the hints the adaptive support level unlocks, and seed the input
+  // with a partial-recall cue ("Ich w___ in Hamburg." starts the learner at "w").
   useEffect(() => {
     if (!current) return;
     startedAt.current = Date.now();
     setHintsShown(allowHints ? Math.min(presentation.hintsUnlocked, current.step.hints.length) : 0);
+    const seed = current.step.scaffold ? splitScaffold(current.step.scaffold).seed : '';
+    if (seed) setValue(seed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cursor, current?.step.id, allowHints]);
 

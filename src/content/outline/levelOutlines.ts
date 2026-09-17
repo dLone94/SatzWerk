@@ -50,12 +50,9 @@ export const PRE_A1_OUTLINE: LevelOutline = {
     b('Yes/no questions and W-questions', 'Въпроси с да/не и въпроси с W'),
     b('du versus Sie', 'du срещу Sie'),
   ],
-  plannedUnits: [
-    b('Numbers and quantities', 'Числа и количества'),
-    b('Personal information', 'Лична информация'),
-    b('Time and calendar', 'Време и календар'),
-    b('First grammar: pronouns, sein, haben', 'Първа граматика: местоимения, sein, haben'),
-  ],
+  // Pre-A1 is fully authored: all six units and the level checkpoint exist,
+  // so there is nothing left to list as planned.
+  plannedUnits: [],
 };
 
 export const A1_OUTLINE: LevelOutline = {

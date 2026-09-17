@@ -10,7 +10,8 @@ learning loop that always ends in the learner typing German:
 LEARN → RECALL → TYPE → FEEDBACK → CORRECT → TYPE AGAIN → REVIEW LATER
 ```
 
-This repository contains **Milestone 1**: a complete, runnable vertical slice.
+This repository contains **Milestone 2**: the whole Pre-A1 level, authored in
+both paths, on top of the Milestone 1 engine.
 
 ---
 
@@ -32,7 +33,7 @@ npm run preview
 Then open <http://localhost:5173> (dev) or <http://localhost:8787> (preview).
 
 ```bash
-npm test          # 159 tests
+npm test          # 187 tests
 npm run typecheck # tsc, no emit
 npm run build     # type-check + production bundle
 ```
@@ -57,26 +58,41 @@ German-style case system, the free Bulgarian word order versus German
 verb-second — while the English path talks about noun capitalisation, the lack of
 grammatical gender and fixed subject–verb order instead.
 
-**Pre-A1, two units, six finished lessons plus a unit checkpoint.**
+**Pre-A1 is finished: six units, eighteen lessons, six unit checkpoints and a
+level checkpoint.**
 
-| Unit | Lesson | What it teaches |
+| Unit | Lessons | What it teaches |
 | --- | --- | --- |
-| 1. Welcome to German | Sounds and four extra letters | ä ö ü ß, w/v/z/s, ei versus ie, typing the special letters |
-| | Nouns: capital letters and der/die/das | noun capitalisation, three genders, ein/eine, article + noun as one unit |
-| 2. First words, first sentences | Hello and goodbye | time-of-day greetings, formal versus informal farewells |
-| | Please, thank you, excuse me | danke, bitte's three jobs, Entschuldigung, Wie geht es dir? |
-| | Introducing yourself | heißen, sein, Wie heißt du? versus Wie heißen Sie?, du versus Sie |
-| | Where you come from, where you live | kommen/wohnen, aus versus von, wo versus woher, verb in second position |
-| | **Unit checkpoint** | mixed vocabulary, grammar, listening and writing |
+| 1. Welcome to German | Sounds and four extra letters · Nouns: capital letters and der/die/das | ä ö ü ß, w/v/z/s, ei versus ie, typing the special letters; noun capitalisation, three genders, ein/eine, article + noun as one unit |
+| 2. First words, first sentences | Hello and goodbye · Please, thank you, excuse me · Introducing yourself · Where you come from, where you live | greetings by time of day, formal versus informal farewells; danke, bitte's three jobs, Entschuldigung; heißen and sein, du versus Sie; kommen/wohnen, aus versus von, wo versus woher, verb in second position |
+| 3. Numbers and quantities | Zero to twenty · Tens, and numbers back to front · Asking how much and how many | 0–20 including the irregular sechzehn and siebzehn; the tens, and why 21 is *einundzwanzig*; wie viel versus wie viele, kosten, prices |
+| 4. Personal information | Saying how old you are · Jobs, without an article · Family, and the first case | sein with numbers, Wie alt bist du?; *Ich bin Lehrer* with no article; haben, and *ein* → *einen* in the accusative |
+| 5. Time and calendar | The seven days · The twelve months · Telling the time | all seven days (all masculine), am Montag; months, im Januar, dates; Wie viel Uhr ist es?, and why *halb acht* is 7:30 |
+| 6. First grammar consolidation | The pronoun table · Saying no: nicht and kein · Asking questions | all six persons in one table with sein, haben, wohnen; nicht versus kein/keine/keinen; W-questions versus yes/no inversion |
+| | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
+| | **Pre-A1 level checkpoint** | draws on all six units, 80% to pass, and offers no hints at all |
 
-That is 43 vocabulary entries, 8 grammar concepts, 48 exercises and **136 answer
-tasks** (including the checkpoint), all authored in both paths. Only 4.4% of
-those tasks are multiple choice; the rest require typing German. Levels A1–B2
-exist as structure and outline only, and the UI labels them as planned.
+That is 155 vocabulary entries, 18 grammar concepts, 163 exercises and **484
+answer tasks** (including all seven checkpoints), across 94 teaching sections,
+all authored in both paths. Only 3.5% of those tasks are multiple choice; the
+rest require typing German. 44 of them carry an authored trap answer — a
+specific wrong form the learner is likely to produce, with an explanation
+written for it. Levels A1–B2 exist as structure and outline only, and the UI
+labels them as planned.
+
+**Practice targeted at a kind of mistake, not just at sentences.** Once the
+mistake bank shows a real pattern (three or more of the same error category),
+the dashboard and the mistakes page offer a round drilling that category,
+assembled from the authored trap answers across the whole level. Related skills
+are pulled in so a round is never thin — asking for article practice also draws
+on gender and case, because they are the same skill. The steps keep their
+original ids, so an attempt inside a targeted round counts towards the same
+review item and the same mistake as it would in its lesson.
 
 **The scaffolding ladder**, exactly as specified: learn → guided typing with a
 gap → partial recall from the first letters → full production → delayed recall →
-spaced repetition. Lesson 2.4 walks through all four visible stages explicitly.
+spaced repetition. Lesson 2.4 walks through all four visible stages explicitly,
+and unit 3 lesson 1 runs the same ladder over the numbers.
 
 **Deterministic answer validation** that separates typing from grammar:
 
@@ -147,8 +163,8 @@ explicit Again / Hard / Good / Easy buttons.
 
 **A mistake bank driven by real attempts.** Grouped by the 15+ error categories,
 showing what was written, what was correct, how many times it happened and how
-many times it was retyped correctly — and it can be practised as a round of
-typing tasks.
+many times it was retyped correctly — and it can be practised either as a round
+of exactly those sentences, or as a round drilling the whole category.
 
 **An honest dashboard.** Every figure is derived from database rows. A fresh
 profile shows `—` and "No data yet", not a zero dressed up as progress. The
@@ -220,18 +236,27 @@ will grade it:
 - every canonical answer validates as `correct` with full credit;
 - every authored alternative earns full credit and still shows the taught form;
 - every trap answer is rejected, with its category and its explanation intact;
-- word banks contain exactly the tokens of their answer, and partial-recall
-  seeds are real prefixes;
+- word banks contain exactly the tokens of their answer, partial-recall seeds
+  are real prefixes that do not give the answer away, and no gap exercise glues
+  a visible tail onto the input;
 - every referenced vocabulary, grammar and review-target id resolves;
 - both paths have non-empty text wherever a path is active, Bulgarian is in
   Cyrillic, and no English prose has been copied into a Bulgarian field;
 - both paths carry explanations that exist only in that path;
 - nouns are taught with their article;
-- multiple choice stays under 15% of all answer tasks (it is currently 4.4%).
+- multiple choice stays under 15% of all answer tasks (it is currently 3.5%).
 
-This caught two real bugs during the build: a capitalisation trap answer whose
-case-insensitive shape matched the correct answer and swallowed it, and
-duplicated explanation lines when one mistake carried two categories.
+This caught four real bugs during the build: a capitalisation trap answer whose
+case-insensitive shape matched the correct answer and swallowed it; duplicated
+explanation lines when one mistake carried two categories; a partial-recall cue
+whose seed letters were computed but never put in the input; and a gap exercise
+that rendered `ein___zwanzig` while grading the whole word `einundzwanzig`, so
+the tail appeared twice. Each of those now has a test that fails without the
+fix.
+
+`tests/core/i18n.test.ts` does the same for the interface strings: both paths
+filled in for every key, the same placeholders in both, nothing left
+unsubstituted, and counters that read `1 ден` rather than `1 дни`.
 
 ---
 
@@ -275,21 +300,23 @@ Run `npm run dev`, open <http://localhost:5173>, and:
 
 ## Next milestone
 
-**Milestone 2 — finish Pre-A1 and deepen the loop.** The remaining Pre-A1 units
-are outlined and ready to author: numbers and quantities, personal information,
-time and calendar, and first grammar (pronouns, `sein`, `haben`). Alongside
-them, the two pieces of machinery that would benefit most from more content:
+**Milestone 3 — A1, and its assessment progression.** Pre-A1 now has the shape
+the rest of the course can copy: units of three lessons, a checkpoint per unit,
+a level checkpoint with no hints, and authored traps feeding targeted practice.
+A1 is outlined already — the plural system in earnest, the accusative across all
+genders, modal verbs, separable verbs, the perfect tense, and dative
+prepositions — and needs the same treatment.
 
-- A **level checkpoint** for Pre-A1, on top of the unit checkpoint that exists.
-- **Targeted practice generated from error categories** rather than from
-  individual mistakes, so a learner who keeps missing articles gets an article
-  round rather than a list of sentences.
-- **Dictation without replay** at the top of Pre-A1, which the exercise model
-  already supports via `audio.hideText` and a replay budget.
+Two pieces of machinery still waiting on content rather than on code:
 
-After that, Milestone 3 is A1 content and its assessment progression. The AI
-Coach, conversation mode and speech evaluation stay where they are — behind
-interfaces — until the core course is worth talking about.
+- **Dictation without replay**, which the exercise model already supports via
+  `audio.hideText` and a replay budget, but which only becomes a fair test once
+  there is enough heard-but-not-seen vocabulary behind it.
+- **Interleaved review across units**, now that there are six units to
+  interleave rather than two.
+
+The AI Coach, conversation mode and speech evaluation stay where they are —
+behind interfaces — until the core course is worth talking about.
 
 ---
 
@@ -308,6 +335,7 @@ interfaces — until the core course is worth talking about.
 - **Single learner.** The `profile` table has one row by design. It is a table
   rather than a key-value blob so that multi-user support is an added column
   rather than a rewrite.
-- **The bundle is a single chunk** (~530 kB, 159 kB gzipped). Fine for a
+- **The bundle is a single chunk** (~730 kB, 206 kB gzipped — the whole
+  curriculum is typed data compiled into it). Fine for a
   personal app on localhost; route-level code splitting is the obvious first
   step if this ever ships publicly.

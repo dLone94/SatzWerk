@@ -65,6 +65,18 @@ function LevelCard({ level }: { level: Level }) {
         <UnitBlock key={unit.id} unit={unit} />
       ))}
 
+      {level.checkpoint ? (
+        <div className="checkpoint-row checkpoint-row--level">
+          <div>
+            <p className="checkpoint-row__title">{say(level.checkpoint.title)}</p>
+            <p className="checkpoint-row__desc">{say(level.checkpoint.description)}</p>
+          </div>
+          <Link className="btn btn--primary" to={`/checkpoint/${level.checkpoint.id}`}>
+            {t('levelCheckpoint')}
+          </Link>
+        </div>
+      ) : null}
+
       {level.units.length === 0 ? (
         <>
           <p className="planned-notice">{t('plannedNotice')}</p>

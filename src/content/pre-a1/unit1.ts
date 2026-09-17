@@ -8,7 +8,7 @@ import {
   nounWithArticle,
   typeIt,
 } from '../authoring.ts';
-import type { Lesson, Unit } from '../types.ts';
+import type { Checkpoint, Lesson, Unit } from '../types.ts';
 
 /* ================================================================== *
  * Lesson 1 - German sounds and the four extra letters
@@ -614,6 +614,93 @@ const lesson2: Lesson = {
   ],
 };
 
+/* ================================================================== *
+ * Unit checkpoint
+ * ================================================================== */
+
+const checkpoint: Checkpoint = {
+  id: 'pre-a1-u1-checkpoint',
+  scope: 'unit',
+  targetId: 'pre-a1-u1',
+  status: 'available',
+  passAccuracy: 0.7,
+  title: bi('Unit checkpoint: letters and articles', 'Контролна проверка: букви и членове'),
+  description: bi(
+    'The special letters and the article that belongs to each noun — spelled, heard and produced.',
+    'Специалните букви и членът, който принадлежи на всяко съществително — написани, чути и произведени.',
+  ),
+  exercises: [
+    typeIt('cp-u1-1', bi('Standard spelling', 'Стандартен правопис'), [
+      {
+        prompt: bi('Write in standard German spelling: Toechter', 'Напиши в стандартен немски правопис: Toechter'),
+        answer: 'T\u00f6chter',
+        shape: 'word',
+        hints: [],
+      },
+      {
+        prompt: bi('Write in standard German spelling: gross', 'Напиши в стандартен немски правопис: gross'),
+        answer: 'gro\u00df',
+        shape: 'word',
+        hints: [],
+      },
+      {
+        prompt: bi('Write in standard German spelling: Staedte', 'Напиши в стандартен немски правопис: Staedte'),
+        answer: 'St\u00e4dte',
+        shape: 'word',
+        hints: [],
+      },
+    ]),
+    articleRecall('cp-u1-2', bi('Which article?', 'Кой член?'), [
+      { noun: 'Tisch', article: 'der', vocabId: 'v-der-tisch', gloss: bi('the table', 'масата') },
+      { noun: 'Haus', article: 'das', vocabId: 'v-das-haus', gloss: bi('the house', 'къщата') },
+      { noun: 'Katze', article: 'die', vocabId: 'v-die-katze', gloss: bi('the cat', 'котката') },
+      { noun: 'M\u00e4dchen', article: 'das', vocabId: 'v-das-maedchen', gloss: bi('the girl', 'момичето') },
+    ]),
+    typeIt('cp-u1-3', bi('Nouns with their article', 'Съществителни с члена'), [
+      {
+        prompt: bi('the daughter', 'дъщеря'),
+        instruction: bi('With the article.', 'С члена.'),
+        answer: 'die Tochter',
+        shape: 'phrase',
+        hints: [],
+      },
+      {
+        prompt: bi('the dog', 'куче'),
+        instruction: bi('With the article.', 'С члена.'),
+        answer: 'der Hund',
+        shape: 'phrase',
+        hints: [],
+      },
+    ]),
+    typeIt('cp-u1-4', bi('A full sentence', 'Цяло изречение'), [
+      {
+        prompt: bi('The table is big.', 'Масата е голяма.'),
+        answer: 'Der Tisch ist gro\u00df.',
+        hints: [],
+      },
+      {
+        prompt: bi('The book is new.', 'Книгата е нова.'),
+        answer: 'Das Buch ist neu.',
+        hints: [],
+      },
+    ]),
+    dictation('cp-u1-5', bi('Listening', 'Слушане'), [
+      {
+        instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
+        answer: 'das Wasser',
+        shape: 'phrase',
+        hints: [],
+      },
+      {
+        instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
+        answer: 'die H\u00e4user',
+        shape: 'phrase',
+        hints: [],
+      },
+    ]),
+  ],
+};
+
 export const PRE_A1_UNIT_1: Unit = {
   id: 'pre-a1-u1',
   level: 'pre-a1',
@@ -625,4 +712,5 @@ export const PRE_A1_UNIT_1: Unit = {
     'Звуковете, буквите и онзи навик, който прави всичко по-нататък по-лесно: да учиш съществителните с члена им.',
   ),
   lessons: [lesson1, lesson2],
+  checkpoint,
 };

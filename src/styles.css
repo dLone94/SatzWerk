@@ -2519,3 +2519,25 @@ textarea.answer-field {
     grid-template-columns: 1fr;
   }
 }
+
+/* A level checkpoint is a bigger deal than a unit one, so it reads that way. */
+.checkpoint-row--level {
+  border-style: solid;
+  border-width: 2px;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: var(--accent-soft);
+}
+
+.cat-bars li {
+  grid-template-columns: minmax(7rem, 11rem) 1fr auto auto;
+}
+
+@media (max-width: 40rem) {
+  .cat-bars li {
+    grid-template-columns: 1fr auto;
+  }
+
+  .cat-bars__label {
+    grid-column: 1 / -1;
+  }
+}

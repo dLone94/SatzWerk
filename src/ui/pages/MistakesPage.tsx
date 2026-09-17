@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { lessonById } from '../../content/index.ts';
+import { lessonById, practiceForCategory } from '../../content/index.ts';
 import type { ErrorCategory } from '../../content/types.ts';
 import { CATEGORY_LABELS, UI } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
@@ -18,6 +18,7 @@ export function MistakesPage() {
   const { t, say, lang, mistakes, stats, resolveMistake } = useApp();
   const [category, setCategory] = useState<ErrorCategory | ''>('');
   const [running, setRunning] = useState(false);
+  const [mode, setMode] = useState<'mistakes' | 'category'>('mistakes');
   const [summary, setSummary] = useState<PlayerSummary | null>(null);
 
   const filtered = useMemo(
@@ -26,17 +27,28 @@ export function MistakesPage() {
   );
 
   const exercises = useMemo(() => buildMistakePractice(filtered), [filtered]);
+  // Practice built from the course's own tasks for this kind of mistake,
+  // rather than a replay of the exact sentences the learner got wrong.
+  const categoryExercises = useMemo(
+    () => (category ? practiceForCategory(category) : []),
+    [category],
+  );
+  const activeExercises = mode === 'category' ? categoryExercises : exercises;
   const maxCount = stats.categoryCounts.reduce((max, entry) => Math.max(max, entry.count), 0);
 
-  if (running && exercises.length > 0) {
+  if (running && activeExercises.length > 0) {
     return (
       <div className="page page--player">
         <header className="player-header">
           <p className="player-header__lesson">{t('mistakesTitle')}</p>
-          <p className="player-header__phase">{t('mistakesPractise')}</p>
+          <p className="player-header__phase">
+            {mode === 'category' && category
+              ? `${say(CATEGORY_LABELS[category] ?? CATEGORY_LABELS.unknown)} — ${t('mistakesPractiseCategory')}`
+              : t('mistakesPractise')}
+          </p>
         </header>
         <ExercisePlayer
-          exercises={exercises}
+          exercises={activeExercises}
           context="practice"
           level="pre-a1"
           onFinish={(result) => {
@@ -70,7 +82,7 @@ export function MistakesPage() {
       ) : (
         <>
           {stats.categoryCounts.length > 0 ? (
-            <Card title={t('mistakesByCategory')}>
+            <Card title={t('mistakesByCategory')} subtitle={t('mistakesCategoryIntro')}>
               <ul className="cat-bars">
                 {stats.categoryCounts.map((entry) => (
                   <li key={entry.category}>
@@ -84,6 +96,19 @@ export function MistakesPage() {
                     </button>
                     <Meter value={entry.count} max={maxCount} tone="muted" />
                     <span className="cat-bars__n">{entry.count}</span>
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      disabled={practiceForCategory(entry.category).length === 0}
+                      onClick={() => {
+                        setCategory(entry.category);
+                        setMode('category');
+                        setSummary(null);
+                        setRunning(true);
+                      }}
+                    >
+                      {t('mistakesPractiseCategory')}
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -98,6 +123,7 @@ export function MistakesPage() {
                 className="btn btn--primary"
                 disabled={exercises.length === 0}
                 onClick={() => {
+                  setMode('mistakes');
                   setSummary(null);
                   setRunning(true);
                 }}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TeachingLanguage } from '../../content/types.ts';
 import { contentStats } from '../../content/index.ts';
-import { UI } from '../../i18n.ts';
+import { UI, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 
 const TARGETS = [10, 20, 30];
@@ -82,7 +82,7 @@ export function OnboardingPage() {
                 setCustom('');
               }}
             >
-              {UI.settingsMinutes[lang].replace('{n}', String(minutes))}
+              {tr('settingsMinutes', lang, { n: minutes })}
             </button>
           ))}
           <label className="onboarding__custom">

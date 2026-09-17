@@ -125,6 +125,10 @@ const VERB_PARADIGMS: Record<string, Partial<Record<VerbForm['person'], string>>
     ich: 'verstehe', du: 'verstehst', er: 'versteht', wir: 'verstehen', ihr: 'versteht',
     sie: 'verstehen', infinitive: 'verstehen',
   },
+  kosten: {
+    ich: 'koste', du: 'kostest', er: 'kostet', wir: 'kosten', ihr: 'kostet',
+    sie: 'kosten', infinitive: 'kosten',
+  },
 };
 
 const PAST_FORMS: Array<[string, string, VerbForm['person']]> = [
@@ -184,6 +188,9 @@ export function createBaseLexicon(): GermanLexicon {
     'gro\u00df', 'klein', 'neu', 'alt', 'sch\u00f6n', 'nett', 'eins', 'zwei', 'drei',
     'vier', 'f\u00fcnf', 'jahr', 'jahre', 'hause', 'arbeit', 'deutsch', 'bulgarisch',
     'guten', 'gute', 'nacht', 'tag', 'abend', 'hallo', 'entschuldigung', 'name',
+    'viel', 'viele', 'wenig', 'ein', 'meine', 'mein', 'dein', 'deine', 'nach', 'vor',
+    'es', 'das', 'dies', 'diese', 'dieser', 'und', 'oder', 'aber', 'kein', 'keine',
+    'nicht', 'schon', 'erst', 'auch', 'halb', 'uhr', 'geburtstag', 'beruf', 'deutsch',
   ]);
 
   return {

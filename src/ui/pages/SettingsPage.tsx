@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { contentStats } from '../../content/index.ts';
 import type { TeachingLanguage } from '../../content/types.ts';
-import { UI } from '../../i18n.ts';
+import { tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Card } from '../components/bits.tsx';
 
@@ -44,7 +44,7 @@ export function SettingsPage() {
               aria-pressed={profile.dailyTargetMinutes === minutes}
               onClick={() => void updateProfile({ dailyTargetMinutes: minutes })}
             >
-              {UI.settingsMinutes[lang].replace('{n}', String(minutes))}
+              {tr('settingsMinutes', lang, { n: minutes })}
             </button>
           ))}
           <label className="onboarding__custom">
@@ -66,7 +66,7 @@ export function SettingsPage() {
           </label>
         </div>
         <p className="card__foot">
-          {UI.settingsMinutes[lang].replace('{n}', String(profile.dailyTargetMinutes))}
+          {tr('settingsMinutes', lang, { n: profile.dailyTargetMinutes })}
         </p>
       </Card>
 
