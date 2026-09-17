@@ -433,7 +433,10 @@ behind interfaces — until the core course is worth talking about.
   and every store function are verified against a real Postgres 16, and the
   standard TCP connection is what those tests use. Neon's HTTP client is a
   different transport over the same verified SQL, but it has not itself been
-  run against Neon.
+  run against Neon. If it misbehaves, set `SATZWERK_PG_TRANSPORT=tcp` and the
+  same URL goes over the tested path instead — no code change. Neon's
+  `-pooler` hostname does *not* switch transports by itself; only that variable
+  does.
 - **There is no CI yet**, so the test, typecheck and build results quoted here
   were produced locally rather than on a runner.
 - **The bundle is a single chunk** (~730 kB, 206 kB gzipped — the whole

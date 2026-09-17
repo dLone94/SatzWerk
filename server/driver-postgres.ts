@@ -20,6 +20,11 @@ import { normaliseRow, toPositional, type Db, type Param, type Row } from './dri
  * Both go through the same SQL. The queries are written in SQLite's `?`
  * placeholder style and rewritten to `$1, $2, ...` here, so nothing is
  * written twice.
+ *
+ * `SATZWERK_PG_TRANSPORT=tcp` overrides the choice and forces the TCP path
+ * even for a Neon URL. That exists because the HTTP client is the one piece
+ * here never run against a real database, so if it misbehaves the remedy is a
+ * changed environment variable rather than a code change.
  */
 
 interface QueryResult {
@@ -40,8 +45,35 @@ function isNeon(url: string): boolean {
   }
 }
 
+export type PgTransport = 'http' | 'tcp';
+
+/**
+ * Which transport to use.
+ *
+ * Neon gets HTTP by default, because that is the right shape for a serverless
+ * function. But the HTTP client is the one path in this project not exercised
+ * against a real database, so `SATZWERK_PG_TRANSPORT=tcp` forces the standard
+ * TCP path instead — the one the parity tests cover. It is an escape hatch, so
+ * that a problem with Neon's client is a changed environment variable rather
+ * than a code change and a redeploy.
+ *
+ * Note that the pooler endpoint is *not* that escape hatch: its hostname still
+ * ends in neon.tech, so it takes the HTTP path like any other Neon URL. Only
+ * this variable changes the transport.
+ */
+export function chooseTransport(url: string, env: NodeJS.ProcessEnv = process.env): PgTransport {
+  const forced = env.SATZWERK_PG_TRANSPORT?.trim().toLowerCase();
+  if (forced === 'tcp' || forced === 'http') return forced;
+  if (forced) {
+    throw new Error(
+      `SATZWERK_PG_TRANSPORT must be "tcp" or "http", not ${JSON.stringify(forced)}.`,
+    );
+  }
+  return isNeon(url) ? 'http' : 'tcp';
+}
+
 export async function openPostgres(url: string): Promise<Db> {
-  return isNeon(url) ? openNeon(url) : openStandard(url);
+  return chooseTransport(url) === 'http' ? openNeon(url) : openStandard(url);
 }
 
 /* ------------------------------------------------------------------ *
@@ -105,7 +137,7 @@ async function openStandard(url: string): Promise<Db> {
  * Shared behaviour
  * ------------------------------------------------------------------ */
 
-interface Transport {
+interface Sessions {
   /** For a single statement, where a dedicated session is not needed. */
   oneOff: () => Promise<Session>;
   /** For DDL and transactions, which need one session throughout. */
@@ -113,7 +145,7 @@ interface Transport {
   close: () => Promise<void>;
 }
 
-function build(transport: Transport): Db {
+function build(transport: Sessions): Db {
   // Set while a transaction is open, so every query inside it goes to the same
   // session as the BEGIN.
   let active: Session | null = null;
