@@ -25,6 +25,8 @@ function stubState(lang: TeachingLanguage): AppStateValue {
     ready: true,
     session: { required: false, signedIn: true },
     signIn: async () => {},
+    choosePassword: async () => {},
+    changePassword: async () => {},
     signOut: async () => {},
     error: null,
     profile: {

@@ -4,7 +4,8 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { handleRequest } from './api.ts';
 import { createProvider } from './ai.ts';
 import { openDatabase } from './db.ts';
-import { authState, missingSecrets, readAuthConfig } from './auth.ts';
+import { authState } from './auth.ts';
+import { resolveAuth } from './api.ts';
 
 /**
  * The SatzWerk server.
@@ -20,7 +21,15 @@ const MAX_BODY_BYTES = 256 * 1024;
 
 const db = await openDatabase();
 const provider = createProvider();
-const auth = readAuthConfig();
+/**
+ * Read once at startup purely for the log line below.
+ *
+ * Every request resolves its own, because the password can be set or changed
+ * while the process is running. Holding one resolved copy meant that after the
+ * setup screen wrote a password, the server carried on believing there was
+ * none — so nothing was ever protected and setup never completed.
+ */
+const startupAuth = await resolveAuth(db);
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -128,12 +137,18 @@ const server = createServer(async (req, res) => {
     }
 
     const response = await handleRequest(
-      { db, provider, auth },
+      { db, provider, auth: await resolveAuth(db) },
       {
         method: req.method ?? 'GET',
         path: url.pathname,
         body,
-        headers: { cookie: req.headers.cookie },
+        headers: {
+          cookie: req.headers.cookie,
+          'x-forwarded-proto': req.headers['x-forwarded-proto'] as string | undefined,
+        },
+        // True when this process itself terminates TLS; otherwise the header
+        // above is what a proxy in front of it says.
+        ...(('encrypted' in req.socket && req.socket.encrypted) ? { secure: true } : {}),
       },
     );
     sendJson(res, response.status, response.body, response.headers ?? {});
@@ -151,16 +166,15 @@ server.listen(PORT, () => {
       db.dialect === 'postgres' ? 'postgres (DATABASE_URL)' : (process.env.SATZWERK_DB ?? 'data/satzwerk.db')
     }`,
   );
-  const state = authState(auth);
+  const state = authState(startupAuth);
   if (state === 'required') {
-    console.log('[satzwerk] password required to use the app.');
-  } else if (state === 'misconfigured') {
-    console.error(
-      `[satzwerk] REFUSING REQUESTS: this looks like a hosted deployment but ${missingSecrets(auth).join(' and ')} ${missingSecrets(auth).length === 1 ? 'is' : 'are'} not set.`,
+    console.log(
+      `[satzwerk] password required (${startupAuth.passwordSource === 'env' ? 'from the environment' : 'set in the app'}).`,
     );
-    console.error('[satzwerk] Run `npm run hash-password` and set them where you host the app.');
+  } else if (state === 'setup') {
+    console.log('[satzwerk] hosted with no password yet — serving only the setup screen.');
   } else {
-    console.log('[satzwerk] no password set — fine on localhost, refused if hosted.');
+    console.log('[satzwerk] no password set — fine on localhost, setup screen if hosted.');
   }
   if (!provider.available) {
     console.log('[satzwerk] German Coach: rule-based checks only, no AI provider configured.');

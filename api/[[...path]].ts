@@ -1,6 +1,5 @@
 import { createProvider } from '../server/ai.ts';
-import { handleRequest } from '../server/api.ts';
-import { readAuthConfig } from '../server/auth.ts';
+import { handleRequest, resolveAuth } from '../server/api.ts';
 import { openDatabase, type Db } from '../server/db.ts';
 
 /**
@@ -47,12 +46,17 @@ export default async function handler(request: Request): Promise<Response> {
   try {
     const db = await database();
     const response = await handleRequest(
-      { db, provider, auth: readAuthConfig() },
+      { db, provider, auth: await resolveAuth(db) },
       {
         method: request.method,
         path: url.pathname,
         body,
-        headers: { cookie: request.headers.get('cookie') ?? undefined },
+        headers: {
+          cookie: request.headers.get('cookie') ?? undefined,
+          'x-forwarded-proto': request.headers.get('x-forwarded-proto') ?? undefined,
+        },
+        // Vercel serves over HTTPS, and the request URL says so directly.
+        secure: url.protocol === 'https:',
       },
     );
     return json(response.status, response.body, response.headers);

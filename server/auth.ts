@@ -8,13 +8,18 @@ import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypt
  * and `POST /api/reset` deletes everything — so a hosted deployment with no
  * password is not a smaller version of this app, it is a broken one.
  *
- * The rule is therefore: **local runs open, hosted runs fail closed.** If the
- * app can tell it is hosted and no password is configured, it serves 503 and
- * says why, rather than quietly letting anyone in.
+ * The rule is therefore: **local runs open, hosted runs never open.** A hosted
+ * deployment with no password does not serve the app; it serves a one-time
+ * setup screen and nothing else.
  *
- * Your password never reaches this file, the repository or the logs. You hash
- * it yourself with `npm run hash-password` and set the hash as an environment
- * variable, which stays server-side and never enters the client bundle.
+ * The password is chosen in the browser and its hash is stored in the
+ * database, because requiring a terminal to set a password is a bad
+ * constraint for something you are meant to just open. An environment
+ * variable still works and takes precedence, for anyone who would rather
+ * configure it that way.
+ *
+ * Either way the password itself is never stored, never logged, and never
+ * reaches the client bundle — only a salted scrypt hash of it.
  */
 
 const SCRYPT_KEYLEN = 64;
@@ -32,43 +37,54 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 export const SESSION_COOKIE = 'satzwerk_session';
 
 export interface AuthConfig {
-  /** `scrypt$salt$hash`, from SATZWERK_PASSWORD_HASH. */
+  /** `scrypt$salt$hash`, from the environment or the database. */
   passwordHash?: string;
-  /** HMAC key for session cookies, from SATZWERK_SESSION_SECRET. */
+  /** HMAC key for session cookies. Generated and stored on first run. */
   sessionSecret?: string;
   /** Whether this looks like a hosted deployment rather than a local run. */
   hosted: boolean;
+  /** Where the password came from, so the UI can say whether it is changeable. */
+  passwordSource?: 'env' | 'database';
 }
 
 /**
- * `open`          — no password, and not hosted. Local development.
- * `required`      — a password and a session secret are configured.
- * `misconfigured` — hosted, but the secrets are missing. Refuse to serve.
+ * `open`     — no password, and not hosted. Local development.
+ * `setup`    — hosted, but no password chosen yet. Only the setup screen.
+ * `required` — a password is set. Everything private needs a session.
  */
-export type AuthState = 'open' | 'required' | 'misconfigured';
-
-export function readAuthConfig(env: NodeJS.ProcessEnv = process.env): AuthConfig {
-  return {
-    passwordHash: env.SATZWERK_PASSWORD_HASH || undefined,
-    sessionSecret: env.SATZWERK_SESSION_SECRET || undefined,
-    // Vercel sets VERCEL=1. A Postgres URL is the other reliable tell, since
-    // nothing local needs one.
-    hosted: Boolean(env.VERCEL || env.DATABASE_URL),
-  };
-}
+export type AuthState = 'open' | 'setup' | 'required';
 
 export function authState(config: AuthConfig): AuthState {
   if (config.passwordHash && config.sessionSecret) return 'required';
-  if (config.hosted) return 'misconfigured';
+  if (config.hosted) return 'setup';
   return 'open';
 }
 
-/** What is missing, so the 503 can say something useful. */
-export function missingSecrets(config: AuthConfig): string[] {
-  const missing: string[] = [];
-  if (!config.passwordHash) missing.push('SATZWERK_PASSWORD_HASH');
-  if (!config.sessionSecret) missing.push('SATZWERK_SESSION_SECRET');
-  return missing;
+/** Vercel sets VERCEL=1; a Postgres URL is the other tell, since nothing local needs one. */
+export function isHosted(env: NodeJS.ProcessEnv = process.env): boolean {
+  return Boolean(env.VERCEL || env.DATABASE_URL);
+}
+
+/** The environment-only view, for callers with no database to hand. */
+export function readAuthConfig(env: NodeJS.ProcessEnv = process.env): AuthConfig {
+  const passwordHash = env.SATZWERK_PASSWORD_HASH || undefined;
+  return {
+    passwordHash,
+    sessionSecret: env.SATZWERK_SESSION_SECRET || undefined,
+    hosted: isHosted(env),
+    ...(passwordHash ? { passwordSource: 'env' as const } : {}),
+  };
+}
+
+/** A password has to be worth something as the only thing guarding the URL. */
+export const MIN_PASSWORD_LENGTH = 10;
+
+export function passwordProblem(password: string): string | null {
+  if (password.trim().length === 0) return 'Enter a password.';
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `Use at least ${MIN_PASSWORD_LENGTH} characters. This is the only thing guarding your learning data.`;
+  }
+  return null;
 }
 
 /* ------------------------------------------------------------------ *
@@ -145,6 +161,18 @@ export function readSession(secret: string, token: string, now = new Date()): nu
  * Cookies
  * ------------------------------------------------------------------ */
 
+/**
+ * Did this request arrive over HTTPS?
+ *
+ * `x-forwarded-proto` is what a proxy or platform sets, and it can carry a
+ * list when there were several hops, so only the first entry is meaningful.
+ */
+export function isSecureRequest(headers: Record<string, string | undefined> = {}): boolean {
+  const forwarded = headers['x-forwarded-proto'];
+  if (forwarded) return forwarded.split(',')[0]!.trim().toLowerCase() === 'https';
+  return (headers['x-forwarded-ssl'] ?? '').toLowerCase() === 'on';
+}
+
 export function parseCookies(header: string | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   if (!header) return out;
@@ -160,10 +188,18 @@ export function parseCookies(header: string | undefined): Record<string, string>
 
 /**
  * HttpOnly so the token is not reachable from JavaScript, SameSite=Lax so it
- * is not sent on cross-site requests, and Secure whenever the deployment is
- * hosted — local http would reject a Secure cookie outright.
+ * is not sent on cross-site requests, and Secure whenever the request arrived
+ * over HTTPS.
+ *
+ * Keyed on the request's own protocol rather than on whether the deployment
+ * looks hosted, because a browser silently discards a Secure cookie delivered
+ * over plain http. Getting that wrong does not fail loudly: the login succeeds,
+ * the cookie vanishes, and the app sits there saying nothing. On Vercel every
+ * request is HTTPS, so Secure is set; behind a TLS-terminating proxy the
+ * forwarded protocol says so; over plain http it is left off, because a cookie
+ * that is dropped protects nobody.
  */
-export function sessionCookie(token: string, hosted: boolean): string {
+export function sessionCookie(token: string, secure: boolean): string {
   const attributes = [
     `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
     'Path=/',
@@ -171,12 +207,12 @@ export function sessionCookie(token: string, hosted: boolean): string {
     'SameSite=Lax',
     `Max-Age=${SESSION_TTL_SECONDS}`,
   ];
-  if (hosted) attributes.push('Secure');
+  if (secure) attributes.push('Secure');
   return attributes.join('; ');
 }
 
-export function clearedCookie(hosted: boolean): string {
+export function clearedCookie(secure: boolean): string {
   const attributes = [`${SESSION_COOKIE}=`, 'Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0'];
-  if (hosted) attributes.push('Secure');
+  if (secure) attributes.push('Secure');
   return attributes.join('; ');
 }

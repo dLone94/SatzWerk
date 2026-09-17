@@ -2643,3 +2643,51 @@ textarea.answer-field {
   margin-top: 0.35rem;
   justify-content: center;
 }
+
+/* A small hint under a password field, and the change-password form. */
+.login__hint,
+.login__note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.login__note {
+  margin-top: 0.4rem;
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+}
+
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 22rem;
+}
+
+.password-form label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.password-form input {
+  padding: 0.6rem 0.7rem;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  min-height: 44px;
+}
+
+.password-form input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.password-form button {
+  align-self: flex-start;
+  margin-top: 0.3rem;
+}

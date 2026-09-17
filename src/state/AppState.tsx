@@ -40,6 +40,9 @@ export interface AppStateValue {
   /** Whether this deployment needs a password, and whether we have one. */
   session: SessionState;
   signIn: (password: string) => Promise<void>;
+  /** First run on a hosted copy: set the password there is not one yet. */
+  choosePassword: (password: string) => Promise<void>;
+  changePassword: (current: string, next: string) => Promise<void>;
   signOut: () => Promise<void>;
   profile: Profile;
   lessons: Record<string, LessonProgress>;
@@ -144,7 +147,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       // a locked deployment shows a password prompt instead of an error page.
       const current = await api.session();
       setSession(current);
-      if (current.required && !current.signedIn) {
+      if (current.needsSetup || (current.required && !current.signedIn)) {
         setError(null);
         return;
       }
@@ -167,6 +170,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     },
     [load],
   );
+
+  const choosePassword = useCallback(
+    async (password: string) => {
+      await api.setupPassword(password);
+      setReady(false);
+      await load();
+    },
+    [load],
+  );
+
+  const changePassword = useCallback(async (current: string, next: string) => {
+    setSession(await api.changePassword(current, next));
+  }, []);
 
   const signOut = useCallback(async () => {
     await api.logout();
@@ -247,6 +263,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       error,
       session,
       signIn,
+      choosePassword,
+      changePassword,
       signOut,
       profile,
       lessons,
@@ -359,7 +377,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setSnapshot(await api.reset());
       },
     };
-  }, [ready, error, session, signIn, signOut, profile, snapshot, coach, lang, t, say, tts, load, patchSnapshot, mergeLesson]);
+  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, load, patchSnapshot, mergeLesson]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }

@@ -5,9 +5,11 @@ import {
   authState,
   clearedCookie,
   createSession,
-  missingSecrets,
+  hashPassword,
+  isHosted,
+  isSecureRequest,
   parseCookies,
-  readAuthConfig,
+  passwordProblem,
   readSession,
   sessionCookie,
   SESSION_COOKIE,
@@ -28,8 +30,10 @@ export interface ApiRequest {
   method: string;
   path: string;
   body?: unknown;
-  /** Lower-cased request headers. Only `cookie` is read, for the session. */
+  /** Lower-cased request headers. `cookie` and `x-forwarded-proto` are read. */
   headers?: Record<string, string | undefined>;
+  /** Whether the request arrived over HTTPS, when the adapter knows directly. */
+  secure?: boolean;
 }
 
 export interface ApiResponse {
@@ -108,6 +112,33 @@ export async function fullState(db: Db) {
   };
 }
 
+/**
+ * Work out the credentials in force.
+ *
+ * An environment variable wins, so an existing deployment configured that way
+ * keeps behaving exactly as it did. Otherwise the stored hash is used, which
+ * is what the browser setup screen writes. The session secret is generated and
+ * kept on first use, so sessions survive a restart without anyone configuring
+ * anything.
+ */
+export async function resolveAuth(db: Db, env: NodeJS.ProcessEnv = process.env): Promise<AuthConfig> {
+  const hosted = isHosted(env);
+  const fromEnv = env.SATZWERK_PASSWORD_HASH || undefined;
+  const stored = fromEnv ? undefined : ((await store.getPasswordHash(db)) ?? undefined);
+  const passwordHash = fromEnv ?? stored;
+  // No password anywhere and running locally: nothing to protect, and no
+  // reason to write a secret to the database.
+  const sessionSecret =
+    env.SATZWERK_SESSION_SECRET ||
+    (passwordHash || hosted ? await store.getOrCreateSessionSecret(db) : undefined);
+  return {
+    passwordHash,
+    sessionSecret,
+    hosted,
+    ...(fromEnv ? { passwordSource: 'env' as const } : stored ? { passwordSource: 'database' as const } : {}),
+  };
+}
+
 export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promise<ApiResponse> {
   const { db } = ctx;
   const provider = ctx.provider ?? createProvider();
@@ -125,36 +156,55 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     return ok({ ok: true, time: new Date().toISOString() });
   }
 
-  const auth = ctx.auth ?? readAuthConfig();
+  const auth = ctx.auth ?? (await resolveAuth(db));
   const state = authState(auth);
   const cookies = parseCookies(request.headers?.cookie);
+  // Whether the cookie may carry Secure. See sessionCookie for why this is the
+  // request's protocol and not the deployment's shape.
+  const secure = request.secure ?? isSecureRequest(request.headers ?? {});
   const userId =
     state === 'required' && auth.sessionSecret
       ? readSession(auth.sessionSecret, cookies[SESSION_COOKIE] ?? '')
       : null;
   const signedIn = state === 'open' || userId !== null;
 
-  // Hosted with no password configured. Serving the app here would put the
-  // learner's data, and the reset endpoint, on an open URL.
-  if (state === 'misconfigured') {
+  const sessionBody = {
+    required: state !== 'open',
+    signedIn,
+    needsSetup: state === 'setup',
+    canChangePassword: auth.passwordSource !== 'env',
+  };
+
+  // Public, so the app can show the right screen instead of a wall of
+  // failures: a password prompt, or the one-time setup screen.
+  if (route.length === 1 && route[0] === 'session' && method === 'GET') {
+    return ok(sessionBody);
+  }
+
+  // Hosted, with no password chosen yet. The first visitor sets one; until
+  // then nothing else is served, so the app is never briefly open.
+  if (route.length === 1 && route[0] === 'setup' && method === 'POST') {
+    if (state !== 'setup') {
+      return { status: 409, body: { error: 'A password is already set.' } };
+    }
+    const password = String(asRecord(request.body).password ?? '');
+    const problem = passwordProblem(password);
+    if (problem) return { status: 400, body: { error: problem } };
+
+    await store.setPasswordHash(db, hashPassword(password));
+    const secret = auth.sessionSecret ?? (await store.getOrCreateSessionSecret(db));
     return {
-      status: 503,
-      body: {
-        error: 'SatzWerk is hosted but has no password configured, so it will not serve requests.',
-        missing: missingSecrets(auth),
-        hint: 'Run `npm run hash-password` and set both variables where you host the app.',
-      },
+      status: 200,
+      body: { required: true, signedIn: true, needsSetup: false, canChangePassword: true },
+      headers: { 'set-cookie': sessionCookie(createSession(secret, 1), secure) },
     };
   }
 
-  // Whether a password is needed, and whether this request has one. Public so
-  // that the app can show a login screen instead of a wall of failures.
-  if (route.length === 1 && route[0] === 'session' && method === 'GET') {
-    return ok({ required: state === 'required', signedIn });
-  }
-
   if (route.length === 1 && route[0] === 'login' && method === 'POST') {
-    if (state === 'open') return ok({ required: false, signedIn: true });
+    if (state === 'open') return ok(sessionBody);
+    if (state === 'setup') {
+      return { status: 409, body: { error: 'No password is set yet.', needsSetup: true } };
+    }
     const password = String(asRecord(request.body).password ?? '');
     if (!password || !verifyPassword(password, auth.passwordHash!)) {
       // Deliberately vague, and the same shape whether or not a password was
@@ -163,22 +213,58 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     }
     return {
       status: 200,
-      body: { required: true, signedIn: true },
-      headers: { 'set-cookie': sessionCookie(createSession(auth.sessionSecret!, 1), auth.hosted) },
+      body: { ...sessionBody, signedIn: true },
+      headers: { 'set-cookie': sessionCookie(createSession(auth.sessionSecret!, 1), secure) },
     };
   }
 
   if (route.length === 1 && route[0] === 'logout' && method === 'POST') {
     return {
       status: 200,
-      body: { required: state === 'required', signedIn: false },
-      headers: { 'set-cookie': clearedCookie(auth.hosted) },
+      body: { ...sessionBody, signedIn: false },
+      headers: { 'set-cookie': clearedCookie(secure) },
     };
   }
 
   // Everything below touches the learner's data.
   if (!signedIn) {
-    return { status: 401, body: { error: 'Not signed in.', required: true, signedIn: false } };
+    return {
+      status: 401,
+      body: { error: 'Not signed in.', ...sessionBody, signedIn: false },
+    };
+  }
+
+  // Changing the password needs the current one, so a borrowed session cannot
+  // lock the owner out.
+  if (route.length === 1 && route[0] === 'password' && method === 'POST') {
+    if (auth.passwordSource === 'env') {
+      return {
+        status: 409,
+        body: {
+          error:
+            'The password comes from the SATZWERK_PASSWORD_HASH environment variable, so it has to be changed there.',
+        },
+      };
+    }
+    const body = asRecord(request.body);
+    const current = String(body.currentPassword ?? '');
+    const next = String(body.newPassword ?? '');
+    if (state === 'required' && !verifyPassword(current, auth.passwordHash!)) {
+      return { status: 401, body: { error: 'That password is not right.' } };
+    }
+    const problem = passwordProblem(next);
+    if (problem) return { status: 400, body: { error: problem } };
+
+    await store.setPasswordHash(db, hashPassword(next));
+    // A new secret invalidates every existing session, including any that is
+    // not the one making this request. Changing the password should end them.
+    await store.clearSessionSecret(db);
+    const secret = await store.getOrCreateSessionSecret(db);
+    return {
+      status: 200,
+      body: { required: true, signedIn: true, needsSetup: false, canChangePassword: true },
+      headers: { 'set-cookie': sessionCookie(createSession(secret, 1), secure) },
+    };
   }
 
   if (route.length === 1 && route[0] === 'state' && method === 'GET') {

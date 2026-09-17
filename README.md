@@ -67,35 +67,43 @@ never quietly serves an open app.
    with Vercel and has a free tier. Copy the connection string; it starts
    `postgresql://`.
 
-2. **Generate your password hash.**
-
-   ```bash
-   npm run hash-password
-   ```
-
-   It reads the password from the terminal — not from an argument, which would
-   sit in your shell history — and prints a `SATZWERK_PASSWORD_HASH` and a
-   fresh `SATZWERK_SESSION_SECRET`. The password itself is never stored
-   anywhere.
-
-3. **Set three environment variables** in the Vercel project, for Production
-   and Preview both:
+2. **Set one environment variable** in the Vercel project, for Production and
+   Preview both:
 
    | Variable | Value |
    | --- | --- |
    | `DATABASE_URL` | the Neon connection string |
-   | `SATZWERK_PASSWORD_HASH` | from step 2 |
-   | `SATZWERK_SESSION_SECRET` | from step 2 |
 
-   All three are read server-side only. None is prefixed `VITE_`, so none can
-   reach the client bundle.
+   It is read server-side only, and is not prefixed `VITE_`, so it cannot reach
+   the client bundle.
 
-4. **Deploy.** `vercel.json` builds with `npm run build`, serves `dist` as
+3. **Deploy.** `vercel.json` builds with `npm run build`, serves `dist` as
    static files, and routes `/api/*` to one function. Migrations run on the
    first request after a deploy.
 
-Changing `SATZWERK_SESSION_SECRET` invalidates every session, which is how you
-sign yourself out everywhere if you need to.
+4. **Open the URL and choose a password.** A hosted deployment with no password
+   serves one thing and one thing only: a screen asking you to set one. Nothing
+   private is reachable until you have, so there is no window in which a fresh
+   deployment is readable by whoever finds the address. Afterwards you are
+   signed in straight away, and you can change the password under *Settings*.
+
+That is the whole of it — no terminal, and no secrets to copy around. Requiring
+a local command to set a password is a poor bargain for something you are meant
+to just open in a browser.
+
+### If you would rather configure it yourself
+
+Two optional variables override the above, for anyone who prefers secrets to
+live in the hosting provider rather than the database:
+
+| Variable | Effect |
+| --- | --- |
+| `SATZWERK_PASSWORD_HASH` | Used instead of the stored password. `npm run hash-password` prints one; it reads the password from stdin rather than an argument, so it stays out of your shell history. The in-app change-password form is disabled when this is set, since it could not take effect. |
+| `SATZWERK_SESSION_SECRET` | Used instead of the generated one. |
+
+The session secret is otherwise generated on first run and kept in the
+database, so sessions survive a redeploy. Changing the password rotates it,
+which signs out every other device.
 
 ### One learner, by design
 

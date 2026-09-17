@@ -34,6 +34,38 @@ export const UI = {
   loginWorking: s('Checking…', 'Проверява се…'),
   signOut: s('Sign out', 'Излез'),
 
+  // First run on a hosted copy: choosing the password
+  setupTitle: s('Set a password', 'Задай парола'),
+  setupIntro: s(
+    'This copy of SatzWerk is on the internet, so it needs a password before it will show you anything. Choose one now — you can change it later in Settings.',
+    'Това копие на SatzWerk е в интернет, затова му трябва парола, преди да покаже каквото и да е. Избери една сега — можеш да я смениш по-късно в Настройки.',
+  ),
+  setupPassword: s('New password', 'Нова парола'),
+  setupConfirm: s('Type it again', 'Напиши я отново'),
+  setupSubmit: s('Set password and start', 'Задай паролата и започни'),
+  setupTooShort: s(
+    'At least 10 characters, please. This is the only thing guarding your progress.',
+    'Поне 10 знака. Това е единственото, което пази напредъка ти.',
+  ),
+  setupMismatch: s('The two do not match yet.', 'Двете още не съвпадат.'),
+  setupNote: s(
+    'Only a hashed form is stored, never the password itself.',
+    'Запазва се само хеширан вид, никога самата парола.',
+  ),
+
+  // Changing it later
+  passwordChange: s('Change password', 'Смени паролата'),
+  passwordCurrent: s('Current password', 'Текуща парола'),
+  passwordNew: s('New password', 'Нова парола'),
+  passwordChanged: s(
+    'Password changed. Any other device that was signed in has been signed out.',
+    'Паролата е сменена. Всяко друго устройство, което беше влязло, е излязло.',
+  ),
+  passwordFromEnv: s(
+    'The password comes from an environment variable on the host, so it has to be changed there.',
+    'Паролата идва от променлива на средата при хостинга, затова трябва да се смени там.',
+  ),
+
   // Onboarding
   onboardingTitle: s('Welcome to SatzWerk', 'Добре дошъл в SatzWerk'),
   onboardingIntro: s(

@@ -161,6 +161,10 @@ export interface SessionState {
   /** Whether this deployment asks for a password at all. */
   required: boolean;
   signedIn: boolean;
+  /** Hosted, but no password chosen yet: show the setup screen. */
+  needsSetup?: boolean;
+  /** False when the password comes from an environment variable. */
+  canChangePassword?: boolean;
 }
 
 export const api = {
@@ -171,6 +175,10 @@ export const api = {
   session: () => request<SessionState>('/session'),
   login: (password: string) => post<SessionState>('/login', { password }),
   logout: () => post<SessionState>('/logout'),
+  /** First run on a hosted copy: choose the password. */
+  setupPassword: (password: string) => post<SessionState>('/setup', { password }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    post<SessionState>('/password', { currentPassword, newPassword }),
 
   updateProfile: (patch: Partial<Pick<Profile, 'teachingLanguage' | 'dailyTargetMinutes' | 'displayName' | 'onboarded'>>) =>
     request<Profile>('/profile', { method: 'PUT', body: JSON.stringify(patch) }),

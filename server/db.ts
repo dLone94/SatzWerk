@@ -181,6 +181,18 @@ const MIGRATIONS: Migration[] = [
       ALTER TABLE word_flags        ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1;
     `,
   },
+  {
+    version: 3,
+    name: 'credentials in the database, so no terminal is needed to set a password',
+    sql: `
+      -- The password hash lives with the account rather than only in an
+      -- environment variable, so it can be set from the browser on first
+      -- visit and changed later without any local tooling. An environment
+      -- variable still overrides this when one is set.
+      ALTER TABLE users ADD COLUMN password_hash TEXT;
+      ALTER TABLE users ADD COLUMN password_set_at TEXT;
+    `,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

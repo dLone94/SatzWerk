@@ -11,6 +11,7 @@ import { OnboardingPage } from './pages/OnboardingPage.tsx';
 import { RealLifePage } from './pages/RealLifePage.tsx';
 import { ReviewPage } from './pages/ReviewPage.tsx';
 import { SettingsPage } from './pages/SettingsPage.tsx';
+import { SetupPage } from './pages/SetupPage.tsx';
 import { VocabularyPage } from './pages/VocabularyPage.tsx';
 import { WordPage } from './pages/WordPage.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
@@ -27,8 +28,13 @@ export function App() {
     );
   }
 
-  // A hosted deployment asks for the password before anything else. Checked
-  // before `error` so that a 401 shows the prompt rather than a failure page.
+  // A hosted deployment deals with the password before anything else. Checked
+  // before `error` so that a 401 shows the right screen rather than a failure
+  // page. Setup comes first: until a password exists there is nothing to log
+  // in to.
+  if (session.needsSetup) {
+    return <SetupPage />;
+  }
   if (session.required && !session.signedIn) {
     return <LoginPage />;
   }

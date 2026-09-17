@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type { CefrLevel, ErrorCategory, TeachingLanguage } from '../src/content/types.ts';
 import type { LessonProgress, StepOutcome } from '../src/core/progress/lesson.ts';
 import {
@@ -713,4 +713,53 @@ export function resetAll(db: Db): void {
     DELETE FROM checkpoint_results;
     DELETE FROM word_flags;
   `);
+}
+
+/* ------------------------------------------------------------------ *
+ * Credentials
+ *
+ * The password hash and the session secret live in the database so that a
+ * hosted deployment needs no local tooling to set a password: it is chosen in
+ * the browser on first visit and can be changed from Settings. Environment
+ * variables still take precedence for anyone who prefers to configure them
+ * that way.
+ * ------------------------------------------------------------------ */
+
+/** The stored hash for the single account, if a password has been set. */
+export async function getPasswordHash(db: Db): Promise<string | null> {
+  const row = await db.get<{ password_hash: string | null }>(
+    'SELECT password_hash FROM users WHERE id = 1',
+  );
+  return row?.password_hash ?? null;
+}
+
+export async function setPasswordHash(db: Db, hash: string): Promise<void> {
+  await db.run('UPDATE users SET password_hash = ?, password_set_at = ? WHERE id = 1', hash, new Date().toISOString());
+}
+
+/**
+ * The session-signing key, generated once and kept.
+ *
+ * Stored rather than derived so that sessions survive a restart and a redeploy.
+ * Deleting the row signs everyone out, which is how access gets revoked
+ * without touching any hosting settings.
+ */
+export async function getOrCreateSessionSecret(db: Db): Promise<string> {
+  const existing = await db.get<{ value: string }>('SELECT value FROM meta WHERE key = ?', 'session_secret');
+  if (existing?.value) return existing.value;
+  const secret = randomBytes(32).toString('hex');
+  // ON CONFLICT DO NOTHING, then read back: two cold serverless invocations can
+  // reach this at the same moment, and they must end up agreeing on one secret
+  // rather than each storing its own and invalidating the other's sessions.
+  await db.run(
+    `INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING`,
+    'session_secret',
+    secret,
+  );
+  const stored = await db.get<{ value: string }>('SELECT value FROM meta WHERE key = ?', 'session_secret');
+  return stored?.value ?? secret;
+}
+
+export async function clearSessionSecret(db: Db): Promise<void> {
+  await db.run('DELETE FROM meta WHERE key = ?', 'session_secret');
 }

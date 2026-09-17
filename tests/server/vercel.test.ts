@@ -118,16 +118,42 @@ describe('the Vercel function', () => {
     expect((await handler(get('/api/nope'))).status).toBe(404);
   });
 
-  it('refuses everything but health when hosted without a password', async () => {
+  it('serves only setup when hosted without a password', async () => {
     process.env.VERCEL = '1';
     const handler = await loadHandler();
     expect((await handler(get('/api/health'))).status).toBe(200);
-    for (const path of ['/api/session', '/api/state', '/api/reset']) {
-      const response = await handler(get(path));
-      expect(response.status, path).toBe(503);
+
+    // The session route is public, so the app knows to show the setup screen.
+    const session = await handler(get('/api/session'));
+    expect(session.status).toBe(200);
+    await expect(session.json()).resolves.toMatchObject({ needsSetup: true, signedIn: false });
+
+    // Nothing private, so there is no window in which a fresh deployment is
+    // readable by whoever finds the URL first.
+    for (const path of ['/api/state', '/api/profile', '/api/reset']) {
+      expect((await handler(get(path))).status, path).toBe(401);
     }
-    // Including the login route: there is nothing to check a password against.
-    expect((await handler(send('POST', '/api/login', { password: 'x' }))).status).toBe(503);
+    // And logging in is meaningless before a password exists.
+    expect((await handler(send('POST', '/api/login', { password: 'x' }))).status).toBe(409);
+  });
+
+  it('takes a password through the browser and then enforces it', async () => {
+    process.env.VERCEL = '1';
+    const handler = await loadHandler();
+
+    const created = await handler(send('POST', '/api/setup', { password: 'a-long-enough-password' }));
+    expect(created.status).toBe(200);
+    const setCookie = created.headers.get('set-cookie');
+    expect(setCookie).toContain('satzwerk_session=');
+    // Hosted, so it has to be Secure.
+    expect(setCookie).toContain('Secure');
+
+    // That session works straight away, with no second round trip.
+    const token = /satzwerk_session=([^;]+)/.exec(setCookie!)![1]!;
+    expect((await handler(get('/api/state', `satzwerk_session=${token}`))).status).toBe(200);
+
+    // And without it, the app is shut.
+    expect((await handler(get('/api/state'))).status).toBe(401);
   });
 
   it('passes the session cookie through in both directions', async () => {

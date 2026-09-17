@@ -8,11 +8,16 @@ import { Card } from '../components/bits.tsx';
 const TARGETS = [10, 20, 30];
 
 export function SettingsPage() {
-  const { t, lang, profile, updateProfile, setTeachingLanguage, tts, resetAll, session, signOut } =
+  const { t, lang, profile, updateProfile, setTeachingLanguage, tts, resetAll, session, signOut, changePassword } =
     useApp();
   const [custom, setCustom] = useState('');
   const [confirm, setConfirm] = useState('');
   const [resetDone, setResetDone] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordDone, setPasswordDone] = useState(false);
   const stats = contentStats();
 
   return (
@@ -149,12 +154,71 @@ export function SettingsPage() {
         {resetDone ? <p className="done-note">{t('settingsResetDone')}</p> : null}
       </Card>
 
-      {/* Only meaningful on a hosted copy: locally there is no session to end. */}
+      {/* Only meaningful on a hosted copy: locally there is no session at all. */}
       {session.required ? (
-        <Card title={t('signOut')}>
-          <button type="button" className="btn btn--ghost" onClick={() => void signOut()}>
-            {t('signOut')}
-          </button>
+        <Card title={t('passwordChange')}>
+          {session.canChangePassword === false ? (
+            <p className="task__warn">{t('passwordFromEnv')}</p>
+          ) : (
+            <form
+              className="password-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (passwordBusy || newPassword.length < 10) return;
+                setPasswordBusy(true);
+                setPasswordError(null);
+                setPasswordDone(false);
+                void changePassword(currentPassword, newPassword)
+                  .then(() => {
+                    setCurrentPassword('');
+                    setNewPassword('');
+                    setPasswordDone(true);
+                  })
+                  .catch((cause: unknown) =>
+                    setPasswordError(cause instanceof Error ? cause.message : String(cause)),
+                  )
+                  .finally(() => setPasswordBusy(false));
+              }}
+            >
+              <label htmlFor="current-password">{t('passwordCurrent')}</label>
+              <input
+                id="current-password"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+              />
+              <label htmlFor="next-password">{t('passwordNew')}</label>
+              <input
+                id="next-password"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+              />
+              {newPassword.length > 0 && newPassword.length < 10 ? (
+                <p className="login__hint">{t('setupTooShort')}</p>
+              ) : null}
+              {passwordError ? (
+                <p className="login__error" role="alert">
+                  {passwordError}
+                </p>
+              ) : null}
+              {passwordDone ? <p className="done-note">{t('passwordChanged')}</p> : null}
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={passwordBusy || newPassword.length < 10 || currentPassword.length === 0}
+              >
+                {t('passwordChange')}
+              </button>
+            </form>
+          )}
+          <p className="card__foot">
+            <button type="button" className="btn btn--ghost" onClick={() => void signOut()}>
+              {t('signOut')}
+            </button>
+          </p>
         </Card>
       ) : null}
     </div>
