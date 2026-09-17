@@ -18,7 +18,9 @@ both paths, on top of the Milestone 1 engine.
 ## Quick start
 
 Requires **Node 22.18 or newer** (it runs the TypeScript directly, and uses the
-built-in `node:sqlite` driver — no native modules to compile).
+built-in `node:sqlite` driver — no native modules to compile). Nothing else to
+install and nothing to configure; see [Hosting it on Vercel](#hosting-it-on-vercel)
+if you want it on the internet instead.
 
 ```bash
 npm install
@@ -33,7 +35,7 @@ npm run preview
 Then open <http://localhost:5173> (dev) or <http://localhost:8787> (preview).
 
 ```bash
-npm test          # 187 tests
+npm test          # 224 tests
 npm run typecheck # tsc, no emit
 npm run build     # type-check + production bundle
 ```
@@ -41,6 +43,68 @@ npm run build     # type-check + production bundle
 Your progress lives in a SQLite file at `data/satzwerk.db` (override with
 `SATZWERK_DB`). It is a real database on disk, so progress survives a refresh, a
 server restart and a cleared browser cache.
+
+---
+
+## Hosting it on Vercel
+
+The app runs locally with no setup at all. Hosting it needs two things it does
+not need locally: a database that survives a cold start, and a password.
+
+**Why the database changes.** A Vercel function has no persistent disk, so the
+SQLite file would be recreated empty every time a function goes cold —
+silently losing exactly the progress this app exists to keep. Hosted
+deployments therefore use Postgres. `openDatabase` picks it whenever
+`DATABASE_URL` is set and SQLite otherwise, so nothing about local development
+or the tests changes.
+
+**Why the password.** Hosted, the app is on a public URL, and
+`POST /api/reset` deletes everything. So a hosted deployment with no password
+configured refuses every request with a 503 that names what is missing. It
+never quietly serves an open app.
+
+1. **Create a free Postgres database.** [Neon](https://neon.tech) works well
+   with Vercel and has a free tier. Copy the connection string; it starts
+   `postgresql://`.
+
+2. **Generate your password hash.**
+
+   ```bash
+   npm run hash-password
+   ```
+
+   It reads the password from the terminal — not from an argument, which would
+   sit in your shell history — and prints a `SATZWERK_PASSWORD_HASH` and a
+   fresh `SATZWERK_SESSION_SECRET`. The password itself is never stored
+   anywhere.
+
+3. **Set three environment variables** in the Vercel project, for Production
+   and Preview both:
+
+   | Variable | Value |
+   | --- | --- |
+   | `DATABASE_URL` | the Neon connection string |
+   | `SATZWERK_PASSWORD_HASH` | from step 2 |
+   | `SATZWERK_SESSION_SECRET` | from step 2 |
+
+   All three are read server-side only. None is prefixed `VITE_`, so none can
+   reach the client bundle.
+
+4. **Deploy.** `vercel.json` builds with `npm run build`, serves `dist` as
+   static files, and routes `/api/*` to one function. Migrations run on the
+   first request after a deploy.
+
+Changing `SATZWERK_SESSION_SECRET` invalidates every session, which is how you
+sign yourself out everywhere if you need to.
+
+### One learner, by design
+
+`profile` and `users` each hold one row. Migration 2 adds a `user_id` column to
+every progress table so that supporting a second person later is a query change
+rather than a migration over live data — but **the queries do not filter by it
+yet**, so a second row in `users` would share one set of progress. Nothing
+creates one. Until that query pass happens, two people means two deployments
+with two databases.
 
 ---
 
