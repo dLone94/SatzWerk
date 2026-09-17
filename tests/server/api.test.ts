@@ -14,12 +14,12 @@ const ctx = () => ({ db, provider: unavailableProvider });
 const call = (method: string, path: string, body?: unknown) =>
   handleRequest(ctx(), { method, path, body });
 
-beforeEach(() => {
-  db = openDatabase({ path: ':memory:' });
+beforeEach(async () => {
+  db = await openDatabase({ path: ':memory:' });
 });
 
-afterEach(() => {
-  db.close();
+afterEach(async () => {
+  await db.close();
 });
 
 /** A typical wrong answer on the "Ich habe eine Tochter." exercise. */
@@ -44,11 +44,9 @@ const wrongAttempt = {
 const retypeAttempt = { ...wrongAttempt, given: 'eine', verdict: 'correct', credit: 1, isRetype: true, resolved: true };
 
 describe('schema and profile', () => {
-  it('migrates to the current schema version', () => {
-    const row = db.prepare('SELECT value FROM meta WHERE key = ?').get('schema_version') as {
-      value: string;
-    };
-    expect(Number(row.value)).toBe(SCHEMA_VERSION);
+  it('migrates to the current schema version', async () => {
+    const row = await db.get<{ value: string }>('SELECT value FROM meta WHERE key = ?', 'schema_version');
+    expect(Number(row!.value)).toBe(SCHEMA_VERSION);
   });
 
   it('starts with an English profile that has not been onboarded', async () => {
@@ -84,7 +82,7 @@ describe('attempts, mistakes and the retyping distinction', () => {
     expect(result.reviewItems).toHaveLength(1);
     expect(result.reviewItems[0]!.id).toBe('vocab:v-die-tochter');
 
-    const mistakes = store.listMistakes(db);
+    const mistakes = await store.listMistakes(db);
     expect(mistakes).toHaveLength(1);
     expect(mistakes[0]).toMatchObject({ category: 'article', expected: 'eine', occurrences: 1, correctedCount: 0 });
   });
@@ -92,7 +90,7 @@ describe('attempts, mistakes and the retyping distinction', () => {
   it('counts a repeated mistake instead of duplicating it', async () => {
     await call('POST', '/api/attempts', wrongAttempt);
     await call('POST', '/api/attempts', wrongAttempt);
-    const mistakes = store.listMistakes(db);
+    const mistakes = await store.listMistakes(db);
     expect(mistakes).toHaveLength(1);
     expect(mistakes[0]!.occurrences).toBe(2);
   });
@@ -101,14 +99,14 @@ describe('attempts, mistakes and the retyping distinction', () => {
     await call('POST', '/api/attempts', wrongAttempt);
     await call('POST', '/api/attempts', retypeAttempt);
 
-    const mistakes = store.listMistakes(db);
+    const mistakes = await store.listMistakes(db);
     expect(mistakes).toHaveLength(1);
     // The mistake is still on record, and the correction is recorded beside it.
     expect(mistakes[0]!.occurrences).toBe(1);
     expect(mistakes[0]!.correctedCount).toBe(1);
 
     // The retyping resolves the step but must not repair the first-try record.
-    const progress = store.getLessonProgress(db, 'pre-a1-u1-l2');
+    const progress = await store.getLessonProgress(db, 'pre-a1-u1-l2');
     const outcome = progress.practice['u1l2-ex4-s2']!;
     expect(outcome.resolved).toBe(true);
     expect(outcome.firstTryCorrect).toBe(false);
@@ -117,10 +115,10 @@ describe('attempts, mistakes and the retyping distinction', () => {
 
   it('does not let a retyping reschedule the review item', async () => {
     await call('POST', '/api/attempts', wrongAttempt);
-    const afterWrong = store.getReviewItem(db, 'vocab:v-die-tochter')!;
+    const afterWrong = (await store.getReviewItem(db, 'vocab:v-die-tochter'))!;
     const response = await call('POST', '/api/attempts', retypeAttempt);
     expect((response.body as { reviewItems: unknown[] }).reviewItems).toHaveLength(0);
-    const afterRetype = store.getReviewItem(db, 'vocab:v-die-tochter')!;
+    const afterRetype = (await store.getReviewItem(db, 'vocab:v-die-tochter'))!;
     expect(afterRetype.dueAt).toBe(afterWrong.dueAt);
   });
 
@@ -133,9 +131,9 @@ describe('attempts, mistakes and the retyping distinction', () => {
       categories: [],
       resolved: true,
     });
-    const outcome = store.getLessonProgress(db, 'pre-a1-u1-l2').practice['u1l2-ex4-s2']!;
+    const outcome = (await store.getLessonProgress(db, 'pre-a1-u1-l2')).practice['u1l2-ex4-s2']!;
     expect(outcome.firstTryCorrect).toBe(true);
-    expect(store.listMistakes(db)).toHaveLength(0);
+    expect(await store.listMistakes(db)).toHaveLength(0);
   });
 
   it('rejects a malformed attempt', async () => {
@@ -148,10 +146,10 @@ describe('attempts, mistakes and the retyping distinction', () => {
 
   it('resolves a mistake on request', async () => {
     await call('POST', '/api/attempts', wrongAttempt);
-    const id = store.listMistakes(db)[0]!.id;
+    const id = (await store.listMistakes(db))[0]!.id;
     await call('POST', `/api/mistakes/${id}/resolve`);
-    expect(store.listMistakes(db)).toHaveLength(0);
-    expect(store.listMistakes(db, true)).toHaveLength(1);
+    expect(await store.listMistakes(db)).toHaveLength(0);
+    expect(await store.listMistakes(db, true)).toHaveLength(1);
   });
 });
 
@@ -178,7 +176,7 @@ describe('review queue', () => {
     await call('POST', '/api/reviews/ensure', {
       targets: [{ refId: 'v-hallo', kind: 'vocab', level: 'pre-a1' }],
     });
-    const before = store.getReviewItem(db, 'vocab:v-hallo')!;
+    const before = (await store.getReviewItem(db, 'vocab:v-hallo'))!;
     const response = await call('POST', '/api/reviews/vocab%3Av-hallo/grade', { grade: 'good' });
     expect(response.status).toBe(200);
     const after = response.body as { state: string; dueAt: string };
@@ -242,28 +240,29 @@ describe('statistics are derived from real activity', () => {
   it('computes accuracy from first attempts only, not from retypings', async () => {
     await call('POST', '/api/attempts', wrongAttempt);
     await call('POST', '/api/attempts', retypeAttempt);
-    const stats = store.getStats(db);
+    const stats = await store.getStats(db);
     // One first attempt, which was wrong.
     expect(stats.accuracy).toBe(0);
     expect(stats.retypedCorrections).toBe(1);
     expect(stats.totalAnswers).toBe(2);
   });
 
-  it('counts a streak only over days with real answers', () => {
-    expect(store.computeStreak(db)).toBe(0);
+  it('counts a streak only over days with real answers', async () => {
+    expect(await store.computeStreak(db)).toBe(0);
     const today = new Date('2026-03-10T12:00:00Z');
-    const insert = db.prepare('INSERT INTO study_days (day, seconds_active, answers, correct) VALUES (?, 60, 3, 2)');
-    insert.run('2026-03-10');
-    insert.run('2026-03-09');
-    insert.run('2026-03-08');
+    const insert = (day: string) =>
+      db.run('INSERT INTO study_days (day, seconds_active, answers, correct) VALUES (?, 60, 3, 2)', day);
+    await insert('2026-03-10');
+    await insert('2026-03-09');
+    await insert('2026-03-08');
     // Gap on the 7th.
-    insert.run('2026-03-06');
-    expect(store.computeStreak(db, today)).toBe(3);
+    await insert('2026-03-06');
+    expect(await store.computeStreak(db, today)).toBe(3);
   });
 
   it('adds study time without inventing answers', async () => {
     await call('POST', '/api/study', { seconds: 120 });
-    const stats = store.getStats(db);
+    const stats = await store.getStats(db);
     expect(stats.totalStudySeconds).toBe(120);
     expect(stats.totalAnswers).toBe(0);
   });
@@ -277,14 +276,14 @@ describe('statistics are derived from real activity', () => {
       passed: true,
     });
     expect(response.status).toBe(200);
-    expect(store.listCheckpointResults(db)[0]).toMatchObject({ passed: true, accuracy: 0.8 });
+    expect((await store.listCheckpointResults(db))[0]).toMatchObject({ passed: true, accuracy: 0.8 });
   });
 
   it('stores favourites', async () => {
     await call('POST', '/api/vocabulary/v-hallo/favorite', { favorite: true });
-    expect(store.listFavorites(db)).toEqual(['v-hallo']);
+    expect(await store.listFavorites(db)).toEqual(['v-hallo']);
     await call('POST', '/api/vocabulary/v-hallo/favorite', { favorite: false });
-    expect(store.listFavorites(db)).toEqual([]);
+    expect(await store.listFavorites(db)).toEqual([]);
   });
 });
 
@@ -302,7 +301,7 @@ describe('durability across a restart', () => {
   it('keeps progress when the process is restarted', async () => {
     const path = join(dir, 'satzwerk.db');
 
-    const first = openDatabase({ path });
+    const first = await openDatabase({ path });
     await handleRequest({ db: first, provider: unavailableProvider }, {
       method: 'PUT',
       path: '/api/profile',
@@ -321,7 +320,7 @@ describe('durability across a restart', () => {
     first.close();
 
     // A completely new connection, as after `npm start` again.
-    const second = openDatabase({ path });
+    const second = await openDatabase({ path });
     const state = (
       await handleRequest({ db: second, provider: unavailableProvider }, { method: 'GET', path: '/api/state' })
     ).body as {

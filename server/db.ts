@@ -1,19 +1,19 @@
-import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { openSqlite } from './driver-sqlite.ts';
+import type { Db, Dialect } from './driver.ts';
 
 /**
- * SatzWerk's durable store.
+ * SatzWerk's schema.
  *
- * SQLite through Node's built-in `node:sqlite` driver: a real database file on
- * disk, no native modules to compile. Progress therefore survives a refresh, a
- * restart and a browser cache clear, which browser storage would not.
+ * Progress survives a refresh, a restart and a browser cache clear, because it
+ * lives in a real database rather than in browser storage. Which database
+ * depends on where the app is running — see `driver.ts` — but the schema below
+ * is written once.
  *
- * Migrations are plain numbered steps applied inside a transaction. `schema_version`
- * in `meta` records how far we have got.
+ * Migrations are plain numbered steps applied inside a transaction.
+ * `schema_version` in `meta` records how far we have got.
  */
 
-export type Db = DatabaseSync;
+export type { Db } from './driver.ts';
 
 interface Migration {
   version: number;
@@ -158,32 +158,56 @@ const MIGRATIONS: Migration[] = [
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
 
-function currentVersion(db: Db): number {
-  const tables = db
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'meta'")
-    .all();
-  if (tables.length === 0) return 0;
-  const row = db.prepare('SELECT value FROM meta WHERE key = ?').get('schema_version') as
-    | { value: string }
-    | undefined;
+/**
+ * The three places the two dialects genuinely disagree.
+ *
+ * Everything else in the schema above — TEXT, INTEGER, CHECK, REFERENCES, and
+ * the eight ON CONFLICT clauses — means the same thing in both, so the schema
+ * is not written twice. Booleans stay INTEGER 0/1 in Postgres too, which keeps
+ * the row shapes identical and the reading code unchanged.
+ */
+function forDialect(sql: string, dialect: Dialect): string {
+  if (dialect === 'sqlite') return sql;
+  return sql.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'BIGSERIAL PRIMARY KEY');
+}
+
+/** Does the `meta` table exist yet? Asked differently by each dialect. */
+async function metaExists(db: Db): Promise<boolean> {
+  const sql =
+    db.dialect === 'sqlite'
+      ? "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'meta'"
+      : "SELECT table_name AS name FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'meta'";
+  const row = await db.get<{ name: string }>(sql);
+  return row !== undefined;
+}
+
+async function currentVersion(db: Db): Promise<number> {
+  if (!(await metaExists(db))) return 0;
+  const row = await db.get<{ value: string }>('SELECT value FROM meta WHERE key = ?', 'schema_version');
   return row ? Number(row.value) : 0;
 }
 
-export function migrate(db: Db): number {
-  let version = currentVersion(db);
+/** Record the version reached. SQLite and Postgres spell an upsert differently. */
+async function recordVersion(db: Db, version: number): Promise<void> {
+  const sql =
+    db.dialect === 'sqlite'
+      ? 'INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)'
+      : `INSERT INTO meta (key, value) VALUES (?, ?)
+         ON CONFLICT (key) DO UPDATE SET value = excluded.value`;
+  await db.run(sql, 'schema_version', String(version));
+}
+
+export async function migrate(db: Db): Promise<number> {
+  let version = await currentVersion(db);
   for (const migration of MIGRATIONS) {
     if (migration.version <= version) continue;
-    db.exec('BEGIN');
     try {
-      db.exec(migration.sql);
-      db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run(
-        'schema_version',
-        String(migration.version),
-      );
-      db.exec('COMMIT');
+      await db.transaction(async () => {
+        await db.exec(forDialect(migration.sql, db.dialect));
+        await recordVersion(db, migration.version);
+      });
       version = migration.version;
     } catch (error) {
-      db.exec('ROLLBACK');
       throw new Error(
         `Migration ${migration.version} (${migration.name}) failed: ${(error as Error).message}`,
       );
@@ -193,28 +217,44 @@ export function migrate(db: Db): number {
 }
 
 export interface OpenOptions {
-  /** A file path, or ':memory:' for tests. */
+  /** A file path, or ':memory:' for tests. Ignored when a Postgres URL is set. */
   path?: string;
+  /** A Postgres connection string. Defaults to DATABASE_URL when present. */
+  databaseUrl?: string;
 }
 
-export function openDatabase(options: OpenOptions = {}): Db {
-  const path = options.path ?? process.env.SATZWERK_DB ?? 'data/satzwerk.db';
-  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
-
-  const db = new DatabaseSync(path);
-  db.exec('PRAGMA journal_mode = WAL');
-  db.exec('PRAGMA foreign_keys = ON');
-  migrate(db);
-  seedProfile(db);
+/**
+ * Open the database, run the migrations and make sure the profile row exists.
+ *
+ * A Postgres URL wins when one is given or set in the environment, because
+ * that is the signal that this is a hosted deployment. Otherwise it is SQLite,
+ * so local development and the tests need no configuration at all.
+ */
+export async function openDatabase(options: OpenOptions = {}): Promise<Db> {
+  const url = options.databaseUrl ?? (options.path ? undefined : process.env.DATABASE_URL);
+  const db = url ? await openPostgresDriver(url) : openSqlite({ path: options.path });
+  await migrate(db);
+  await seedProfile(db);
   return db;
 }
 
+/**
+ * Loaded on demand so that the Postgres driver — and its dependency — are
+ * never touched locally or by the tests.
+ */
+async function openPostgresDriver(url: string): Promise<Db> {
+  const { openPostgres } = await import('./driver-postgres.ts');
+  return openPostgres(url);
+}
+
 /** Ensure the single profile row exists, so reads never have to handle null. */
-function seedProfile(db: Db): void {
+async function seedProfile(db: Db): Promise<void> {
   const now = new Date().toISOString();
-  db.prepare(
+  await db.run(
     `INSERT INTO profile (id, teaching_language, daily_target_minutes, onboarded, created_at, updated_at)
      VALUES (1, 'en', 20, 0, ?, ?)
      ON CONFLICT (id) DO NOTHING`,
-  ).run(now, now);
+    now,
+    now,
+  );
 }

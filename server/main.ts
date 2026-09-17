@@ -17,7 +17,7 @@ const PORT = Number(process.env.PORT ?? 8787);
 const DIST = resolve('dist');
 const MAX_BODY_BYTES = 256 * 1024;
 
-const db = openDatabase();
+const db = await openDatabase();
 const provider = createProvider();
 
 const MIME: Record<string, string> = {
@@ -133,7 +133,11 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   const mode = existsSync(DIST) ? 'serving ./dist' : 'API only (run the Vite dev server for the UI)';
   console.log(`[satzwerk] listening on http://localhost:${PORT} — ${mode}`);
-  console.log(`[satzwerk] database: ${process.env.SATZWERK_DB ?? 'data/satzwerk.db'}`);
+  console.log(
+    `[satzwerk] database: ${
+      db.dialect === 'postgres' ? 'postgres (DATABASE_URL)' : (process.env.SATZWERK_DB ?? 'data/satzwerk.db')
+    }`,
+  );
   if (!provider.available) {
     console.log('[satzwerk] German Coach: rule-based checks only, no AI provider configured.');
   }
@@ -141,8 +145,7 @@ server.listen(PORT, () => {
 
 function shutdown(): void {
   server.close(() => {
-    db.close();
-    process.exit(0);
+    void db.close().finally(() => process.exit(0));
   });
 }
 

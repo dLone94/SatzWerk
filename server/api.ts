@@ -30,7 +30,15 @@ export interface ApiContext {
 const TEACHING_LANGUAGES = new Set<string>(['en', 'bg']);
 const GRADES = new Set<string>(['again', 'hard', 'good', 'easy']);
 
-function ok(body: unknown): ApiResponse {
+/**
+ * A 200 with a JSON body.
+ *
+ * The `never` guard is load-bearing: `body` used to be `unknown`, so passing an
+ * un-awaited store call type-checked fine and then serialised as `{}`. Every
+ * store function is async now, and this turns forgetting an await into a
+ * compile error rather than an empty response.
+ */
+function ok<T>(body: T extends Promise<unknown> ? never : T): ApiResponse {
   return { status: 200, body };
 }
 
@@ -46,17 +54,34 @@ function asRecord(body: unknown): Record<string, unknown> {
   return body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
 }
 
-/** Everything the client needs to render the whole app, in one round trip. */
-export function fullState(db: Db) {
+/**
+ * Everything the client needs to render the whole app, in one round trip.
+ *
+ * The eight queries are independent, so they go out together. Awaiting them one
+ * after another would be eight sequential round trips to a hosted database on
+ * every page load.
+ */
+export async function fullState(db: Db) {
+  const [profile, lessons, reviewItems, mistakes, favorites, stats, studyDays, checkpointResults] =
+    await Promise.all([
+      await store.getProfile(db),
+      await store.getAllLessonProgress(db),
+      await store.listReviewItems(db),
+      await store.listMistakes(db),
+      await store.listFavorites(db),
+      await store.getStats(db),
+      await store.listStudyDays(db, 60),
+      await store.listCheckpointResults(db),
+    ]);
   return {
-    profile: store.getProfile(db),
-    lessons: store.getAllLessonProgress(db),
-    reviewItems: store.listReviewItems(db),
-    mistakes: store.listMistakes(db),
-    favorites: store.listFavorites(db),
-    stats: store.getStats(db),
-    studyDays: store.listStudyDays(db, 60),
-    checkpointResults: store.listCheckpointResults(db),
+    profile,
+    lessons,
+    reviewItems,
+    mistakes,
+    favorites,
+    stats,
+    studyDays,
+    checkpointResults,
     serverTime: new Date().toISOString(),
   };
 }
@@ -77,11 +102,11 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   }
 
   if (route.length === 1 && route[0] === 'state' && method === 'GET') {
-    return ok(fullState(db));
+    return ok(await fullState(db));
   }
 
   if (route.length === 1 && route[0] === 'profile') {
-    if (method === 'GET') return ok(store.getProfile(db));
+    if (method === 'GET') return ok(await store.getProfile(db));
     if (method === 'PUT' || method === 'PATCH') {
       const body = asRecord(request.body);
       const patch: store.ProfilePatch = {};
@@ -100,7 +125,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
         patch.displayName = body.displayName === null ? null : String(body.displayName).slice(0, 80);
       }
       if (body.onboarded !== undefined) patch.onboarded = Boolean(body.onboarded);
-      return ok(store.updateProfile(db, patch));
+      return ok(await store.updateProfile(db, patch));
     }
   }
 
@@ -108,17 +133,17 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     const body = asRecord(request.body);
     const validation = validateAttempt(body);
     if ('error' in validation) return badRequest(validation.error);
-    const result = store.recordAttempt(db, validation.input);
-    return ok({ ...result, stats: store.getStats(db) });
+    const result = await store.recordAttempt(db, validation.input);
+    return ok({ ...result, stats: await store.getStats(db) });
   }
 
   if (route[0] === 'lessons' && route[1]) {
     const lessonId = decodeURIComponent(route[1]);
     if (route.length === 2 && method === 'GET') {
-      return ok(store.getLessonProgress(db, lessonId));
+      return ok(await store.getLessonProgress(db, lessonId));
     }
     if (route.length === 4 && route[2] === 'sections' && method === 'POST') {
-      return ok(store.markSectionSeen(db, lessonId, decodeURIComponent(route[3]!)));
+      return ok(await store.markSectionSeen(db, lessonId, decodeURIComponent(route[3]!)));
     }
     if (route.length === 3 && route[2] === 'mastery' && method === 'POST') {
       const body = asRecord(request.body);
@@ -127,29 +152,29 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       if (!Number.isFinite(accuracy) || !Number.isFinite(passAccuracy)) {
         return badRequest('accuracy and passAccuracy are required numbers');
       }
-      return ok(store.recordMastery(db, lessonId, accuracy, passAccuracy));
+      return ok(await store.recordMastery(db, lessonId, accuracy, passAccuracy));
     }
     if (route.length === 3 && route[2] === 'recovery' && method === 'POST') {
-      return ok(store.recordRecoveryRound(db, lessonId));
+      return ok(await store.recordRecoveryRound(db, lessonId));
     }
     if (route.length === 3 && route[2] === 'complete' && method === 'POST') {
-      return ok(store.completeLesson(db, lessonId));
+      return ok(await store.completeLesson(db, lessonId));
     }
   }
 
   if (route[0] === 'reviews') {
-    if (route.length === 1 && method === 'GET') return ok(store.listReviewItems(db));
+    if (route.length === 1 && method === 'GET') return ok(await store.listReviewItems(db));
     if (route.length === 2 && route[1] === 'ensure' && method === 'POST') {
       const body = asRecord(request.body);
       const targets = Array.isArray(body.targets) ? (body.targets as store.TargetSpec[]) : [];
-      const created = store.ensureReviewItems(db, targets);
-      return ok({ created, reviewItems: store.listReviewItems(db) });
+      const created = await store.ensureReviewItems(db, targets);
+      return ok({ created, reviewItems: await store.listReviewItems(db) });
     }
     if (route.length === 3 && route[2] === 'grade' && method === 'POST') {
       const body = asRecord(request.body);
       const grade = String(body.grade);
       if (!GRADES.has(grade)) return badRequest('grade must be again, hard, good or easy');
-      const item = store.gradeReviewItem(db, decodeURIComponent(route[1]!), grade as RecallGrade);
+      const item = await store.gradeReviewItem(db, decodeURIComponent(route[1]!), grade as RecallGrade);
       if (!item) return notFound('Review item not found');
       return ok(item);
     }
@@ -157,24 +182,24 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
 
   if (route[0] === 'mistakes') {
     if (route.length === 1 && method === 'GET') {
-      return ok(store.listMistakes(db, true));
+      return ok(await store.listMistakes(db, true));
     }
     if (route.length === 3 && route[2] === 'resolve' && method === 'POST') {
-      store.resolveMistake(db, decodeURIComponent(route[1]!));
-      return ok(store.listMistakes(db));
+      await store.resolveMistake(db, decodeURIComponent(route[1]!));
+      return ok(await store.listMistakes(db));
     }
   }
 
   if (route[0] === 'vocabulary' && route.length === 3 && route[2] === 'favorite' && method === 'POST') {
     const body = asRecord(request.body);
-    store.setFavorite(db, decodeURIComponent(route[1]!), Boolean(body.favorite));
-    return ok({ favorites: store.listFavorites(db) });
+    await store.setFavorite(db, decodeURIComponent(route[1]!), Boolean(body.favorite));
+    return ok({ favorites: await store.listFavorites(db) });
   }
 
   if (route.length === 1 && route[0] === 'checkpoints' && method === 'POST') {
     const body = asRecord(request.body);
     if (!body.checkpointId) return badRequest('checkpointId is required');
-    store.recordCheckpointResult(db, {
+    await store.recordCheckpointResult(db, {
       checkpointId: String(body.checkpointId),
       scope: String(body.scope ?? 'unit'),
       targetId: String(body.targetId ?? ''),
@@ -182,19 +207,19 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       passed: Boolean(body.passed),
       detail: body.detail,
     });
-    return ok({ results: store.listCheckpointResults(db) });
+    return ok({ results: await store.listCheckpointResults(db) });
   }
 
   if (route.length === 1 && route[0] === 'study' && method === 'POST') {
     const body = asRecord(request.body);
     const seconds = Number(body.seconds ?? 0);
     if (!Number.isFinite(seconds)) return badRequest('seconds must be a number');
-    store.addStudyTime(db, seconds);
-    return ok({ stats: store.getStats(db), studyDays: store.listStudyDays(db, 60) });
+    await store.addStudyTime(db, seconds);
+    return ok({ stats: await store.getStats(db), studyDays: await store.listStudyDays(db, 60) });
   }
 
   if (route.length === 1 && route[0] === 'attempts-recent' && method === 'GET') {
-    return ok(store.listRecentAttempts(db, 50));
+    return ok(await store.listRecentAttempts(db, 50));
   }
 
   if (route[0] === 'coach') {
@@ -235,8 +260,8 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   }
 
   if (route.length === 1 && route[0] === 'reset' && method === 'POST') {
-    store.resetAll(db);
-    return ok(fullState(db));
+    await store.resetAll(db);
+    return ok(await fullState(db));
   }
 
   return notFound(`No route for ${method} ${path}`);
