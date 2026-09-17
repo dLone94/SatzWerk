@@ -156,6 +156,8 @@ export const UI = {
   ),
   exerciseTypeAnswer: s('Type your answer in German', 'Напиши отговора си на немски'),
   exerciseEnterToSubmit: s('Enter to check', 'Enter за проверка'),
+  // Free writing needs newlines, so Enter cannot submit there.
+  exerciseCtrlEnterToSubmit: s('Ctrl+Enter to check', 'Ctrl+Enter за проверка'),
   exerciseEnterToContinue: s('Enter to continue', 'Enter за напред'),
   exercisePlayAudio: s('Play', 'Пусни'),
   exercisePlaySlow: s('Slow', 'Бавно'),

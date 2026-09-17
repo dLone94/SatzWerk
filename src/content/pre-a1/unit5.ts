@@ -265,12 +265,14 @@ const lesson1: Lesson = {
         {
           prompt: bi('At the weekend I am at home.', 'През уикенда съм вкъщи.'),
           answer: 'Am Wochenende bin ich zu Hause.',
+          alternatives: ['Ich bin am Wochenende zu Hause.'],
           reviewTargets: ['v-das-wochenende'],
           hints: [bi('The verb is sein.', 'Глаголът е sein.')],
         },
         {
           prompt: bi('Tomorrow I am working in Hamburg.', 'Утре работя в Хамбург.'),
           answer: 'Morgen arbeite ich in Hamburg.',
+          alternatives: ['Ich arbeite morgen in Hamburg.'],
           reviewTargets: ['v-morgen', 'v-arbeiten'],
           hints: [bi('Five words. Verb second again.', 'Пет думи. Глаголът пак е втори.')],
         },
@@ -393,7 +395,7 @@ const lesson2: Lesson = {
           t: 'callout',
           tone: 'warn',
           text: bi(
-            'Three to listen to carefully: März has the ä sound, Juni and Juli sound almost identical, and August is stressed on the second syllable — ow-GOOST.',
+            'Three to listen to carefully: März has the ä sound, Juni and Juli sound almost identical, and August is stressed on the second syllable — ow-GUST.',
             'Три за внимателно слушане: März има звука ä, Juni и Juli звучат почти еднакво, а August е с ударение на втората сричка — ау-ГУСТ.',
           ),
         },
@@ -518,6 +520,7 @@ const lesson2: Lesson = {
         {
           prompt: bi('In December I am in Bulgaria.', 'През декември съм в България.'),
           answer: 'Im Dezember bin ich in Bulgarien.',
+          alternatives: ['Ich bin im Dezember in Bulgarien.'],
           reviewTargets: ['v-dezember'],
           hints: [],
         },
@@ -668,7 +671,7 @@ const lesson3: Lesson = {
       blocks: [
         { t: 'de', de: 'Ich arbeite um acht Uhr.', gloss: bi('I work at eight o’clock.', 'Работя в осем часа.'), audio: true },
         { t: 'de', de: 'Um halb neun bin ich zu Hause.', gloss: bi('At half past eight I am at home.', 'В осем и половина съм вкъщи.'), audio: true },
-        { t: 'de', de: 'Der Termin ist um Viertel vor zehn.', gloss: bi('The appointment is at quarter to ten.', 'Часът е за десет без петнайсет.'), audio: true },
+        { t: 'de', de: 'Der Termin ist um Viertel vor zehn.', gloss: bi('The appointment is at quarter to ten.', 'Срещата е за десет без петнайсет.'), audio: true },
         {
           t: 'callout',
           tone: 'tip',
@@ -737,7 +740,7 @@ const lesson3: Lesson = {
         answer: 'Uhr',
         shape: 'word',
         reviewTargets: ['v-die-uhr', 'p-es-ist-uhr'],
-        hints: [bi('German never leaves this word out.', 'Немският никога не пропуска тази дума.')],
+        hints: [bi('With a full hour, German keeps this word.', 'При цял час немският запазва тази дума.')],
       },
       {
         prompt: bi('It is 7:30.', 'Часът е 7:30.'),

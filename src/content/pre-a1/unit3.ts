@@ -73,7 +73,7 @@ const lesson1: Lesson = {
           t: 'p',
           text: bi(
             'Zero to twelve have to be learnt one by one. From thirteen it becomes a pattern.',
-            'От нула до дванайсет трябва да се научат една по една. От тринайсет става модел.',
+            'Числата от нула до дванайсет трябва да се научат едно по едно. От тринайсет започва модел.',
           ),
         },
       ],
@@ -355,8 +355,8 @@ const lesson2: Lesson = {
         {
           t: 'p',
           text: bi(
-            'Most tens are simply the digit plus -zig. Two are irregular: dreißig is spelled with ß, and sechzig and siebzig shorten the same way as sechzehn and siebzehn.',
-            'Повечето десетици са просто цифрата плюс -zig. Две са неправилни: dreißig се пише с ß, а sechzig и siebzig се съкращават като sechzehn и siebzehn.',
+            'Most tens are simply the digit plus -zig. Three break the pattern: dreißig is spelled with ß, and sechzig and siebzig shorten the same way as sechzehn and siebzehn.',
+            'Повечето десетици са просто цифрата плюс -zig. Три се отклоняват от модела: dreißig се пише с ß, а sechzig и siebzig се съкращават като sechzehn и siebzehn.',
           ),
         },
         {

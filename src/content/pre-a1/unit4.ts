@@ -377,7 +377,7 @@ const lesson2: Lesson = {
   order: 2,
   status: 'available',
   estimatedMinutes: 20,
-  title: bi('Nationality and work', 'Национална принадлежност и работа'),
+  title: bi('Nationality and work', 'Националност и работа'),
   objective: bi(
     'After this lesson you will be able to say what nationality you are and what you do for a living — without an article, the way German does it.',
     'След този урок ще можеш да кажеш какъв си по националност и с какво се занимаваш — без член, както го прави немският.',
@@ -464,8 +464,8 @@ const lesson2: Lesson = {
         {
           t: 'list',
           items: [
-            bi('Ich bin Lehrer. — no article, ever.', 'Ich bin Lehrer. — никога с член.'),
-            bi('A woman adds -in: Lehrerin, Ärztin, Bulgarin.', 'Жена добавя -in: Lehrerin, Ärztin, Bulgarin.'),
+            bi('Ich bin Lehrer. — a bare profession takes no article.', 'Ich bin Lehrer. — професия сама по себе си е без член.'),
+            bi('A woman ends in -in: Lehrerin, Ärztin (umlaut too), Bulgarin (the -e drops).', 'Жена завършва на -in: Lehrerin, Ärztin (и умлаут), Bulgarin (пада -e).'),
             bi('Was machst du beruflich? / Was sind Sie von Beruf?', 'Was machst du beruflich? / Was sind Sie von Beruf?'),
           ],
         },

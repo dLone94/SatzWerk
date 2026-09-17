@@ -106,7 +106,7 @@ const lesson1: Lesson = {
           tone: 'warn',
           text: bi(
             '"Gute Nacht" is NOT an evening greeting. It is only said when someone is going to bed. Saying it when you arrive somewhere at 20:00 is a classic beginner mistake.',
-            '„Gute Nacht“ НЕ е вечерен поздрав. Казва се само когато някой отива да спи. Да го кажеш, влизайки някъде в 20:00, е класическа начинаеща грешка.',
+            '„Gute Nacht“ НЕ е вечерен поздрав. Казва се само когато някой отива да спи. Да го кажеш, влизайки някъде в 20:00, е класическа грешка за начинаещи.',
           ),
         },
       ],
@@ -160,7 +160,7 @@ const lesson1: Lesson = {
           only: ['bg'],
           text: bi(
             '',
-            'Разликата от България е реална: тук поздравът при влизане в магазин е почти задължителен, а не по желание. Един „Guten Tag“ променя изцяло тона на разговора.',
+            'Разликата от България е реална: в Германия поздравът при влизане в магазин е почти задължителен, а не по желание. Един „Guten Tag“ променя изцяло тона на разговора.',
           ),
         },
         {
@@ -482,7 +482,7 @@ const lesson2: Lesson = {
           tone: 'tip',
           text: bi(
             'In spoken German you will mostly hear the short form "Wie geht’s?". Unlike in English, this is a real question — a one-word answer is normal, but so is a real one.',
-            'В говоримия немски най-често ще чуеш кратката форма „Wie geht’s?“. За разлика от английското „How are you?“, тук това е истински въпрос — кратък отговор е нормален, но и истинският е добре дошъл.',
+            'В говоримия немски най-често ще чуеш кратката форма „Wie geht’s?“. Както и българското „Как си?“, това е истински въпрос — кратък отговор е нормален, но и истинският е добре дошъл.',
           ),
         },
       ],

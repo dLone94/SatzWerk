@@ -417,7 +417,10 @@ export function ExercisePlayer({
         </p>
       ) : null}
 
-      <div className="task">
+      {/* The ids are here so an end-to-end harness can tell which authored step
+          it is looking at, rather than having to predict the sequence the
+          adaptive ladder produces. */}
+      <div className="task" data-step-id={step.id} data-exercise-id={exercise.id} data-kind={exercise.kind}>
         {step.instruction ? <p className="task__instruction">{say(step.instruction)}</p> : null}
 
         {hideText ? (
@@ -566,7 +569,7 @@ export function ExercisePlayer({
               </button>
             ) : null}
             <span className="task__keyhint" id="player-keyhint">
-              {t('exerciseEnterToSubmit')}
+              {t(isFree ? 'exerciseCtrlEnterToSubmit' : 'exerciseEnterToSubmit')}
             </span>
           </div>
         ) : null}

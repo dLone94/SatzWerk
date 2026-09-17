@@ -251,6 +251,28 @@ describe('authored answers are consistent with the validator', () => {
     expect(failures).toEqual([]);
   });
 
+  it('accepts both word orders when an answer fronts a time phrase', () => {
+    // German allows "Am Montag arbeite ich" and "Ich arbeite am Montag", and
+    // both are right. A typing task that takes only one of them marks correct
+    // German wrong, so any answer starting with a time phrase needs the
+    // subject-first order as an alternative. Dictation is exempt (the learner
+    // hears one exact sentence) and so is free writing (checked by tokens).
+    const fronted = /^(Am |Im |Um |Heute |Morgen |Jetzt )/;
+    const failures: string[] = [];
+    for (const { exercise } of allExercises()) {
+      if (exercise.kind !== 'type' && exercise.kind !== 'fillBlank' && exercise.kind !== 'partialRecall') continue;
+      for (const step of exercise.steps) {
+        const answer = step.answer.accepted[0] ?? '';
+        // A question has to front its question word, and a gap fixes the order.
+        if (!fronted.test(answer) || answer.endsWith('?') || step.scaffold) continue;
+        if ((step.answer.alternatives ?? []).length === 0) {
+          failures.push(`${step.id}: ${JSON.stringify(answer)} has no subject-first alternative`);
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
   it('never glues a scaffold tail onto the gap', () => {
     // The player renders "before [input] after" and seeds the input with the
     // scaffold's leading letters, so whatever the learner types is graded as the

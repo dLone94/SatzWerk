@@ -83,7 +83,7 @@ const lesson1: Lesson = {
             ['w', bi('English v', 'българско в'), 'wohnen — VOH-nen'],
             ['v', bi('English f', 'българско ф'), 'vier — FEER'],
             ['z', bi('ts', 'ц'), 'zwei — TSVY'],
-            ['s', bi('z between vowels', 'з между гласни'), 'lesen — LAY-zen'],
+            ['s', bi('z before a vowel', 'з пред гласна'), 'lesen — LAY-zen, sieben — ZEE-ben'],
             ['ei', bi('like "eye"', 'ай'), 'heißen — HY-sen'],
             ['ie', bi('like "ee"', 'и'), 'vier — FEER'],
           ],
@@ -92,7 +92,7 @@ const lesson1: Lesson = {
           t: 'callout',
           tone: 'warn',
           text: bi(
-            'The last two rows catch everyone: "ei" is said "eye", and "ie" is said "ee". So "heißen" rhymes with "nicen" and "vier" sounds like "fear".',
+            'The last two rows catch everyone: "ei" is said "eye", and "ie" is said "ee". So "heißen" begins like the English word "nice", and "vier" sounds like "fear".',
             'Последните два реда объркват всички: „ei“ се чете „ай“, а „ie“ се чете „и“. Значи „heißen“ е „хайсен“, а „vier“ е „фир“.',
           ),
         },
@@ -124,6 +124,14 @@ const lesson1: Lesson = {
           caption: bi(
             'SatzWerk accepts the left column, then shows you the right one and asks you to retype it.',
             'SatzWerk приема лявата колона, после ти показва дясната и иска да я напишеш отново.',
+          ),
+        },
+        {
+          t: 'callout',
+          tone: 'warn',
+          text: bi(
+            'That last row is a typing shortcut, not a spelling rule. German uses ss and ß for different sounds: ß after a long vowel (heißen, Maße) and ss after a short one (Masse). So "ss" is how you reach ß on a keyboard that has none — it does not mean the two are interchangeable.',
+            'Последният ред е пряк път при писане, а не правописно правило. Немският използва ss и ß за различни звукове: ß след дълга гласна (heißen, Maße) и ss след кратка (Masse). Значи „ss“ е начин да стигнеш до ß на клавиатура без нея — не означава, че двете са взаимозаменяеми.',
           ),
         },
       ],

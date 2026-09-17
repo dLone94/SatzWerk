@@ -54,6 +54,7 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('I come from Bulgaria.', 'Аз съм от България.'),
         answer: 'Ich komme aus Bulgarien.',
+        alternatives: ['Ich bin aus Bulgarien.'],
         hints: [],
       },
       {
@@ -119,11 +120,13 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('It is 7:30.', 'Часът е седем и половина.'),
         answer: 'Es ist halb acht.',
+        alternatives: ['Es ist sieben Uhr dreißig.'],
         hints: [],
       },
       {
         prompt: bi('I work at eight o’clock.', 'Работя в осем часа.'),
         answer: 'Ich arbeite um acht Uhr.',
+        alternatives: ['Um acht Uhr arbeite ich.'],
         hints: [],
       },
     ]),

@@ -164,8 +164,8 @@ const MONEY_AND_QUANTITY: VocabEntry[] = [
       { de: 'Jahre alt', gloss: { en: 'years old', bg: 'години (за възраст)' } },
     ],
     notes: {
-      en: 'German says "thirty years old", with the plural Jahre, and never leaves it out.',
-      bg: 'Немският казва „thirty Jahre alt“ с множествено число и никога не го пропуска, докато българският казва просто „на трийсет“.',
+      en: 'German says "dreißig Jahre alt", with the plural Jahre. In speech the phrase is often shortened to just "Ich bin dreißig", but write it out in full while you are learning it.',
+      bg: 'Немският казва „dreißig Jahre alt“ с множествено число, докато българският казва просто „на трийсет“. В говора немците често съкращават на „Ich bin dreißig“, но докато учиш, пиши целия израз.',
     },
   },
   {

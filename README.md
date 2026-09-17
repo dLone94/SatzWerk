@@ -63,16 +63,16 @@ level checkpoint.**
 
 | Unit | Lessons | What it teaches |
 | --- | --- | --- |
-| 1. Welcome to German | Sounds and four extra letters · Nouns: capital letters and der/die/das | ä ö ü ß, w/v/z/s, ei versus ie, typing the special letters; noun capitalisation, three genders, ein/eine, article + noun as one unit |
+| 1. Welcome to German | Sounds and four extra letters · Nouns: capital letters and der / die / das | ä ö ü ß, w/v/z/s, ei versus ie, typing the special letters; noun capitalisation, three genders, ein/eine, article + noun as one unit |
 | 2. First words, first sentences | Hello and goodbye · Please, thank you, excuse me · Introducing yourself · Where you come from, where you live | greetings by time of day, formal versus informal farewells; danke, bitte's three jobs, Entschuldigung; heißen and sein, du versus Sie; kommen/wohnen, aus versus von, wo versus woher, verb in second position |
-| 3. Numbers and quantities | Zero to twenty · Tens, and numbers back to front · Asking how much and how many | 0–20 including the irregular sechzehn and siebzehn; the tens, and why 21 is *einundzwanzig*; wie viel versus wie viele, kosten, prices |
-| 4. Personal information | Saying how old you are · Jobs, without an article · Family, and the first case | sein with numbers, Wie alt bist du?; *Ich bin Lehrer* with no article; haben, and *ein* → *einen* in the accusative |
-| 5. Time and calendar | The seven days · The twelve months · Telling the time | all seven days (all masculine), am Montag; months, im Januar, dates; Wie viel Uhr ist es?, and why *halb acht* is 7:30 |
-| 6. First grammar consolidation | The pronoun table · Saying no: nicht and kein · Asking questions | all six persons in one table with sein, haben, wohnen; nicht versus kein/keine/keinen; W-questions versus yes/no inversion |
+| 3. Numbers and quantities | Zero to twenty · Twenty to a hundred · Age, prices and phone numbers | 0–20 including the irregular sechzehn and siebzehn; the tens, and why 21 is *einundzwanzig*; sein with an age, wie viel versus wie viele, kosten, reading a number out over the phone |
+| 4. Personal information | Countries and languages · Nationality and work · Family, and the verb haben | country names with and without an article (aus der Schweiz); *Ich bin Lehrer* with no article, and how the -in form is built; haben, and *ein* → *einen* in the accusative |
+| 5. Time and calendar | Days of the week · Months and birthdays · Telling the time | all seven days (all masculine), am Montag and the verb back in second place; months, im Mai, Wann hast du Geburtstag?; Wie viel Uhr ist es?, and why *halb acht* is 7:30 |
+| 6. First grammar consolidation | All the pronouns, sein and haben · Plurals and saying no · Asking questions | all nine pronouns in one table with sein and haben, and why er/sie/es follow the article; plurals and their die, nicht versus kein/keine/keinen; W-questions versus yes/no inversion |
 | | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
 | | **Pre-A1 level checkpoint** | draws on all six units, 80% to pass, and offers no hints at all |
 
-That is 155 vocabulary entries, 18 grammar concepts, 163 exercises and **484
+Across those 18 lessons that is 155 vocabulary entries, 18 grammar concepts, 163 exercises and **484
 answer tasks** (including all seven checkpoints), across 94 teaching sections,
 all authored in both paths. Only 3.5% of those tasks are multiple choice; the
 rest require typing German. 44 of them carry an authored trap answer — a
@@ -257,6 +257,36 @@ fix.
 `tests/core/i18n.test.ts` does the same for the interface strings: both paths
 filled in for every key, the same placeholders in both, nothing left
 unsubstituted, and counters that read `1 ден` rather than `1 дни`.
+
+`tests/core/readme.test.ts` ties this file to the content it describes: every
+authored lesson title has to appear here, and the totals quoted above have to
+match the content. It exists because this README once advertised unit 3 and 4
+lessons that did not exist.
+
+### Every lesson has been played end to end
+
+The test suite grades content against the engine, which is not the same as
+using it. So every one of the 18 lessons and all 7 checkpoints has also been
+driven in Chromium, on both teaching paths, answering all 484 tasks with the
+authored answer and checking that each one is accepted, that the task says what
+it wants, and that the run releases. Then the 37 steps carrying an authored trap
+were driven a second time with the wrong form the author predicted, checking
+that the right category is tagged, an explanation appears in the learner's
+language, the correction shows the taught form, and the retype gate engages and
+then releases. Both passes finish clean with no console errors.
+
+`.task` carries `data-step-id`, `data-exercise-id` and `data-kind` so a harness
+can tell which authored step is on screen instead of predicting the sequence the
+adaptive ladder produces.
+
+That pass found what the test suite structurally could not: a partial-recall cue
+whose seed letters were never shown, a gap exercise that rendered its answer
+twice, counters reading "1 дни", and — in the content itself — a `nicht` example
+that contradicted the rule printed two lines above it, a claim that three
+irregular tens were "two", a rule for building feminine job titles that did not
+produce two of the three forms the exercises demand, a checkpoint that marked
+the correct `Ich bin aus Bulgarien` wrong, and the description of Bulgarian
+clock-telling being backwards.
 
 ---
 

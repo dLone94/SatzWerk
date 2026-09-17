@@ -143,8 +143,8 @@ export const GRAMMAR_CONCEPTS_2: GrammarConcept[] = [
     title: bi('No article with a profession', 'Без член при професия'),
     level: 'pre-a1',
     summary: bi(
-      'Ich bin Lehrer — never "ein Lehrer".',
-      'Ich bin Lehrer — никога „ein Lehrer“.',
+      'Ich bin Lehrer — a bare profession takes no article.',
+      'Ich bin Lehrer — професия сама по себе си е без член.',
     ),
     tags: ['articles', 'work'],
     blocks: [
@@ -187,18 +187,19 @@ export const GRAMMAR_CONCEPTS_2: GrammarConcept[] = [
       {
         t: 'p',
         text: bi(
-          'One more thing worth getting right: professions and nationalities have a feminine form in -in, and it is not optional. A woman is Lehrerin, Ärztin, Bulgarin.',
-          'Още нещо важно: професиите и националностите имат женска форма на -in и тя не е по избор. Жена е Lehrerin, Ärztin, Bulgarin.',
+          'One more thing worth getting right: professions and nationalities have a feminine form in -in, and it is not optional. The ending is always -in, but the word in front of it can change too: most words just take the ending, a few also take an umlaut, and a word already ending in -e drops that -e first.',
+          'Още нещо важно: професиите и националностите имат женска форма на -in и тя не е по избор. Окончанието винаги е -in, но думата пред него също може да се промени: повечето думи просто взимат окончанието, няколко получават и умлаут, а дума, която вече завършва на -e, първо изпуска това -e.',
         ),
       },
       {
         t: 'table',
-        headers: [bi('Man', 'Мъж'), bi('Woman', 'Жена')],
+        headers: [bi('Man', 'Мъж'), bi('Woman', 'Жена'), bi('What changed', 'Какво се промени')],
         rows: [
-          ['der Lehrer', 'die Lehrerin'],
-          ['der Arzt', 'die Ärztin'],
-          ['der Bulgare', 'die Bulgarin'],
-          ['der Student', 'die Studentin'],
+          ['der Lehrer', 'die Lehrerin', bi('just the ending', 'само окончанието')],
+          ['der Verkäufer', 'die Verkäuferin', bi('just the ending', 'само окончанието')],
+          ['der Student', 'die Studentin', bi('just the ending', 'само окончанието')],
+          ['der Arzt', 'die Ärztin', bi('the ending plus an umlaut', 'окончанието плюс умлаут')],
+          ['der Bulgare', 'die Bulgarin', bi('the -e drops first', 'първо пада -e')],
         ],
       },
       {
@@ -397,7 +398,16 @@ export const GRAMMAR_CONCEPTS_2: GrammarConcept[] = [
         ),
       },
       { t: 'de', de: 'Ich habe keine Kinder.', gloss: bi('I have no children.', 'Нямам деца.'), audio: true },
-      { t: 'de', de: 'Ich spreche nicht Englisch.', gloss: bi('I do not speak English.', 'Не говоря английски.'), audio: true },
+      { t: 'de', de: 'Ich arbeite heute nicht.', gloss: bi('I am not working today.', 'Днес не работя.'), audio: true },
+      {
+        t: 'callout',
+        tone: 'warn',
+        title: bi('Languages are nouns', 'Езиците са съществителни'),
+        text: bi(
+          'A language name is a noun, so it is negated with kein, not nicht: Ich spreche kein Englisch. "Ich spreche nicht Englisch" is only said to correct someone — "not English, German".',
+          'Името на език е съществително, затова се отрича с kein, а не с nicht: Ich spreche kein Englisch. „Ich spreche nicht Englisch“ се казва само за да поправиш някого — „не английски, а немски“.',
+        ),
+      },
       {
         t: 'callout',
         tone: 'warn',
@@ -616,7 +626,7 @@ export const GRAMMAR_CONCEPTS_2: GrammarConcept[] = [
         only: ['bg'],
         text: bi(
           '',
-          'Българският брои назад от изминалия час: „осем и половина“. Немският брои напред към следващия: „halb neun“. Същият момент, противоположна логика. Трик за запомняне: немското число винаги е с едно ПОВЕЧЕ от българското.',
+          'Българският се опира на изминалия час и добавя: „осем и половина“. Немският се опира на идващия час: „halb neun“. Същият момент, противоположна отправна точка. Трик за запомняне: немското число винаги е с едно ПОВЕЧЕ от българското.',
         ),
       },
       {
@@ -698,8 +708,8 @@ export const GRAMMAR_CONCEPTS_2: GrammarConcept[] = [
         t: 'callout',
         tone: 'tip',
         text: bi(
-          'Notice the pattern: wir, sie and Sie always share the same verb form, which is the infinitive. That is three of the nine forms you get for free.',
-          'Забележи модела: wir, sie и Sie винаги имат същата глаголна форма, която е инфинитивът. Това са три от деветте форми, които получаваш безплатно.',
+          'Notice the pattern: wir, sie and Sie always share one form. For a regular verb that form is the infinitive (wir wohnen), and even sein keeps the three identical (wir sind, sie sind, Sie sind). That is three of the nine forms you get for free.',
+          'Забележи модела: wir, sie и Sie винаги имат една и съща форма. При правилен глагол това е инфинитивът (wir wohnen), а дори sein пази трите еднакви (wir sind, sie sind, Sie sind). Това са три от деветте форми, които получаваш безплатно.',
         ),
       },
     ],

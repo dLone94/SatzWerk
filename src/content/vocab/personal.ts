@@ -355,8 +355,8 @@ const OCCUPATIONS: VocabEntry[] = [
     difficulty: 2,
     related: ['v-die-lehrerin'],
     notes: {
-      en: 'No article with a profession: "Ich bin Lehrer", never "Ich bin ein Lehrer".',
-      bg: 'Без член при професия: „Ich bin Lehrer“, никога „Ich bin ein Lehrer“ — също като българското „Аз съм учител“.',
+      en: 'A bare profession takes no article: "Ich bin Lehrer", not "Ich bin ein Lehrer".',
+      bg: 'Професия сама по себе си е без член: „Ich bin Lehrer“, а не „Ich bin ein Lehrer“ — също като българското „Аз съм учител“.',
     },
   },
   {
