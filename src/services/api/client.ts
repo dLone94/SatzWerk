@@ -136,6 +136,7 @@ const BASE = '/api';
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {
     ...init,
+    credentials: 'same-origin',
     headers: {
       ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
       ...init?.headers,
@@ -156,9 +157,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const post = <T>(path: string, body?: unknown): Promise<T> =>
   request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
 
+export interface SessionState {
+  /** Whether this deployment asks for a password at all. */
+  required: boolean;
+  signedIn: boolean;
+}
+
 export const api = {
   health: () => request<{ ok: boolean }>('/health'),
   state: () => request<AppStateSnapshot>('/state'),
+
+  /** Public: answers before sign-in, so the app knows whether to ask. */
+  session: () => request<SessionState>('/session'),
+  login: (password: string) => post<SessionState>('/login', { password }),
+  logout: () => post<SessionState>('/logout'),
 
   updateProfile: (patch: Partial<Pick<Profile, 'teachingLanguage' | 'dailyTargetMinutes' | 'displayName' | 'onboarded'>>) =>
     request<Profile>('/profile', { method: 'PUT', body: JSON.stringify(patch) }),

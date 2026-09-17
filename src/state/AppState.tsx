@@ -20,6 +20,7 @@ import {
   type CoachStatus,
   type MistakeRecord,
   type Profile,
+  type SessionState,
   type Stats,
   type TargetSpec,
 } from '../services/api/client.ts';
@@ -36,6 +37,10 @@ import { createTtsProvider, type TtsProvider } from '../services/tts/index.ts';
 export interface AppStateValue {
   ready: boolean;
   error: string | null;
+  /** Whether this deployment needs a password, and whether we have one. */
+  session: SessionState;
+  signIn: (password: string) => Promise<void>;
+  signOut: () => Promise<void>;
   profile: Profile;
   lessons: Record<string, LessonProgress>;
   reviewItems: ReviewItem[];
@@ -126,6 +131,7 @@ const STUDY_FLUSH_MS = 60_000;
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [session, setSession] = useState<SessionState>({ required: false, signedIn: true });
   const [snapshot, setSnapshot] = useState<AppStateSnapshot | null>(null);
   const [coach, setCoach] = useState<CoachStatus | null>(null);
 
@@ -134,6 +140,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(async () => {
     try {
+      // `/session` is public, so it answers before sign-in. Asking first means
+      // a locked deployment shows a password prompt instead of an error page.
+      const current = await api.session();
+      setSession(current);
+      if (current.required && !current.signedIn) {
+        setError(null);
+        return;
+      }
       const [state, coachStatus] = await Promise.all([api.state(), api.coachStatus()]);
       setSnapshot(state);
       setCoach(coachStatus);
@@ -143,6 +157,21 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     } finally {
       setReady(true);
     }
+  }, []);
+
+  const signIn = useCallback(
+    async (password: string) => {
+      await api.login(password);
+      setReady(false);
+      await load();
+    },
+    [load],
+  );
+
+  const signOut = useCallback(async () => {
+    await api.logout();
+    setSnapshot(null);
+    setSession({ required: true, signedIn: false });
   }, []);
 
   useEffect(() => {
@@ -216,6 +245,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return {
       ready,
       error,
+      session,
+      signIn,
+      signOut,
       profile,
       lessons,
       reviewItems: snapshot?.reviewItems ?? [],
@@ -327,7 +359,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setSnapshot(await api.reset());
       },
     };
-  }, [ready, error, profile, snapshot, coach, lang, t, say, tts, load, patchSnapshot, mergeLesson]);
+  }, [ready, error, session, signIn, signOut, profile, snapshot, coach, lang, t, say, tts, load, patchSnapshot, mergeLesson]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }

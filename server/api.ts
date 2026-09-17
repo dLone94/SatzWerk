@@ -1,6 +1,19 @@
 import type { TeachingLanguage } from '../src/content/types.ts';
 import type { RecallGrade } from '../src/core/srs/scheduler.ts';
 import { createProvider, type AiProvider } from './ai.ts';
+import {
+  authState,
+  clearedCookie,
+  createSession,
+  missingSecrets,
+  parseCookies,
+  readAuthConfig,
+  readSession,
+  sessionCookie,
+  SESSION_COOKIE,
+  verifyPassword,
+  type AuthConfig,
+} from './auth.ts';
 import type { Db } from './db.ts';
 import * as store from './store.ts';
 
@@ -15,16 +28,25 @@ export interface ApiRequest {
   method: string;
   path: string;
   body?: unknown;
+  /** Lower-cased request headers. Only `cookie` is read, for the session. */
+  headers?: Record<string, string | undefined>;
 }
 
 export interface ApiResponse {
   status: number;
   body: unknown;
+  /** Response headers to add, used for Set-Cookie on login and logout. */
+  headers?: Record<string, string>;
 }
 
 export interface ApiContext {
   db: Db;
   provider?: AiProvider;
+  /**
+   * Omitted in the tests, which then get the local `open` behaviour. A hosted
+   * deployment always passes one, and fails closed without the secrets.
+   */
+  auth?: AuthConfig;
 }
 
 const TEACHING_LANGUAGES = new Set<string>(['en', 'bg']);
@@ -97,8 +119,66 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   if (segments[0] !== 'api') return notFound();
   const route = segments.slice(1);
 
+  // Health stays public: it must answer before a session exists, so that a
+  // deployment can be checked without logging in.
   if (route.length === 1 && route[0] === 'health' && method === 'GET') {
     return ok({ ok: true, time: new Date().toISOString() });
+  }
+
+  const auth = ctx.auth ?? readAuthConfig();
+  const state = authState(auth);
+  const cookies = parseCookies(request.headers?.cookie);
+  const userId =
+    state === 'required' && auth.sessionSecret
+      ? readSession(auth.sessionSecret, cookies[SESSION_COOKIE] ?? '')
+      : null;
+  const signedIn = state === 'open' || userId !== null;
+
+  // Hosted with no password configured. Serving the app here would put the
+  // learner's data, and the reset endpoint, on an open URL.
+  if (state === 'misconfigured') {
+    return {
+      status: 503,
+      body: {
+        error: 'SatzWerk is hosted but has no password configured, so it will not serve requests.',
+        missing: missingSecrets(auth),
+        hint: 'Run `npm run hash-password` and set both variables where you host the app.',
+      },
+    };
+  }
+
+  // Whether a password is needed, and whether this request has one. Public so
+  // that the app can show a login screen instead of a wall of failures.
+  if (route.length === 1 && route[0] === 'session' && method === 'GET') {
+    return ok({ required: state === 'required', signedIn });
+  }
+
+  if (route.length === 1 && route[0] === 'login' && method === 'POST') {
+    if (state === 'open') return ok({ required: false, signedIn: true });
+    const password = String(asRecord(request.body).password ?? '');
+    if (!password || !verifyPassword(password, auth.passwordHash!)) {
+      // Deliberately vague, and the same shape whether or not a password was
+      // supplied, so this cannot be used to probe.
+      return { status: 401, body: { error: 'That password is not right.' } };
+    }
+    return {
+      status: 200,
+      body: { required: true, signedIn: true },
+      headers: { 'set-cookie': sessionCookie(createSession(auth.sessionSecret!, 1), auth.hosted) },
+    };
+  }
+
+  if (route.length === 1 && route[0] === 'logout' && method === 'POST') {
+    return {
+      status: 200,
+      body: { required: state === 'required', signedIn: false },
+      headers: { 'set-cookie': clearedCookie(auth.hosted) },
+    };
+  }
+
+  // Everything below touches the learner's data.
+  if (!signedIn) {
+    return { status: 401, body: { error: 'Not signed in.', required: true, signedIn: false } };
   }
 
   if (route.length === 1 && route[0] === 'state' && method === 'GET') {

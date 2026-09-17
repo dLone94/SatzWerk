@@ -4,6 +4,7 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { handleRequest } from './api.ts';
 import { createProvider } from './ai.ts';
 import { openDatabase } from './db.ts';
+import { authState, missingSecrets, readAuthConfig } from './auth.ts';
 
 /**
  * The SatzWerk server.
@@ -19,6 +20,7 @@ const MAX_BODY_BYTES = 256 * 1024;
 
 const db = await openDatabase();
 const provider = createProvider();
+const auth = readAuthConfig();
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -53,11 +55,17 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-function sendJson(res: ServerResponse, status: number, body: unknown): void {
+function sendJson(
+  res: ServerResponse,
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {},
+): void {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    ...headers,
   });
   res.end(payload);
 }
@@ -120,10 +128,15 @@ const server = createServer(async (req, res) => {
     }
 
     const response = await handleRequest(
-      { db, provider },
-      { method: req.method ?? 'GET', path: url.pathname, body },
+      { db, provider, auth },
+      {
+        method: req.method ?? 'GET',
+        path: url.pathname,
+        body,
+        headers: { cookie: req.headers.cookie },
+      },
     );
-    sendJson(res, response.status, response.body);
+    sendJson(res, response.status, response.body, response.headers ?? {});
   } catch (error) {
     console.error('[satzwerk] request failed:', error);
     sendJson(res, 500, { error: (error as Error).message });
@@ -138,6 +151,17 @@ server.listen(PORT, () => {
       db.dialect === 'postgres' ? 'postgres (DATABASE_URL)' : (process.env.SATZWERK_DB ?? 'data/satzwerk.db')
     }`,
   );
+  const state = authState(auth);
+  if (state === 'required') {
+    console.log('[satzwerk] password required to use the app.');
+  } else if (state === 'misconfigured') {
+    console.error(
+      `[satzwerk] REFUSING REQUESTS: this looks like a hosted deployment but ${missingSecrets(auth).join(' and ')} ${missingSecrets(auth).length === 1 ? 'is' : 'are'} not set.`,
+    );
+    console.error('[satzwerk] Run `npm run hash-password` and set them where you host the app.');
+  } else {
+    console.log('[satzwerk] no password set — fine on localhost, refused if hosted.');
+  }
   if (!provider.available) {
     console.log('[satzwerk] German Coach: rule-based checks only, no AI provider configured.');
   }

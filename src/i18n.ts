@@ -24,6 +24,16 @@ export const UI = {
   navCoach: s('Coach', 'Наставник'),
   navSettings: s('Settings', 'Настройки'),
 
+  // Login, shown only when the app is hosted behind a password
+  loginIntro: s(
+    'This is a private copy of SatzWerk. Enter the password to carry on.',
+    'Това е лично копие на SatzWerk. Въведи паролата, за да продължиш.',
+  ),
+  loginPassword: s('Password', 'Парола'),
+  loginSubmit: s('Continue', 'Продължи'),
+  loginWorking: s('Checking…', 'Проверява се…'),
+  signOut: s('Sign out', 'Излез'),
+
   // Onboarding
   onboardingTitle: s('Welcome to SatzWerk', 'Добре дошъл в SatzWerk'),
   onboardingIntro: s(

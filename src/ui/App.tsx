@@ -5,6 +5,7 @@ import { CheckpointPage } from './pages/CheckpointPage.tsx';
 import { CoursePage } from './pages/CoursePage.tsx';
 import { DashboardPage } from './pages/DashboardPage.tsx';
 import { LessonPage } from './pages/LessonPage.tsx';
+import { LoginPage } from './pages/LoginPage.tsx';
 import { MistakesPage } from './pages/MistakesPage.tsx';
 import { OnboardingPage } from './pages/OnboardingPage.tsx';
 import { RealLifePage } from './pages/RealLifePage.tsx';
@@ -15,7 +16,7 @@ import { WordPage } from './pages/WordPage.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
 
 export function App() {
-  const { ready, error, profile, reload, t, reviewItems } = useApp();
+  const { ready, error, session, profile, reload, t, reviewItems } = useApp();
   const location = useLocation();
 
   if (!ready) {
@@ -24,6 +25,12 @@ export function App() {
         <p>{t('loading')}</p>
       </div>
     );
+  }
+
+  // A hosted deployment asks for the password before anything else. Checked
+  // before `error` so that a 401 shows the prompt rather than a failure page.
+  if (session.required && !session.signedIn) {
+    return <LoginPage />;
   }
 
   if (error) {

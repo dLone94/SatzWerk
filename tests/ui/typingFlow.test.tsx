@@ -23,6 +23,9 @@ const attempts: AttemptPayload[] = [];
 function stubState(lang: TeachingLanguage): AppStateValue {
   return {
     ready: true,
+    session: { required: false, signedIn: true },
+    signIn: async () => {},
+    signOut: async () => {},
     error: null,
     profile: {
       teachingLanguage: lang,

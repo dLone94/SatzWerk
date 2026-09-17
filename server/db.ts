@@ -154,6 +154,33 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    version: 2,
+    name: 'accounts, so a second learner is a migration rather than a rewrite',
+    sql: `
+      -- One row today, matching the single profile. This exists so that adding
+      -- a person later is an INSERT and a login screen, and so the session
+      -- cookie has a real id to carry rather than a hard-coded 1.
+      CREATE TABLE users (
+        id         INTEGER PRIMARY KEY CHECK (id = 1),
+        label      TEXT    NOT NULL DEFAULT 'me',
+        created_at TEXT    NOT NULL
+      );
+
+      -- Attribute the existing data. The columns are added now rather than
+      -- later because backfilling a live database is the awkward part; with
+      -- them in place, supporting a second learner is a query change only.
+      ALTER TABLE profile           ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE lesson_state      ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE step_outcomes     ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE review_items      ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE attempts          ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE mistakes          ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE study_days        ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE checkpoint_results ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE word_flags        ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1;
+    `,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
@@ -247,9 +274,25 @@ async function openPostgresDriver(url: string): Promise<Db> {
   return openPostgres(url);
 }
 
-/** Ensure the single profile row exists, so reads never have to handle null. */
+/**
+ * Ensure the single account and profile rows exist, so reads never have to
+ * handle null.
+ *
+ * Note what this does *not* do: the queries in `store.ts` do not filter by
+ * `user_id` yet, because there is exactly one learner and threading it through
+ * 35 queries would be churn with no present benefit. The column and the table
+ * are here so that the day a second person is added, it is a query pass rather
+ * than a schema migration over live data. Until that pass happens, a second
+ * row in `users` would share one set of progress — which is why nothing
+ * creates one.
+ */
 async function seedProfile(db: Db): Promise<void> {
   const now = new Date().toISOString();
+  await db.run(
+    `INSERT INTO users (id, label, created_at) VALUES (1, 'me', ?)
+     ON CONFLICT (id) DO NOTHING`,
+    now,
+  );
   await db.run(
     `INSERT INTO profile (id, teaching_language, daily_target_minutes, onboarded, created_at, updated_at)
      VALUES (1, 'en', 20, 0, ?, ?)

@@ -8,7 +8,8 @@ import { Card } from '../components/bits.tsx';
 const TARGETS = [10, 20, 30];
 
 export function SettingsPage() {
-  const { t, lang, profile, updateProfile, setTeachingLanguage, tts, resetAll } = useApp();
+  const { t, lang, profile, updateProfile, setTeachingLanguage, tts, resetAll, session, signOut } =
+    useApp();
   const [custom, setCustom] = useState('');
   const [confirm, setConfirm] = useState('');
   const [resetDone, setResetDone] = useState(false);
@@ -147,6 +148,15 @@ export function SettingsPage() {
         </div>
         {resetDone ? <p className="done-note">{t('settingsResetDone')}</p> : null}
       </Card>
+
+      {/* Only meaningful on a hosted copy: locally there is no session to end. */}
+      {session.required ? (
+        <Card title={t('signOut')}>
+          <button type="button" className="btn btn--ghost" onClick={() => void signOut()}>
+            {t('signOut')}
+          </button>
+        </Card>
+      ) : null}
     </div>
   );
 }

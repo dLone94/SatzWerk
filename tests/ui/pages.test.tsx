@@ -33,6 +33,9 @@ const now = new Date().toISOString();
 function stubState(lang: TeachingLanguage, overrides: Partial<AppStateValue> = {}): AppStateValue {
   const base: AppStateValue = {
     ready: true,
+    session: { required: false, signedIn: true },
+    signIn: async () => {},
+    signOut: async () => {},
     error: null,
     profile: {
       teachingLanguage: lang,
