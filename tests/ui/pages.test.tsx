@@ -272,13 +272,15 @@ describe('the course map is honest about what is finished', () => {
 
   it('still lists what is missing from a level that has only started', () => {
     mount(<CoursePage />, 'en');
-    // Three empty levels plus A1, which has one unit and five to come. Losing
-    // this heading the moment a level's first unit landed would read as a
-    // finished level.
+    // Three empty levels plus A1, which has units authored and more to come.
+    // Losing this heading the moment a level's first unit landed would read as
+    // a finished level.
     expect(screen.getAllByText(tr('plannedUnits', 'en')).length).toBe(4);
-    expect(screen.getByText('Home and daily life')).toBeInTheDocument();
-    // And the authored unit is not repeated in that list.
-    expect(screen.queryAllByText('People and family')).toHaveLength(0);
+    expect(screen.getByText('Food, cafés and shopping')).toBeInTheDocument();
+    // And an authored unit is never repeated in that list.
+    for (const authored of ['People and family', 'Home and daily life']) {
+      expect(screen.queryAllByText(authored), authored).toHaveLength(0);
+    }
   });
 
   it('links to the authored lessons', () => {

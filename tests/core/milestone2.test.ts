@@ -100,14 +100,14 @@ describe('Pre-A1 is complete', () => {
    */
   it('reports the real content totals', () => {
     const stats = contentStats();
-    // Six Pre-A1 units and the first A1 unit.
-    expect(stats.units).toBe(7);
-    expect(stats.authoredUnits).toBe(7);
-    expect(stats.lessons).toBe(21);
+    // Six Pre-A1 units and the first two A1 units.
+    expect(stats.units).toBe(8);
+    expect(stats.authoredUnits).toBe(8);
+    expect(stats.lessons).toBe(24);
     expect(stats.vocabulary).toBeGreaterThanOrEqual(150);
     expect(stats.grammarConcepts).toBeGreaterThanOrEqual(18);
-    // Seven unit checkpoints and one level checkpoint.
-    expect(stats.checkpoints).toBe(8);
+    // Eight unit checkpoints and one level checkpoint.
+    expect(stats.checkpoints).toBe(9);
   });
 });
 
