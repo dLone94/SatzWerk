@@ -38,7 +38,7 @@ afterEach(() => {
  */
 async function loadHandler() {
   vi.resetModules();
-  const mod = await import('../../api/[[...path]].ts');
+  const mod = await import('../../api/[...path].ts');
   return mod.default as (request: Request) => Promise<Response>;
 }
 

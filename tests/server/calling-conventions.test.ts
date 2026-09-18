@@ -80,7 +80,7 @@ function nodeResponse() {
 }
 
 describe('the API function', () => {
-  const file = '../../api/[[...path]].ts';
+  const file = '../../api/[...path].ts';
 
   it('answers a Web Request with a Response', async () => {
     const handler = await loadHandler(file);

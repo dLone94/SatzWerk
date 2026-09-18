@@ -18,7 +18,7 @@
  * and it therefore reports only the *shape* of the configuration: whether the
  * variables exist, never what is in them. No connection string, no secret.
  *
- * Duplicating the two calling conventions from `[[...path]].ts` instead of
+ * Duplicating the two calling conventions from `[...path].ts` instead of
  * sharing them is deliberate, and is the only duplication here worth having:
  * an import would be a dependency, and having no dependencies is the feature.
  */
