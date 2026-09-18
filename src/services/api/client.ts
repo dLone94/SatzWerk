@@ -142,6 +142,11 @@ const BASE = '/api';
 const REQUEST_TIMEOUT_MS = 30_000;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // Named in every failure below. An error that says only "HTTP 404" leaves
+  // the one useful fact — *which* request failed — visible in a browser's
+  // network panel and nowhere else, so it cannot be reported by whoever hit
+  // it. Two rounds of diagnosing a hosted 404 were spent on exactly that.
+  const what = `${init?.method ?? 'GET'} ${BASE}${path}`;
   let response: Response;
   try {
     response = await fetch(`${BASE}${path}`, {
@@ -157,8 +162,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const timedOut = cause instanceof DOMException && cause.name === 'TimeoutError';
     throw new ApiError(
       timedOut
-        ? `The server did not answer within ${REQUEST_TIMEOUT_MS / 1000} seconds. It may still be starting up, or it cannot reach its database.`
-        : `Could not reach the server: ${cause instanceof Error ? cause.message : String(cause)}`,
+        ? `${what} did not answer within ${REQUEST_TIMEOUT_MS / 1000} seconds. The server may still be starting up, or it cannot reach its database.`
+        : `Could not reach the server for ${what}: ${cause instanceof Error ? cause.message : String(cause)}`,
       0,
     );
   }
@@ -177,8 +182,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       const firstLine = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
       throw new ApiError(
         response.ok
-          ? `The server sent something that is not JSON: ${firstLine}`
-          : `The server failed with HTTP ${response.status}: ${firstLine || response.statusText}`,
+          ? `${what} returned something that is not JSON: ${firstLine}`
+          : `${what} failed with HTTP ${response.status}: ${firstLine || response.statusText}`,
         response.status,
       );
     }
@@ -188,7 +193,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const message =
       payload && typeof payload === 'object' && 'error' in payload
         ? String((payload as { error: unknown }).error)
-        : `Request failed with ${response.status}`;
+        : `${what} failed with ${response.status}`;
     throw new ApiError(message, response.status);
   }
   return payload as T;
