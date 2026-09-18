@@ -48,18 +48,22 @@ function isNeon(url: string): boolean {
 export type PgTransport = 'http' | 'tcp';
 
 /**
- * Which transport to use.
+ * Which transport to use. TCP unless asked otherwise.
  *
- * Neon gets HTTP by default, because that is the right shape for a serverless
- * function. But the HTTP client is the one path in this project not exercised
- * against a real database, so `SATZWERK_PG_TRANSPORT=tcp` forces the standard
- * TCP path instead — the one the parity tests cover. It is an escape hatch, so
- * that a problem with Neon's client is a changed environment variable rather
- * than a code change and a redeploy.
+ * Neon's HTTP driver is the usual advice for serverless, and it was the
+ * default here until it hung a real deployment. Its one-shot query endpoint
+ * cannot run multi-statement DDL or hold a transaction open, so those fall
+ * back to its WebSocket `Pool`, which needs a WebSocket implementation wired
+ * up explicitly in Node. Without it the first request — the one that runs the
+ * migrations — never settles, and the app sits on "Loading" with nothing to
+ * report, which is a far worse failure than an error.
  *
- * Note that the pooler endpoint is *not* that escape hatch: its hostname still
- * ends in neon.tech, so it takes the HTTP path like any other Neon URL. Only
- * this variable changes the transport.
+ * So the default is the path the parity tests actually cover against a real
+ * Postgres. The reason to prefer HTTP is avoiding connection exhaustion, and
+ * for a single learner that is not a real risk; where it is, Neon's pooler
+ * endpoint solves it for TCP too.
+ *
+ * `SATZWERK_PG_TRANSPORT=http` opts back in.
  */
 export function chooseTransport(url: string, env: NodeJS.ProcessEnv = process.env): PgTransport {
   const forced = env.SATZWERK_PG_TRANSPORT?.trim().toLowerCase();
@@ -69,7 +73,11 @@ export function chooseTransport(url: string, env: NodeJS.ProcessEnv = process.en
       `SATZWERK_PG_TRANSPORT must be "tcp" or "http", not ${JSON.stringify(forced)}.`,
     );
   }
-  return isNeon(url) ? 'http' : 'tcp';
+  // `url` is unused now that TCP is the default, but the parameter stays: the
+  // choice is a property of the connection, and hard-coding it here would be
+  // the wrong shape the moment that changes.
+  void url;
+  return 'tcp';
 }
 
 export async function openPostgres(url: string): Promise<Db> {
@@ -123,7 +131,23 @@ async function openStandard(url: string): Promise<Db> {
   types.setTypeParser(types.builtins.INT8, (value) => Number(value));
   types.setTypeParser(types.builtins.NUMERIC, (value) => Number(value));
 
-  const pool = new Pool({ connectionString: url });
+  // Neon and most hosted Postgres require TLS, and the connection string says
+  // so with sslmode=require. Being explicit avoids depending on how a given
+  // `pg` version reads that parameter.
+  const needsTls = /[?&]sslmode=(require|verify-ca|verify-full)/i.test(url) || isNeon(url);
+
+  const pool = new Pool({
+    connectionString: url,
+    ...(needsTls ? { ssl: { rejectUnauthorized: false } } : {}),
+    // A serverless invocation is short-lived, so a connection that cannot be
+    // made must fail rather than hold the request open. Hanging is the worst
+    // outcome: the app shows "Loading" forever and says nothing.
+    connectionTimeoutMillis: 10_000,
+    // One connection is plenty for one learner, and it keeps a cold start from
+    // opening several against a database with a small connection limit.
+    max: 1,
+    idleTimeoutMillis: 10_000,
+  });
   const session = pool as unknown as Session;
 
   return build({

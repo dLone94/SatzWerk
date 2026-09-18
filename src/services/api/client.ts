@@ -133,15 +133,35 @@ export class ApiError extends Error {
 
 const BASE = '/api';
 
+/**
+ * Long enough for a cold start and a migration, short enough that a request
+ * which is never coming back becomes an error the app can show. Without this
+ * a hung server leaves the app on its loading screen indefinitely, saying
+ * nothing — which is harder to diagnose than any error message.
+ */
+const REQUEST_TIMEOUT_MS = 30_000;
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, {
-    ...init,
-    credentials: 'same-origin',
-    headers: {
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...init?.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${BASE}${path}`, {
+      ...init,
+      credentials: 'same-origin',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      headers: {
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch (cause) {
+    const timedOut = cause instanceof DOMException && cause.name === 'TimeoutError';
+    throw new ApiError(
+      timedOut
+        ? `The server did not answer within ${REQUEST_TIMEOUT_MS / 1000} seconds. It may still be starting up, or it cannot reach its database.`
+        : `Could not reach the server: ${cause instanceof Error ? cause.message : String(cause)}`,
+      0,
+    );
+  }
   const text = await response.text();
 
   // Not every failure comes back as JSON. A hosting platform answers a crashed

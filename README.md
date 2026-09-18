@@ -437,14 +437,15 @@ behind interfaces — until the core course is worth talking about.
 - **Single learner.** The `profile` table has one row by design. It is a table
   rather than a key-value blob so that multi-user support is an added column
   rather than a rewrite.
-- **The Neon HTTP transport is the one unexercised path.** The SQL, the schema
-  and every store function are verified against a real Postgres 16, and the
-  standard TCP connection is what those tests use. Neon's HTTP client is a
-  different transport over the same verified SQL, but it has not itself been
-  run against Neon. If it misbehaves, set `SATZWERK_PG_TRANSPORT=tcp` and the
-  same URL goes over the tested path instead — no code change. Neon's
-  `-pooler` hostname does *not* switch transports by itself; only that variable
-  does.
+- **Postgres is reached over TCP, including on Neon.** Neon's HTTP driver is
+  the usual advice for serverless and was the default here until it hung a real
+  deployment: its one-shot endpoint cannot run multi-statement DDL or hold a
+  transaction, so the migrations fell through to its WebSocket pool, which
+  needs a WebSocket implementation wired up explicitly in Node. The request
+  never settled and the app sat on "Loading". TCP is what the parity tests
+  cover, so it is the default; `SATZWERK_PG_TRANSPORT=http` opts back in. The
+  reason to want HTTP is connection exhaustion, which one learner will not
+  cause — and where it matters, Neon's pooler endpoint solves it for TCP too.
 - **There is no CI yet**, so the test, typecheck and build results quoted here
   were produced locally rather than on a runner.
 - **The bundle is a single chunk** (~730 kB, 206 kB gzipped — the whole
