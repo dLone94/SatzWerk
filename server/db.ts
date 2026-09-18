@@ -284,6 +284,46 @@ export const DATABASE_URL_VARIABLES = [
   'POSTGRES_URL_NO_SSL',
 ] as const;
 
+/**
+ * Does this look like a Postgres connection string?
+ *
+ * The value is the reliable signal. A name can be anything; a connection
+ * string always starts the same way.
+ */
+function isPostgresUrl(value: string): boolean {
+  return /^postgres(?:ql)?:\/\//i.test(value);
+}
+
+/**
+ * A variable that was clearly meant to hold a Postgres connection, under a
+ * name this project has not thought of.
+ *
+ * Vercel prefixes the variables it creates with the store's name, so the same
+ * database can arrive as `POSTGRES_URL`, `MY_STORE_POSTGRES_URL` or
+ * `NEON_DATABASE_URL` depending on what it was called when it was added. There
+ * is no list that stays complete, so the last resort is to recognise the
+ * shape: a name that says Postgres or Neon and ends in URL, holding a value
+ * that begins postgres:// or postgresql://.
+ *
+ * The name must mention Postgres or Neon, which is deliberately narrow.
+ * `TEST_DATABASE_URL` is a real variable in this project's own test runs and
+ * must never be mistaken for the app's database, so "ends in DATABASE_URL" is
+ * not good enough.
+ */
+function findByShape(env: NodeJS.ProcessEnv): { name: string; url: string } | undefined {
+  const candidates = Object.keys(env)
+    // URL need not end the name: Vercel's unpooled variants put the qualifier
+    // after it, as in POSTGRES_URL_NON_POOLING.
+    .filter((name) => /^[A-Z0-9_]*(POSTGRES|NEON)[A-Z0-9_]*URL(_[A-Z0-9_]+)?$/.test(name))
+    .filter((name) => isPostgresUrl((env[name] ?? '').trim()))
+    .sort();
+  // A pooled endpoint suits a function that may be started many times, so a
+  // direct connection is only used when it is all there is.
+  const pooled = candidates.find((name) => !/UNPOOLED|NON_POOLING|NO_SSL/.test(name));
+  const name = pooled ?? candidates[0];
+  return name === undefined ? undefined : { name, url: (env[name] ?? '').trim() };
+}
+
 /** The first database variable that is actually set, with its name. */
 export function findDatabaseUrl(
   env: NodeJS.ProcessEnv = process.env,
@@ -292,7 +332,7 @@ export function findDatabaseUrl(
     const url = env[name]?.trim();
     if (url) return { name, url };
   }
-  return undefined;
+  return findByShape(env);
 }
 
 /**

@@ -76,8 +76,12 @@ never quietly serves an open app.
 
    `POSTGRES_URL`, `NEON_DATABASE_URL`, `DATABASE_URL_UNPOOLED` and
    `POSTGRES_URL_NON_POOLING` are read too, in that order of preference, since
-   those are the names Vercel's own database integrations create. Adding a
-   database from the Vercel dashboard therefore needs no variable set by hand.
+   those are the names Vercel's own database integrations create. Failing all
+   of those, any variable whose name mentions Postgres or Neon and whose value
+   begins `postgresql://` is used — Vercel prefixes the variables it creates
+   with the store's name, so the same database can arrive as
+   `MY_STORE_POSTGRES_URL`. Adding a database from the Vercel dashboard
+   therefore needs no variable set by hand, whatever the store was called.
 
    It is read server-side only, and is not prefixed `VITE_`, so it cannot reach
    the client bundle.

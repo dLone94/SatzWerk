@@ -49,3 +49,56 @@ describe('finding the connection string', () => {
     expect(findDatabaseUrl({})).toBeUndefined();
   });
 });
+
+/**
+ * Names nobody listed.
+ *
+ * Vercel prefixes the variables it creates with the store's name, so the same
+ * database arrives under a different name depending on what it was called when
+ * it was added. A fixed list cannot keep up, and the cost of missing one is
+ * the app insisting no database is configured while a perfectly good one sits
+ * in front of it.
+ */
+describe('a connection string under an unlisted name', () => {
+  it('is found by its shape when the name says Postgres or Neon', () => {
+    expect(findDatabaseUrl({ MY_STORE_POSTGRES_URL: 'postgresql://host/db' })).toEqual({
+      name: 'MY_STORE_POSTGRES_URL',
+      url: 'postgresql://host/db',
+    });
+    expect(findDatabaseUrl({ SATZWERK_NEON_DB_URL: 'postgres://host/db' })?.name).toBe(
+      'SATZWERK_NEON_DB_URL',
+    );
+  });
+
+  it('prefers a pooled endpoint here too', () => {
+    const found = findDatabaseUrl({
+      STORE_POSTGRES_URL_UNPOOLED: 'postgresql://direct/db',
+      STORE_POSTGRES_URL: 'postgresql://pooled/db',
+    });
+    expect(found?.name).toBe('STORE_POSTGRES_URL');
+  });
+
+  it('takes a direct connection when that is the only one', () => {
+    const found = findDatabaseUrl({ STORE_POSTGRES_URL_UNPOOLED: 'postgresql://direct/db' });
+    expect(found?.name).toBe('STORE_POSTGRES_URL_UNPOOLED');
+  });
+
+  it('never mistakes the test database for the app database', () => {
+    // This project's own suite sets TEST_DATABASE_URL to a real Postgres. If
+    // that counted, running the tests would quietly point the app at it.
+    expect(findDatabaseUrl({ TEST_DATABASE_URL: 'postgresql://localhost:5433/satzwerk_test' })).toBeUndefined();
+  });
+
+  it('ignores a matching name whose value is not a connection string', () => {
+    expect(findDatabaseUrl({ POSTGRES_HOST_URL: 'db.example.com' })).toBeUndefined();
+    expect(findDatabaseUrl({ NEON_API_URL: 'https://console.neon.tech' })).toBeUndefined();
+  });
+
+  it('still prefers a name the project documents over a guessed one', () => {
+    const found = findDatabaseUrl({
+      STORE_POSTGRES_URL: 'postgresql://guessed/db',
+      DATABASE_URL: 'postgresql://documented/db',
+    });
+    expect(found).toEqual({ name: 'DATABASE_URL', url: 'postgresql://documented/db' });
+  });
+});
