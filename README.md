@@ -93,17 +93,20 @@ to just open in a browser.
 
 ### When the hosted app will not load
 
-Open `/api/health` on the deployment. It is public, it is answered before the
-database is touched, and it contains no secrets — so it separates the two
+Open `/api/health` on the deployment. `api/health.ts` is a function that
+imports nothing at all — not the router, not the database, not a type — so it
+cannot be broken by anything in this project. It is public and reports only
+whether the variables exist, never what is in them. That separates the two
 failures that look identical from the outside:
 
-- **It answers JSON** (`{"ok":true,...}`) — the function is running. Look at
-  `database` in that answer: `postgres` means `DATABASE_URL` is set, `missing`
-  means it is not set for *this* environment. Preview and Production are
-  configured separately in Vercel, and a variable set for only one of them is
-  the usual cause.
-- **It does not answer at all** — the function itself is failing to start, and
-  Vercel's runtime logs for the deployment say why.
+- **It answers JSON** (`{"ok":true,...}`) — the deployment runs code. Look at
+  `databaseUrl`: `set` means the variable reached this environment, `missing`
+  means it did not. Preview and Production are configured separately in Vercel,
+  and a variable set for only one of them is the usual cause.
+- **It does not answer at all** — nothing of ours is even running. The route is
+  not reaching a function, deployment protection is in front of it, or the
+  runtime is failing to boot; Vercel's runtime logs for the deployment say
+  which.
 
 Any request that does need the database now fails within about eight seconds
 with a sentence saying so, rather than hanging until the browser gives up.
