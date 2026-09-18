@@ -88,9 +88,13 @@ describe('the Vercel function', () => {
     expect(state.status).toBe(503);
     const body = (await state.json()) as { error: string };
     expect(body.error).toContain('DATABASE_URL');
-    // Including the part people get wrong, and where to look next.
-    expect(body.error).toContain('Preview and Production');
-    expect(body.error).toContain('/api/health');
+    // Including the part people get wrong.
+    expect(body.error).toContain('Preview and Production are separate');
+    // And said once. This message already explains itself, so the generic
+    // advice must not be wrapped around it — that produced a paragraph that
+    // repeated the same sentence and buried the useful line.
+    expect(body.error).not.toContain('The server cannot reach its database');
+    expect(body.error.match(/Preview and Production/g)).toHaveLength(1);
   });
 
   it('reports which database a deployment is configured for', async () => {

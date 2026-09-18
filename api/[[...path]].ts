@@ -116,15 +116,9 @@ async function answer(request: Incoming): Promise<Answer> {
     try {
       db = await withTimeout(database(), DB_OPEN_TIMEOUT_MS, 'Opening the database');
     } catch (error) {
-      // The driver's own words are accurate but say nothing about what to do.
-      // This is the single most likely thing to be wrong with a fresh
-      // deployment, so the answer names the setting that fixes it.
       cached = undefined;
       console.error('[satzwerk] database unavailable:', error);
-      const reason = (error as Error).message.replace(/\s*\.?\s*$/, '.');
-      return reply(503, {
-        error: `The server cannot reach its database: ${reason} Check that DATABASE_URL is set for this deployment — Preview and Production are separate — and that the database is awake and accepting connections. /api/health answers without the database.`,
-      });
+      return reply(503, { error: explain(error as Error) });
     }
 
     provider ??= createProvider();
@@ -146,6 +140,24 @@ async function answer(request: Incoming): Promise<Answer> {
     console.error('[satzwerk] request failed:', error);
     return reply(500, { error: (error as Error).message });
   }
+}
+
+/**
+ * Why the database could not be opened, in one sentence a person can act on.
+ *
+ * A misconfigured deployment already knows what is wrong and says so — that
+ * message names DATABASE_URL and what to do about it. Wrapping guidance around
+ * guidance produced a paragraph that said "Preview and Production are
+ * separate" twice, which reads like a machine and buries the one useful line.
+ *
+ * So the advice is added only where it is missing: to the driver's own
+ * failures, which are accurate about what happened ("connection timeout") and
+ * silent about what to do.
+ */
+function explain(error: Error): string {
+  const message = error.message.replace(/\s*\.?\s*$/, '.');
+  if (/DATABASE_URL/.test(message)) return message;
+  return `The server cannot reach its database: ${message} Check that DATABASE_URL is correct for this deployment — Preview and Production are set separately — and that the database is awake and accepting connections. /api/health answers without the database.`;
 }
 
 function reply(status: number, body: unknown): Answer {
