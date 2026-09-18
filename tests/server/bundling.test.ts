@@ -88,32 +88,61 @@ describe('a hosted deployment with no database says so', () => {
   });
 });
 
-describe('the API function is named something Vercel will route to', () => {
+describe('how API URLs reach the function', () => {
+  const entrypoints = () => readdirSync(new URL('../../api', import.meta.url));
+  const vercelJson = () =>
+    JSON.parse(read('vercel.json')) as {
+      rewrites: Array<{ source: string; destination: string }>;
+    };
+
   /**
-   * A real failure, and an expensive one to diagnose.
+   * Two real failures, both invisible to every other test here, because a test
+   * calls the handler directly and never involves the platform's router.
    *
-   * The catch-all was called `[[...path]].ts`, which is Next.js's
-   * optional-catch-all syntax. A plain Vercel Functions directory wants
-   * `[...path].ts`. The difference is invisible for a single segment —
-   * /api/session worked perfectly — and fatal for a deep one:
-   * /api/lessons/<id>/sections/<id> never reached the function at all, and
-   * Vercel answered with its own NOT_FOUND page. So the app signed in, loaded
-   * its state, and then broke the moment a lesson was opened, with a 404 that
-   * looked like a missing route in our own router.
+   * First the catch-all was called `[[...path]].ts` — Next.js's
+   * optional-catch-all syntax, which a plain Vercel functions directory does
+   * not route. That is undetectable for a single segment (/api/session worked
+   * perfectly) and fatal for a deeper one: /api/lessons/<id>/sections/<id>
+   * matched nothing and Vercel answered with its own NOT_FOUND page. Renaming
+   * it to `[...path].ts` did not fix it either.
    *
-   * Nothing in the source says which form is correct, so the filename is
-   * checked here instead.
+   * So the URLs no longer rest on one guess about a filename. There are two
+   * entrypoints and an explicit rewrite, and this checks all three are there —
+   * none of which the code itself can state.
    */
-  it('uses a single-bracket catch-all, not the optional double-bracket form', () => {
-    const files = readdirSync(new URL('../../api', import.meta.url));
-    expect(files).toContain('[...path].ts');
-    expect(files.some((name) => name.startsWith('[['))).toBe(false);
+  it('has a filename-routed entrypoint, using the single-bracket form', () => {
+    expect(entrypoints()).toContain('[...path].ts');
+    // The double-bracket form is the one that did not route.
+    expect(entrypoints().some((name) => name.startsWith('[['))).toBe(false);
   });
 
-  it('keeps the standalone health function beside it', () => {
-    // A more specific route than the catch-all, and it must stay that way:
-    // it is the one thing that answers when everything else is broken.
-    const files = readdirSync(new URL('../../api', import.meta.url));
-    expect(files).toContain('health.ts');
+  it('has an entrypoint reached by rewrite instead of by filename', () => {
+    expect(entrypoints()).toContain('index.ts');
+    const rewrite = vercelJson().rewrites.find((rule) => rule.source.startsWith('/api/'));
+    expect(rewrite?.destination).toBe('/api/index?__path=/api/$1');
+  });
+
+  it('leaves the health probe out of that rewrite, so it stays dependency-free', () => {
+    // Routed to its file by name. If the rewrite swallowed it, the one thing
+    // that answers when everything else is broken would import the whole app.
+    expect(entrypoints()).toContain('health.ts');
+    const rewrite = vercelJson().rewrites.find((rule) => rule.source.startsWith('/api/'));
+    expect(rewrite?.source).toContain('health');
+  });
+
+  it('keeps the static fallback from swallowing API paths', () => {
+    const spa = vercelJson().rewrites.find((rule) => rule.destination === '/index.html');
+    expect(spa?.source).toBe('/((?!api/).*)');
+  });
+
+  it('keeps the entrypoints thin, so what they answer is all they decide', () => {
+    for (const name of ['[...path].ts', 'index.ts']) {
+      const source = read(`api/${name}`);
+      expect(source).toMatch(/export \{ default \} from '\.\.\/server\/vercel\.ts';/);
+      // No logic: a route that also implements something can break two ways.
+      // Comments are stripped first — they are allowed to discuss functions.
+      const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      expect(code).not.toMatch(/function|await|=>/);
+    }
   });
 });

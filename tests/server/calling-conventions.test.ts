@@ -53,13 +53,14 @@ function nodeRequest(method: string, url: string, body?: string) {
   request.method = method;
   request.url = url;
   request.headers = { host: 'satzwerk.test' };
-  if (body !== undefined) {
-    // Emitted once something is listening, as a real stream would.
-    queueMicrotask(() => {
-      request.emit('data', Buffer.from(body));
-      request.emit('end');
-    });
-  }
+  // Emitted once something is listening, as a real stream would — and 'end'
+  // always fires, body or not. A helper that withheld it made a body-less POST
+  // hang forever, which is a fault in the helper: no real request behaves that
+  // way.
+  queueMicrotask(() => {
+    if (body !== undefined) request.emit('data', Buffer.from(body));
+    request.emit('end');
+  });
   return request;
 }
 
@@ -80,7 +81,7 @@ function nodeResponse() {
 }
 
 describe('the API function', () => {
-  const file = '../../api/[...path].ts';
+  const file = '../../server/vercel.ts';
 
   it('answers a Web Request with a Response', async () => {
     const handler = await loadHandler(file);
@@ -231,5 +232,62 @@ describe('what the health probe is allowed to say', () => {
     } finally {
       delete process.env.DATABASE_URL;
     }
+  });
+});
+
+/**
+ * Arriving by rewrite.
+ *
+ * `vercel.json` sends anything under /api/ that no filename claims to one
+ * function, passing the original path in `__path`. A rewritten request does
+ * not necessarily carry the URL the browser asked for, so without this the
+ * router would see `/api/index` and answer 404 for everything — the same
+ * symptom it was meant to cure.
+ */
+describe('a rewritten request', () => {
+  const file = '../../server/vercel.ts';
+
+  it('is routed by the original path, not the rewrite destination', async () => {
+    const handler = await loadHandler(file);
+    const result = (await handler(
+      new Request('https://satzwerk.test/api/index?__path=/api/session'),
+    )) as Response;
+    expect(result.status).toBe(200);
+    // The session shape, not a 404 for /api/index.
+    await expect(result.json()).resolves.toMatchObject({ signedIn: expect.any(Boolean) });
+  });
+
+  it('carries a deep path through, which is the case that was broken', async () => {
+    const handler = await loadHandler(file);
+    const response = nodeResponse();
+    await handler(
+      nodeRequest('POST', '/api/index?__path=/api/lessons/pre-a1-u1-l1/sections/u1l1-s1'),
+      response,
+    );
+    expect(response.written.status).toBe(200);
+    // A lesson progress record came back, so the route really ran.
+    expect(JSON.parse(response.written.body ?? '{}')).toMatchObject({
+      sectionsSeen: ['u1l1-s1'],
+    });
+  });
+
+  it('ignores an override that is not one of our own API paths', async () => {
+    const handler = await loadHandler(file);
+    for (const override of ['/etc/passwd', 'https://elsewhere.test/api/state', '/api/../secret']) {
+      const result = (await handler(
+        new Request(`https://satzwerk.test/api/health?__path=${encodeURIComponent(override)}`),
+      )) as Response;
+      // Falls back to the real path, which here is the health route.
+      expect(result.status, override).toBe(200);
+      await expect(result.json(), override).resolves.toMatchObject({ ok: true });
+    }
+  });
+
+  it('answers the plain destination path with a 404 from our own router', async () => {
+    const handler = await loadHandler(file);
+    const result = (await handler(new Request('https://satzwerk.test/api/index'))) as Response;
+    expect(result.status).toBe(404);
+    // JSON, so the app can report it — not a platform error page.
+    await expect(result.json()).resolves.toMatchObject({ error: expect.any(String) });
   });
 });
