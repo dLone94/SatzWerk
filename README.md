@@ -207,22 +207,23 @@ level checkpoint.**
 | | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
 | | **Pre-A1 level checkpoint** | draws on all six units, 80% to pass, and offers no hints at all |
 
-**A1 has begun: three units of six are authored.**
+**A1 has begun: four units of six are authored.**
 
 | Unit | Lessons | What it teaches |
 | --- | --- | --- |
 | 1. People and family | My family, your family · Subject and object: the accusative · His family, her family | grandparents, aunts, uncles, siblings; mein and dein with the endings of ein; the accusative as a rule about German rather than a rule about *haben*, with kennen, sehen, suchen, brauchen and besuchen; why nothing changes after *sein*; sein and ihr, where the word names the owner and the ending names the thing owned |
 | 2. Home and daily life | Your home · Your day, and verbs that split · Can, must, want | rooms and furniture, the compound-gender rule, *es gibt* and the object it takes; separable verbs and the sentence bracket; frequency adverbs and why *nie* needs no *nicht*; können, müssen and wollen, with the second verb waiting at the end |
 | 3. Food, cafés and shopping | Food and drink · In a café · At the supermarket | everyday food and drink and the genders that decide how you order them; *möchten* as the polite ask and *gern* for what you like; a whole café visit from menu to bill; the formal imperative you will hear before you can say it; quantity phrases, which are the one construction a Bulgarian speaker can translate word for word |
-| | **Three unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
+| 4. Work, study and free time | Work and study · Free time, and what you prefer · Joining two sentences | *als* with no article and when *studieren* is wrong; hobbies, and the last stem-changing verbs (du liest, du fährst, du triffst); *gern* and *lieber* for what you like and prefer; und, aber, oder and denn — the four joining words that change nothing, and why each half still needs its own subject |
+| | **Four unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
 
-Across those 27 lessons that is 261 vocabulary entries, 27 grammar concepts, 236 exercises and **711
-answer tasks** (including all ten checkpoints), across 137 teaching sections,
-all authored in both paths. Only 2.5% of those tasks are multiple choice; the
-rest require typing German. 58 of them carry an authored trap answer — a
+Across those 30 lessons that is 289 vocabulary entries, 29 grammar concepts, 258 exercises and **771
+answer tasks** (including all eleven checkpoints), across 149 teaching sections,
+all authored in both paths. Only 2.3% of those tasks are multiple choice; the
+rest require typing German. 62 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
 written for it. Levels A2–B2 exist as structure and outline only, and the UI
-labels them as planned; A1 shows its finished units and names the three that are
+labels them as planned; A1 shows its finished units and names the two that are
 not written yet.
 
 **Practice targeted at a kind of mistake, not just at sentences.** Once the

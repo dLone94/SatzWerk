@@ -276,9 +276,9 @@ describe('the course map is honest about what is finished', () => {
     // Losing this heading the moment a level's first unit landed would read as
     // a finished level.
     expect(screen.getAllByText(tr('plannedUnits', 'en')).length).toBe(4);
-    expect(screen.getByText('Work, study and free time')).toBeInTheDocument();
+    expect(screen.getByText('Getting around town')).toBeInTheDocument();
     // And an authored unit is never repeated in that list.
-    for (const authored of ['People and family', 'Home and daily life', 'Food, cafés and shopping']) {
+    for (const authored of ['People and family', 'Home and daily life', 'Food, cafés and shopping', 'Work, study and free time']) {
       expect(screen.queryAllByText(authored), authored).toHaveLength(0);
     }
   });
