@@ -36,7 +36,9 @@ describe('Pre-A1 is complete', () => {
   });
 
   it('has eighteen lessons, each with its own mastery check', () => {
-    const lessons = availableLessons();
+    // Scoped to the level this describe is about. availableLessons() covers the
+    // whole course, so once A1 began it stopped answering the question here.
+    const lessons = availableLessons().filter((lesson) => lesson.level === 'pre-a1');
     expect(lessons).toHaveLength(18);
     for (const lesson of lessons) {
       expect(lesson.mastery.exercises.length).toBeGreaterThan(0);
@@ -88,15 +90,24 @@ describe('Pre-A1 is complete', () => {
     }
   });
 
+  /**
+   * Whole-course totals, deliberately hard-coded.
+   *
+   * The dashboard shows these numbers, and the product rule is that it never
+   * displays an invented statistic. Pinning them means adding content has to
+   * come with a decision about what the app now claims, rather than the claim
+   * drifting on its own.
+   */
   it('reports the real content totals', () => {
     const stats = contentStats();
-    expect(stats.units).toBe(6);
-    expect(stats.authoredUnits).toBe(6);
-    expect(stats.lessons).toBe(18);
+    // Six Pre-A1 units and the first A1 unit.
+    expect(stats.units).toBe(7);
+    expect(stats.authoredUnits).toBe(7);
+    expect(stats.lessons).toBe(21);
     expect(stats.vocabulary).toBeGreaterThanOrEqual(150);
     expect(stats.grammarConcepts).toBeGreaterThanOrEqual(18);
-    // Six unit checkpoints would be wrong: there are six units and one level.
-    expect(stats.checkpoints).toBe(7);
+    // Seven unit checkpoints and one level checkpoint.
+    expect(stats.checkpoints).toBe(8);
   });
 });
 
@@ -107,8 +118,13 @@ describe('the level checkpoint', () => {
     expect(checkpoint).toBeDefined();
     expect(checkpoint!.scope).toBe('level');
     expect(checkpoint!.targetId).toBe('pre-a1');
+    // Compared against Pre-A1's own unit checkpoints. A checkpoint from another
+    // level is calibrated against different material, so including it would
+    // make this assertion drift with content rather than test a ladder.
     const unitPass = Math.max(
-      ...allCheckpoints().filter((cp) => cp.scope === 'unit').map((cp) => cp.passAccuracy),
+      ...allCheckpoints()
+        .filter((cp) => cp.scope === 'unit' && cp.targetId.startsWith('pre-a1'))
+        .map((cp) => cp.passAccuracy),
     );
     expect(checkpoint!.passAccuracy).toBeGreaterThan(unitPass);
   });

@@ -207,13 +207,21 @@ level checkpoint.**
 | | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
 | | **Pre-A1 level checkpoint** | draws on all six units, 80% to pass, and offers no hints at all |
 
-Across those 18 lessons that is 155 vocabulary entries, 18 grammar concepts, 163 exercises and **484
-answer tasks** (including all seven checkpoints), across 94 teaching sections,
-all authored in both paths. Only 3.5% of those tasks are multiple choice; the
-rest require typing German. 44 of them carry an authored trap answer — a
+**A1 has begun: Unit 1 of six is authored.**
+
+| Unit | Lessons | What it teaches |
+| --- | --- | --- |
+| 1. People and family | My family, your family · Subject and object: the accusative · His family, her family | grandparents, aunts, uncles, siblings; mein and dein with the endings of ein; the accusative as a rule about German rather than a rule about *haben*, with kennen, sehen, suchen, brauchen and besuchen; why nothing changes after *sein*; sein and ihr, where the word names the owner and the ending names the thing owned |
+| | **Unit checkpoint** | family, possessives and the accusative together |
+
+Across those 21 lessons that is 189 vocabulary entries, 21 grammar concepts, 190 exercises and **572
+answer tasks** (including all eight checkpoints), across 109 teaching sections,
+all authored in both paths. Only 3% of those tasks are multiple choice; the
+rest require typing German. 47 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
-written for it. Levels A1–B2 exist as structure and outline only, and the UI
-labels them as planned.
+written for it. Levels A2–B2 exist as structure and outline only, and the UI
+labels them as planned; A1 shows its one finished unit and names the five that
+are not written yet.
 
 **Practice targeted at a kind of mistake, not just at sentences.** Once the
 mistake bank shows a real pattern (three or more of the same error category),

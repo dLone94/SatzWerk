@@ -110,6 +110,24 @@ function LevelCard({ level }: { level: Level }) {
           ) : null}
         </>
       ) : null}
+
+      {/*
+        A level that is partly authored still owes the learner the rest of the
+        picture. Before this, a level showed what is planned only while it was
+        completely empty — so the moment its first unit landed, the five units
+        that do not exist yet silently disappeared from the page, which reads as
+        a finished level.
+      */}
+      {level.units.length > 0 && (outline?.plannedUnits.length ?? 0) > 0 ? (
+        <div className="planned-rest">
+          <h4 className="mini-head">{t('plannedUnits')}</h4>
+          <ol className="planned-units" start={level.units.length + 1}>
+            {outline!.plannedUnits.map((unit, index) => (
+              <li key={index}>{say(unit)}</li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
     </Card>
   );
 }

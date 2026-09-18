@@ -107,8 +107,10 @@ export const A1_OUTLINE: LevelOutline = {
     b('Main-clause word order and und, aber, oder, denn', 'Словоред в главно изречение и und, aber, oder, denn'),
     b('Common prepositions of place and time', 'Често използвани предлози за място и време'),
   ],
+  // Unit 1 is authored, so it is no longer listed here: this array is what is
+  // still to come, and a finished unit sitting in it would be a small lie on
+  // the level map.
   plannedUnits: [
-    b('People and family', 'Хора и семейство'),
     b('Home and daily life', 'Дом и ежедневие'),
     b('Food, cafés and shopping', 'Храна, кафенета и пазаруване'),
     b('Work, study and free time', 'Работа, учене и свободно време'),

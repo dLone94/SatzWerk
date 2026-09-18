@@ -265,8 +265,20 @@ describe('the dashboard never invents progress', () => {
 describe('the course map is honest about what is finished', () => {
   it('labels unauthored levels as planned with an outline', () => {
     mount(<CoursePage />, 'en');
-    expect(screen.getAllByText(tr('plannedNotice', 'en')).length).toBe(4);
+    // A2, B1 and B2 have nothing authored at all. A1 has its first unit, so it
+    // is no longer advertised as planned wholesale.
+    expect(screen.getAllByText(tr('plannedNotice', 'en')).length).toBe(3);
+  });
+
+  it('still lists what is missing from a level that has only started', () => {
+    mount(<CoursePage />, 'en');
+    // Three empty levels plus A1, which has one unit and five to come. Losing
+    // this heading the moment a level's first unit landed would read as a
+    // finished level.
     expect(screen.getAllByText(tr('plannedUnits', 'en')).length).toBe(4);
+    expect(screen.getByText('Home and daily life')).toBeInTheDocument();
+    // And the authored unit is not repeated in that list.
+    expect(screen.queryAllByText('People and family')).toHaveLength(0);
   });
 
   it('links to the authored lessons', () => {

@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { allCheckpoints, availableLessons, contentStats, lessonExercises } from '../../src/content/index.ts';
+import {
+  allCheckpoints,
+  availableLessons,
+  contentStats,
+  CURRICULUM,
+  lessonExercises,
+} from '../../src/content/index.ts';
 
 /**
  * The README is the only description of this project anyone reads before
@@ -39,8 +45,31 @@ describe('the README describes the content that exists', () => {
     }
   });
 
+  /**
+   * Derived from the curriculum rather than pinned to a sentence.
+   *
+   * The earlier version asserted one fixed line, which was true until A1's
+   * first unit landed and then became a claim the README was making about
+   * content that had changed underneath it. This asks the content which levels
+   * are empty and which have only started, and requires the prose to say so.
+   */
   it('does not claim a level is finished while it is only planned', () => {
-    // A1-B2 are outlines. If that ever changes, this line has to change with it.
-    expect(README).toContain('Levels A1–B2 exist as structure and outline only');
+    const empty = CURRICULUM.filter((level) => level.units.length === 0);
+    const started = CURRICULUM.filter(
+      (level) => level.units.length > 0 && level.status === 'partial',
+    );
+    expect(empty.map((level) => level.label)).toEqual(['A2', 'B1', 'B2']);
+    expect(README).toContain(
+      `Levels ${empty[0]!.label}–${empty.at(-1)!.label} exist as structure and outline only`,
+    );
+
+    // A level with some of its units written is neither finished nor planned,
+    // and the README has to say which it is.
+    for (const level of started) {
+      expect(README, `README does not say ${level.label} has begun`).toContain(
+        `${level.label} has begun`,
+      );
+    }
+    expect(README).not.toContain('Levels A1–B2 exist as structure and outline only');
   });
 });

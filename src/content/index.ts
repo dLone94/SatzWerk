@@ -1,4 +1,5 @@
 import { createBaseLexicon, extendLexicon, type GermanLexicon } from '../core/validation/lexicon.ts';
+import { A1_U1_PATTERNS, A1_UNIT_1 } from './a1/unit1.ts';
 import { GRAMMAR_CONCEPTS, grammarById } from './grammar.ts';
 import { LEVEL_OUTLINES } from './outline/levelOutlines.ts';
 import { PRE_A1_PATTERNS, PRE_A1_UNIT_2 } from './pre-a1/unit2.ts';
@@ -58,15 +59,29 @@ export const PRE_A1: Level = {
   checkpoint: PRE_A1_LEVEL_CHECKPOINT,
 };
 
+/**
+ * A1 is under way rather than finished: Unit 1 is authored, the other five are
+ * outline only. `partial` is the honest word for that, and the level map shows
+ * it rather than implying a finished level.
+ */
+export const A1: Level = levelFromOutline('a1', [A1_UNIT_1], 'partial');
+
 export const CURRICULUM: Level[] = [
   PRE_A1,
-  levelFromOutline('a1', [], 'planned'),
+  A1,
   levelFromOutline('a2', [], 'planned'),
   levelFromOutline('b1', [], 'planned'),
   levelFromOutline('b2', [], 'planned'),
 ];
 
-export const SENTENCE_PATTERNS: SentencePattern[] = [...PRE_A1_PATTERNS, ...PRE_A1_U3_PATTERNS, ...PRE_A1_U4_PATTERNS, ...PRE_A1_U5_PATTERNS, ...PRE_A1_U6_PATTERNS];
+export const SENTENCE_PATTERNS: SentencePattern[] = [
+  ...PRE_A1_PATTERNS,
+  ...PRE_A1_U3_PATTERNS,
+  ...PRE_A1_U4_PATTERNS,
+  ...PRE_A1_U5_PATTERNS,
+  ...PRE_A1_U6_PATTERNS,
+  ...A1_U1_PATTERNS,
+];
 
 /* ------------------------------------------------------------------ *
  * Indexes
