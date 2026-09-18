@@ -1,5 +1,6 @@
 import type { VocabEntry } from './types.ts';
 import { FAMILY_VOCAB } from './vocab/family.ts';
+import { FOOD_VOCAB } from './vocab/food.ts';
 import { GRAMMAR_WORD_VOCAB } from './vocab/grammarWords.ts';
 import { HOME_VOCAB } from './vocab/home.ts';
 import { NUMBER_VOCAB } from './vocab/numbers.ts';
@@ -863,6 +864,7 @@ export const VOCABULARY: VocabEntry[] = [
   ...GRAMMAR_WORD_VOCAB,
   ...FAMILY_VOCAB,
   ...HOME_VOCAB,
+  ...FOOD_VOCAB,
 ];
 
 const BY_ID = new Map(VOCABULARY.map((entry) => [entry.id, entry]));

@@ -111,7 +111,6 @@ export const A1_OUTLINE: LevelOutline = {
   // still to come, and a finished unit sitting in it would be a small lie on
   // the level map.
   plannedUnits: [
-    b('Food, cafés and shopping', 'Храна, кафенета и пазаруване'),
     b('Work, study and free time', 'Работа, учене и свободно време'),
     b('Getting around town', 'Придвижване в града'),
     b('Appointments, health and weather', 'Срещи, здраве и времето'),
