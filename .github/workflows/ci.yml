@@ -116,6 +116,12 @@ jobs:
           # Optional. Without it the deep routes are only proved to be
           # guarded, which still catches every failure this has had so far.
           SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+          # Also optional, and only needed while Deployment Protection is on:
+          # a protected preview answers an anonymous check with Vercel's login
+          # page instead of the app. The check says so plainly either way.
+          # Project Settings -> Deployment Protection -> Protection Bypass for
+          # Automation generates the value.
+          VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
           TARGET: ${{ github.event.inputs.url || github.event.deployment_status.target_url }}
         run: |
           if [ -z "$TARGET" ]; then

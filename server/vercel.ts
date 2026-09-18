@@ -161,9 +161,20 @@ function reply(status: number, body: unknown): Answer {
   return { status, body, headers: {} };
 }
 
+/**
+ * `x-satzwerk` is a signature, and it exists because "is the body JSON?" turned
+ * out not to answer the question it was standing in for.
+ *
+ * A hosting platform's own responses can be JSON too — an access-control
+ * refusal especially — so a JSON answer does not prove the request reached
+ * this app. Two smoke probes passed on that reasoning while the deployment was
+ * serving a login page. Only this code sets this header, so a response
+ * carrying it came from here and nothing else can claim otherwise.
+ */
 const BASE_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
   'cache-control': 'no-store',
+  'x-satzwerk': 'api',
 };
 
 /* ------------------------------------------------------------------ *

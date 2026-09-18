@@ -77,6 +77,9 @@ export default function handler(_request: unknown, response?: unknown): Response
   const headers = {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
+    // Only this app sets this. It is how a check can tell our answer from a
+    // platform page that happens to be JSON. See server/vercel.ts.
+    'x-satzwerk': 'api',
   };
 
   const node = response as MinimalServerResponse | undefined;

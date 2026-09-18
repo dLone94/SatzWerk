@@ -11,26 +11,46 @@ import { firstLine, judge, probes, type Probe } from '../../scripts/smoke.ts';
  * failures produced.
  */
 
-const seen = (status: number, body: string) => ({ status, body });
+/** An answer from the app: it carries the app's own response header. */
+const seen = (status: number, body: string) => ({
+  status,
+  body,
+  headers: { 'x-satzwerk': 'api', 'content-type': 'application/json' },
+});
+
+/** An answer from something else: the header is what it cannot fake. */
+const fromElsewhere = (status: number, body: string, headers: Record<string, string> = {}) => ({
+  status,
+  body,
+  headers,
+});
 const probe = (expect: Probe['expect']): Probe => ({ path: '/api/x', expect, why: 'test' });
 
 describe('judging a probe', () => {
   it('fails a body that is not JSON, however plausible the status', () => {
     // Vercel's crashed-function page, verbatim in shape.
-    const outcome = judge(probe('reached'), seen(500, 'A server error has occurred\n\nFUNCTION_INVOCATION_FAILED'));
+    const outcome = judge(
+      probe('reached'),
+      fromElsewhere(500, 'A server error has occurred\n\nFUNCTION_INVOCATION_FAILED'),
+    );
     expect(outcome.ok).toBe(false);
-    expect(outcome.ok === false && outcome.reason).toContain('not JSON');
     expect(outcome.ok === false && outcome.reason).toContain('A server error has occurred');
   });
 
   it('fails the platform 404 page — the failure that took two rounds to find', () => {
-    const outcome = judge(probe('reached'), seen(404, 'The page could not be found\n\nNOT_FOUND iad1::abc'));
+    const outcome = judge(
+      probe('reached'),
+      fromElsewhere(404, 'The page could not be found\n\nNOT_FOUND iad1::abc'),
+    );
     expect(outcome.ok).toBe(false);
     expect(outcome.ok === false && outcome.reason).toContain('NOT_FOUND');
   });
 
   it('fails an HTML page, which is what an SSO redirect or the SPA shell looks like', () => {
-    const outcome = judge(probe('reached'), seen(200, '<!doctype html><title>SatzWerk</title><body>…'));
+    const outcome = judge(
+      probe('reached'),
+      fromElsewhere(200, '<!doctype html><title>SatzWerk</title><body>…'),
+    );
     expect(outcome.ok).toBe(false);
   });
 
@@ -97,5 +117,45 @@ describe('firstLine', () => {
 
   it('says so rather than nothing when the body is empty', () => {
     expect(firstLine('   ')).toBe('(empty)');
+  });
+});
+
+/**
+ * The flaw this check had on its very first real run.
+ *
+ * It probed a protected deployment, got Vercel's login page, and reported
+ * five failures as "not JSON" — while two probes *passed*, because the wall's
+ * own refusal happened to be JSON and the check had no way to tell whose JSON
+ * it was. A platform can produce anything a server can, so the test is no
+ * longer "does this look like an answer" but "is this answer ours".
+ */
+describe('telling our answer from the platform’s', () => {
+  it('fails a JSON refusal that is not ours, however convincing', () => {
+    // Exactly the shape that slipped through: right status, valid JSON, wrong
+    // author.
+    const outcome = judge(probe('reached'), fromElsewhere(401, JSON.stringify({ error: 'Unauthorized' })));
+    expect(outcome.ok).toBe(false);
+    expect(outcome.ok === false && outcome.reason).toContain("without the app's own response header");
+  });
+
+  it('names Deployment Protection rather than blaming the app', () => {
+    // Vercel's login page, identified by its own theme script.
+    const page = '<html><script>(function ar(a,b){localStorage.getItem("zeit-theme")})</script>';
+    const outcome = judge(probe('health'), fromElsewhere(200, page));
+    expect(outcome.ok).toBe(false);
+    const reason = outcome.ok === false ? outcome.reason : '';
+    expect(reason).toContain('Deployment Protection');
+    // And says what to do about it, both ways.
+    expect(reason).toContain('VERCEL_BYPASS_TOKEN');
+    expect(reason).toMatch(/phone|another browser/);
+  });
+
+  it('recognises the wall by header as well as by page content', () => {
+    const outcome = judge(probe('reached'), fromElsewhere(401, '{}', { 'x-robots-tag': 'noindex' }));
+    expect(outcome.ok === false && outcome.reason).toContain('Deployment Protection');
+  });
+
+  it('accepts an answer that carries the signature, refusal and all', () => {
+    expect(judge(probe('reached'), seen(401, JSON.stringify({ error: 'Not signed in.' }))).ok).toBe(true);
   });
 });

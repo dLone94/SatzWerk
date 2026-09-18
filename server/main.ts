@@ -74,6 +74,8 @@ function sendJson(
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    // Matches the hosted adapter, so a check behaves the same either side.
+    'X-SatzWerk': 'api',
     ...headers,
   });
   res.end(payload);

@@ -111,9 +111,18 @@ directly and never involve a router.
 
 It probes paths one, two and four segments deep, because depth is what one of
 those failures turned on. It needs no password: an unauthenticated probe is
-*supposed* to be refused, and a JSON refusal already proves the request reached
-our code. Set `SMOKE_PASSWORD` to also prove the deep routes exist rather than
-only that they are guarded.
+*supposed* to be refused, and a refusal that carries the app's own
+`x-satzwerk` header already proves the request reached our code. That header is
+the test, not the shape of the body — a platform's access-control refusal is
+JSON too, and on this check's first real run two probes passed on JSON that
+Vercel had written rather than us.
+
+Set `SMOKE_PASSWORD` to also prove the deep routes exist rather than only that
+they are guarded, and `VERCEL_BYPASS_TOKEN` to get past Deployment Protection,
+which Vercel applies to preview deployments by default and which otherwise
+answers with its own login page. Worth knowing beyond this script: while that
+protection is on, the app is only reachable by someone signed in to Vercel, so
+a phone or a second browser meets the login wall rather than SatzWerk.
 
 `.github/workflows/ci.yml` runs it against every deployment the platform
 reports ready, and runs the suite — including against a real Postgres — on

@@ -49,6 +49,8 @@ export interface Probe {
 export interface Seen {
   status: number;
   body: string;
+  /** Lower-cased response headers. `x-satzwerk` is the one that matters. */
+  headers: Record<string, string>;
 }
 
 export type Outcome = { ok: true; note: string } | { ok: false; reason: string };
@@ -58,16 +60,44 @@ export function firstLine(body: string): string {
   return body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160) || '(empty)';
 }
 
+/**
+ * Vercel's access-control wall, which answers in place of the app.
+ *
+ * Worth naming specially. It is not a bug in the deployment — it is a setting
+ * — and it looks like nothing else: an HTTP 200 carrying Vercel's own login
+ * page, or a refusal on an endpoint that has no password of its own. Reported
+ * as "not JSON" it sends you hunting for a fault that does not exist.
+ */
+function looksProtected(seen: Seen): boolean {
+  if (seen.headers['x-vercel-protection'] || seen.headers['x-robots-tag'] === 'noindex') return true;
+  return /zeit-theme|_vercel_sso|Vercel Authentication|vercel\.com\/sso/i.test(seen.body);
+}
+
 export function judge(probe: Probe, seen: Seen): Outcome {
+  // The signature comes first, because everything else can be imitated. Only
+  // this app sets it, so its absence means the answer is not the app's —
+  // whatever the status code says and whether or not the body parses as JSON.
+  if (seen.headers['x-satzwerk'] !== 'api') {
+    if (looksProtected(seen)) {
+      return {
+        ok: false,
+        reason:
+          'answered by Vercel\'s access control, not the app. This deployment has Deployment Protection on, so it is only reachable by someone signed in to Vercel — a phone or another browser will meet the same wall. Turn it off for this environment, or set VERCEL_BYPASS_TOKEN here (Project Settings, Protection Bypass for Automation).',
+      };
+    }
+    return {
+      ok: false,
+      reason: `HTTP ${seen.status} without the app's own response header, so this did not come from the app: ${firstLine(seen.body)}`,
+    };
+  }
+
   let payload: unknown;
   try {
     payload = JSON.parse(seen.body) as unknown;
   } catch {
-    // The failure this whole script exists for: an answer that did not come
-    // from our code. A crash page, a platform 404, an SSO redirect.
     return {
       ok: false,
-      reason: `HTTP ${seen.status} and the body is not JSON, so this did not come from the app: ${firstLine(seen.body)}`,
+      reason: `HTTP ${seen.status} and the body is not JSON: ${firstLine(seen.body)}`,
     };
   }
 
@@ -134,11 +164,34 @@ export function probes(signedIn: boolean): Probe[] {
 
 const TIMEOUT_MS = 25_000;
 
+/**
+ * Getting past Deployment Protection, when it is on.
+ *
+ * Vercel protects preview deployments by default, which means an anonymous
+ * check sees its login page rather than the app. The documented way through
+ * for automation is this header, with a secret from the project's settings. No
+ * token, no header: the check then reports the wall plainly instead of
+ * pretending the app is broken.
+ */
+function bypassHeaders(): Record<string, string> {
+  const token = process.env.VERCEL_BYPASS_TOKEN ?? process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  return token ? { 'x-vercel-protection-bypass': token, 'x-vercel-set-bypass-cookie': 'false' } : {};
+}
+
+function readHeaders(response: Response): Record<string, string> {
+  const out: Record<string, string> = {};
+  response.headers.forEach((value, name) => {
+    out[name.toLowerCase()] = value;
+  });
+  return out;
+}
+
 async function fetchProbe(base: string, probe: Probe, cookie?: string): Promise<Seen> {
   const response = await fetch(`${base}${probe.path}`, {
     method: probe.method ?? 'GET',
     signal: AbortSignal.timeout(TIMEOUT_MS),
     headers: {
+      ...bypassHeaders(),
       ...(cookie ? { cookie } : {}),
       ...(probe.method === 'POST' ? { 'content-type': 'application/json' } : {}),
     },
@@ -146,14 +199,14 @@ async function fetchProbe(base: string, probe: Probe, cookie?: string): Promise<
     // proved the point, which is that the request arrived.
     ...(probe.method === 'POST' ? { body: JSON.stringify({ targets: [] }) } : {}),
   });
-  return { status: response.status, body: await response.text() };
+  return { status: response.status, body: await response.text(), headers: readHeaders(response) };
 }
 
 /** Sign in, if a password was provided, and return the session cookie. */
 async function signIn(base: string, password: string): Promise<string | undefined> {
   const response = await fetch(`${base}/api/login`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...bypassHeaders() },
     body: JSON.stringify({ password }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
