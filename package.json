@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "SatzWerk - a personal German tutor built around active production of German.",
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "dev": "concurrently -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\"",
     "dev:server": "node --watch server/main.ts",

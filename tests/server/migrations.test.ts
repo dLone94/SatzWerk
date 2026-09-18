@@ -27,7 +27,7 @@ describe('migrating an existing database', () => {
     const path = join(dir, 'v1.db');
 
     // Build a version-1 database and put a row in it.
-    const first = openSqlite({ path });
+    const first = await openSqlite({ path });
     await migrate(first);
     // migrate() creates the schema; seeding the profile row is openDatabase's
     // job, so a database built this way has none yet. Insert it by hand, with

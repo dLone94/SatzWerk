@@ -1,4 +1,3 @@
-import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { normaliseRow, type Db, type Param, type Row } from './driver.ts';
@@ -27,7 +26,25 @@ function forSqlite(sql: string): string {
   return sql.replace(/\bGREATEST\s*\(/gi, 'max(').replace(/\bLEAST\s*\(/gi, 'min(');
 }
 
-export function openSqlite(options: SqliteOptions = {}): Db {
+/**
+ * The module specifier is a variable, not a literal, and that is load-bearing.
+ *
+ * A bundler hoists `import 'node:sqlite'` to a top-level static import even
+ * when the module is only reached through `await import('./driver-sqlite.ts')`,
+ * because ESM imports are always hoisted. Vercel bundles, so the "lazy" import
+ * became eager: a hosted deployment loaded `node:sqlite` on every cold start
+ * despite never using it, and on a Node older than 22.5 that module does not
+ * exist, so the import threw before any of our code ran. The platform then
+ * reports a generic crash, the client cannot parse the error page, and the
+ * learner sees `Unexpected token 'A'`.
+ *
+ * A computed specifier cannot be resolved statically, so it stays a genuine
+ * runtime import and the dependency lives only where it is used.
+ */
+const SQLITE_MODULE = 'node:sqlite';
+
+export async function openSqlite(options: SqliteOptions = {}): Promise<Db> {
+  const { DatabaseSync } = (await import(SQLITE_MODULE)) as typeof import('node:sqlite');
   const path = options.path ?? process.env.SATZWERK_DB ?? 'data/satzwerk.db';
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
 

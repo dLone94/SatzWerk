@@ -29,21 +29,24 @@ const provider = createProvider();
 export const config = { runtime: 'nodejs' };
 
 export default async function handler(request: Request): Promise<Response> {
-  const url = new URL(request.url);
+  // Everything is inside the try, including reading the body. Anything that
+  // escapes this function is reported by the platform as a generic crash page,
+  // which the client then cannot parse — so nothing is left outside it.
+  try {
+    const url = new URL(request.url);
 
-  let body: unknown;
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    const text = await request.text();
-    if (text.length > 0) {
-      try {
-        body = JSON.parse(text);
-      } catch {
-        return json(400, { error: 'Request body is not valid JSON' });
+    let body: unknown;
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      const text = await request.text();
+      if (text.length > 0) {
+        try {
+          body = JSON.parse(text);
+        } catch {
+          return json(400, { error: 'Request body is not valid JSON' });
+        }
       }
     }
-  }
 
-  try {
     const db = await database();
     const response = await handleRequest(
       { db, provider, auth: await resolveAuth(db) },

@@ -1,4 +1,3 @@
-import { openSqlite } from './driver-sqlite.ts';
 import type { Db, Dialect } from './driver.ts';
 
 /**
@@ -271,19 +270,39 @@ export interface OpenOptions {
  */
 export async function openDatabase(options: OpenOptions = {}): Promise<Db> {
   const url = options.databaseUrl ?? (options.path ? undefined : process.env.DATABASE_URL);
-  const db = url ? await openPostgresDriver(url) : openSqlite({ path: options.path });
+  const db = url ? await openPostgresDriver(url) : await openSqliteDriver(options.path);
   await migrate(db);
   await seedProfile(db);
   return db;
 }
 
 /**
- * Loaded on demand so that the Postgres driver — and its dependency — are
- * never touched locally or by the tests.
+ * Both drivers load on demand, and that is not a nicety.
+ *
+ * `driver-sqlite.ts` imports `node:sqlite`, which only exists from Node 22.5.
+ * Importing it eagerly meant a hosted deployment loaded it on every cold start
+ * even though it never uses it — and on an older Node the import throws at
+ * module load, before any code of ours runs, so the platform reports a generic
+ * crash rather than anything diagnosable. Loading each driver only when it is
+ * the one in use keeps that dependency where it belongs.
  */
 async function openPostgresDriver(url: string): Promise<Db> {
   const { openPostgres } = await import('./driver-postgres.ts');
   return openPostgres(url);
+}
+
+async function openSqliteDriver(path?: string): Promise<Db> {
+  // A hosted deployment has no writable disk, so falling back to SQLite there
+  // would fail confusingly a moment later. Say what is actually wrong instead.
+  // SATZWERK_DB is an explicit choice to use SQLite — someone running on a
+  // platform with a mounted disk means it — so it is honoured either way.
+  if (!path && !process.env.SATZWERK_DB && process.env.VERCEL) {
+    throw new Error(
+      'DATABASE_URL is not set. A hosted deployment needs Postgres, because a serverless function has no disk to keep a SQLite file on. Set DATABASE_URL in the project settings, for the environment this deployment belongs to (Preview and Production are separate).',
+    );
+  }
+  const { openSqlite } = await import('./driver-sqlite.ts');
+  return openSqlite({ path });
 }
 
 /**

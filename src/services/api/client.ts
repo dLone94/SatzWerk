@@ -143,7 +143,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   const text = await response.text();
-  const payload = text.length > 0 ? (JSON.parse(text) as unknown) : null;
+
+  // Not every failure comes back as JSON. A hosting platform answers a crashed
+  // function with its own plain-text or HTML page, and parsing that produced
+  // `Unexpected token 'A', "A server e"... is not valid JSON` — which says
+  // nothing about what went wrong. Report the status and the first line of
+  // whatever actually arrived instead.
+  let payload: unknown = null;
+  if (text.length > 0) {
+    try {
+      payload = JSON.parse(text) as unknown;
+    } catch {
+      const firstLine = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+      throw new ApiError(
+        response.ok
+          ? `The server sent something that is not JSON: ${firstLine}`
+          : `The server failed with HTTP ${response.status}: ${firstLine || response.statusText}`,
+        response.status,
+      );
+    }
+  }
+
   if (!response.ok) {
     const message =
       payload && typeof payload === 'object' && 'error' in payload
