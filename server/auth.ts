@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { findDatabaseUrl } from './db.ts';
 
 /**
  * Keeping a hosted SatzWerk private.
@@ -62,7 +63,7 @@ export function authState(config: AuthConfig): AuthState {
 
 /** Vercel sets VERCEL=1; a Postgres URL is the other tell, since nothing local needs one. */
 export function isHosted(env: NodeJS.ProcessEnv = process.env): boolean {
-  return Boolean(env.VERCEL || env.DATABASE_URL);
+  return Boolean(env.VERCEL || findDatabaseUrl(env));
 }
 
 /** The environment-only view, for callers with no database to hand. */

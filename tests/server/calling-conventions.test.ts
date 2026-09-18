@@ -179,3 +179,57 @@ describe('the standalone health function', () => {
   });
 });
 
+
+describe('what the health probe is allowed to say', () => {
+  const file = '../../api/health.ts';
+
+  /**
+   * The probe reports every variable that looks database-shaped, which is the
+   * point of it — an unexpected name is exactly what it exists to reveal. So
+   * these tests cannot assert an exact list against the real environment,
+   * which may hold TEST_DATABASE_URL or anything else the machine has. They
+   * assert what it must contain and what it must never leak.
+   */
+  it('lists the names of database variables it can see, never their values', async () => {
+    process.env.POSTGRES_URL = 'postgresql://someone:hunter2@db.example.com/satzwerk';
+    process.env.PGHOST = 'db.example.com';
+    process.env.SATZWERK_PASSWORD_HASH = 'scrypt$abc$def';
+    try {
+      const handler = await loadHandler(file);
+      const result = (await handler(new Request('https://satzwerk.test/api/health'))) as Response;
+      const text = await result.text();
+      const payload = JSON.parse(text) as { databaseVariables: string[]; passwordHash: string };
+
+      expect(payload.databaseVariables).toContain('POSTGRES_URL');
+      expect(payload.databaseVariables).toContain('PGHOST');
+      // Sorted, so the same deployment always reads the same way.
+      expect(payload.databaseVariables).toEqual([...payload.databaseVariables].sort());
+      expect(payload.passwordHash).toBe('set');
+
+      // The reason this endpoint can be public: it reports that a thing
+      // exists, never what it contains.
+      for (const secret of ['hunter2', 'db.example.com', 'scrypt$abc$def']) {
+        expect(text).not.toContain(secret);
+      }
+    } finally {
+      delete process.env.POSTGRES_URL;
+      delete process.env.PGHOST;
+      delete process.env.SATZWERK_PASSWORD_HASH;
+    }
+  });
+
+  it('ignores a variable that exists but is empty, which is how a half-saved setting looks', async () => {
+    process.env.DATABASE_URL = '   ';
+    try {
+      const handler = await loadHandler(file);
+      const result = (await handler(new Request('https://satzwerk.test/api/health'))) as Response;
+      const payload = (await result.json()) as { databaseVariables: string[]; databaseUrl: string };
+      expect(payload.databaseVariables).not.toContain('DATABASE_URL');
+      // And called what it is. "set" would be a lie and "missing" would send
+      // someone to add a variable that is already there.
+      expect(payload.databaseUrl).toBe('blank');
+    } finally {
+      delete process.env.DATABASE_URL;
+    }
+  });
+});

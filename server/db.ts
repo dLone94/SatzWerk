@@ -257,8 +257,42 @@ export async function migrate(db: Db): Promise<number> {
 export interface OpenOptions {
   /** A file path, or ':memory:' for tests. Ignored when a Postgres URL is set. */
   path?: string;
-  /** A Postgres connection string. Defaults to DATABASE_URL when present. */
+  /** A Postgres connection string. Defaults to the environment when present. */
   databaseUrl?: string;
+}
+
+/**
+ * Where a Postgres connection string may be found, in order of preference.
+ *
+ * `DATABASE_URL` is the name this project documents and the one to set by
+ * hand. The others are not alternatives invented here — they are the names
+ * that Vercel's own Neon and Postgres integrations create when you add a
+ * database to a project from the dashboard. Someone who connects a database
+ * that way has genuinely configured one, and refusing to look at the variable
+ * it created would be this app being pedantic about a name while sitting in
+ * front of a perfectly good database.
+ *
+ * The unpooled variants come last: they work, but a pooled endpoint is the
+ * better default for a function that may be started many times.
+ */
+export const DATABASE_URL_VARIABLES = [
+  'DATABASE_URL',
+  'POSTGRES_URL',
+  'NEON_DATABASE_URL',
+  'DATABASE_URL_UNPOOLED',
+  'POSTGRES_URL_NON_POOLING',
+  'POSTGRES_URL_NO_SSL',
+] as const;
+
+/** The first database variable that is actually set, with its name. */
+export function findDatabaseUrl(
+  env: NodeJS.ProcessEnv = process.env,
+): { name: string; url: string } | undefined {
+  for (const name of DATABASE_URL_VARIABLES) {
+    const url = env[name]?.trim();
+    if (url) return { name, url };
+  }
+  return undefined;
 }
 
 /**
@@ -269,7 +303,7 @@ export interface OpenOptions {
  * so local development and the tests need no configuration at all.
  */
 export async function openDatabase(options: OpenOptions = {}): Promise<Db> {
-  const url = options.databaseUrl ?? (options.path ? undefined : process.env.DATABASE_URL);
+  const url = options.databaseUrl ?? (options.path ? undefined : findDatabaseUrl()?.url);
   const db = url ? await openPostgresDriver(url) : await openSqliteDriver(options.path);
   await migrate(db);
   await seedProfile(db);
@@ -298,7 +332,7 @@ async function openSqliteDriver(path?: string): Promise<Db> {
   // platform with a mounted disk means it — so it is honoured either way.
   if (!path && !process.env.SATZWERK_DB && process.env.VERCEL) {
     throw new Error(
-      'DATABASE_URL is not set. A hosted deployment needs Postgres, because a serverless function has no disk to keep a SQLite file on. Set DATABASE_URL in the project settings, for the environment this deployment belongs to (Preview and Production are separate).',
+      `DATABASE_URL is not set. A hosted deployment needs Postgres, because a serverless function has no disk to keep a SQLite file on. Set DATABASE_URL in the project settings, for the environment this deployment belongs to (Preview and Production are separate). These names are also accepted, since Vercel's database integrations create them: ${DATABASE_URL_VARIABLES.slice(1).join(', ')}. /api/health lists which database variables this deployment can see.`,
     );
   }
   const { openSqlite } = await import('./driver-sqlite.ts');

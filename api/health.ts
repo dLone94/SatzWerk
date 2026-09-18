@@ -33,6 +33,26 @@ export const config = { maxDuration: 10 };
 
 export default function handler(_request: unknown, response?: unknown): Response | void {
   const env = process.env;
+
+  /**
+   * The *names* of the variables here that could hold a database connection,
+   * and nothing else about them.
+   *
+   * "DATABASE_URL is not set" is true but incomplete, and the difference
+   * matters: a variable saved for Production only, a typo in the name, and a
+   * database added through Vercel's dashboard (which creates POSTGRES_URL or
+   * DATABASE_URL_UNPOOLED instead) all produce that same sentence, and have
+   * three different fixes. A list of what is actually visible tells them
+   * apart at a glance.
+   *
+   * Names only. A connection string is a live password, and this URL needs
+   * none to open, so no value from the environment is ever reported here.
+   */
+  const databaseVariables = Object.keys(env)
+    .filter((name) => /DATABASE|POSTGRES|NEON|^PG[A-Z]*$/.test(name))
+    .filter((name) => (env[name] ?? '').trim().length > 0)
+    .sort();
+
   const body = JSON.stringify({
     ok: true,
     time: new Date().toISOString(),
@@ -42,8 +62,16 @@ export default function handler(_request: unknown, response?: unknown): Response
     platform: env.VERCEL ? `vercel:${env.VERCEL_ENV ?? 'unknown'}` : 'other',
     // The variable people most often set for only one environment. Preview and
     // Production are configured separately, and a missing one looks exactly
-    // like a broken database from the browser.
-    databaseUrl: env.DATABASE_URL ? 'set' : 'missing',
+    // like a broken database from the browser. "blank" is its own answer
+    // because a variable saved with an empty value is not the same mistake as
+    // one that was never saved, and reporting it as set would be a lie.
+    databaseUrl:
+      env.DATABASE_URL === undefined
+        ? 'missing'
+        : env.DATABASE_URL.trim().length > 0
+          ? 'set'
+          : 'blank',
+    databaseVariables,
     passwordHash: env.SATZWERK_PASSWORD_HASH ? 'set' : 'not set',
   });
   const headers = {

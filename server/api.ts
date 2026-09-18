@@ -16,7 +16,7 @@ import {
   verifyPassword,
   type AuthConfig,
 } from './auth.ts';
-import type { Db } from './db.ts';
+import { findDatabaseUrl, type Db } from './db.ts';
 import * as store from './store.ts';
 
 /**
@@ -158,14 +158,24 @@ export function healthReport(env: NodeJS.ProcessEnv = process.env): {
   node: string;
   hosted: boolean;
   database: 'postgres' | 'sqlite' | 'missing';
+  /** Which variable the connection string came from, when there is one. */
+  databaseFrom?: string;
 } {
   const hosted = isHosted(env);
-  const database = env.DATABASE_URL
+  const found = findDatabaseUrl(env);
+  const database = found
     ? ('postgres' as const)
     : env.SATZWERK_DB || !hosted
       ? ('sqlite' as const)
       : ('missing' as const);
-  return { ok: true, time: new Date().toISOString(), node: process.version, hosted, database };
+  return {
+    ok: true,
+    time: new Date().toISOString(),
+    node: process.version,
+    hosted,
+    database,
+    ...(found ? { databaseFrom: found.name } : {}),
+  };
 }
 
 export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promise<ApiResponse> {

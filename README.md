@@ -74,6 +74,11 @@ never quietly serves an open app.
    | --- | --- |
    | `DATABASE_URL` | the Neon connection string |
 
+   `POSTGRES_URL`, `NEON_DATABASE_URL`, `DATABASE_URL_UNPOOLED` and
+   `POSTGRES_URL_NON_POOLING` are read too, in that order of preference, since
+   those are the names Vercel's own database integrations create. Adding a
+   database from the Vercel dashboard therefore needs no variable set by hand.
+
    It is read server-side only, and is not prefixed `VITE_`, so it cannot reach
    the client bundle.
 
@@ -101,8 +106,12 @@ failures that look identical from the outside:
 
 - **It answers JSON** (`{"ok":true,...}`) — the deployment runs code. Look at
   `databaseUrl`: `set` means the variable reached this environment, `missing`
-  means it did not. Preview and Production are configured separately in Vercel,
-  and a variable set for only one of them is the usual cause.
+  means it did not, `blank` means it was saved with an empty value. Preview and
+  Production are configured separately in Vercel, and a variable set for only
+  one of them is the usual cause. `databaseVariables` lists every
+  database-shaped variable name the deployment can see — which is how you spot
+  a typo, or a database added from Vercel's dashboard that created
+  `POSTGRES_URL` instead.
 - **It does not answer at all** — nothing of ours is even running. The route is
   not reaching a function, deployment protection is in front of it, or the
   runtime is failing to boot; Vercel's runtime logs for the deployment say
