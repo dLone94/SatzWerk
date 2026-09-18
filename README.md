@@ -100,6 +100,25 @@ That is the whole of it — no terminal, and no secrets to copy around. Requirin
 a local command to set a password is a poor bargain for something you are meant
 to just open in a browser.
 
+### Checking a deployment
+
+`npm run smoke -- <url>` probes a running or deployed copy over HTTP and says
+whether each answer came from the app or from the platform. That distinction is
+the point: every hosting failure this project has had looked like a plausible
+HTTP response and was in fact a crash page, a platform 404 or nothing at all,
+and none of them were visible from inside the test suite — tests call the code
+directly and never involve a router.
+
+It probes paths one, two and four segments deep, because depth is what one of
+those failures turned on. It needs no password: an unauthenticated probe is
+*supposed* to be refused, and a JSON refusal already proves the request reached
+our code. Set `SMOKE_PASSWORD` to also prove the deep routes exist rather than
+only that they are guarded.
+
+`.github/workflows/ci.yml` runs it against every deployment the platform
+reports ready, and runs the suite — including against a real Postgres — on
+every push.
+
 ### When the hosted app will not load
 
 Open `/api/health` on the deployment. `api/health.ts` is a function that

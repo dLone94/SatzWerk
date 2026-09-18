@@ -17,7 +17,8 @@
     "preview": "npm run build && npm run start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "hash-password": "node scripts/hash-password.ts"
+    "hash-password": "node scripts/hash-password.ts",
+    "smoke": "node scripts/smoke.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
