@@ -207,7 +207,7 @@ level checkpoint.**
 | | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
 | | **Pre-A1 level checkpoint** | draws on all six units, 80% to pass, and offers no hints at all |
 
-**A1 has begun: four units of six are authored.**
+**A1 has begun: five units of six are authored.**
 
 | Unit | Lessons | What it teaches |
 | --- | --- | --- |
@@ -215,15 +215,16 @@ level checkpoint.**
 | 2. Home and daily life | Your home · Your day, and verbs that split · Can, must, want | rooms and furniture, the compound-gender rule, *es gibt* and the object it takes; separable verbs and the sentence bracket; frequency adverbs and why *nie* needs no *nicht*; können, müssen and wollen, with the second verb waiting at the end |
 | 3. Food, cafés and shopping | Food and drink · In a café · At the supermarket | everyday food and drink and the genders that decide how you order them; *möchten* as the polite ask and *gern* for what you like; a whole café visit from menu to bill; the formal imperative you will hear before you can say it; quantity phrases, which are the one construction a Bulgarian speaker can translate word for word |
 | 4. Work, study and free time | Work and study · Free time, and what you prefer · Joining two sentences | *als* with no article and when *studieren* is wrong; hobbies, and the last stem-changing verbs (du liest, du fährst, du triffst); *gern* and *lieber* for what you like and prefer; und, aber, oder and denn — the four joining words that change nothing, and why each half still needs its own subject |
-| | **Four unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
+| 5. Getting around town | Places in town · Getting there: mit dem Bus zum Bahnhof · Asking the way | the places and their genders, learnt before they are needed; the dative kept deliberately small — *mit*, *zu* and *neben*, singular only — with feminine *der* named as the trap it is; *zum* and *zur*; gehen versus fahren; asking the way and understanding the answer |
+| | **Five unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
 
-Across those 30 lessons that is 289 vocabulary entries, 29 grammar concepts, 258 exercises and **771
-answer tasks** (including all eleven checkpoints), across 149 teaching sections,
-all authored in both paths. Only 2.3% of those tasks are multiple choice; the
-rest require typing German. 62 of them carry an authored trap answer — a
+Across those 33 lessons that is 317 vocabulary entries, 31 grammar concepts, 281 exercises and **841
+answer tasks** (including all twelve checkpoints), across 162 teaching sections,
+all authored in both paths. Only 2.1% of those tasks are multiple choice; the
+rest require typing German. 65 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
 written for it. Levels A2–B2 exist as structure and outline only, and the UI
-labels them as planned; A1 shows its finished units and names the two that are
+labels them as planned; A1 shows its finished units and names the one that is
 not written yet.
 
 **Practice targeted at a kind of mistake, not just at sentences.** Once the

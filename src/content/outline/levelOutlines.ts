@@ -110,10 +110,7 @@ export const A1_OUTLINE: LevelOutline = {
   // Unit 1 is authored, so it is no longer listed here: this array is what is
   // still to come, and a finished unit sitting in it would be a small lie on
   // the level map.
-  plannedUnits: [
-    b('Getting around town', 'Придвижване в града'),
-    b('Appointments, health and weather', 'Срещи, здраве и времето'),
-  ],
+  plannedUnits: [b('Appointments, health and weather', 'Срещи, здраве и времето')],
 };
 
 export const A2_OUTLINE: LevelOutline = {

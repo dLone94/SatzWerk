@@ -3,6 +3,7 @@ import { A1_U1_PATTERNS, A1_UNIT_1 } from './a1/unit1.ts';
 import { A1_U2_PATTERNS, A1_UNIT_2 } from './a1/unit2.ts';
 import { A1_U3_PATTERNS, A1_UNIT_3 } from './a1/unit3.ts';
 import { A1_U4_PATTERNS, A1_UNIT_4 } from './a1/unit4.ts';
+import { A1_U5_PATTERNS, A1_UNIT_5 } from './a1/unit5.ts';
 import { GRAMMAR_CONCEPTS, grammarById } from './grammar.ts';
 import { LEVEL_OUTLINES } from './outline/levelOutlines.ts';
 import { PRE_A1_PATTERNS, PRE_A1_UNIT_2 } from './pre-a1/unit2.ts';
@@ -67,7 +68,7 @@ export const PRE_A1: Level = {
  * outline only. `partial` is the honest word for that, and the level map shows
  * it rather than implying a finished level.
  */
-export const A1: Level = levelFromOutline('a1', [A1_UNIT_1, A1_UNIT_2, A1_UNIT_3, A1_UNIT_4], 'partial');
+export const A1: Level = levelFromOutline('a1', [A1_UNIT_1, A1_UNIT_2, A1_UNIT_3, A1_UNIT_4, A1_UNIT_5], 'partial');
 
 export const CURRICULUM: Level[] = [
   PRE_A1,
@@ -87,6 +88,7 @@ export const SENTENCE_PATTERNS: SentencePattern[] = [
   ...A1_U2_PATTERNS,
   ...A1_U3_PATTERNS,
   ...A1_U4_PATTERNS,
+  ...A1_U5_PATTERNS,
 ];
 
 /* ------------------------------------------------------------------ *
