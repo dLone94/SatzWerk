@@ -5,7 +5,7 @@ import { useApp } from '../../state/AppState.tsx';
 import { Card } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 
-/** A unit checkpoint: mixed skills, no hints, result stored. */
+/** A checkpoint, unit or level: mixed skills, no hints, result stored. */
 export function CheckpointPage() {
   const { checkpointId = '' } = useParams();
   const { t, say, recordCheckpoint, checkpointResults } = useApp();
@@ -67,7 +67,16 @@ export function CheckpointPage() {
       </nav>
       <h1 className="page__title">{say(checkpoint.title)}</h1>
 
-      <Card tone="accent" title={t('unitCheckpoint')} subtitle={say(checkpoint.description)}>
+      {/*
+        A level checkpoint called itself a unit checkpoint here, on both of the
+        two that exist. The scope is already on the checkpoint; the page just
+        was not asking.
+      */}
+      <Card
+        tone="accent"
+        title={checkpoint.scope === 'level' ? t('levelCheckpoint') : t('unitCheckpoint')}
+        subtitle={say(checkpoint.description)}
+      >
         <p className="card__foot">
           {t('lessonMasteryIntro')} {'·'} {Math.round(checkpoint.passAccuracy * 100)}%
         </p>

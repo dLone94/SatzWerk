@@ -4,6 +4,8 @@ import { A1_U2_PATTERNS, A1_UNIT_2 } from './a1/unit2.ts';
 import { A1_U3_PATTERNS, A1_UNIT_3 } from './a1/unit3.ts';
 import { A1_U4_PATTERNS, A1_UNIT_4 } from './a1/unit4.ts';
 import { A1_U5_PATTERNS, A1_UNIT_5 } from './a1/unit5.ts';
+import { A1_U6_PATTERNS, A1_UNIT_6 } from './a1/unit6.ts';
+import { A1_LEVEL_CHECKPOINT } from './a1/levelCheckpoint.ts';
 import { GRAMMAR_CONCEPTS, grammarById } from './grammar.ts';
 import { LEVEL_OUTLINES } from './outline/levelOutlines.ts';
 import { PRE_A1_PATTERNS, PRE_A1_UNIT_2 } from './pre-a1/unit2.ts';
@@ -64,11 +66,16 @@ export const PRE_A1: Level = {
 };
 
 /**
- * A1 is under way rather than finished: Unit 1 is authored, the other five are
- * outline only. `partial` is the honest word for that, and the level map shows
- * it rather than implying a finished level.
+ * A1 is finished: all six units and the level checkpoint that draws on them.
  */
-export const A1: Level = levelFromOutline('a1', [A1_UNIT_1, A1_UNIT_2, A1_UNIT_3, A1_UNIT_4, A1_UNIT_5], 'partial');
+export const A1: Level = {
+  ...levelFromOutline(
+    'a1',
+    [A1_UNIT_1, A1_UNIT_2, A1_UNIT_3, A1_UNIT_4, A1_UNIT_5, A1_UNIT_6],
+    'available',
+  ),
+  checkpoint: A1_LEVEL_CHECKPOINT,
+};
 
 export const CURRICULUM: Level[] = [
   PRE_A1,
@@ -89,6 +96,7 @@ export const SENTENCE_PATTERNS: SentencePattern[] = [
   ...A1_U3_PATTERNS,
   ...A1_U4_PATTERNS,
   ...A1_U5_PATTERNS,
+  ...A1_U6_PATTERNS,
 ];
 
 /* ------------------------------------------------------------------ *

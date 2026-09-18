@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { LEXICON, describeNoun } from '../../src/content/index.ts';
+import { CURRICULUM, LEVEL_OUTLINES, LEXICON, describeNoun } from '../../src/content/index.ts';
 import type { TeachingLanguage } from '../../src/content/types.ts';
 import { tr } from '../../src/i18n.ts';
 import { nullTtsProvider } from '../../src/services/tts/index.ts';
@@ -148,6 +148,22 @@ describe.each(LANGS)('pages render in the %s path', (lang) => {
       '/checkpoint/pre-a1-u2-checkpoint',
     );
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+    expect(screen.getByText(tr('unitCheckpoint', lang))).toBeInTheDocument();
+  });
+
+  it('level checkpoint, called by its own name', () => {
+    // Both level checkpoints announced themselves as unit checkpoints, because
+    // the page never asked the checkpoint what its scope was.
+    mount(
+      <Routes>
+        <Route path="/checkpoint/:checkpointId" element={<CheckpointPage />} />
+      </Routes>,
+      lang,
+      undefined,
+      '/checkpoint/a1-level-checkpoint',
+    );
+    expect(screen.getByText(tr('levelCheckpoint', lang))).toBeInTheDocument();
+    expect(screen.queryByText(tr('unitCheckpoint', lang))).toBeNull();
   });
 
   it('review', () => {
@@ -270,22 +286,32 @@ describe('the course map is honest about what is finished', () => {
     expect(screen.getAllByText(tr('plannedNotice', 'en')).length).toBe(3);
   });
 
-  it('still lists what is missing from a level that has only started', () => {
+  it('still lists what is missing from every level that has units to come', () => {
     mount(<CoursePage />, 'en');
-    // Three empty levels plus A1, which has units authored and more to come.
-    // Losing this heading the moment a level's first unit landed would read as
-    // a finished level.
-    expect(screen.getAllByText(tr('plannedUnits', 'en')).length).toBe(4);
-    expect(screen.getByText('Appointments, health and weather')).toBeInTheDocument();
-    // And an authored unit is never repeated in that list.
-    for (const authored of [
-      'People and family',
-      'Home and daily life',
-      'Food, cafés and shopping',
-      'Work, study and free time',
-      'Getting around town',
-    ]) {
-      expect(screen.queryAllByText(authored), authored).toHaveLength(0);
+    // Derived rather than pinned to a number. The heading belongs to any level
+    // with units still to come, whether or not some are already authored —
+    // losing it the moment a level's first unit landed would read as a finished
+    // level, and that is the regression this guards. It was pinned to four
+    // while A1 had one unit left; A1 is finished now, so a fixed number would
+    // only be testing how far the course happens to have got.
+    const outlineFor = (level: (typeof CURRICULUM)[number]) =>
+      LEVEL_OUTLINES[level.id as keyof typeof LEVEL_OUTLINES];
+    const withPlanned = CURRICULUM.filter((level) => outlineFor(level).plannedUnits.length > 0);
+    expect(withPlanned.length).toBeGreaterThan(0);
+    expect(screen.getAllByText(tr('plannedUnits', 'en')).length).toBe(withPlanned.length);
+    for (const level of withPlanned) {
+      for (const unit of outlineFor(level).plannedUnits) {
+        expect(screen.getByText(unit.en), unit.en).toBeInTheDocument();
+      }
+    }
+    // And an authored unit is never repeated in that list. Scoped to the
+    // planned lists themselves: an authored title appearing elsewhere on the
+    // page is the page doing its job.
+    const planned = new Set(
+      [...document.querySelectorAll('.planned-units li')].map((li) => li.textContent),
+    );
+    for (const authored of CURRICULUM.flatMap((level) => level.units)) {
+      expect(planned.has(authored.title.en), authored.title.en).toBe(false);
     }
   });
 

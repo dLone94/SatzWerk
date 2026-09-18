@@ -207,7 +207,8 @@ level checkpoint.**
 | | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
 | | **Pre-A1 level checkpoint** | draws on all six units, 80% to pass, and offers no hints at all |
 
-**A1 has begun: five units of six are authored.**
+**A1 is finished too: six units, eighteen lessons, six unit checkpoints and a
+level checkpoint.**
 
 | Unit | Lessons | What it teaches |
 | --- | --- | --- |
@@ -216,16 +217,17 @@ level checkpoint.**
 | 3. Food, cafés and shopping | Food and drink · In a café · At the supermarket | everyday food and drink and the genders that decide how you order them; *möchten* as the polite ask and *gern* for what you like; a whole café visit from menu to bill; the formal imperative you will hear before you can say it; quantity phrases, which are the one construction a Bulgarian speaker can translate word for word |
 | 4. Work, study and free time | Work and study · Free time, and what you prefer · Joining two sentences | *als* with no article and when *studieren* is wrong; hobbies, and the last stem-changing verbs (du liest, du fährst, du triffst); *gern* and *lieber* for what you like and prefer; und, aber, oder and denn — the four joining words that change nothing, and why each half still needs its own subject |
 | 5. Getting around town | Places in town · Getting there: mit dem Bus zum Bahnhof · Asking the way | the places and their genders, learnt before they are needed; the dative kept deliberately small — *mit*, *zu* and *neben*, singular only — with feminine *der* named as the trap it is; *zum* and *zur*; gehen versus fahren; asking the way and understanding the answer |
-| | **Five unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
+| 6. Appointments, health and weather | Making an appointment · Saying what is wrong · The weather, and the subject German invents | making, moving and cancelling an appointment, with *bei* and *beim* giving the dative a third preposition; body parts, the *-schmerzen* compound and *tut weh*; the impersonal *es* — the one place German invents a subject because a sentence cannot go without one, which is where a Bulgarian speaker's „Вали." has no equivalent at all |
+| | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
+| | **A1 level checkpoint** | all six units with no hints, 80% to pass, with the accusative and the dative asked for side by side |
 
-Across those 33 lessons that is 317 vocabulary entries, 31 grammar concepts, 281 exercises and **841
-answer tasks** (including all twelve checkpoints), across 162 teaching sections,
-all authored in both paths. Only 2.1% of those tasks are multiple choice; the
-rest require typing German. 65 of them carry an authored trap answer — a
+Across those 36 lessons that is 343 vocabulary entries, 33 grammar concepts, 310 exercises and **933
+answer tasks** (including all fourteen checkpoints), across 175 teaching sections,
+all authored in both paths. Only 1.9% of those tasks are multiple choice; the
+rest require typing German. 84 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
 written for it. Levels A2–B2 exist as structure and outline only, and the UI
-labels them as planned; A1 shows its finished units and names the one that is
-not written yet.
+labels them as planned.
 
 **Practice targeted at a kind of mistake, not just at sentences.** Once the
 mistake bank shows a real pattern (three or more of the same error category),
@@ -337,7 +339,7 @@ that is openly planned:
 | AI mistake explanation, generated practice, conversation | **Interface only.** `AiProvider` in `server/ai.ts` defines `explainMistake`, `evaluateWriting`, `generatePractice` and `converse`. No provider is wired up; the API returns `available: false` and the UI labels them planned. Keys would be read server-side only — nothing reaches the client bundle. |
 | Recording, speech-to-text, pronunciation scoring | **Interface only.** `src/services/speech/` defines `AudioRecorder`, `SpeechToText` and `PronunciationScorer`, all reporting `available: false`. Recording audio the app cannot evaluate would be a fake feature, so it is left out. |
 | Real Life scenarios | **Roadmap only.** 13 scenarios are modelled with their CEFR staging and register, and the page presents them as a roadmap with no playable content. Where a scenario's language is already taught, it links to the lesson that teaches it. |
-| A1–B2 content | **Outline only.** Topics, grammar progression, "I can" outcomes and planned unit titles for every level; no authored lessons. The level map marks them planned. |
+| A2–B2 content | **Outline only.** Topics, grammar progression, "I can" outcomes and planned unit titles for every level; no authored lessons. The level map marks them planned. |
 | C1 / C2 | Not implemented, but `CefrLevel` already includes them, so adding them is content, not a refactor. |
 
 ---
@@ -391,7 +393,7 @@ will grade it:
   Cyrillic, and no English prose has been copied into a Bulgarian field;
 - both paths carry explanations that exist only in that path;
 - nouns are taught with their article;
-- multiple choice stays under 15% of all answer tasks (it is currently 3.5%).
+- multiple choice stays under 15% of all answer tasks (it is currently 1.9%).
 
 This caught four real bugs during the build: a capitalisation trap answer whose
 case-insensitive shape matched the correct answer and swallowed it; duplicated
@@ -413,11 +415,15 @@ lessons that did not exist.
 ### Every lesson has been played end to end
 
 The test suite grades content against the engine, which is not the same as
-using it. So every one of the 18 lessons and all 7 checkpoints has also been
-driven in Chromium, on both teaching paths, answering all 484 tasks with the
-authored answer and checking that each one is accepted, that the task says what
-it wants, and that the run releases. Then the 37 steps carrying an authored trap
-were driven a second time with the wrong form the author predicted, checking
+using it. So every one of the 18 Pre-A1 lessons and all 7 of its checkpoints has
+also been driven in Chromium, on both teaching paths, answering all 484 tasks
+with the authored answer and checking that each one is accepted, that the task
+says what it wants, and that the run releases. Each A1 unit was driven the same
+way as it was written — its lessons opened in both paths, a wrong answer
+answered first to see the explanation, then the authored one — and the A1 level
+checkpoint was played to the end in both paths, all 37 steps accepted. Then the
+37 Pre-A1 steps carrying an authored trap were driven a second time with the
+wrong form the author predicted, checking
 that the right category is tagged, an explanation appears in the learner's
 language, the correction shows the taught form, and the retype gate engages and
 then releases. Both passes finish clean with no console errors.
@@ -446,9 +452,9 @@ Run `npm run dev`, open <http://localhost:5173>, and:
 2. **Dashboard.** "Следващата ти полезна стъпка" suggests the first lesson.
    Accuracy shows `—` with "Още няма данни", not 0%. Speaking reads
    "Планирано — още не е направено".
-3. **Course.** All five levels are listed. Pre-A1 shows six linked lessons and a
-   checkpoint; A1–B2 show "Това ниво е планирано, но още не е написано" with
-   their topic and grammar outlines.
+3. **Course.** All five levels are listed. Pre-A1 and A1 each show six linked
+   units and a level checkpoint; A2–B2 show "Това ниво е планирано, но още не е
+   написано" with their topic and grammar outlines.
 4. **Lesson.** Open *Откъде си и къде живееш*. The requirement checklist shows
    0/6 sections, 0/24 exercises and so on. Work through the six teaching
    sections — note the Bulgarian-only comparison of free Bulgarian word order
@@ -477,19 +483,23 @@ Run `npm run dev`, open <http://localhost:5173>, and:
 
 ## Next milestone
 
-**Milestone 3 — A1, and its assessment progression.** Pre-A1 now has the shape
-the rest of the course can copy: units of three lessons, a checkpoint per unit,
-a level checkpoint with no hints, and authored traps feeding targeted practice.
-A1 is outlined already — the plural system in earnest, the accusative across all
-genders, modal verbs, separable verbs, the perfect tense, and dative
-prepositions — and needs the same treatment.
+**Milestone 4 — A2.** Pre-A1 and A1 are both finished now, and they share the
+shape the rest of the course can copy: units of three lessons, a checkpoint per
+unit, a level checkpoint with no hints, and authored traps feeding targeted
+practice. A2 is outlined already — the perfect tense, *weil* and *dass* and the
+word order they force, comparison, and the dative widened beyond the three
+prepositions A1 kept it to — and needs the same treatment.
+
+A1 ends where it should: a learner who passes its level checkpoint can tell the
+accusative from the dative, which is the one thing A2 assumes and cannot
+re-teach.
 
 Two pieces of machinery still waiting on content rather than on code:
 
 - **Dictation without replay**, which the exercise model already supports via
   `audio.hideText` and a replay budget, but which only becomes a fair test once
   there is enough heard-but-not-seen vocabulary behind it.
-- **Interleaved review across units**, now that there are six units to
+- **Interleaved review across units**, now that there are twelve units to
   interleave rather than two.
 
 The AI Coach, conversation mode and speech evaluation stay where they are —
