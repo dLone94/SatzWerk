@@ -139,6 +139,35 @@ export async function resolveAuth(db: Db, env: NodeJS.ProcessEnv = process.env):
   };
 }
 
+/**
+ * What a deployment can say about itself without a database and without a
+ * password.
+ *
+ * This is the one answer that must survive everything else being broken. When
+ * the app shows nothing but "Loading", opening /api/health in a browser
+ * separates "the function is dead" from "the function is alive and cannot
+ * reach its database" — which are two completely different fixes, and are
+ * otherwise indistinguishable from the outside.
+ *
+ * Everything here is either a constant or the *shape* of the configuration.
+ * No connection string, no hash, no secret: this URL is public by design.
+ */
+export function healthReport(env: NodeJS.ProcessEnv = process.env): {
+  ok: true;
+  time: string;
+  node: string;
+  hosted: boolean;
+  database: 'postgres' | 'sqlite' | 'missing';
+} {
+  const hosted = isHosted(env);
+  const database = env.DATABASE_URL
+    ? ('postgres' as const)
+    : env.SATZWERK_DB || !hosted
+      ? ('sqlite' as const)
+      : ('missing' as const);
+  return { ok: true, time: new Date().toISOString(), node: process.version, hosted, database };
+}
+
 export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promise<ApiResponse> {
   const { db } = ctx;
   const provider = ctx.provider ?? createProvider();
@@ -153,7 +182,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   // Health stays public: it must answer before a session exists, so that a
   // deployment can be checked without logging in.
   if (route.length === 1 && route[0] === 'health' && method === 'GET') {
-    return ok({ ok: true, time: new Date().toISOString() });
+    return ok(healthReport());
   }
 
   const auth = ctx.auth ?? (await resolveAuth(db));

@@ -91,6 +91,25 @@ That is the whole of it — no terminal, and no secrets to copy around. Requirin
 a local command to set a password is a poor bargain for something you are meant
 to just open in a browser.
 
+### When the hosted app will not load
+
+Open `/api/health` on the deployment. It is public, it is answered before the
+database is touched, and it contains no secrets — so it separates the two
+failures that look identical from the outside:
+
+- **It answers JSON** (`{"ok":true,...}`) — the function is running. Look at
+  `database` in that answer: `postgres` means `DATABASE_URL` is set, `missing`
+  means it is not set for *this* environment. Preview and Production are
+  configured separately in Vercel, and a variable set for only one of them is
+  the usual cause.
+- **It does not answer at all** — the function itself is failing to start, and
+  Vercel's runtime logs for the deployment say why.
+
+Any request that does need the database now fails within about eight seconds
+with a sentence saying so, rather than hanging until the browser gives up.
+`SATZWERK_PG_TRANSPORT=http` switches to Neon's HTTP driver if TCP is ever the
+problem.
+
 ### If you would rather configure it yourself
 
 Two optional variables override the above, for anyone who prefers secrets to

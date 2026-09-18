@@ -142,7 +142,10 @@ async function openStandard(url: string): Promise<Db> {
     // A serverless invocation is short-lived, so a connection that cannot be
     // made must fail rather than hold the request open. Hanging is the worst
     // outcome: the app shows "Loading" forever and says nothing.
-    connectionTimeoutMillis: 10_000,
+    // Must be comfortably inside the hosting platform's function limit, so a
+    // refused or unroutable database produces an error we can show rather than
+    // the function being killed mid-connect.
+    connectionTimeoutMillis: 8_000,
     // One connection is plenty for one learner, and it keeps a cold start from
     // opening several against a database with a small connection limit.
     max: 1,

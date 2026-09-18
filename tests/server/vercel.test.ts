@@ -62,6 +62,46 @@ describe('the Vercel function', () => {
     await expect(response.json()).resolves.toMatchObject({ ok: true });
   });
 
+  /**
+   * The case this exists for. A hosted deployment whose DATABASE_URL is
+   * missing or wrong cannot answer anything that needs the database — and that
+   * is precisely when someone needs to know whether the function is running at
+   * all. So health must answer *here*, with no database reachable, or it is
+   * not a diagnostic.
+   */
+  it('still answers health when there is no database at all, and says so', async () => {
+    process.env.VERCEL = '1';
+    delete process.env.SATZWERK_DB;
+    const handler = await loadHandler();
+
+    const health = await handler(get('/api/health'));
+    expect(health.status).toBe(200);
+    await expect(health.json()).resolves.toMatchObject({
+      ok: true,
+      hosted: true,
+      database: 'missing',
+    });
+
+    // And a route that does need the database says what is wrong, in a
+    // sentence, rather than hanging or crashing the function.
+    const state = await handler(get('/api/state'));
+    expect(state.status).toBe(503);
+    const body = (await state.json()) as { error: string };
+    expect(body.error).toContain('DATABASE_URL');
+    // Including the part people get wrong, and where to look next.
+    expect(body.error).toContain('Preview and Production');
+    expect(body.error).toContain('/api/health');
+  });
+
+  it('reports which database a deployment is configured for', async () => {
+    const handler = await loadHandler();
+    // SATZWERK_DB is set by the harness above: a file, not Postgres.
+    await expect((await handler(get('/api/health'))).json()).resolves.toMatchObject({
+      database: 'sqlite',
+      node: process.version,
+    });
+  });
+
   it('reads and writes, and the write survives the next invocation', async () => {
     const handler = await loadHandler();
     const before = await (await handler(get('/api/state'))).json();
