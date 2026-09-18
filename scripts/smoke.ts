@@ -53,7 +53,9 @@ export interface Seen {
   headers: Record<string, string>;
 }
 
-export type Outcome = { ok: true; note: string } | { ok: false; reason: string };
+export type Outcome =
+  | { ok: true; note: string }
+  | { ok: false; reason: string; blocked?: true };
 
 /** The first readable line of a non-JSON body, for the failure message. */
 export function firstLine(body: string): string {
@@ -73,17 +75,33 @@ function looksProtected(seen: Seen): boolean {
   return /zeit-theme|_vercel_sso|Vercel Authentication|vercel\.com\/sso/i.test(seen.body);
 }
 
-export function judge(probe: Probe, seen: Seen): Outcome {
+/**
+ * `blocked` is not `failed`, and conflating them would make this check a liar.
+ *
+ * A deployment behind access control has not told us anything about the app —
+ * the request never reached it. Reporting that as a failure blames code for a
+ * setting, and it would go on doing so on every deployment until someone
+ * changed the setting, which is how a check stops being read at all.
+ *
+ * So without a bypass token it is reported as "could not check", loudly and
+ * with the remedy. *With* a token, hitting the wall anyway is a genuine
+ * failure: the token is wrong, and the check really cannot do its job.
+ */
+export function judge(
+  probe: Probe,
+  seen: Seen,
+  options: { bypassConfigured?: boolean } = {},
+): Outcome {
   // The signature comes first, because everything else can be imitated. Only
   // this app sets it, so its absence means the answer is not the app's —
   // whatever the status code says and whether or not the body parses as JSON.
   if (seen.headers['x-satzwerk'] !== 'api') {
     if (looksProtected(seen)) {
-      return {
-        ok: false,
-        reason:
-          'answered by Vercel\'s access control, not the app. This deployment has Deployment Protection on, so it is only reachable by someone signed in to Vercel — a phone or another browser will meet the same wall. Turn it off for this environment, or set VERCEL_BYPASS_TOKEN here (Project Settings, Protection Bypass for Automation).',
-      };
+      const reason =
+        'answered by Vercel\'s access control, not the app. This deployment has Deployment Protection on, so it is only reachable by someone signed in to Vercel — a phone or another browser will meet the same wall. Turn it off for this environment, or set VERCEL_BYPASS_TOKEN here (Project Settings, Protection Bypass for Automation).';
+      return options.bypassConfigured
+        ? { ok: false, reason: `${reason} A bypass token is set here, so it is being rejected.` }
+        : { ok: false, reason, blocked: true };
     }
     return {
       ok: false,
@@ -173,8 +191,16 @@ const TIMEOUT_MS = 25_000;
  * token, no header: the check then reports the wall plainly instead of
  * pretending the app is broken.
  */
+function bypassToken(): string | undefined {
+  return (
+    process.env.VERCEL_BYPASS_TOKEN?.trim() ||
+    process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim() ||
+    undefined
+  );
+}
+
 function bypassHeaders(): Record<string, string> {
-  const token = process.env.VERCEL_BYPASS_TOKEN ?? process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  const token = bypassToken();
   return token ? { 'x-vercel-protection-bypass': token, 'x-vercel-set-bypass-cookie': 'false' } : {};
 }
 
@@ -232,11 +258,14 @@ async function main(): Promise<void> {
   }
 
   console.log(`Smoke-testing ${base}${cookie ? ' (signed in)' : ''}`);
+  const bypassConfigured = Boolean(bypassToken());
   let failed = 0;
+  let blocked = 0;
+  let blockedReason: string | undefined;
   for (const probe of probes(Boolean(cookie))) {
     let outcome: Outcome;
     try {
-      outcome = judge(probe, await fetchProbe(base, probe, cookie));
+      outcome = judge(probe, await fetchProbe(base, probe, cookie), { bypassConfigured });
     } catch (error) {
       const timedOut = error instanceof DOMException && error.name === 'TimeoutError';
       outcome = {
@@ -249,6 +278,12 @@ async function main(): Promise<void> {
     const label = `${probe.method ?? 'GET'} ${probe.path}`;
     if (outcome.ok) {
       console.log(`  ok    ${label} — ${outcome.note}`);
+    } else if (outcome.blocked) {
+      blocked += 1;
+      // The remedy is the same for all of them, so it is printed once below
+      // rather than once per probe.
+      blockedReason ??= outcome.reason;
+      console.error(`  ??    ${label} — answered by access control, not the app`);
     } else {
       failed += 1;
       console.error(`  FAIL  ${label} (${probe.why})\n        ${outcome.reason}`);
@@ -258,6 +293,14 @@ async function main(): Promise<void> {
   if (failed > 0) {
     console.error(`\n${failed} probe${failed === 1 ? '' : 's'} failed. The deployment is not serving the app.`);
     process.exit(1);
+  }
+  if (blocked > 0) {
+    // Not a pass and not a failure. Nothing was learned about the app, which
+    // is worth saying in as many words rather than implying either verdict.
+    console.error(
+      `\nCould not check this deployment: all ${blocked} probe${blocked === 1 ? '' : 's'} were answered before reaching the app. Nothing here says whether the app works.\n\n${blockedReason ?? ''}`,
+    );
+    return;
   }
   console.log('\nAll probes answered from the app.');
 }

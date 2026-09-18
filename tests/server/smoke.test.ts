@@ -138,6 +138,28 @@ describe('telling our answer from the platform’s', () => {
     expect(outcome.ok === false && outcome.reason).toContain("without the app's own response header");
   });
 
+  it('reports protection as unable-to-check, not as a failing app', () => {
+    // The app never saw the request, so neither verdict would be honest. On
+    // every future deployment this would otherwise cry wolf about a setting.
+    const page = '<html><script>(function ar(a,b){localStorage.getItem("zeit-theme")})</script>';
+    const outcome = judge(probe('health'), fromElsewhere(200, page));
+    expect(outcome.ok).toBe(false);
+    expect(outcome.ok === false && outcome.blocked).toBe(true);
+  });
+
+  it('calls it a failure when a bypass token is set and still rejected', () => {
+    const page = '<html><script>(function ar(a,b){localStorage.getItem("zeit-theme")})</script>';
+    const outcome = judge(probe('health'), fromElsewhere(200, page), { bypassConfigured: true });
+    expect(outcome.ok === false && outcome.blocked).toBeUndefined();
+    expect(outcome.ok === false && outcome.reason).toContain('being rejected');
+  });
+
+  it('never calls an ordinary platform error merely unable-to-check', () => {
+    // A crash page is a failure. Only access control is inconclusive.
+    const outcome = judge(probe('reached'), fromElsewhere(500, 'A server error has occurred'));
+    expect(outcome.ok === false && outcome.blocked).toBeUndefined();
+  });
+
   it('names Deployment Protection rather than blaming the app', () => {
     // Vercel's login page, identified by its own theme script.
     const page = '<html><script>(function ar(a,b){localStorage.getItem("zeit-theme")})</script>';
