@@ -11,6 +11,7 @@ import { GRAMMAR_CONCEPTS_11 } from './grammar11.ts';
 import { GRAMMAR_CONCEPTS_12 } from './grammar12.ts';
 import { GRAMMAR_CONCEPTS_13 } from './grammar13.ts';
 import { GRAMMAR_CONCEPTS_14 } from './grammar14.ts';
+import { GRAMMAR_CONCEPTS_15 } from './grammar15.ts';
 import type { Bilingual, Block, GrammarConcept } from './types.ts';
 
 const bi = (en: string, bg: string): Bilingual => ({ en, bg });
@@ -498,6 +499,7 @@ export const GRAMMAR_CONCEPTS: GrammarConcept[] = [
   ...GRAMMAR_CONCEPTS_12,
   ...GRAMMAR_CONCEPTS_13,
   ...GRAMMAR_CONCEPTS_14,
+  ...GRAMMAR_CONCEPTS_15,
 ];
 
 const BY_ID = new Map(GRAMMAR_CONCEPTS.map((concept) => [concept.id, concept]));

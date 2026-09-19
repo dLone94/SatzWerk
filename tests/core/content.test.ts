@@ -349,6 +349,41 @@ describe('authored answers are consistent with the validator', () => {
 });
 
 describe('both teaching paths are authored, not translated placeholders', () => {
+  /**
+   * Every character a learner reads is from a script the course actually
+   * teaches in.
+   *
+   * This exists because a stray CJK character once landed in the middle of a
+   * Bulgarian sentence — a single keystroke, invisible in review, and the kind
+   * of thing that is never noticed until somebody is reading the lesson. The
+   * allowed punctuation is listed explicitly rather than by category, so
+   * adding a new symbol to the content is a decision.
+   */
+  it('is written only in scripts the course teaches in', () => {
+    const ALLOWED_PUNCTUATION = new Set([...'—–…„“”‘’•→·×°²½€«»№']);
+    const offenders: string[] = [];
+    const check = (label: string, node: unknown) => {
+      const found: Array<{ text: Bilingual; scope: TeachingLanguage[] }> = [];
+      collectBilinguals(node, ['en', 'bg'], found);
+      for (const { text } of found) {
+        for (const lang of ['en', 'bg'] as TeachingLanguage[]) {
+          for (const character of text[lang]) {
+            if (character.codePointAt(0)! < 128) continue;
+            if (ALLOWED_PUNCTUATION.has(character)) continue;
+            // Latin (German umlauts, ß) and Cyrillic are the two scripts the
+            // course is written in.
+            if (/[\u00C0-\u024F\u0400-\u04FF]/.test(character)) continue;
+            offenders.push(`${label} (${lang}): ${JSON.stringify(character)} in ${text[lang].slice(0, 50)}`);
+          }
+        }
+      }
+    };
+    for (const concept of GRAMMAR_CONCEPTS) check(concept.id, concept);
+    for (const entry of VOCABULARY) check(entry.id, entry);
+    for (const { exercise } of allExercises()) check(exercise.id, exercise);
+    expect(offenders).toEqual([]);
+  });
+
   it('has non-empty English and Bulgarian text wherever a path is active', () => {
     const problems: string[] = [];
     const check = (label: string, node: unknown) => {
