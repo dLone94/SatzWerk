@@ -221,7 +221,7 @@ level checkpoint.**
 | | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
 | | **A1 level checkpoint** | all six units with no hints, 80% to pass, with the accusative and the dative asked for side by side |
 
-**A2 has begun: three units of five are authored.**
+**A2 has begun: four units of five are authored.**
 
 | Unit | Lessons | What it teaches |
 | --- | --- | --- |
@@ -229,10 +229,12 @@ level checkpoint.**
 | 2. Home, city and services | Where things are: wo and the dative · Putting things: wohin and the accusative · When something is broken: weil | the nine two-way prepositions, and the one question — *wo* or *wohin* — that decides the case; the verb pairs *stellen*/*stehen* and *legen*/*liegen*, learnt together so the pair carries the case and it never has to be decided twice; *weil*, the first word that sends a verb to the end of its clause, taught where it is actually needed — a phone call about a broken heater |
 | 3. Work and education | What you think: dass · Courses and conditions: wenn · Plans: the future, and becoming something | *dass* and *wenn*, which do to the verb exactly what *weil* already did — so the unit says so in its first line rather than presenting a second rule; what is genuinely new is the consequence, that a *wenn*-clause in first position pushes the main verb to just after the comma, which neither English nor Bulgarian does; and the future, which is mostly the present tense with a time word |
 
-Across those 45 lessons that is 400 vocabulary entries, 43 grammar concepts, 372 exercises and **1106
-answer tasks** (including all seventeen checkpoints), across 221 teaching sections,
-all authored in both paths. Only 1.6% of those tasks are multiple choice; the
-rest require typing German. 101 of them carry an authored trap answer — a
+| 4. Health and advice | How you feel: reflexive verbs · Giving advice: sollen and the imperative · At the doctor: the whole visit | reflexive verbs, which is the clearest case in the course of the two paths needing *opposite* advice — Bulgarian has „се“ and puts it in the same places, so the warning is that German's changes with the person, while English forbids the word outright („I feel myself well“), so the instinct is to delete it; both mistakes are authored as traps in the same exercise; plus *sollen*, a fifth modal that behaves like the four already known, and the du-imperative, which is the du-form with two things taken off |
+
+Across those 48 lessons that is 414 vocabulary entries, 46 grammar concepts, 392 exercises and **1164
+answer tasks** (including all eighteen checkpoints), across 236 teaching sections,
+all authored in both paths. Only 1.5% of those tasks are multiple choice; the
+rest require typing German. 106 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
 written for it. Levels B1–B2 exist as structure and outline only, and the UI
 labels them as planned.
@@ -551,11 +553,10 @@ Run `npm run dev`, open <http://localhost:5173>, and:
 
 ## Next milestone
 
-**Milestone 4 — the rest of A2.** Units 1 to 3 are authored; two remain, and the
-outline names them: health and advice, travel and problems. The grammar still to
-come is reflexive verbs, comparison, and the first adjective endings — the
-subordinate word order is bought and paid for, since *weil*, *dass* and *wenn*
-all do the same thing to the verb. Then A2 needs its level checkpoint.
+**Milestone 4 — the rest of A2.** Units 1 to 4 are authored; one remains, travel
+and problems, and with it comparison and the first adjective endings. Then A2
+needs its level checkpoint — the harder, hint-free one that draws on all five
+units, the shape Pre-A1 and A1 both have.
 
 A1 ends where it should: a learner who passes its level checkpoint can tell the
 accusative from the dative, which is the one thing A2 assumes and cannot

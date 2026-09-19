@@ -454,7 +454,10 @@ describe('vocabulary', () => {
   it('gives every verb its Perfekt, except the modals the course does not teach it for', () => {
     const verbs = VOCABULARY.filter((entry) => entry.wordType === 'verb');
     const without = verbs.filter((entry) => !entry.perfect).map((entry) => entry.german);
-    expect(without.sort()).toEqual(['können', 'möchten', 'müssen', 'wollen'].sort());
+    // The modals, and only the modals: the course teaches their present tense
+    // and leaves their Perfekt to B1, so a form nothing teaches has no business
+    // on a page that says what you have learnt.
+    expect(without.sort()).toEqual(['können', 'möchten', 'müssen', 'sollen', 'wollen'].sort());
     expect(verbs.length - without.length).toBeGreaterThan(30);
   });
 
