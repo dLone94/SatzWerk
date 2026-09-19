@@ -221,13 +221,30 @@ level checkpoint.**
 | | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
 | | **A1 level checkpoint** | all six units with no hints, 80% to pass, with the accusative and the dative asked for side by side |
 
-Across those 36 lessons that is 343 vocabulary entries, 33 grammar concepts, 310 exercises and **933
-answer tasks** (including all fourteen checkpoints), across 175 teaching sections,
-all authored in both paths. Only 1.9% of those tasks are multiple choice; the
-rest require typing German. 84 of them carry an authored trap answer — a
+**A2 has begun: one unit of five is authored.**
+
+| Unit | Lessons | What it teaches |
+| --- | --- | --- |
+| 1. Last weekend: the Perfekt | What you did: haben and the participle · Where you went: the verbs that take sein · war, hatte, and telling the whole story | the past tense built from verbs the learner already owns — the helper second, the participle last, which is the bracket from A1 Unit 2 in its third disguise; ge- … -t and the three groups that do it differently; which verbs take *sein* and why the Bulgarian instinct („работил съм“) produces *Ich bin gearbeitet* every time; *war*, *hatte* and *es gab*, the three places spoken German keeps the simple past |
+
+Across those 39 lessons that is 360 vocabulary entries, 37 grammar concepts, 331 exercises and **994
+answer tasks** (including all fifteen checkpoints), across 191 teaching sections,
+all authored in both paths. Only 1.8% of those tasks are multiple choice; the
+rest require typing German. 91 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
-written for it. Levels A2–B2 exist as structure and outline only, and the UI
+written for it. Levels B1–B2 exist as structure and outline only, and the UI
 labels them as planned.
+
+**A2 Unit 1 teaches almost no new words, on purpose.** The learner finished A1
+owning forty-three verbs; the unit gives them a second form of those rather than
+more verbs to carry, so seventeen new entries are enough — the time expressions
+a past tense needs, two verbs that take *sein* and had no reason to exist
+before, and the nouns a weekend story is made of. Every verb in the course now
+carries its Perfekt as data (`hat gemacht`, `ist gegangen`), because German
+participles cannot be derived: *gemacht* is regular, *gegangen* is not,
+*studiert* has no ge- at all and *eingekauft* puts it in the middle. The word
+page shows it, and the validator counts the participle as a word the course
+teaches rather than calling it a typo.
 
 **Practice targeted at a kind of mistake, not just at sentences.** Once the
 mistake bank shows a real pattern (three or more of the same error category),
@@ -532,16 +549,16 @@ Run `npm run dev`, open <http://localhost:5173>, and:
 
 ## Next milestone
 
-**Milestone 4 — A2.** Pre-A1 and A1 are both finished now, and they share the
-shape the rest of the course can copy: units of three lessons, a checkpoint per
-unit, a level checkpoint with no hints, and authored traps feeding targeted
-practice. A2 is outlined already — the perfect tense, *weil* and *dass* and the
-word order they force, comparison, and the dative widened beyond the three
-prepositions A1 kept it to — and needs the same treatment.
+**Milestone 4 — the rest of A2.** Unit 1 is authored; four remain, and the
+outline names them: home and services, work and education, health and advice,
+travel and problems. The grammar still to come is *weil* / *dass* / *wenn* and
+the verb-final word order they force, the two-way prepositions, reflexive verbs,
+comparison, and the first adjective endings. Then A2 needs its level checkpoint.
 
 A1 ends where it should: a learner who passes its level checkpoint can tell the
 accusative from the dative, which is the one thing A2 assumes and cannot
-re-teach.
+re-teach. A2 Unit 1 starts where it should too — it asks for no new verbs at
+all, only a second form of the ones already owned.
 
 Two pieces of machinery still waiting on content rather than on code:
 

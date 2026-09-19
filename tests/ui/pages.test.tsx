@@ -281,9 +281,12 @@ describe('the dashboard never invents progress', () => {
 describe('the course map is honest about what is finished', () => {
   it('labels unauthored levels as planned with an outline', () => {
     mount(<CoursePage />, 'en');
-    // A2, B1 and B2 have nothing authored at all. A1 has its first unit, so it
-    // is no longer advertised as planned wholesale.
-    expect(screen.getAllByText(tr('plannedNotice', 'en')).length).toBe(3);
+    // Derived, not pinned: a level is advertised as planned wholesale only
+    // while nothing in it is authored, and which levels those are moves as the
+    // course grows.
+    const empty = CURRICULUM.filter((level) => level.units.length === 0);
+    expect(empty.length).toBeGreaterThan(0);
+    expect(screen.getAllByText(tr('plannedNotice', 'en')).length).toBe(empty.length);
   });
 
   it('still lists what is missing from every level that has units to come', () => {

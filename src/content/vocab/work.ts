@@ -101,6 +101,7 @@ const WORK: VocabEntry[] = [
     german: 'studieren',
     display: 'studieren',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'studiert' },
     translation: { en: 'to study (at university)', bg: 'следвам, уча в университет' },
     pronunciation: { en: 'shtoo-DEE-ren', bg: 'щу-ДИ-рен' },
     example: {
@@ -263,6 +264,7 @@ const FREE_TIME: VocabEntry[] = [
     german: 'lesen',
     display: 'lesen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gelesen' },
     translation: { en: 'to read', bg: 'чета' },
     pronunciation: { en: 'LAY-zen', bg: 'ЛЕ-зен' },
     example: {
@@ -284,6 +286,7 @@ const FREE_TIME: VocabEntry[] = [
     german: 'hören',
     display: 'hören',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gehört' },
     translation: { en: 'to hear, to listen to', bg: 'слушам, чувам' },
     pronunciation: { en: 'HOE-ren', bg: 'ХЬО-рен' },
     example: {
@@ -351,6 +354,7 @@ const FREE_TIME: VocabEntry[] = [
     german: 'spielen',
     display: 'spielen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gespielt' },
     translation: { en: 'to play', bg: 'играя, свиря' },
     pronunciation: { en: 'SHPEE-len', bg: 'ШПИ-лен' },
     example: {
@@ -372,6 +376,7 @@ const FREE_TIME: VocabEntry[] = [
     german: 'schwimmen',
     display: 'schwimmen',
     wordType: 'verb',
+    perfect: { auxiliary: 'sein', participle: 'geschwommen' },
     translation: { en: 'to swim', bg: 'плувам' },
     pronunciation: { en: 'SHVIM-men', bg: 'ШВИ-мен' },
     example: {
@@ -389,6 +394,7 @@ const FREE_TIME: VocabEntry[] = [
     german: 'tanzen',
     display: 'tanzen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'getanzt' },
     translation: { en: 'to dance', bg: 'танцувам' },
     pronunciation: { en: 'TAN-tsen', bg: 'ТАН-цен' },
     example: {
@@ -410,6 +416,7 @@ const FREE_TIME: VocabEntry[] = [
     german: 'treffen',
     display: 'treffen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'getroffen' },
     translation: { en: 'to meet', bg: 'срещам се с' },
     pronunciation: { en: 'TREF-fen', bg: 'ТРЕ-фен' },
     example: {
@@ -455,6 +462,7 @@ const FREE_TIME: VocabEntry[] = [
     german: 'fahren',
     display: 'fahren',
     wordType: 'verb',
+    perfect: { auxiliary: 'sein', participle: 'gefahren' },
     translation: { en: 'to go (by vehicle), to drive', bg: 'карам, пътувам' },
     pronunciation: { en: 'FAH-ren', bg: 'ФА-рен' },
     example: {

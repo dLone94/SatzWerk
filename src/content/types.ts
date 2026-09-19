@@ -108,6 +108,16 @@ export interface VocabEntry {
   difficulty: 1 | 2 | 3 | 4 | 5;
   related?: string[];
   collocations?: Collocation[];
+  /**
+   * The Perfekt, for verbs.
+   *
+   * Carried on the verb rather than derived, because German participles cannot
+   * be derived reliably — gemacht is regular, gegangen is not, studiert has no
+   * ge- at all, and eingekauft puts it in the middle. From A2 on this is part
+   * of what it means to know the verb, so the word page shows it and the
+   * validator counts the participle as a word the course teaches.
+   */
+  perfect?: { auxiliary: 'haben' | 'sein'; participle: string };
   /** Path-specific note, e.g. a Bulgarian-speaker warning about gender mismatch. */
   notes?: Partial<Record<TeachingLanguage, string>>;
 }

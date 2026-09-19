@@ -380,6 +380,7 @@ const TRANSPORT: VocabEntry[] = [
     german: 'gehen',
     display: 'gehen',
     wordType: 'verb',
+    perfect: { auxiliary: 'sein', participle: 'gegangen' },
     translation: { en: 'to go (on foot)', bg: 'отивам, ходя (пеша)' },
     pronunciation: { en: 'GAY-en', bg: 'ГЕ-ен' },
     example: {

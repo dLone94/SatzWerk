@@ -213,6 +213,8 @@ export interface LexiconSeed {
   gender?: Gender;
   plural?: string;
   display?: string;
+  /** A verb's Perfekt participle, once the course teaches it. */
+  participle?: string;
 }
 
 /**
@@ -231,6 +233,11 @@ export function extendLexicon(base: GermanLexicon, entries: LexiconSeed[]): Germ
     const head = lower(entry.german);
     for (const part of head.split(/\s+/)) knownWords.add(part);
     knownWords.add(head);
+
+    // Without this, the moment A2 starts asking for "Ich bin gegangen" the
+    // validator calls a perfectly good participle a typo, because nothing in
+    // the course had ever named it as a word.
+    if (entry.participle) knownWords.add(lower(entry.participle));
 
     if (entry.wordType === 'noun') {
       if (entry.gender) nounGender.set(head, entry.gender);

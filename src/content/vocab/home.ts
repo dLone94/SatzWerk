@@ -365,6 +365,7 @@ const ROUTINE: VocabEntry[] = [
     german: 'aufstehen',
     display: 'aufstehen',
     wordType: 'verb',
+    perfect: { auxiliary: 'sein', participle: 'aufgestanden' },
     translation: { en: 'to get up', bg: 'ставам (от сън)' },
     pronunciation: { en: 'OWF-shtay-en', bg: 'АУФ-щее-ен' },
     example: {
@@ -386,6 +387,7 @@ const ROUTINE: VocabEntry[] = [
     german: 'einkaufen',
     display: 'einkaufen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'eingekauft' },
     translation: { en: 'to shop, to do the shopping', bg: 'пазарувам' },
     pronunciation: { en: 'EYEN-kow-fen', bg: 'АЙН-кау-фен' },
     example: {
@@ -403,6 +405,7 @@ const ROUTINE: VocabEntry[] = [
     german: 'fernsehen',
     display: 'fernsehen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'ferngesehen' },
     translation: { en: 'to watch television', bg: 'гледам телевизия' },
     pronunciation: { en: 'FERN-zay-en', bg: 'ФЕРН-зее-ен' },
     example: {
@@ -424,6 +427,7 @@ const ROUTINE: VocabEntry[] = [
     german: 'aufräumen',
     display: 'aufräumen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'aufgeräumt' },
     translation: { en: 'to tidy up', bg: 'разтребвам' },
     pronunciation: { en: 'OWF-roy-men', bg: 'АУФ-рой-мен' },
     example: {
@@ -444,6 +448,7 @@ const ROUTINE: VocabEntry[] = [
     german: 'anfangen',
     display: 'anfangen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'angefangen' },
     translation: { en: 'to start, to begin', bg: 'започвам' },
     pronunciation: { en: 'AHN-fahng-en', bg: 'АН-фанг-ен' },
     example: {
@@ -465,6 +470,7 @@ const ROUTINE: VocabEntry[] = [
     german: 'schlafen',
     display: 'schlafen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'geschlafen' },
     translation: { en: 'to sleep', bg: 'спя' },
     pronunciation: { en: 'SHLAH-fen', bg: 'ШЛА-фен' },
     example: {
@@ -486,6 +492,7 @@ const ROUTINE: VocabEntry[] = [
     german: 'essen',
     display: 'essen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gegessen' },
     translation: { en: 'to eat', bg: 'ям' },
     pronunciation: { en: 'ES-sen', bg: 'Е-сен' },
     example: {
@@ -507,6 +514,7 @@ const ROUTINE: VocabEntry[] = [
     german: 'trinken',
     display: 'trinken',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'getrunken' },
     translation: { en: 'to drink', bg: 'пия' },
     pronunciation: { en: 'TRING-ken', bg: 'ТРИН-кен' },
     example: {
@@ -524,6 +532,7 @@ const ROUTINE: VocabEntry[] = [
     german: 'kochen',
     display: 'kochen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gekocht' },
     translation: { en: 'to cook', bg: 'готвя' },
     pronunciation: { en: 'KO-khen', bg: 'КО-хен' },
     example: {

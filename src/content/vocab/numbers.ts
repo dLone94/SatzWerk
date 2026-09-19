@@ -256,6 +256,7 @@ const MONEY_AND_QUANTITY: VocabEntry[] = [
     german: 'kosten',
     display: 'kosten',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gekostet' },
     translation: { en: 'to cost', bg: 'струвам' },
     pronunciation: { en: 'KOS-ten', bg: 'КОС-тен' },
     example: {

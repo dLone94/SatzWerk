@@ -36,6 +36,9 @@ export function WordPage() {
     mistake.expected.toLowerCase().includes(entry.german.toLowerCase()),
   );
   const note = entry.notes?.[lang];
+  const perfectForm = entry.perfect
+    ? `${entry.perfect.auxiliary === 'sein' ? 'ist' : 'hat'} ${entry.perfect.participle}`
+    : '';
   const genderLabel =
     entry.gender === 'm'
       ? UI.wordGenderM[lang]
@@ -94,6 +97,18 @@ export function WordPage() {
                 <dd lang="de">
                   {entry.plural}
                   <AudioButton text={entry.plural} compact />
+                </dd>
+              </>
+            ) : null}
+            {entry.perfect ? (
+              <>
+                {/* Shown as the third person, which is the form the past tense
+                    is actually met in: "hat gemacht", "ist gegangen". Which
+                    auxiliary a verb takes is half of knowing it. */}
+                <dt>{t('wordPerfect')}</dt>
+                <dd lang="de">
+                  {perfectForm}
+                  <AudioButton text={perfectForm} compact />
                 </dd>
               </>
             ) : null}
