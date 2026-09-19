@@ -293,10 +293,12 @@ and starts teaching Germany in particular.
 
 | 4. Work and applications | The applicant’s CV: the genitive · Although, therefore, all the same · I am applying for: verbs and their prepositions | the unit built around one document — a German *Bewerbung* — with the grammar chosen to serve it. The genitive is taught honestly, which means admitting that spoken German is abandoning it: *das Auto von meinem Bruder* is what people say, *das Auto meines Bruders* is what people write, so the Bulgarian path is told its instinctive *von* is not an error but the wrong register. Then the three connector families, where German sorts joining words by what they do to the verb rather than by meaning, so *obwohl* and *trotzdem* — nearly synonymous — land in different families and neither starting language makes the split. And the fixed prepositions, the rare topic that is equally hard for everyone: "apply for" and „кандидатствам за“ both point at *für*, and German chose *um* |
 
-Across those 63 lessons that is 515 vocabulary entries, 60 grammar concepts, 503 exercises and **1475
-answer tasks** (including all twenty-four checkpoints), across 317 teaching sections,
-all authored in both paths. Only 1.4% of those tasks are multiple choice; the
-rest require typing German. 136 of them carry an authored trap answer — a
+| 5. Family, school and daily life | Back then we lived in: the written past · When I was ten: als, wenn and wann · After we had moved: ordering the past | the narrating unit, where German splits its two past tenses by *register* rather than by meaning — spoken German tells a story in the Perfekt, written German tells the same story in the Präteritum — and the two paths fail differently. English has one simple past covering everything, so the split looks arbitrary; Bulgarian has *more* past tenses than German, and its imperfect maps remarkably well onto the Präteritum for background description, so the intuition is largely already there and only the register rule is missing. Then *als*, *wenn* and *wann*, where one English word and two Bulgarian ones obscure a compulsory three-way split. Set in the German school system — Kita, Grundschule, Gymnasium, Ausbildung — because a decision made about a child at ten is one a parent has to be able to discuss |
+
+Across those 66 lessons that is 535 vocabulary entries, 63 grammar concepts, 523 exercises and **1533
+answer tasks** (including all twenty-five checkpoints), across 333 teaching sections,
+all authored in both paths. Only 1.3% of those tasks are multiple choice; the
+rest require typing German. 137 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
 written for it. B1 has begun; B2 exists as structure and outline only, and the
 UI labels every unit that is not authored as planned.

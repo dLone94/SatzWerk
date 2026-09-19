@@ -31,7 +31,7 @@ async function walk(page: Page, lessonId: string) {
   for (let step = 0; step < 400; step += 1) {
     const textarea = page.locator('.task textarea:not([disabled])').first();
     if (await textarea.isVisible().catch(() => false)) {
-      await textarea.fill('Ich möchte mich um die Stelle bewerben, um mich weiterzuentwickeln. An deiner Stelle würde ich zum Hausarzt gehen, denn im Bad ist Schimmel.');
+      await textarea.fill('Als ich klein war, wohnten wir in Sofia. Ich möchte mich um die Stelle bewerben, um mich weiterzuentwickeln. An deiner Stelle würde ich zum Hausarzt gehen, denn im Bad ist Schimmel.');
       await page.keyboard.press('Control+Enter');
       await page.waitForTimeout(280);
       typed += 1;

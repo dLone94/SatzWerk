@@ -534,6 +534,8 @@ describe('vocabulary', () => {
         // Unit 1: they are the same motion as umziehen and take sein for the
         // same reason.
         'einziehen', 'ausziehen',
+        // Added with B1 Unit 5. Growing up is a change of state, like werden.
+        'aufwachsen',
         // Change of state.
         'passieren', 'umziehen', 'umsteigen',
         // The three with no reason behind them.

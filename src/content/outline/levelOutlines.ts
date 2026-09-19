@@ -208,7 +208,6 @@ export const B1_OUTLINE: LevelOutline = {
     // authored and now live in b1/. A unit leaves this list the moment it
     // becomes playable, otherwise the course map advertises it twice — once as
     // real and once as still to come.
-    b('Family, school and daily life', 'Семейство, училище и ежедневие'),
     b('Opinions and written German', 'Мнения и писмен немски'),
   ],
 };
