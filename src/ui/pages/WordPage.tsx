@@ -4,6 +4,7 @@ import { lessonById, vocabById } from '../../content/index.ts';
 import { UI, WORD_TYPE_LABELS, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AudioButton, Card, EmptyState, formatRelativeDate } from '../components/bits.tsx';
+import { SpeakCheck } from '../components/SpeakCheck.tsx';
 import { buildVocabViews, type VocabView } from '../selectors.ts';
 import { stateLabel } from './VocabularyPage.tsx';
 
@@ -75,6 +76,11 @@ export function WordPage() {
           </button>
         </div>
       </div>
+
+      {/* Hear it, then say it. The word page is where a learner comes to look
+          something up, which is the moment they are most likely to want to try
+          pronouncing it. */}
+      <SpeakCheck target={entry.display} />
 
       <div className="grid grid--2">
         <Card title={t('wordGrammar')}>

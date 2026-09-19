@@ -7,6 +7,7 @@ import { CURRICULUM, LEVEL_OUTLINES, LEXICON, describeNoun } from '../../src/con
 import type { TeachingLanguage } from '../../src/content/types.ts';
 import { tr } from '../../src/i18n.ts';
 import { nullTtsProvider } from '../../src/services/tts/index.ts';
+import { createSpeechRecogniser } from '../../src/services/speech/recogniser.ts';
 import { AppStateContext, type AppStateValue } from '../../src/state/AppState.tsx';
 import { CheckpointPage } from '../../src/ui/pages/CheckpointPage.tsx';
 import { CoachPage } from '../../src/ui/pages/CoachPage.tsx';
@@ -67,6 +68,9 @@ function stubState(lang: TeachingLanguage, overrides: Partial<AppStateValue> = {
     t: (key, vars) => tr(key, lang, vars),
     say: (text) => (text ? text[lang] : ''),
     tts: nullTtsProvider,
+    // No browser recogniser in jsdom, which is the honest default: the speak
+    // button is not rendered at all when there is nothing to listen with.
+    recogniser: createSpeechRecogniser({}),
     lexicon: LEXICON,
     describeNoun,
     reload: vi.fn(async () => undefined),
@@ -259,9 +263,19 @@ describe('the dashboard never invents progress', () => {
     expect(screen.getByText('Time studied').closest('.stat')).toHaveTextContent('15 min');
   });
 
-  it('marks speaking as planned rather than showing a number', () => {
+  /**
+   * The row is allowed to change as the feature changes — it said "planned"
+   * until speaking was built. What may never change is that it shows no
+   * number, because nothing counts speaking and a figure there would be
+   * invented.
+   */
+  it('shows no number for speaking, because nothing counts it', () => {
     mount(<DashboardPage />, 'en');
-    expect(screen.getByText('Planned — not built yet')).toBeInTheDocument();
+    expect(screen.getByText(tr('skillSpeakingUncounted', 'en'))).toBeInTheDocument();
+    const row = screen.getByText(tr('skillSpeaking', 'en')).closest('.skills__row');
+    expect(row).not.toBeNull();
+    expect(row!.querySelector('.meter')).toBeNull();
+    expect(row!.textContent).not.toMatch(/\d/);
   });
 
   it('suggests onboarding first when the profile is not onboarded', () => {

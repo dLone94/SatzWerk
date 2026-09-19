@@ -25,6 +25,7 @@ import {
   type TargetSpec,
 } from '../services/api/client.ts';
 import { createTtsProvider, type TtsProvider } from '../services/tts/index.ts';
+import { createSpeechRecogniser, type SpeechRecogniser } from '../services/speech/recogniser.ts';
 
 /**
  * One context for the whole app.
@@ -61,6 +62,7 @@ export interface AppStateValue {
   say: (text: Bilingual | null | undefined) => string;
 
   tts: TtsProvider;
+  recogniser: SpeechRecogniser;
   lexicon: typeof LEXICON;
   describeNoun: typeof describeNoun;
 
@@ -139,6 +141,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [coach, setCoach] = useState<CoachStatus | null>(null);
 
   const tts = useMemo(() => createTtsProvider(), []);
+  const recogniser = useMemo(() => createSpeechRecogniser(), []);
   const pendingSeconds = useRef(0);
 
   const load = useCallback(async () => {
@@ -279,6 +282,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       t,
       say,
       tts,
+      recogniser,
       lexicon: LEXICON,
       describeNoun,
 
@@ -377,7 +381,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setSnapshot(await api.reset());
       },
     };
-  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, load, patchSnapshot, mergeLesson]);
+  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }

@@ -93,7 +93,7 @@ export function DashboardPage() {
                 <li key={skill.key} className="skills__row">
                   <span className="skills__label">{label}</span>
                   {skill.value === null ? (
-                    <span className="skills__planned">{t('skillSpeakingPlanned')}</span>
+                    <span className="skills__planned">{t('skillSpeakingUncounted')}</span>
                   ) : (
                     <>
                       <Meter value={skill.value} label={label} tone={skill.value >= 0.8 ? 'good' : 'accent'} />

@@ -17,6 +17,7 @@ import {
   type ValidationResult,
 } from '../../core/validation/validate.ts';
 import { CATEGORY_LABELS } from '../../i18n.ts';
+import { SpeakCheck } from './SpeakCheck.tsx';
 import type { AttemptPayload, TargetSpec } from '../../services/api/client.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AnswerInput, type AnswerInputHandle } from './AnswerInput.tsx';
@@ -676,6 +677,17 @@ export function ExercisePlayer({
                 <span className="task__keyhint">{t('exerciseEnterToSubmit')}</span>
               </div>
             </div>
+          ) : null}
+
+          {/*
+            Speaking is offered only once the answer is correct, and only for
+            something worth saying aloud. That ordering is the whole safety
+            argument: a missing microphone, a noisy room or a recogniser that
+            mishears can cost the learner nothing, because the mark is already
+            in the bank.
+          */}
+          {phase === 'feedback' && feedback.tone === 'success' && step.answer.shape !== 'word' ? (
+            <SpeakCheck target={feedback.correction} spec={step.answer} />
           ) : null}
 
           {phase === 'feedback' ? (

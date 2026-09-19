@@ -342,9 +342,37 @@ of exactly those sentences, or as a round drilling the whole category.
 
 **An honest dashboard.** Every figure is derived from database rows. A fresh
 profile shows `—` and "No data yet", not a zero dressed up as progress. The
-streak is counted backwards over days that actually contain answers. Speaking
-progress shows "Planned — not built yet" rather than a number, because there is
-no speaking feature yet.
+streak is counted backwards over days that actually contain answers.
+
+**Speaking, and what it honestly checks.** After an answer is already correct,
+the app offers *Say it*. The browser's own recogniser — iOS Safari and Chrome
+both ship one — listens, and the transcript goes through **the same validator
+the typing loop uses**: a wrong case is a wrong case whether you wrote it or
+said it, and it gets the same authored explanation.
+
+Two rules make it honest:
+
+- **Nothing you cannot hear is ever marked wrong.** A recogniser invents its
+  own punctuation (nobody pronounces a full stop) and capitalises by its own
+  rules, so both are normalised away before judging, and `capitalization` and
+  `punctuation` are stripped from the verdict if they survive. Marking those
+  would be telling a learner they mispronounced a capital letter.
+- **There is no score.** What is shown is the words it heard beside the words
+  that were wanted, and a line saying what that means: *this checks whether a
+  speech recogniser understood your words; it is not a score for your accent,
+  and it can mishear you.* A percentage there would read as an accent grade,
+  which is not what a recogniser measures.
+
+It is offered **after** the answer is right, never before, so a missing
+microphone, a noisy room or a mishearing costs nothing. Where the browser has
+no recogniser the control is not rendered at all — not greyed out, not
+"coming soon".
+
+It is also **not counted as progress**, and the dashboard says so. Speaking
+happens after the mark is already banked, so folding it into accuracy would
+distort the one number the app promises is real. The skills row used to read
+"Planned — not built yet"; that became false the moment speaking shipped, so it
+now describes what is there and claims nothing.
 
 **Audio** through a replaceable `TtsProvider`, with a `de-DE` browser
 SpeechSynthesis implementation and a null provider that hides the buttons when
@@ -411,7 +439,7 @@ that is openly planned:
 | --- | --- |
 | **Writing review in the Coach** | **Real.** Deterministic rule-based checks on the server: noun capitalisation, missing verb, `aus`/`von`, verb-second, du/Sie mixing, subject–verb agreement, digraph spellings. It lists the checks it applied and the words it did not understand, and says it is not a language model. |
 | AI mistake explanation, generated practice, conversation | **Interface only.** `AiProvider` in `server/ai.ts` defines `explainMistake`, `evaluateWriting`, `generatePractice` and `converse`. No provider is wired up; the API returns `available: false` and the UI labels them planned. Keys would be read server-side only — nothing reaches the client bundle. |
-| Recording, speech-to-text, pronunciation scoring | **Interface only.** `src/services/speech/` defines `AudioRecorder`, `SpeechToText` and `PronunciationScorer`, all reporting `available: false`. Recording audio the app cannot evaluate would be a fake feature, so it is left out. |
+| Phoneme-level pronunciation scoring | **Not built, and not claimed.** Speaking *is* real (see below) — the app checks whether a recogniser understood your words. Scoring an accent is a different thing and needs a different engine; `AudioRecorder` / `SpeechToText` in `src/services/speech/index.ts` remain the interfaces a server-side recogniser would implement. |
 | Real Life scenarios | **Roadmap only.** 13 scenarios are modelled with their CEFR staging and register, and the page presents them as a roadmap with no playable content. Where a scenario's language is already taught, it links to the lesson that teaches it. |
 | A2–B2 content | **Outline only.** Topics, grammar progression, "I can" outcomes and planned unit titles for every level; no authored lessons. The level map marks them planned. |
 | C1 / C2 | Not implemented, but `CefrLevel` already includes them, so adding them is content, not a refactor. |

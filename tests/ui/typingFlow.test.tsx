@@ -9,6 +9,7 @@ import type { Exercise, TeachingLanguage } from '../../src/content/types.ts';
 import { tr } from '../../src/i18n.ts';
 import type { AttemptPayload } from '../../src/services/api/client.ts';
 import { nullTtsProvider } from '../../src/services/tts/index.ts';
+import { createSpeechRecogniser } from '../../src/services/speech/recogniser.ts';
 import { AppStateContext, type AppStateValue } from '../../src/state/AppState.tsx';
 import { ExercisePlayer } from '../../src/ui/components/ExercisePlayer.tsx';
 
@@ -57,6 +58,9 @@ function stubState(lang: TeachingLanguage): AppStateValue {
     t: (key, vars) => tr(key, lang, vars),
     say: (text) => (text ? text[lang] : ''),
     tts: nullTtsProvider,
+    // No browser recogniser in jsdom, which is the honest default: the speak
+    // button is not rendered at all when there is nothing to listen with.
+    recogniser: createSpeechRecogniser({}),
     lexicon: LEXICON,
     describeNoun,
     reload: async () => undefined,
