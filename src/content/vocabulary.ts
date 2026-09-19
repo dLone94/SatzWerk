@@ -9,6 +9,7 @@ import { ADVICE_VOCAB } from './vocab/advice.ts';
 import { AUTHORITIES_VOCAB } from './vocab/authorities.ts';
 import { HEALTH2_VOCAB } from './vocab/health2.ts';
 import { FAMILY2_VOCAB } from './vocab/family2.ts';
+import { OPINIONS_VOCAB } from './vocab/opinions.ts';
 import { WORK3_VOCAB } from './vocab/work3.ts';
 import { HOUSING_VOCAB } from './vocab/housing.ts';
 import { TRAVEL_VOCAB } from './vocab/travel.ts';
@@ -896,6 +897,7 @@ export const VOCABULARY: VocabEntry[] = [
   ...HEALTH2_VOCAB,
   ...WORK3_VOCAB,
   ...FAMILY2_VOCAB,
+  ...OPINIONS_VOCAB,
 ];
 
 const BY_ID = new Map(VOCABULARY.map((entry) => [entry.id, entry]));

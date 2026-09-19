@@ -281,7 +281,8 @@ level checkpoint.**
 | 5. Travel and problems | Faster, cheaper: comparing two things · The best of all: am besten · When it goes wrong: delays and missed trains | comparison, the one topic in A2 where German is *simpler* than English (every adjective takes -er, however long — there is no *mehr interessant*) and harder than Bulgarian (whose „по-“ never touches the word, while German adds umlauts); the superlative in both its shapes; and one deliberately small corner of the adjective endings — definite article, nominative and accusative, five of whose six forms are -e |
 | | **A2 level checkpoint** | all five units with no hints, 80% to pass, built around the two decisions B1 assumes: which helper a verb takes, and which case a two-way preposition wants |
 
-**B1 has begun.** The level where the course stops teaching German in general
+**B1 is finished: six units, eighteen lessons, six unit checkpoints and a
+level checkpoint.** The level where the course stops teaching German in general
 and starts teaching Germany in particular.
 
 | Unit | Lessons | What it teaches |
@@ -295,13 +296,16 @@ and starts teaching Germany in particular.
 
 | 5. Family, school and daily life | Back then we lived in: the written past · When I was ten: als, wenn and wann · After we had moved: ordering the past | the narrating unit, where German splits its two past tenses by *register* rather than by meaning — spoken German tells a story in the Perfekt, written German tells the same story in the Präteritum — and the two paths fail differently. English has one simple past covering everything, so the split looks arbitrary; Bulgarian has *more* past tenses than German, and its imperfect maps remarkably well onto the Präteritum for background description, so the intuition is largely already there and only the register rule is missing. Then *als*, *wenn* and *wann*, where one English word and two Bulgarian ones obscure a compulsory three-way split. Set in the German school system — Kita, Grundschule, Gymnasium, Ausbildung — because a decision made about a child at ten is one a parent has to be able to discuss |
 
-Across those 66 lessons that is 535 vocabulary entries, 63 grammar concepts, 523 exercises and **1533
-answer tasks** (including all twenty-five checkpoints), across 333 teaching sections,
-all authored in both paths. Only 1.3% of those tasks are multiple choice; the
-rest require typing German. 137 of them carry an authored trap answer — a
+| 6. Opinions and written German | In my opinion: stating a position · On the one hand: weighing both sides · Yours sincerely: the formal letter | the only B1 unit whose subject is not a situation. Almost no new grammar, deliberately — by this point every clause type German uses is already there. What is missing is the *shape* of an argument, so the fixed phrases are taught whole rather than assembled: *Meiner Meinung nach*, *Einerseits … andererseits*, *Zusammenfassend kann man sagen, dass …* Both paths get the same warning about register from different directions: English and Bulgarian formal writing both reward variation and German does not, so translating your own politeness produces something grammatical and subtly wrong. And the smallest point is the most visible — the comma after *Sehr geehrte Frau Weber,* is followed by a **small** letter, where English and Bulgarian both capitalise |
+| | **B1 level checkpoint** | all six units with no hints, 80% to pass, built around the three things that separate a B1 speaker from an A2 one: relative clauses in all three cases, register (*von meinem Bruder* against *meines Bruders*, *ich bin gegangen* against *ich ging*), and *obwohl* against *trotzdem* — nearly synonymous, opposite word order, and the commonest B1 mistake in either path, so they sit adjacent and unhinted |
+
+Across those 69 lessons that is 555 vocabulary entries, 66 grammar concepts, 553 exercises and **1613
+answer tasks** (including all twenty-seven checkpoints), across 349 teaching sections,
+all authored in both paths. Only 1.2% of those tasks are multiple choice; the
+rest require typing German. 141 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
-written for it. B1 has begun; B2 exists as structure and outline only, and the
-UI labels every unit that is not authored as planned.
+written for it. B2 exists as structure and outline only, and the UI labels
+every unit that is not authored as planned.
 
 **A2 Unit 1 teaches almost no new words, on purpose.** The learner finished A1
 owning forty-three verbs; the unit gives them a second form of those rather than
