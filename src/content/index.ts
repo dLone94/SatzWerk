@@ -7,6 +7,7 @@ import { A1_U5_PATTERNS, A1_UNIT_5 } from './a1/unit5.ts';
 import { A1_U6_PATTERNS, A1_UNIT_6 } from './a1/unit6.ts';
 import { A1_LEVEL_CHECKPOINT } from './a1/levelCheckpoint.ts';
 import { A2_U1_PATTERNS, A2_UNIT_1 } from './a2/unit1.ts';
+import { A2_U2_PATTERNS, A2_UNIT_2 } from './a2/unit2.ts';
 import { GRAMMAR_CONCEPTS, grammarById } from './grammar.ts';
 import { LEVEL_OUTLINES } from './outline/levelOutlines.ts';
 import { PRE_A1_PATTERNS, PRE_A1_UNIT_2 } from './pre-a1/unit2.ts';
@@ -79,10 +80,10 @@ export const A1: Level = {
 };
 
 /**
- * A2 is under way: Unit 1 is authored, the other four are outline only.
- * `partial` is the honest word, and the level map shows it.
+ * A2 is under way: Units 1 and 2 are authored, the other three are outline
+ * only. `partial` is the honest word, and the level map shows it.
  */
-export const A2: Level = levelFromOutline('a2', [A2_UNIT_1], 'partial');
+export const A2: Level = levelFromOutline('a2', [A2_UNIT_1, A2_UNIT_2], 'partial');
 
 export const CURRICULUM: Level[] = [
   PRE_A1,
@@ -105,6 +106,7 @@ export const SENTENCE_PATTERNS: SentencePattern[] = [
   ...A1_U5_PATTERNS,
   ...A1_U6_PATTERNS,
   ...A2_U1_PATTERNS,
+  ...A2_U2_PATTERNS,
 ];
 
 /* ------------------------------------------------------------------ *
