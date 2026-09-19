@@ -160,7 +160,8 @@ export const A2_OUTLINE: LevelOutline = {
   ],
   // Unit 1 is authored, so it is no longer listed here: this array is what is
   // still to come.
-  plannedUnits: [b('Travel and problems', 'Пътуване и проблеми')],
+  // All five A2 units are authored, so nothing is left to list as planned.
+  plannedUnits: [],
 };
 
 export const B1_OUTLINE: LevelOutline = {

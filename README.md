@@ -221,7 +221,8 @@ level checkpoint.**
 | | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
 | | **A1 level checkpoint** | all six units with no hints, 80% to pass, with the accusative and the dative asked for side by side |
 
-**A2 has begun: four units of five are authored.**
+**A2 is finished: five units, fifteen lessons, five unit checkpoints and a
+level checkpoint.**
 
 | Unit | Lessons | What it teaches |
 | --- | --- | --- |
@@ -231,10 +232,13 @@ level checkpoint.**
 
 | 4. Health and advice | How you feel: reflexive verbs · Giving advice: sollen and the imperative · At the doctor: the whole visit | reflexive verbs, which is the clearest case in the course of the two paths needing *opposite* advice — Bulgarian has „се“ and puts it in the same places, so the warning is that German's changes with the person, while English forbids the word outright („I feel myself well“), so the instinct is to delete it; both mistakes are authored as traps in the same exercise; plus *sollen*, a fifth modal that behaves like the four already known, and the du-imperative, which is the du-form with two things taken off |
 
-Across those 48 lessons that is 414 vocabulary entries, 46 grammar concepts, 392 exercises and **1164
-answer tasks** (including all eighteen checkpoints), across 236 teaching sections,
-all authored in both paths. Only 1.5% of those tasks are multiple choice; the
-rest require typing German. 106 of them carry an authored trap answer — a
+| 5. Travel and problems | Faster, cheaper: comparing two things · The best of all: am besten · When it goes wrong: delays and missed trains | comparison, the one topic in A2 where German is *simpler* than English (every adjective takes -er, however long — there is no *mehr interessant*) and harder than Bulgarian (whose „по-“ never touches the word, while German adds umlauts); the superlative in both its shapes; and one deliberately small corner of the adjective endings — definite article, nominative and accusative, five of whose six forms are -e |
+| | **A2 level checkpoint** | all five units with no hints, 80% to pass, built around the two decisions B1 assumes: which helper a verb takes, and which case a two-way preposition wants |
+
+Across those 51 lessons that is 427 vocabulary entries, 49 grammar concepts, 420 exercises and **1248
+answer tasks** (including all twenty checkpoints), across 251 teaching sections,
+all authored in both paths. Only 1.4% of those tasks are multiple choice; the
+rest require typing German. 111 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
 written for it. Levels B1–B2 exist as structure and outline only, and the UI
 labels them as planned.
@@ -553,10 +557,16 @@ Run `npm run dev`, open <http://localhost:5173>, and:
 
 ## Next milestone
 
-**Milestone 4 — the rest of A2.** Units 1 to 4 are authored; one remains, travel
-and problems, and with it comparison and the first adjective endings. Then A2
-needs its level checkpoint — the harder, hint-free one that draws on all five
-units, the shape Pre-A1 and A1 both have.
+**Milestone 5 — B1.** Pre-A1, A1 and A2 are all finished, and the shape has held
+for three levels: units of three lessons, a checkpoint per unit, a level
+checkpoint with no hints, and authored traps feeding targeted practice.
+
+B1 is outlined already, and the grammar it needs is mostly the other half of
+what A2 opened: the full adjective-ending system rather than one corner of it,
+the genitive, relative clauses, the passive, and *würde* and the subjunctive. A2
+ends where it should — a learner who passes its level checkpoint can choose
+between *haben* and *sein* without thinking, and can put a verb at the end of a
+clause on purpose.
 
 A1 ends where it should: a learner who passes its level checkpoint can tell the
 accusative from the dative, which is the one thing A2 assumes and cannot

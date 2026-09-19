@@ -490,7 +490,7 @@ describe('vocabulary', () => {
         // Movement.
         'kommen', 'gehen', 'fahren', 'fliegen', 'schwimmen', 'aufstehen',
         // Change of state.
-        'passieren', 'umziehen',
+        'passieren', 'umziehen', 'umsteigen',
         // The three with no reason behind them.
         'sein', 'bleiben', 'werden',
       ].sort(),

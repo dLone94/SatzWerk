@@ -6,6 +6,7 @@ import { HEALTH_VOCAB } from './vocab/health.ts';
 import { PAST_VOCAB } from './vocab/past.ts';
 import { SERVICES_VOCAB } from './vocab/services.ts';
 import { ADVICE_VOCAB } from './vocab/advice.ts';
+import { TRAVEL_VOCAB } from './vocab/travel.ts';
 import { WORK2_VOCAB } from './vocab/work2.ts';
 import { TOWN_VOCAB } from './vocab/town.ts';
 import { WORK_VOCAB } from './vocab/work.ts';
@@ -884,6 +885,7 @@ export const VOCABULARY: VocabEntry[] = [
   ...SERVICES_VOCAB,
   ...WORK2_VOCAB,
   ...ADVICE_VOCAB,
+  ...TRAVEL_VOCAB,
 ];
 
 const BY_ID = new Map(VOCABULARY.map((entry) => [entry.id, entry]));
