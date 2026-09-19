@@ -1,0 +1,131 @@
+# Two jobs, for the two ways this project can break.
+#
+# `test` runs what a contributor runs: the type checker and the whole suite,
+# once on SQLite and once against a real Postgres. That covers the code.
+#
+# `smoke` runs against a deployment the moment the platform reports one ready,
+# and it exists because the code being right is not the same as the deployed
+# app working. In one afternoon a hosted SatzWerk crashed on boot, hung
+# forever, failed to find its database, and answered the platform's own 404
+# page for any path with more than two segments — while every test here stayed
+# green, because tests call the code directly and never involve a router.
+#
+# A note on `deployment_status`: GitHub only runs that trigger from the
+# workflow file on the default branch, so this job is dormant until this file
+# is merged. `workflow_dispatch` is there to run it against any URL by hand in
+# the meantime.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Base URL to smoke-test (e.g. https://satz-werk.vercel.app)'
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    services:
+      # The parity tests need a real Postgres, because SQLite accepts SQL that
+      # Postgres rejects — which is how a broken upsert reached a deployment
+      # once already.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches engines.node. Native TypeScript execution and node:sqlite
+          # both depend on it.
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Tests against a real Postgres
+        # The parity suite skips itself without this, so a green run that never
+        # set it would prove less than it appears to.
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke-test the app as actually served
+        # Starts the built app and probes it over HTTP, including a four-segment
+        # path. This is the local half of the check below: it cannot catch a
+        # platform routing fault, but it does catch the app failing to serve
+        # itself at all.
+        env:
+          SATZWERK_DB: ${{ runner.temp }}/ci.db
+          PORT: 8787
+        run: |
+          npm start &
+          for attempt in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:8787/api/health" >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          npm run smoke -- http://127.0.0.1:8787
+
+  smoke:
+    # Every deployment the platform reports ready, plus on demand.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'deployment_status' && github.event.deployment_status.state == 'success')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Smoke-test the deployment
+        env:
+          # Optional. Without it the deep routes are only proved to be
+          # guarded, which still catches every failure this has had so far.
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+          # Also optional, and only needed while Deployment Protection is on:
+          # a protected preview answers an anonymous check with Vercel's login
+          # page instead of the app. The check says so plainly either way.
+          # Project Settings -> Deployment Protection -> Protection Bypass for
+          # Automation generates the value.
+          VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
+          TARGET: ${{ github.event.inputs.url || github.event.deployment_status.target_url }}
+        run: |
+          if [ -z "$TARGET" ]; then
+            echo "No URL to test." >&2
+            exit 1
+          fi
+          node scripts/smoke.ts "$TARGET"
