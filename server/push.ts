@@ -214,7 +214,14 @@ export async function sendDueReminder(
     options.send ?? ((subscription, payload) => webpush.sendNotification(subscription, payload));
   const payload = JSON.stringify({
     ...reminderText(dueCount, options.lang ?? 'en'),
-    url: '/review',
+    /*
+     * The reminder opens the daily round rather than the review queue.
+     *
+     * What brings somebody back at nine in the evening is a round they can
+     * finish, not a queue they have to decide how much of to do — and the
+     * round starts with exactly the items this notification is about.
+     */
+    url: '/session',
     dueCount,
   });
 

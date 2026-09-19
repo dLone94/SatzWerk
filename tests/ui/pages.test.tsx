@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -15,6 +16,7 @@ import { tr } from '../../src/i18n.ts';
 import { nullTtsProvider } from '../../src/services/tts/index.ts';
 import { createSpeechRecogniser } from '../../src/services/speech/recogniser.ts';
 import { AppStateContext, type AppStateValue } from '../../src/state/AppState.tsx';
+import { formatDuration } from '../../src/ui/components/bits.tsx';
 import { CheckpointPage } from '../../src/ui/pages/CheckpointPage.tsx';
 import { CoachPage } from '../../src/ui/pages/CoachPage.tsx';
 import { CoursePage } from '../../src/ui/pages/CoursePage.tsx';
@@ -24,6 +26,7 @@ import { MistakesPage } from '../../src/ui/pages/MistakesPage.tsx';
 import { OnboardingPage } from '../../src/ui/pages/OnboardingPage.tsx';
 import { RealLifePage } from '../../src/ui/pages/RealLifePage.tsx';
 import { ReviewPage } from '../../src/ui/pages/ReviewPage.tsx';
+import { SessionPage } from '../../src/ui/pages/SessionPage.tsx';
 import { SettingsPage } from '../../src/ui/pages/SettingsPage.tsx';
 import { VocabularyPage } from '../../src/ui/pages/VocabularyPage.tsx';
 import { WordPage } from '../../src/ui/pages/WordPage.tsx';
@@ -179,6 +182,11 @@ describe.each(LANGS)('pages render in the %s path', (lang) => {
   it('review', () => {
     mount(<ReviewPage />, lang);
     expect(screen.getByText(tr('reviewNothingDue', lang))).toBeInTheDocument();
+  });
+
+  it('daily round', () => {
+    mount(<SessionPage />, lang);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(tr('sessionTitle', lang));
   });
 
   it('vocabulary', () => {
@@ -395,5 +403,111 @@ describe('the mistake bank distinguishes a mistake from its correction', () => {
     expect(screen.getByText('Ich komme aus Bulgarien.')).toBeInTheDocument();
     expect(screen.getByText('3×')).toBeInTheDocument();
     expect(screen.getByText('retyped correctly 2×')).toBeInTheDocument();
+  });
+});
+
+/**
+ * The daily round.
+ *
+ * Two things are being guarded. The round has to be assembled from what is
+ * actually there — a part with nothing in it must not appear — and the number
+ * of minutes on the button has to say where it came from, because a session
+ * advertised as ten minutes is a statistic and this app does not display
+ * statistics it invented.
+ */
+describe('the daily round', () => {
+  const dueVocab = (id: string, refId: string) => ({
+    id,
+    kind: 'vocab' as const,
+    refId,
+    level: 'pre-a1' as const,
+    state: 'learning' as const,
+    ease: 2.5,
+    intervalDays: 0,
+    dueAt: new Date(Date.now() - 60_000).toISOString(),
+    successCount: 1,
+    failureCount: 0,
+    lapses: 0,
+    learningStep: 1,
+    createdAt: now,
+  });
+
+  const recurring = {
+    id: 'm1',
+    category: 'article' as const,
+    expected: 'der Tisch',
+    lastGiven: 'die Tisch',
+    stepId: 's1',
+    lessonId: 'pre-a1-u2-l4',
+    occurrences: 3,
+    correctedCount: 0,
+    firstSeenAt: now,
+    lastSeenAt: now,
+    resolvedAt: null,
+  };
+
+  it('says there is nothing to put in a round rather than inventing one', () => {
+    mount(<SessionPage />, 'en');
+    expect(screen.getByText(tr('sessionNothing', 'en'))).toBeInTheDocument();
+    expect(screen.queryByText(tr('sessionStart', 'en'))).toBeNull();
+  });
+
+  it('names each part and how many answers it holds', () => {
+    mount(<SessionPage />, 'en', {
+      reviewItems: [dueVocab('r1', 'v-die-tochter'), dueVocab('r2', 'v-der-sohn')],
+      mistakes: [recurring],
+    });
+    expect(screen.getByText(tr('sessionPartReview', 'en'))).toBeInTheDocument();
+    expect(screen.getByText(tr('sessionPartMistakes', 'en'))).toBeInTheDocument();
+    // No lesson is started, so there is no lesson part at all — an empty row
+    // saying "0 answers" would be a promise the round cannot keep.
+    expect(screen.queryByText(tr('sessionPartLesson', 'en'))).toBeNull();
+    expect(screen.getByText(tr('sessionAnswers', 'en', { n: 2 }))).toBeInTheDocument();
+    expect(screen.getByText(tr('sessionAnswers', 'en', { n: 1 }))).toBeInTheDocument();
+  });
+
+  it('marks the estimate as a stated default until the learner has a pace', () => {
+    mount(<SessionPage />, 'en', { reviewItems: [dueVocab('r1', 'v-die-tochter')] });
+    expect(screen.getByText(/stated default, not your pace/)).toBeInTheDocument();
+  });
+
+  it('uses the learner’s own measured pace once there is one, and says so', () => {
+    mount(<SessionPage />, 'en', {
+      reviewItems: [dueVocab('r1', 'v-die-tochter')],
+      stats: {
+        totalAnswers: 120,
+        correctAnswers: 90,
+        accuracy: 0.75,
+        totalStudySeconds: 1800, // 15s an answer
+        studyDays: 6,
+        streak: 2,
+        categoryCounts: [],
+        retypedCorrections: 3,
+      },
+    });
+    expect(screen.getByText(/your own average over 120 answers/)).toBeInTheDocument();
+    expect(screen.getByText(/15s an answer/)).toBeInTheDocument();
+  });
+
+  it('starts the round on the first part', async () => {
+    const user = userEvent.setup();
+    mount(<SessionPage />, 'en', {
+      reviewItems: [dueVocab('r1', 'v-die-tochter')],
+      mistakes: [recurring],
+    });
+    await user.click(screen.getByRole('button', { name: tr('sessionStart', 'en') }));
+    expect(screen.getByText(tr('sessionPartOf', 'en', { n: 1, total: 2 }), { exact: false })).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+  });
+});
+
+describe('a duration is never rounded into a lie', () => {
+  it('reports seconds below a minute rather than "0 min"', () => {
+    // A round that genuinely took forty seconds said "It took 0 min", which
+    // reads as a broken counter rather than as a fast round.
+    expect(formatDuration(40, 'en')).toBe('40 s');
+    expect(formatDuration(40, 'bg')).toBe('40 сек');
+    expect(formatDuration(900, 'en')).toBe('15 min');
+    expect(formatDuration(5400, 'bg')).toBe('1 ч 30 мин');
   });
 });

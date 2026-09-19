@@ -374,7 +374,16 @@ export function EmptyState({ title, body, action }: { title: string; body?: stri
 }
 
 export function formatDuration(seconds: number, lang: 'en' | 'bg'): string {
-  const minutes = Math.round(seconds / 60);
+  /*
+   * Under a minute, say seconds.
+   *
+   * Rounding to minutes turned a round that genuinely took forty seconds into
+   * "It took 0 min", which reads as a broken counter rather than as a fast
+   * round — and the first day of study did the same to the time-studied stat.
+   */
+  const whole = Math.max(0, Math.round(seconds));
+  if (whole < 60) return lang === 'bg' ? `${whole} сек` : `${whole} s`;
+  const minutes = Math.round(whole / 60);
   if (minutes < 60) return lang === 'bg' ? `${minutes} мин` : `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;

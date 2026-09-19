@@ -16,6 +16,7 @@ export const UI = {
 
   // Navigation
   navToday: s('Today', 'Днес'),
+  navSession: s('Round', 'Кръг'),
   navCourse: s('Course', 'Курс'),
   navReview: s('Review', 'Повторение'),
   navVocabulary: s('Vocabulary', 'Речник'),
@@ -99,6 +100,52 @@ export const UI = {
   dashboardPlan: s('Suggested sequence', 'Предложена последователност'),
   dashboardPlanEmpty: s('Finish onboarding to get a plan.', 'Завърши началната настройка, за да получиш план.'),
   dashboardEstimate: s('about {n} min', 'около {n} мин'),
+
+  dashboardRound: s('Do the daily round', 'Направи дневния кръг'),
+
+  /*
+   * The daily round.
+   *
+   * A lesson is half an hour; most days are not. The round is the answer to
+   * "I have ten minutes" — and because it puts a number of minutes on a
+   * button, that number has to be earned rather than guessed, which is what
+   * sessionMeasured and sessionDefault are for.
+   */
+  sessionTitle: s('Daily round', 'Дневен кръг'),
+  sessionLede: s(
+    'One short round: what is due, what keeps going wrong, and the lesson you are in the middle of.',
+    'Един кратък кръг: дължимото, това, което постоянно се обърква, и урокът, който си започнал.',
+  ),
+  sessionWhatsIn: s('What is in this round', 'Какво има в този кръг'),
+  sessionStart: s('Start the round', 'Започни кръга'),
+  sessionPartReview: s('Due for review', 'За повторение'),
+  sessionPartMistakes: s('Mistakes that keep coming back', 'Повтарящи се грешки'),
+  sessionPartLesson: s('From your lesson', 'От твоя урок'),
+  sessionAnswers: s('{n} answers', '{n} отговора'),
+  sessionAnswersOne: s('{n} answer', '{n} отговор'),
+  sessionPartOf: s('Part {n} of {total}', 'Част {n} от {total}'),
+  sessionMeasured: s(
+    'Estimated at {s}s an answer, which is your own average over {n} answers.',
+    'Оценката е по {s} сек. на отговор — това е твоята средна стойност от {n} отговора.',
+  ),
+  sessionDefault: s(
+    'Estimated at {s}s an answer. That is a stated default, not your pace — it becomes yours after {n} answers.',
+    'Оценката е по {s} сек. на отговор. Това е предварително зададена стойност, не твоето темпо — става твое след {n} отговора.',
+  ),
+  sessionTarget: s('Your daily target is {time}. Change it in Settings.', 'Дневната ти цел е {time}. Можеш да я смениш в Настройки.'),
+  sessionNothing: s('There is nothing to put in a round', 'Няма какво да се сложи в кръг'),
+  sessionNothingBody: s(
+    'Nothing is due, no mistake has come back twice, and no lesson is half-finished. Start a lesson, or practise ahead of schedule.',
+    'Нищо не е за повторение, нито една грешка не се е повторила, и няма недовършен урок. Започни урок или упражнявай предварително.',
+  ),
+  sessionMasteryLeft: s(
+    'Your lesson has only its mastery check left. That is taken in one sitting on the lesson page, so it is not in the round.',
+    'От урока ти е останала само проверката за усвояване. Тя се прави наведнъж на страницата на урока, затова не е в кръга.',
+  ),
+  sessionFinished: s('Round finished', 'Кръгът е завършен'),
+  sessionTook: s('It took {time}.', 'Отне ти {time}.'),
+  sessionAgain: s('Another round', 'Още един кръг'),
+  sessionOpenLesson: s('Open the lesson', 'Отвори урока'),
 
   // Stats
   statAccuracy: s('First-try accuracy', 'Верни от първи опит'),

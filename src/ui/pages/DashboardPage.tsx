@@ -4,13 +4,29 @@ import { summarizeQueue } from '../../core/srs/scheduler.ts';
 import { UI } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Card, EmptyState, Meter, Stat, formatDuration } from '../components/bits.tsx';
-import { buildLessonViews, buildVocabViews, nextAction, skillProgress, studyPlan } from '../selectors.ts';
+import { estimatedMinutes, planSession } from '../../core/progress/session.ts';
+import {
+  buildLessonViews,
+  buildVocabViews,
+  nextAction,
+  sessionBuild,
+  skillProgress,
+  studyPlan,
+} from '../selectors.ts';
 
 /** Today: what is true right now, and the one thing worth doing next. */
 export function DashboardPage() {
   const { t, say, lang, lessons, reviewItems, mistakes, favorites, stats, profile } = useApp();
 
   const action = nextAction(lessons, reviewItems, mistakes, profile.onboarded);
+  // The same plan the round itself will build, so the two never disagree.
+  const round = planSession(
+    sessionBuild(lessons, reviewItems, mistakes).sources,
+    profile.dailyTargetMinutes,
+    stats,
+  );
+  const roundSteps = round.steps;
+  const roundMinutes = estimatedMinutes(round);
   const plan = studyPlan(lessons, reviewItems, mistakes, profile.dailyTargetMinutes);
   const queue = summarizeQueue(reviewItems);
   const lessonViews = buildLessonViews(lessons);
@@ -39,6 +55,32 @@ export function DashboardPage() {
   return (
     <div className="page">
       <h1 className="page__title">{t('dashboardGreeting')}</h1>
+
+      {/*
+        * The round comes first, above the next-action card.
+        *
+        * The card below is right about what is most useful, but it answers a
+        * question the learner did not ask: it hands them a lesson, which is
+        * half an hour. Most evenings the real question is "I have ten minutes"
+        * — and that question now has one button.
+        */}
+      <Card tone="accent" title={t('sessionTitle')} subtitle={t('sessionLede')}>
+        <div className="next-action">
+          <div>
+            <p className="next-action__detail">
+              {roundSteps > 0
+                ? t('sessionAnswers', { n: roundSteps })
+                : t('sessionNothingBody')}
+            </p>
+            {roundSteps > 0 ? (
+              <p className="next-action__time">{t('dashboardEstimate', { n: roundMinutes })}</p>
+            ) : null}
+          </div>
+          <Link className="btn btn--primary btn--lg" to="/session">
+            {t('dashboardRound')}
+          </Link>
+        </div>
+      </Card>
 
       <Card title={t('dashboardNextAction')} tone="accent">
         <div className="next-action">

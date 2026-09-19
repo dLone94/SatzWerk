@@ -43,14 +43,14 @@ self.addEventListener('push', (event) => {
       // the current one.
       tag: 'satzwerk-review-due',
       renotify: false,
-      data: { url: payload.url || '/review' },
+      data: { url: payload.url || '/session' },
     }),
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || '/review';
+  const target = (event.notification.data && event.notification.data.url) || '/session';
 
   event.waitUntil(
     (async () => {

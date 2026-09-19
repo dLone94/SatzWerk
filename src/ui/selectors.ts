@@ -9,11 +9,13 @@ import {
   unitForLesson,
   vocabById,
 } from '../content/index.ts';
-import type { Bilingual, Lesson, TeachingLanguage, VocabEntry } from '../content/types.ts';
+import type { Bilingual, Exercise, Lesson, TeachingLanguage, VocabEntry } from '../content/types.ts';
 import { isLessonComplete, lessonRequirements, type LessonProgress } from '../core/progress/lesson.ts';
+import type { SessionSources } from '../core/progress/session.ts';
 import { dueItems, dueReason, orderQueue, type ReviewItem } from '../core/srs/scheduler.ts';
 import { CATEGORY_LABELS } from '../i18n.ts';
 import type { MistakeRecord } from '../services/api/client.ts';
+import { buildMistakePractice, buildReviewExercises } from './reviewBuilder.ts';
 
 /**
  * Everything the dashboard, vocabulary page and review queue show is derived
@@ -326,6 +328,86 @@ export function studyPlan(
     budget -= candidate.minutes;
   }
   return plan;
+}
+
+/**
+ * What a daily round can be built out of, right now.
+ *
+ * The three sources are deliberately different in kind: the review queue is
+ * what the schedule says has decayed, the mistake bank is what this learner
+ * specifically keeps getting wrong, and the lesson is the new material. A round
+ * made only of the first two never teaches anything; one made only of the third
+ * lets everything already learnt rot.
+ */
+export interface SessionBuild {
+  sources: SessionSources;
+  /** The lesson the third part came from, when there is one. */
+  lesson?: LessonView;
+  /**
+   * The lesson is started but every practice step in it is already answered
+   * correctly, so what is left is the mastery check — which is a test, taken
+   * in one sitting on the lesson page, not a slice of a mixed round.
+   */
+  lessonAwaitsMastery: boolean;
+  /** Due items that cannot be typed; they are graded on the review page. */
+  conceptItems: ReviewItem[];
+}
+
+export function sessionBuild(
+  lessons: Record<string, LessonProgress>,
+  reviewItems: ReviewItem[],
+  mistakes: MistakeRecord[],
+  now = new Date(),
+): SessionBuild {
+  const review = buildReviewExercises(dueItems(reviewItems, now));
+
+  // A mistake made once may have been a slip. Twice is a pattern, and a
+  // pattern is worth spending a daily round on.
+  const recurring = mistakes.filter((mistake) => mistake.occurrences > 1);
+
+  const views = buildLessonViews(lessons);
+  const lesson = views.find((view) => view.started && !view.complete);
+
+  let lessonExercisesLeft: Exercise[] = [];
+  let lessonAwaitsMastery = false;
+  if (lesson) {
+    lessonExercisesLeft = unresolvedPractice(lesson.lesson, lesson.progress);
+    lessonAwaitsMastery = lessonExercisesLeft.length === 0;
+  }
+
+  return {
+    sources: {
+      review: review.exercises,
+      mistakes: buildMistakePractice(recurring),
+      lesson: lessonExercisesLeft,
+    },
+    ...(lesson ? { lesson } : {}),
+    lessonAwaitsMastery,
+    conceptItems: review.conceptItems,
+  };
+}
+
+/**
+ * The practice steps of a lesson that the learner has not yet got right.
+ *
+ * Steps are dropped rather than whole exercises, because an exercise is often a
+ * table of six conjugations of which two are still wrong — and retyping the
+ * four that are already right is how a daily round turns into a chore. Step ids
+ * are kept, so an answer here counts towards the same lesson progress and the
+ * same review items as it would inside the lesson.
+ *
+ * Only sections the learner has actually read are drawn on: a round must never
+ * ask for German that the course has not taught yet.
+ */
+function unresolvedPractice(lesson: Lesson, progress: LessonProgress): Exercise[] {
+  if (progress.sectionsSeen.length === 0) return [];
+  const out: Exercise[] = [];
+  for (const exercise of lesson.exercises) {
+    const steps = exercise.steps.filter((step) => !(progress.practice[step.id]?.resolved ?? false));
+    if (steps.length === 0) continue;
+    out.push(steps.length === exercise.steps.length ? exercise : { ...exercise, steps });
+  }
+  return out;
 }
 
 export interface SkillProgress {

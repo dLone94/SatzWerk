@@ -408,6 +408,38 @@ of exactly those sentences, or as a round drilling the whole category.
 profile shows `—` and "No data yet", not a zero dressed up as progress. The
 streak is counted backwards over days that actually contain answers.
 
+**The daily round: one button, ten minutes.** A lesson here is twenty-five to
+thirty minutes, which is right for meeting something new and wrong for a
+Tuesday evening. Before this existed, a learner with ten minutes was handed a
+list of links to three different pages and left to decide which — and deciding
+is exactly what a tired person does not do. `/session` builds **one** round
+instead, out of what is genuinely most useful, in that order:
+
+1. **Review that is due**, because spaced repetition only works if the due
+   items are actually done and they decay if they are not.
+2. **Mistakes that have happened more than once.** Once may have been a slip;
+   twice is the clearest signal the course has about this particular learner.
+3. **The lesson in progress**, to fill whatever time is left — and only the
+   steps not already answered correctly, drawn only from sections that have
+   actually been read. A round never asks for German the course has not taught,
+   and never asks again for what is already right.
+
+Each part is played as what it really is — review answers move review items,
+lesson answers move lesson progress — so the rows in the database are the same
+ones the individual pages would have written. Exercises are taken whole: being
+cut off three steps into a conjugation table is worse than running forty
+seconds over, so the daily target is a target rather than a ceiling.
+
+**And the number of minutes on the button is measured, not invented.** A
+session advertised as "10 minutes" is a statistic, and this app does not
+display statistics it made up. The estimate is `total_study_seconds /
+total_answers` from the learner's own rows, clamped to 5–60 seconds an answer
+so that a tab left open all night cannot turn every round into an hour. Below
+thirty answers there is not enough of their own data to use, so the card says
+so in as many words: *"That is a stated default, not your pace — it becomes
+yours after 30 answers."* Afterwards it reports what the round actually took,
+which is a clock reading rather than a projection.
+
 **Speaking, and what it honestly checks.** After an answer is already correct,
 the app offers *Say it*. The browser's own recogniser — iOS Safari and Chrome
 both ship one — listens, and the transcript goes through **the same validator
@@ -483,7 +515,10 @@ sentences that have not.
 
 **A reason to come back, without nagging.** Spaced repetition only works if
 somebody actually comes back on the day, so the app can send one push
-notification — *"3 words are due"* — and it is governed by three rules:
+notification — *"3 words are due"* — which opens the daily round rather than
+the review queue, because what brings somebody back at nine in the evening is a
+round they can finish rather than a queue they have to decide how much of to
+do. It is governed by three rules:
 
 - **Only when something is really due.** The job reads `review_items` and sends
   nothing when the count is zero. There is no "keep your streak" notification,
