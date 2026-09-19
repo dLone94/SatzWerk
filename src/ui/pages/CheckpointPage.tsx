@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { checkpointById } from '../../content/index.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { Card } from '../components/bits.tsx';
+import { Card, ScoreRing } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 
 /** A checkpoint, unit or level: mixed skills, no hints, result stored. */
@@ -82,11 +82,18 @@ export function CheckpointPage() {
         </p>
 
         {summary ? (
-          <p className={`done-note${summary.accuracy >= checkpoint.passAccuracy ? '' : ' done-note--warn'}`}>
-            {t('exerciseScore', { correct: summary.firstTryCorrect, total: summary.total })}
-            {' — '}
-            {summary.accuracy >= checkpoint.passAccuracy ? t('lessonMasteryPassed') : t('lessonMasteryFailed')}
-          </p>
+          <>
+            <ScoreRing
+              value={summary.accuracy}
+              passed={summary.accuracy >= checkpoint.passAccuracy}
+              caption={t('exerciseScore', { correct: summary.firstTryCorrect, total: summary.total })}
+            />
+            <p className={`done-note${summary.accuracy >= checkpoint.passAccuracy ? '' : ' done-note--warn'}`}>
+              {summary.accuracy >= checkpoint.passAccuracy
+                ? t('lessonMasteryPassed')
+                : t('lessonMasteryFailed')}
+            </p>
+          </>
         ) : null}
 
         {history.length > 0 ? (

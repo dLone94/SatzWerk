@@ -328,6 +328,55 @@ the browser has no German voice. Nothing in the app calls
 
 ---
 
+## The interface, and how it moves
+
+The app is used on a phone more than anywhere else, so the phone layout is the
+real one rather than a fallback.
+
+- **The navigation is at the bottom**, under a thumb, translucent over the
+  content it scrolls past. Eight destinations still do not fit across a phone,
+  so it scrolls sideways — but it no longer takes a line from the top of a
+  screen whose whole job is one German sentence and a field to type it in.
+- **Safe areas are respected**: `viewport-fit=cover` plus `env(safe-area-inset-*)`,
+  so nothing hides under the notch or the home indicator.
+- **It installs.** A web manifest, an apple-touch-icon and the standalone meta
+  tags mean *Add to Home Screen* gives an app with its own icon and no browser
+  chrome.
+- **The special letters fit on one row** on a phone (they stay 44px wide, which
+  is what a thumb needs; the gaps give way instead), and the `Alt+a` hint is
+  hidden on a touch device, because there is no Alt key on an iPhone.
+- **The whole lesson row is the tap target**, not the title text inside it.
+
+Motion follows one rule: **it may confirm what happened, and it may never be in
+the way.** Nothing between pressing Enter and the answer being judged is
+animated, because delay there is felt as slowness however pretty it is. What
+does move:
+
+| Moment | What happens | Why |
+| --- | --- | --- |
+| A new question | The card rises in, keyed to the step id | A question replacing another one in the same box is easy to miss |
+| Correct | A tick draws itself, and a ring pushes out once behind it | It lands in the same moment the word does, and it says the verdict in a shape as well as a colour |
+| Wrong | The panel rises in, then shakes once | Small enough to read as "no" rather than as a fault |
+| A finished round | A ring fills to the score over half a second | The one place where motion is the point: it is what makes finishing feel like finishing |
+| Progress, meters | Travel to the value instead of jumping | One step in a bar of thirty is invisible without the movement |
+| Any tap | The control moves under the finger | iOS's own grey tap box is turned off, so something has to replace it |
+
+Every duration is a token (`--dur-1` … `--dur-4`), and
+`prefers-reduced-motion: reduce` collapses all of them in one place while
+`--motion-shift: 0` takes the travel out of the keyframes that move rather than
+fade — so a card still appears, it just does not fly. All of it lives in one
+`Motion` section at the bottom of `src/styles.css`, so the whole motion budget
+can be read, and changed, in one place.
+
+One piece of behaviour rather than decoration: when an answer is judged, the
+feedback is scrolled into view (`block: 'nearest'`, so a verdict already on
+screen does not jump). On a phone it often opens below the fold, and without
+this the app looks like it did nothing. It is guarded with an optional call
+because jsdom has no `scrollIntoView` at all — which took the whole player down
+the first time, and is now covered by a test both ways.
+
+---
+
 ## Architectural preparation, not finished features
 
 Stated plainly, because a feature that looks done and is not is worse than one

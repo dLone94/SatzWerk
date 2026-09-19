@@ -2,13 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover hands the notch and the home indicator to CSS, which
+         pads around them with env(safe-area-inset-*). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f5f0" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#16181b" />
     <meta
       name="description"
       content="SatzWerk - a personal German tutor built around actively producing German."
     />
     <title>SatzWerk</title>
+
+    <!-- Added to the home screen, it opens without browser chrome and keeps
+         its own history, which is what makes it feel like an app. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SatzWerk" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f3a5f'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='16' fill='%23f5f1e8' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E" />
   </head>

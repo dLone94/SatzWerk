@@ -21,9 +21,17 @@ export function App() {
   const location = useLocation();
 
   if (!ready) {
+    // Three shimmering lines rather than the word "Loading" alone: on a phone
+    // waking a sleeping database, the wait is real, and a screen that is
+    // visibly working reads as working rather than as stuck.
     return (
       <div className="boot">
         <p>{t('loading')}</p>
+        <div className="boot__skeleton" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
       </div>
     );
   }

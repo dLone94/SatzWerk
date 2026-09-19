@@ -380,3 +380,44 @@ describe('robustness of the input', () => {
     expect(attempts[0]!.given.length).toBeLessThanOrEqual(500);
   });
 });
+
+/**
+ * The verdict has to be on screen to be read.
+ *
+ * On a phone the feedback often opens below the fold: the answer is judged,
+ * the explanation is written, and nothing appears to happen. The player
+ * scrolls it into view — and has to survive a browser that cannot, which jsdom
+ * is, and which took the whole player down with it the first time.
+ */
+describe('the verdict is brought into view', () => {
+  it('scrolls the feedback into view when an answer is judged', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    // jsdom does not implement it at all, so this adds it for the test.
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      writable: true,
+      value: scrollIntoView,
+    });
+    try {
+      mount(<ExercisePlayer exercises={[originExercise]} context="lesson" level="pre-a1" onFinish={() => {}} />);
+      expect(scrollIntoView).not.toHaveBeenCalled();
+      await user.type(field(), 'Ich komme aus Bulgarien.{Enter}');
+      expect(await screen.findByText('Correct.')).toBeInTheDocument();
+      expect(scrollIntoView).toHaveBeenCalled();
+      // `nearest` so a verdict already on screen does not jump under the reader.
+      expect(scrollIntoView.mock.calls.at(-1)?.[0]).toMatchObject({ block: 'nearest' });
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
+  });
+
+  it('judges the answer anyway in a browser that cannot scroll', async () => {
+    const user = userEvent.setup();
+    // This is jsdom's own state: no scrollIntoView on Element at all.
+    expect('scrollIntoView' in Element.prototype).toBe(false);
+    mount(<ExercisePlayer exercises={[originExercise]} context="lesson" level="pre-a1" onFinish={() => {}} />);
+    await user.type(field(), 'Ich komme aus Bulgarien.{Enter}');
+    expect(await screen.findByText('Correct.')).toBeInTheDocument();
+  });
+});

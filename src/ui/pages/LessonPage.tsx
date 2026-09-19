@@ -9,7 +9,7 @@ import {
   recoveryStepIds,
 } from '../../core/progress/lesson.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { Blocks, Card, Meter, VocabRow } from '../components/bits.tsx';
+import { Blocks, Card, Meter, ScoreRing, VocabRow } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 
 type Stage = 'overview' | 'sections' | 'practice' | 'recovery' | 'mastery' | 'done';
@@ -215,6 +215,17 @@ export function LessonPage() {
               : undefined
           }
         >
+          {lastSummary ? (
+            <ScoreRing
+              value={lastSummary.accuracy}
+              passed={masteryPassed === true}
+              caption={t('exerciseScore', {
+                correct: lastSummary.firstTryCorrect,
+                total: lastSummary.total,
+              })}
+            />
+          ) : null}
+
           {masteryPassed ? (
             <>
               {complete ? <p className="done-note">{t('lessonCompleted')}</p> : null}
