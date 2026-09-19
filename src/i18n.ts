@@ -252,6 +252,21 @@ export const UI = {
     'Браузърът ти отказа да го настрои: {reason}',
   ),
 
+  // Asking why an answer was wrong. The label is not decoration: a generated
+  // explanation sitting unlabelled beside an authored one would make the
+  // authored one worth less, because the learner could no longer tell which
+  // is which.
+  explainAsk: s('Why was this wrong?', 'Защо това е грешно?'),
+  explainAsking: s('Asking…', 'Пита се…'),
+  explainGenerated: s(
+    'Written by a language model, not by the course. It can be wrong.',
+    'Написано от езиков модел, не от курса. Може да е грешно.',
+  ),
+  explainFailed: s(
+    'No explanation came back. Your answer and your progress are unaffected.',
+    'Не се върна обяснение. Отговорът и напредъкът ти не са засегнати.',
+  ),
+
   // Speaking. The wording is careful on purpose: the app checks whether a
   // recogniser understood the words, which is not the same as scoring an
   // accent, and it says so rather than implying more than it can do.

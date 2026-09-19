@@ -17,6 +17,7 @@ import {
   type ValidationResult,
 } from '../../core/validation/validate.ts';
 import { CATEGORY_LABELS } from '../../i18n.ts';
+import { ExplainWhy } from './ExplainWhy.tsx';
 import { SpeakCheck } from './SpeakCheck.tsx';
 import type { AttemptPayload, TargetSpec } from '../../services/api/client.ts';
 import { useApp } from '../../state/AppState.tsx';
@@ -661,6 +662,21 @@ export function ExercisePlayer({
                 </li>
               ))}
             </ul>
+          ) : null}
+
+          {/*
+            Offered only when the answer was actually wrong, and only after the
+            authored explanation above has had its say. The course answers
+            first; the model answers the question the course could not
+            anticipate. It renders nothing at all with no provider configured.
+          */}
+          {result && result.verdict !== 'correct' && result.verdict !== 'empty' ? (
+            <ExplainWhy
+              expected={feedback.correction}
+              given={value}
+              categories={result.categories}
+              level={level}
+            />
           ) : null}
 
           {phase === 'retype' ? (

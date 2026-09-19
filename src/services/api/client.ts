@@ -111,6 +111,8 @@ export interface CoachFinding {
   message: { en: string; bg: string };
   excerpt?: string;
   suggestion?: string;
+  /** Written by a model rather than by a deterministic check, so the UI marks it. */
+  generated?: boolean;
 }
 
 export interface WritingEvaluation {
@@ -119,6 +121,22 @@ export interface WritingEvaluation {
   checksApplied: Array<{ en: string; bg: string }>;
   unknownWords: string[];
   note: { en: string; bg: string };
+  generatedLanguage?: TeachingLanguage;
+}
+
+/**
+ * Why one answer was wrong, written for one teaching path.
+ *
+ * `explanation` is a plain string, not a bilingual pair: it is generated once,
+ * in the language that asked for it. `error` is the other outcome — the call
+ * failed, and saying so beats an empty panel.
+ */
+export interface MistakeExplanation {
+  available: boolean;
+  explanation?: string;
+  language?: TeachingLanguage;
+  generated?: boolean;
+  error?: { en: string; bg: string };
 }
 
 export class ApiError extends Error {
@@ -269,6 +287,14 @@ export const api = {
 
   reviewWriting: (text: string, language: TeachingLanguage, level: string) =>
     post<WritingEvaluation>('/coach/writing', { text, language, level }),
+
+  explainMistake: (payload: {
+    expected: string;
+    given: string;
+    categories: ErrorCategory[];
+    language: TeachingLanguage;
+    level: string;
+  }) => post<MistakeExplanation>('/coach/explain', payload),
 
   reset: () => post<AppStateSnapshot>('/reset'),
 };

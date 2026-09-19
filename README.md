@@ -127,6 +127,25 @@ open it from the Home Screen icon → *Settings* → *Turn on reminders*. Until
 then the card says to install it, which is the only thing that would help.
 
 
+### Turning on explanations (optional)
+
+One variable, and the app is unchanged without it:
+
+| Variable | Value |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | a key from [the Claude Console](https://console.anthropic.com). Server-side only — never prefixed `VITE_`. |
+| `SATZWERK_AI_MODEL` | optional. Defaults to `claude-opus-5`. |
+| `SATZWERK_AI_PROVIDER` | optional. Set to `none` to keep the feature off even where a key exists — a key on the host for something else is not consent to spend it here. |
+
+`GET /api/coach/status` reports what is actually on. With no key it answers
+`aiAvailable: false`, the *Why was this wrong?* button is not rendered at all,
+and the Coach's checks stay exactly as deterministic as they were.
+
+Cost is small and bounded by design: one request only when the button is
+pressed, `effort: medium` (a wrong grammar explanation teaches wrong German, so
+this is not the place to economise on reasoning) and a deliberately low output
+ceiling, because the prompt asks for three or four sentences.
+
 ### Checking a deployment
 
 `npm run smoke -- <url>` probes a running or deployed copy over HTTP and says
@@ -401,6 +420,49 @@ distort the one number the app promises is real. The skills row used to read
 "Planned — not built yet"; that became false the moment speaking shipped, so it
 now describes what is there and claims nothing.
 
+**Asking why an answer was wrong.** Every lesson here is written by hand, and
+so are the traps: produce a wrong form somebody anticipated and you get an
+explanation somebody wrote for exactly that form. But you can produce a wrong
+form nobody anticipated, and until now the app could only show the right answer
+again, which explains nothing.
+
+With `ANTHROPIC_API_KEY` set, a *Why was this wrong?* button appears under a
+wrong answer. Three things keep it from undermining the rest of the app:
+
+- **It comes after the verdict.** The validator has already marked the answer
+  and banked it. Nothing the model says can change whether you were right, so a
+  model that is slow, unreachable or wrong costs you nothing you had.
+- **It is labelled, above the text rather than below it.** The panel says a
+  language model wrote it and that it can be wrong. If a generated paragraph sat
+  unlabelled beside an authored one, the authored one would be worth less —
+  you could no longer tell which was which.
+- **It is asked for.** It does not fire on every slip. A generated paragraph
+  pushed at you after every mistake would be noise, and would cost a request
+  each time.
+
+The **two teaching paths stay two**. The English prompt tells the model that
+English has no grammatical gender to lean on and a fixed word order; the
+Bulgarian prompt tells it that Bulgarian *does* have gender, that the definite
+article is on the end of the word (`къща` → `къщата`) and that word order is
+free. They are written separately, in the language they teach in, exactly like
+the authored content — and a test fails if one ever becomes a translation of the
+other. An explanation is therefore generated **once, for one path**: the API
+returns a plain string plus the language it is in, not a bilingual pair it would
+have had to translate itself into.
+
+The **Coach's writing review** gains the same treatment: the deterministic
+checks run first and always, the model only adds findings it was told not to
+duplicate, and every added finding is marked as the model's. If the call fails
+the rule-based result is still returned — it is a real result — rather than the
+whole request failing.
+
+**What is deliberately not generated:** practice sentences and conversation.
+`generatePractice` and `converse` report `available: false` with a reason, and
+the coach status says `not-generated` rather than `planned`, because "planned"
+would promise something that is not coming. Every German sentence in this app
+has been read by a person, and that is worth more than a limitless supply of
+sentences that have not.
+
 **A reason to come back, without nagging.** Spaced repetition only works if
 somebody actually comes back on the day, so the app can send one push
 notification — *"3 words are due"* — and it is governed by three rules:
@@ -497,7 +559,8 @@ that is openly planned:
 | Area | Status |
 | --- | --- |
 | **Writing review in the Coach** | **Real.** Deterministic rule-based checks on the server: noun capitalisation, missing verb, `aus`/`von`, verb-second, du/Sie mixing, subject–verb agreement, digraph spellings. It lists the checks it applied and the words it did not understand, and says it is not a language model. |
-| AI mistake explanation, generated practice, conversation | **Interface only.** `AiProvider` in `server/ai.ts` defines `explainMistake`, `evaluateWriting`, `generatePractice` and `converse`. No provider is wired up; the API returns `available: false` and the UI labels them planned. Keys would be read server-side only — nothing reaches the client bundle. |
+| AI mistake explanation | **Real, when a key is set.** `server/ai-claude.ts` implements `AiProvider` against the Claude API. With no `ANTHROPIC_API_KEY` the app behaves exactly as before and says so. The key is read server-side only and is not prefixed `VITE_`, so it cannot reach the client bundle. See below. |
+| Generated practice, conversation | **Decided against, not planned.** `generatePractice` and `converse` stay `available: false` with a reason, and the API says `not-generated` rather than `planned`. Every German sentence in this app has been read by a person; a generated one sitting beside an authored one with no way to tell them apart would end that quietly. |
 | Phoneme-level pronunciation scoring | **Not built, and not claimed.** Speaking *is* real (see below) — the app checks whether a recogniser understood your words. Scoring an accent is a different thing and needs a different engine; `AudioRecorder` / `SpeechToText` in `src/services/speech/index.ts` remain the interfaces a server-side recogniser would implement. |
 | Real Life scenarios | **Roadmap only.** 13 scenarios are modelled with their CEFR staging and register, and the page presents them as a roadmap with no playable content. Where a scenario's language is already taught, it links to the lesson that teaches it. |
 | B1–B2 content | **Outline only.** Topics, grammar progression, "I can" outcomes and planned unit titles for both levels; no authored lessons. The level map marks them planned. Pre-A1, A1 and A2 are written. |
@@ -518,7 +581,8 @@ src/core/         Pure, DOM-free domain logic — the part worth testing hardest
 src/services/     Replaceable boundaries: TTS, speech, push, the API client.
 src/ui/           React components and pages. One component tree, two paths.
 server/           Node HTTP server, SQLite schema and migrations, the API,
-                  and the AI provider seam.
+                  push delivery, and the AI provider seam with its Claude
+                  implementation.
 tests/            Core, content, server and UI suites.
 ```
 

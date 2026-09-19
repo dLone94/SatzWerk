@@ -3544,3 +3544,37 @@ body {
   font-size: 0.78rem;
   line-height: 1.45;
 }
+
+/* Asking why an answer was wrong.
+
+   Deliberately quieter than everything around it. The authored feedback is
+   the app speaking; this is the app quoting something else, and the panel has
+   to look like a quotation rather than like more of the same voice. The dashed
+   edge and the muted label are doing that work. */
+.explain {
+  margin-top: 0.7rem;
+}
+
+.explain__answer {
+  margin-top: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--surface) 88%, transparent);
+  /* Uses the app's shared arrival keyframe, which under reduced motion
+     becomes a plain fade via --motion-shift rather than being switched off. */
+  animation: sw-rise-sm var(--dur-2) var(--ease-out) both;
+}
+
+.explain__label {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+  color: var(--ink-faint);
+}
+
+.explain__text {
+  margin: 0;
+  line-height: 1.55;
+}
+
