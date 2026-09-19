@@ -14,6 +14,7 @@ import { A2_U5_PATTERNS, A2_UNIT_5 } from './a2/unit5.ts';
 import { B1_U1_PATTERNS, B1_UNIT_1 } from './b1/unit1.ts';
 import { B1_U2_PATTERNS, B1_UNIT_2 } from './b1/unit2.ts';
 import { B1_U3_PATTERNS, B1_UNIT_3 } from './b1/unit3.ts';
+import { B1_U4_PATTERNS, B1_UNIT_4 } from './b1/unit4.ts';
 import { A2_LEVEL_CHECKPOINT } from './a2/levelCheckpoint.ts';
 import { GRAMMAR_CONCEPTS, grammarById } from './grammar.ts';
 import { LEVEL_OUTLINES } from './outline/levelOutlines.ts';
@@ -103,7 +104,7 @@ export const A2: Level = {
  * level is still an outline. The level's status says `partial` rather than
  * `available` so that the course map cannot claim more than exists.
  */
-export const B1: Level = levelFromOutline('b1', [B1_UNIT_1, B1_UNIT_2, B1_UNIT_3], 'partial');
+export const B1: Level = levelFromOutline('b1', [B1_UNIT_1, B1_UNIT_2, B1_UNIT_3, B1_UNIT_4], 'partial');
 
 export const CURRICULUM: Level[] = [
   PRE_A1,
@@ -133,6 +134,7 @@ export const SENTENCE_PATTERNS: SentencePattern[] = [
   ...B1_U1_PATTERNS,
   ...B1_U2_PATTERNS,
   ...B1_U3_PATTERNS,
+  ...B1_U4_PATTERNS,
 ];
 
 /* ------------------------------------------------------------------ *

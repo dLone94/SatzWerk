@@ -291,10 +291,12 @@ and starts teaching Germany in particular.
 
 | 3. Health and insurance | I would like an appointment · If I were you: advice and hypotheses · Could you tell me whether … | the one topic in the course where *neither* path is at a disadvantage, and the course says so rather than inventing a difficulty: English has "I would like" and "could you", Bulgarian has „бих искал“ and „бихте ли“. What is taught instead is the single place German breaks the pattern both languages follow — and both paths produce *ich würde haben* for opposite reasons. English builds the conditional analytically for most verbs; Bulgarian builds it that way for *all* of them, with „бих“ and no exceptions at all. German keeps real one-word forms for exactly the verbs you use most: hätte, wäre, könnte, müsste, wüsste. Plus indirect questions, where it is Bulgarian that transfers cleanly („дали“ is *ob*) and English speakers keep a question word order German cannot have |
 
-Across those 60 lessons that is 494 vocabulary entries, 57 grammar concepts, 484 exercises and **1422
-answer tasks** (including all twenty-three checkpoints), across 300 teaching sections,
+| 4. Work and applications | The applicant’s CV: the genitive · Although, therefore, all the same · I am applying for: verbs and their prepositions | the unit built around one document — a German *Bewerbung* — with the grammar chosen to serve it. The genitive is taught honestly, which means admitting that spoken German is abandoning it: *das Auto von meinem Bruder* is what people say, *das Auto meines Bruders* is what people write, so the Bulgarian path is told its instinctive *von* is not an error but the wrong register. Then the three connector families, where German sorts joining words by what they do to the verb rather than by meaning, so *obwohl* and *trotzdem* — nearly synonymous — land in different families and neither starting language makes the split. And the fixed prepositions, the rare topic that is equally hard for everyone: "apply for" and „кандидатствам за“ both point at *für*, and German chose *um* |
+
+Across those 63 lessons that is 515 vocabulary entries, 60 grammar concepts, 503 exercises and **1475
+answer tasks** (including all twenty-four checkpoints), across 317 teaching sections,
 all authored in both paths. Only 1.4% of those tasks are multiple choice; the
-rest require typing German. 131 of them carry an authored trap answer — a
+rest require typing German. 136 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
 written for it. B1 has begun; B2 exists as structure and outline only, and the
 UI labels every unit that is not authored as planned.
