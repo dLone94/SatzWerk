@@ -221,17 +221,18 @@ level checkpoint.**
 | | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
 | | **A1 level checkpoint** | all six units with no hints, 80% to pass, with the accusative and the dative asked for side by side |
 
-**A2 has begun: two units of five are authored.**
+**A2 has begun: three units of five are authored.**
 
 | Unit | Lessons | What it teaches |
 | --- | --- | --- |
 | 1. Last weekend: the Perfekt | What you did: haben and the participle · Where you went: the verbs that take sein · war, hatte, and telling the whole story | the past tense built from verbs the learner already owns — the helper second, the participle last, which is the bracket from A1 Unit 2 in its third disguise; ge- … -t and the three groups that do it differently; which verbs take *sein* and why the Bulgarian instinct („работил съм“) produces *Ich bin gearbeitet* every time; *war*, *hatte* and *es gab*, the three places spoken German keeps the simple past |
 | 2. Home, city and services | Where things are: wo and the dative · Putting things: wohin and the accusative · When something is broken: weil | the nine two-way prepositions, and the one question — *wo* or *wohin* — that decides the case; the verb pairs *stellen*/*stehen* and *legen*/*liegen*, learnt together so the pair carries the case and it never has to be decided twice; *weil*, the first word that sends a verb to the end of its clause, taught where it is actually needed — a phone call about a broken heater |
+| 3. Work and education | What you think: dass · Courses and conditions: wenn · Plans: the future, and becoming something | *dass* and *wenn*, which do to the verb exactly what *weil* already did — so the unit says so in its first line rather than presenting a second rule; what is genuinely new is the consequence, that a *wenn*-clause in first position pushes the main verb to just after the comma, which neither English nor Bulgarian does; and the future, which is mostly the present tense with a time word |
 
-Across those 42 lessons that is 381 vocabulary entries, 40 grammar concepts, 352 exercises and **1054
-answer tasks** (including all sixteen checkpoints), across 206 teaching sections,
-all authored in both paths. Only 1.7% of those tasks are multiple choice; the
-rest require typing German. 96 of them carry an authored trap answer — a
+Across those 45 lessons that is 400 vocabulary entries, 43 grammar concepts, 372 exercises and **1106
+answer tasks** (including all seventeen checkpoints), across 221 teaching sections,
+all authored in both paths. Only 1.6% of those tasks are multiple choice; the
+rest require typing German. 101 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
 written for it. Levels B1–B2 exist as structure and outline only, and the UI
 labels them as planned.
@@ -550,12 +551,11 @@ Run `npm run dev`, open <http://localhost:5173>, and:
 
 ## Next milestone
 
-**Milestone 4 — the rest of A2.** Units 1 and 2 are authored; three remain, and
-the outline names them: work and education, health and advice, travel and
-problems. The grammar still to come is *dass* and *wenn* — which do to the verb
-exactly what *weil* already does, so the habit is bought — reflexive verbs,
-comparison, and the first adjective endings. Then A2 needs its level
-checkpoint.
+**Milestone 4 — the rest of A2.** Units 1 to 3 are authored; two remain, and the
+outline names them: health and advice, travel and problems. The grammar still to
+come is reflexive verbs, comparison, and the first adjective endings — the
+subordinate word order is bought and paid for, since *weil*, *dass* and *wenn*
+all do the same thing to the verb. Then A2 needs its level checkpoint.
 
 A1 ends where it should: a learner who passes its level checkpoint can tell the
 accusative from the dative, which is the one thing A2 assumes and cannot

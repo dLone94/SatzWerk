@@ -488,8 +488,8 @@ describe('vocabulary', () => {
         'kommen', 'gehen', 'fahren', 'fliegen', 'schwimmen', 'aufstehen',
         // Change of state.
         'passieren', 'umziehen',
-        // The two with no reason behind them that the course teaches.
-        'sein', 'bleiben',
+        // The three with no reason behind them.
+        'sein', 'bleiben', 'werden',
       ].sort(),
     );
   });
