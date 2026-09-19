@@ -3413,3 +3413,183 @@ body {
     border-color var(--dur-1) var(--ease-out),
     box-shadow var(--dur-1) var(--ease-out);
 }
+
+/* ==================================================================== *
+ * Speaking
+ *
+ * Offered after the answer is already right, so it can never be in the way.
+ * There is no score anywhere in here on purpose: what is shown is the words
+ * the recogniser heard, next to the words that were wanted.
+ * ==================================================================== */
+
+.speak {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.speak__row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.speak__btn {
+  gap: 0.45rem;
+}
+
+.speak__icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  flex: none;
+}
+
+/* A steady pulse while the microphone is open: the one place in the app where
+   an animation is the only thing saying "this is happening right now". */
+.speak__btn.is-listening {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.speak__pulse {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--bad);
+  flex: none;
+  animation: sw-mic-pulse 1.1s var(--ease-in-out) infinite;
+}
+
+@keyframes sw-mic-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(calc(1 - 0.25 * var(--motion-shift)));
+  }
+}
+
+.speak__status {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-family: var(--font-de);
+}
+
+.speak__error {
+  margin: 0;
+  color: var(--warn);
+  font-size: 0.88rem;
+}
+
+.speak__result {
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-left-color: var(--warn);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.75rem;
+  background: var(--surface);
+  animation: sw-rise-sm var(--dur-2) var(--ease-out) both;
+}
+
+.speak__result--ok {
+  border-left-color: var(--good);
+  background: var(--good-soft);
+}
+
+.speak__verdict {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.speak__compare {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.6rem;
+  font-size: 0.92rem;
+}
+
+.speak__compare dt {
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  align-self: center;
+}
+
+.speak__compare dd {
+  margin: 0;
+  font-family: var(--font-de);
+}
+
+.speak__target {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-de);
+  font-weight: 700;
+}
+
+.speak__note {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+/* Asking why an answer was wrong.
+
+   Deliberately quieter than everything around it. The authored feedback is
+   the app speaking; this is the app quoting something else, and the panel has
+   to look like a quotation rather than like more of the same voice. The dashed
+   edge and the muted label are doing that work. */
+.explain {
+  margin-top: 0.7rem;
+}
+
+.explain__answer {
+  margin-top: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--surface) 88%, transparent);
+  /* Uses the app's shared arrival keyframe, which under reduced motion
+     becomes a plain fade via --motion-shift rather than being switched off. */
+  animation: sw-rise-sm var(--dur-2) var(--ease-out) both;
+}
+
+.explain__label {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+  color: var(--ink-faint);
+}
+
+.explain__text {
+  margin: 0;
+  line-height: 1.55;
+}
+
+
+/* Paragraph breaks inside a block that is one element.
+
+   A callout is a single <p> by design — it is one voice saying one thing — but
+   the harder explanations are written as two or three short paragraphs, and
+   collapsing them into a wall of text is exactly the wrong thing to do to the
+   hardest paragraph in a lesson. These spans restore the break without
+   nesting block elements inside a <p>. */
+.rich__para {
+  display: block;
+}
+
+.rich__para + .rich__para {
+  margin-top: 0.6em;
+}

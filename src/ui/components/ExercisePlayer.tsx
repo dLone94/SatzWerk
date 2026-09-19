@@ -17,6 +17,8 @@ import {
   type ValidationResult,
 } from '../../core/validation/validate.ts';
 import { CATEGORY_LABELS } from '../../i18n.ts';
+import { ExplainWhy } from './ExplainWhy.tsx';
+import { SpeakCheck } from './SpeakCheck.tsx';
 import type { AttemptPayload, TargetSpec } from '../../services/api/client.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AnswerInput, type AnswerInputHandle } from './AnswerInput.tsx';
@@ -176,6 +178,22 @@ export function ExercisePlayer({
     const authored = current.step.wordBank;
     if (authored) return shuffle(authored, current.step.id);
     if (!presentation.showWordBank) return null;
+    /*
+     * Never build one out of the answer for open writing.
+     *
+     * The synthesised bank is a scaffold: when a learner is struggling with a
+     * sentence that has one right answer, handing them its words in the wrong
+     * order is help. A free-writing task has no single right answer — the
+     * screen says so — and it is checked for required words rather than for
+     * matching a model. Scattering the model answer's words across the screen
+     * as chips would quietly turn "write what you want to say" into "unscramble
+     * what we had in mind", which is a different exercise and a worse one.
+     *
+     * An authored word bank above is untouched: giving a learner the
+     * vocabulary to use is a deliberate teaching choice, and it is not the
+     * answer.
+     */
+    if (current.exercise.kind === 'freeWriting') return null;
     const answer = current.step.answer.accepted[0] ?? '';
     const tokens = answer.split(/\s+/).filter(Boolean);
     return tokens.length > 1 ? shuffle(tokens, current.step.id) : null;
@@ -662,6 +680,21 @@ export function ExercisePlayer({
             </ul>
           ) : null}
 
+          {/*
+            Offered only when the answer was actually wrong, and only after the
+            authored explanation above has had its say. The course answers
+            first; the model answers the question the course could not
+            anticipate. It renders nothing at all with no provider configured.
+          */}
+          {result && result.verdict !== 'correct' && result.verdict !== 'empty' ? (
+            <ExplainWhy
+              expected={feedback.correction}
+              given={value}
+              categories={result.categories}
+              level={level}
+            />
+          ) : null}
+
           {phase === 'retype' ? (
             <div className="feedback__retype">
               <p className="feedback__retype-label">{t('exerciseRetype')}</p>
@@ -676,6 +709,17 @@ export function ExercisePlayer({
                 <span className="task__keyhint">{t('exerciseEnterToSubmit')}</span>
               </div>
             </div>
+          ) : null}
+
+          {/*
+            Speaking is offered only once the answer is correct, and only for
+            something worth saying aloud. That ordering is the whole safety
+            argument: a missing microphone, a noisy room or a recogniser that
+            mishears can cost the learner nothing, because the mark is already
+            in the bank.
+          */}
+          {phase === 'feedback' && feedback.tone === 'success' && step.answer.shape !== 'word' ? (
+            <SpeakCheck target={feedback.correction} spec={step.answer} />
           ) : null}
 
           {phase === 'feedback' ? (

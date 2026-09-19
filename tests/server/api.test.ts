@@ -349,8 +349,13 @@ describe('the German Coach seam', () => {
     };
     expect(status.aiAvailable).toBe(false);
     expect(status.features.writingReview).toBe('rule-based');
-    expect(status.features.conversation).toBe('planned');
     expect(status.features.speechEvaluation).toBe('planned');
+    // Not 'planned'. Generated practice and conversation are a decision, not a
+    // backlog item — every German sentence in this app has been read by a
+    // person — and calling them planned would promise something that is not
+    // coming.
+    expect(status.features.conversation).toBe('not-generated');
+    expect(status.features.generatePractice).toBe('not-generated');
   });
 
   it('returns no fabricated reply for conversation', async () => {
@@ -394,6 +399,61 @@ describe('the German Coach seam', () => {
 
   it('rejects an empty writing submission', async () => {
     expect((await call('POST', '/api/coach/writing', { text: '  ' })).status).toBe(400);
+  });
+
+  it('offers no explanation when there is no provider to ask', async () => {
+    const response = await call('POST', '/api/coach/explain', {
+      expected: 'Ich komme aus Bulgarien.',
+      given: 'Ich komme von Bulgarien.',
+      categories: ['preposition'],
+      language: 'en',
+    });
+    expect(response.status).toBe(200);
+    const body = response.body as { available: boolean; explanation?: string };
+    expect(body.available).toBe(false);
+    expect(body.explanation).toBeUndefined();
+  });
+
+  it('passes the learner’s language and the validator’s verdict to the provider', async () => {
+    const seen: unknown[] = [];
+    const spy = {
+      ...unavailableProvider,
+      available: true,
+      name: 'spy',
+      async explainMistake(input: unknown) {
+        seen.push(input);
+        return { available: true, explanation: 'because', language: 'bg' as const, generated: true };
+      },
+    };
+    const response = await handleRequest(
+      { db, provider: spy },
+      {
+        method: 'POST',
+        path: '/api/coach/explain',
+        body: {
+          expected: 'Ich sehe den Mann.',
+          given: 'Ich sehe der Mann.',
+          categories: ['case'],
+          language: 'bg',
+          level: 'a1',
+        },
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(seen[0]).toMatchObject({
+      expected: 'Ich sehe den Mann.',
+      given: 'Ich sehe der Mann.',
+      categories: ['case'],
+      language: 'bg',
+      level: 'a1',
+    });
+  });
+
+  it('needs both halves of the comparison to explain anything', async () => {
+    expect(
+      (await call('POST', '/api/coach/explain', { expected: 'x', given: '   ' })).status,
+    ).toBe(400);
+    expect((await call('POST', '/api/coach/explain', { given: 'x' })).status).toBe(400);
   });
 });
 

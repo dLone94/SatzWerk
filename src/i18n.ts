@@ -122,7 +122,17 @@ export const UI = {
   skillWriting: s('Writing', 'Писане'),
   skillReading: s('Reading', 'Четене'),
   skillSpeaking: s('Speaking', 'Говорене'),
-  skillSpeakingPlanned: s('Planned — not built yet', 'Планирано — още не е направено'),
+  /*
+   * This said "Planned — not built yet" until speaking was built, at which
+   * point it became false in the other direction. Speaking is real; what does
+   * not exist is a count of it, because saying a sentence aloud happens after
+   * the answer is already right and would distort accuracy if folded in. So
+   * the row describes what is there and claims no progress.
+   */
+  skillSpeakingUncounted: s(
+    'Say it — after a correct answer. Not counted as progress.',
+    'Кажи го — след верен отговор. Не се брои като напредък.',
+  ),
 
   // Course / level map
   courseTitle: s('The course', 'Курсът'),
@@ -200,6 +210,88 @@ export const UI = {
   exerciseEnterToSubmit: s('Enter to check', 'Enter за проверка'),
   // Free writing needs newlines, so Enter cannot submit there.
   exerciseCtrlEnterToSubmit: s('Ctrl+Enter to check', 'Ctrl+Enter за проверка'),
+
+  // Reminders. Every state is named separately because the fixes are
+  // completely different: install the app, change a browser setting, or
+  // configure the server. "Couldn't turn on notifications" would help nobody.
+  remindersTitle: s('Reminders', 'Напомняния'),
+  remindersWhat: s(
+    'A notification when review is actually due — and nothing on the days when it is not.',
+    'Известие, когато наистина има какво да повториш — и нищо в дните, когато няма.',
+  ),
+  remindersOn: s('Reminders are on', 'Напомнянията са включени'),
+  remindersOff: s('Reminders are off', 'Напомнянията са изключени'),
+  remindersEnable: s('Turn on reminders', 'Включи напомнянията'),
+  remindersDisable: s('Turn off', 'Изключи'),
+  remindersNeedsInstall: s(
+    'Add SatzWerk to your Home Screen first — on iPhone, notifications only work for an installed app.',
+    'Първо добави SatzWerk към началния екран — на iPhone известията работят само за инсталирано приложение.',
+  ),
+  remindersUnsupported: s(
+    'This browser cannot receive notifications.',
+    'Този браузър не може да получава известия.',
+  ),
+  remindersNotConfigured: s(
+    'Not configured on the server, so there is nothing to switch on yet.',
+    'Не е настроено на сървъра, така че още няма какво да се включи.',
+  ),
+  remindersDenied: s(
+    'Notifications are blocked for this app. Allow them in your device settings, then come back.',
+    'Известията са блокирани за това приложение. Разреши ги в настройките на устройството и се върни.',
+  ),
+  remindersHonest: s(
+    'One a day at most, only when something is due. No streaks, no nagging.',
+    'Най-много едно на ден и само когато има какво да се повтаря. Без серии, без досаждане.',
+  ),
+  // Shown when the browser refuses the subscription outright. Without it a tap
+  // on "Turn on reminders" left the card exactly as it was, which reads as the
+  // app being broken rather than the browser saying no.
+  remindersWorking: s('Setting up…', 'Настройва се…'),
+  remindersFailed: s(
+    'Your browser would not set this up: {reason}',
+    'Браузърът ти отказа да го настрои: {reason}',
+  ),
+
+  // Asking why an answer was wrong. The label is not decoration: a generated
+  // explanation sitting unlabelled beside an authored one would make the
+  // authored one worth less, because the learner could no longer tell which
+  // is which.
+  explainAsk: s('Why was this wrong?', 'Защо това е грешно?'),
+  explainAsking: s('Asking…', 'Пита се…'),
+  explainGenerated: s(
+    'Written by a language model, not by the course. It can be wrong.',
+    'Написано от езиков модел, не от курса. Може да е грешно.',
+  ),
+  explainFailed: s(
+    'No explanation came back. Your answer and your progress are unaffected.',
+    'Не се върна обяснение. Отговорът и напредъкът ти не са засегнати.',
+  ),
+
+  // Speaking. The wording is careful on purpose: the app checks whether a
+  // recogniser understood the words, which is not the same as scoring an
+  // accent, and it says so rather than implying more than it can do.
+  speakTry: s('Say it', 'Кажи го'),
+  speakAgain: s('Say it again', 'Кажи го пак'),
+  speakListening: s('Listening…', 'Слушам…'),
+  speakStop: s('Stop', 'Спри'),
+  speakHeard: s('Heard', 'Чух'),
+  speakUnderstood: s('Understood — that is the sentence.', 'Разбрано — това е изречението.'),
+  speakNotQuite: s('That is not the sentence yet.', 'Това още не е изречението.'),
+  speakWhatItMeans: s(
+    'This checks whether a speech recogniser understood your words. It is not a score for your accent, and it can mishear you.',
+    'Това проверява дали програмата за разпознаване е разбрала думите ти. Не е оценка на произношението и може да те чуе погрешно.',
+  ),
+  speakDenied: s(
+    'The microphone is blocked. Allow it for this site and try again.',
+    'Микрофонът е блокиран. Разреши го за този сайт и опитай пак.',
+  ),
+  speakNoSpeech: s('Nothing was heard. Try again.', 'Нищо не се чу. Опитай пак.'),
+  speakNoMatch: s('Nothing was recognised. Try again.', 'Нищо не беше разпознато. Опитай пак.'),
+  speakNetwork: s(
+    'The recogniser could not be reached. It needs a connection.',
+    'Разпознаването не можа да се свърже. Нужен е интернет.',
+  ),
+  speakFailed: s('The recogniser stopped. Try again.', 'Разпознаването спря. Опитай пак.'),
   exerciseEnterToContinue: s('Enter to continue', 'Enter за напред'),
   exercisePlayAudio: s('Play', 'Пусни'),
   exercisePlaySlow: s('Slow', 'Бавно'),

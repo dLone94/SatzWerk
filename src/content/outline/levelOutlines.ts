@@ -204,11 +204,10 @@ export const B1_OUTLINE: LevelOutline = {
     b('Narrating the past', 'Разказване в минало време'),
   ],
   plannedUnits: [
-    b('Finding and renting a flat', 'Намиране и наемане на жилище'),
-    b('Authorities and paperwork', 'Институции и документи'),
-    b('Health and insurance', 'Здраве и осигуровки'),
-    b('Work and applications', 'Работа и кандидатстване'),
-    b('Family, school and daily life', 'Семейство, училище и ежедневие'),
+    // "Finding and renting a flat" and "Authorities and paperwork" have been
+    // authored and now live in b1/. A unit leaves this list the moment it
+    // becomes playable, otherwise the course map advertises it twice — once as
+    // real and once as still to come.
     b('Opinions and written German', 'Мнения и писмен немски'),
   ],
 };

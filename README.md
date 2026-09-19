@@ -100,6 +100,52 @@ That is the whole of it — no terminal, and no secrets to copy around. Requirin
 a local command to set a password is a poor bargain for something you are meant
 to just open in a browser.
 
+### Turning on reminders (optional)
+
+The app works fully without this; skip it and Settings will say *not configured
+on the server* rather than pretending. Three variables arm it:
+
+| Variable | Value |
+| --- | --- |
+| `VAPID_PUBLIC_KEY` | the public half of a VAPID key pair |
+| `VAPID_PRIVATE_KEY` | the private half — server-side only, never prefixed `VITE_` |
+| `CRON_SECRET` | any long random string |
+
+Generate the pair once with `npx web-push generate-vapid-keys`. Without both
+keys `GET /api/push/status` answers `{"configured": false}` and the Settings
+card says so; without `CRON_SECRET` the job endpoint returns 503 rather than
+running unauthenticated on a public URL.
+
+`vercel.json` already schedules `/api/push/run` daily at 18:00 UTC. Vercel sends
+that as a **GET** with `Authorization: Bearer $CRON_SECRET`, which is what the
+endpoint expects; it also accepts POST, so the same job can be triggered by
+anything else that can hold the secret.
+
+**On an iPhone the app has to be installed.** iOS exposes no `PushManager` in a
+Safari tab at all, so: open the URL in Safari → *Share* → *Add to Home Screen* →
+open it from the Home Screen icon → *Settings* → *Turn on reminders*. Until
+then the card says to install it, which is the only thing that would help.
+
+
+### Turning on explanations (optional)
+
+One variable, and the app is unchanged without it:
+
+| Variable | Value |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | a key from [the Claude Console](https://console.anthropic.com). Server-side only — never prefixed `VITE_`. |
+| `SATZWERK_AI_MODEL` | optional. Defaults to `claude-opus-5`. |
+| `SATZWERK_AI_PROVIDER` | optional. Set to `none` to keep the feature off even where a key exists — a key on the host for something else is not consent to spend it here. |
+
+`GET /api/coach/status` reports what is actually on. With no key it answers
+`aiAvailable: false`, the *Why was this wrong?* button is not rendered at all,
+and the Coach's checks stay exactly as deterministic as they were.
+
+Cost is small and bounded by design: one request only when the button is
+pressed, `effort: medium` (a wrong grammar explanation teaches wrong German, so
+this is not the place to economise on reasoning) and a deliberately low output
+ceiling, because the prompt asks for three or four sentences.
+
 ### Checking a deployment
 
 `npm run smoke -- <url>` probes a running or deployed copy over HTTP and says
@@ -235,13 +281,27 @@ level checkpoint.**
 | 5. Travel and problems | Faster, cheaper: comparing two things · The best of all: am besten · When it goes wrong: delays and missed trains | comparison, the one topic in A2 where German is *simpler* than English (every adjective takes -er, however long — there is no *mehr interessant*) and harder than Bulgarian (whose „по-“ never touches the word, while German adds umlauts); the superlative in both its shapes; and one deliberately small corner of the adjective endings — definite article, nominative and accusative, five of whose six forms are -e |
 | | **A2 level checkpoint** | all five units with no hints, 80% to pass, built around the two decisions B1 assumes: which helper a verb takes, and which case a two-way preposition wants |
 
-Across those 51 lessons that is 427 vocabulary entries, 49 grammar concepts, 420 exercises and **1248
-answer tasks** (including all twenty checkpoints), across 251 teaching sections,
-all authored in both paths. Only 1.4% of those tasks are multiple choice; the
-rest require typing German. 111 of them carry an authored trap answer — a
+**B1 has begun.** The level where the course stops teaching German in general
+and starts teaching Germany in particular.
+
+| Unit | Lessons | What it teaches |
+| --- | --- | --- |
+| 1. Finding and renting a flat | The flat that has a balcony · A bright flat with a big balcony · The flat I live in | relative clauses, the structure that separates A2 German from B1 German — and the sharpest divergence between the two paths anywhere in the course, because English has dismantled its relative pronouns (*that* covers everything, and it is dropped outright in "the flat I saw") while Bulgarian has kept the whole system, agreement and all, so the English path is taught something it no longer has and the Bulgarian path is told plainly that it already owns nine tenths of it and has one new thing to learn: the verb goes to the end. Plus the adjective endings after *ein*, taught as a reason rather than a table — *ein* cannot show the gender, so the adjective does — where Bulgarian again has a real head start, because it already moves the definite marker onto the adjective (*голям апартамент* → *големият апартамент*). And the vocabulary of a German rental contract, where *Kaution*, *Nebenkosten* and *Kaltmiete* are legal objects before they are words |
+| 2. Authorities and paperwork | The form is filled in: the passive · In order to register: zu and um … zu · At the counter, and the letter afterwards | the unit that flips the advantage back. The passive is the voice the German state writes in — a letter from an Amt almost never names who does anything — and each path gets its own predicted error rather than a shared warning: English builds the passive with *be*, so *Das Formular ist ausgefüllt* comes out (correct German, wrong sentence), while Bulgarian avoids the construction entirely and uses the reflexive (*формулярът се попълва*), so the instinct is a *sich* with nowhere to go. Both are authored as traps in the same exercise. Then the infinitive with *zu*, where the English path gets an almost free ride — English has the construction nearly exactly — and the Bulgarian path has real work, because Bulgarian has no infinitive at all and says „да“ plus a conjugated verb; it gets a translation rule it can apply, and the boundary where *dass* really is needed |
+
+| 3. Health and insurance | I would like an appointment · If I were you: advice and hypotheses · Could you tell me whether … | the one topic in the course where *neither* path is at a disadvantage, and the course says so rather than inventing a difficulty: English has "I would like" and "could you", Bulgarian has „бих искал“ and „бихте ли“. What is taught instead is the single place German breaks the pattern both languages follow — and both paths produce *ich würde haben* for opposite reasons. English builds the conditional analytically for most verbs; Bulgarian builds it that way for *all* of them, with „бих“ and no exceptions at all. German keeps real one-word forms for exactly the verbs you use most: hätte, wäre, könnte, müsste, wüsste. Plus indirect questions, where it is Bulgarian that transfers cleanly („дали“ is *ob*) and English speakers keep a question word order German cannot have |
+
+| 4. Work and applications | The applicant’s CV: the genitive · Although, therefore, all the same · I am applying for: verbs and their prepositions | the unit built around one document — a German *Bewerbung* — with the grammar chosen to serve it. The genitive is taught honestly, which means admitting that spoken German is abandoning it: *das Auto von meinem Bruder* is what people say, *das Auto meines Bruders* is what people write, so the Bulgarian path is told its instinctive *von* is not an error but the wrong register. Then the three connector families, where German sorts joining words by what they do to the verb rather than by meaning, so *obwohl* and *trotzdem* — nearly synonymous — land in different families and neither starting language makes the split. And the fixed prepositions, the rare topic that is equally hard for everyone: "apply for" and „кандидатствам за“ both point at *für*, and German chose *um* |
+
+| 5. Family, school and daily life | Back then we lived in: the written past · When I was ten: als, wenn and wann · After we had moved: ordering the past | the narrating unit, where German splits its two past tenses by *register* rather than by meaning — spoken German tells a story in the Perfekt, written German tells the same story in the Präteritum — and the two paths fail differently. English has one simple past covering everything, so the split looks arbitrary; Bulgarian has *more* past tenses than German, and its imperfect maps remarkably well onto the Präteritum for background description, so the intuition is largely already there and only the register rule is missing. Then *als*, *wenn* and *wann*, where one English word and two Bulgarian ones obscure a compulsory three-way split. Set in the German school system — Kita, Grundschule, Gymnasium, Ausbildung — because a decision made about a child at ten is one a parent has to be able to discuss |
+
+Across those 66 lessons that is 535 vocabulary entries, 63 grammar concepts, 523 exercises and **1533
+answer tasks** (including all twenty-five checkpoints), across 333 teaching sections,
+all authored in both paths. Only 1.3% of those tasks are multiple choice; the
+rest require typing German. 137 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
-written for it. Levels B1–B2 exist as structure and outline only, and the UI
-labels them as planned.
+written for it. B1 has begun; B2 exists as structure and outline only, and the
+UI labels every unit that is not authored as planned.
 
 **A2 Unit 1 teaches almost no new words, on purpose.** The learner finished A1
 owning forty-three verbs; the unit gives them a second form of those rather than
@@ -342,9 +402,112 @@ of exactly those sentences, or as a round drilling the whole category.
 
 **An honest dashboard.** Every figure is derived from database rows. A fresh
 profile shows `—` and "No data yet", not a zero dressed up as progress. The
-streak is counted backwards over days that actually contain answers. Speaking
-progress shows "Planned — not built yet" rather than a number, because there is
-no speaking feature yet.
+streak is counted backwards over days that actually contain answers.
+
+**Speaking, and what it honestly checks.** After an answer is already correct,
+the app offers *Say it*. The browser's own recogniser — iOS Safari and Chrome
+both ship one — listens, and the transcript goes through **the same validator
+the typing loop uses**: a wrong case is a wrong case whether you wrote it or
+said it, and it gets the same authored explanation.
+
+Two rules make it honest:
+
+- **Nothing you cannot hear is ever marked wrong.** A recogniser invents its
+  own punctuation (nobody pronounces a full stop) and capitalises by its own
+  rules, so both are normalised away before judging, and `capitalization` and
+  `punctuation` are stripped from the verdict if they survive. Marking those
+  would be telling a learner they mispronounced a capital letter.
+- **There is no score.** What is shown is the words it heard beside the words
+  that were wanted, and a line saying what that means: *this checks whether a
+  speech recogniser understood your words; it is not a score for your accent,
+  and it can mishear you.* A percentage there would read as an accent grade,
+  which is not what a recogniser measures.
+
+It is offered **after** the answer is right, never before, so a missing
+microphone, a noisy room or a mishearing costs nothing. Where the browser has
+no recogniser the control is not rendered at all — not greyed out, not
+"coming soon".
+
+It is also **not counted as progress**, and the dashboard says so. Speaking
+happens after the mark is already banked, so folding it into accuracy would
+distort the one number the app promises is real. The skills row used to read
+"Planned — not built yet"; that became false the moment speaking shipped, so it
+now describes what is there and claims nothing.
+
+**Asking why an answer was wrong.** Every lesson here is written by hand, and
+so are the traps: produce a wrong form somebody anticipated and you get an
+explanation somebody wrote for exactly that form. But you can produce a wrong
+form nobody anticipated, and until now the app could only show the right answer
+again, which explains nothing.
+
+With `ANTHROPIC_API_KEY` set, a *Why was this wrong?* button appears under a
+wrong answer. Three things keep it from undermining the rest of the app:
+
+- **It comes after the verdict.** The validator has already marked the answer
+  and banked it. Nothing the model says can change whether you were right, so a
+  model that is slow, unreachable or wrong costs you nothing you had.
+- **It is labelled, above the text rather than below it.** The panel says a
+  language model wrote it and that it can be wrong. If a generated paragraph sat
+  unlabelled beside an authored one, the authored one would be worth less —
+  you could no longer tell which was which.
+- **It is asked for.** It does not fire on every slip. A generated paragraph
+  pushed at you after every mistake would be noise, and would cost a request
+  each time.
+
+The **two teaching paths stay two**. The English prompt tells the model that
+English has no grammatical gender to lean on and a fixed word order; the
+Bulgarian prompt tells it that Bulgarian *does* have gender, that the definite
+article is on the end of the word (`къща` → `къщата`) and that word order is
+free. They are written separately, in the language they teach in, exactly like
+the authored content — and a test fails if one ever becomes a translation of the
+other. An explanation is therefore generated **once, for one path**: the API
+returns a plain string plus the language it is in, not a bilingual pair it would
+have had to translate itself into.
+
+The **Coach's writing review** gains the same treatment: the deterministic
+checks run first and always, the model only adds findings it was told not to
+duplicate, and every added finding is marked as the model's. If the call fails
+the rule-based result is still returned — it is a real result — rather than the
+whole request failing.
+
+**What is deliberately not generated:** practice sentences and conversation.
+`generatePractice` and `converse` report `available: false` with a reason, and
+the coach status says `not-generated` rather than `planned`, because "planned"
+would promise something that is not coming. Every German sentence in this app
+has been read by a person, and that is worth more than a limitless supply of
+sentences that have not.
+
+**A reason to come back, without nagging.** Spaced repetition only works if
+somebody actually comes back on the day, so the app can send one push
+notification — *"3 words are due"* — and it is governed by three rules:
+
+- **Only when something is really due.** The job reads `review_items` and sends
+  nothing when the count is zero. There is no "keep your streak" notification,
+  because a streak is not a reason to study and a reminder about nothing is how
+  people turn reminders off.
+- **At most one a day.** `last_sent_at` is stamped per subscription and a second
+  run on the same UTC day is a no-op, so a cron misfire cannot produce two.
+- **It says the real number.** The text comes from the same query the Review
+  page counts, in the learner's own teaching language.
+
+It is off until it is switched on from Settings, from a real tap — a permission
+prompt on page load is both bad manners and ignored by Safari. The card names
+the actual obstacle rather than failing generically: *add the app to your Home
+Screen* on an iPhone (iOS exposes no `PushManager` in a Safari tab, so nothing
+else will work), *notifications are blocked for this site*, or *not configured
+on the server*. With no VAPID keys set the feature reports itself as not
+configured and the API answers `{"configured": false}` — it never pretends to
+be armed. And when the browser's push service simply never answers — a blocked
+host returns no error, the promise just never settles — the attempt is given
+twenty seconds and then the card says so, rather than leaving a dead switch
+that looks like a broken app.
+
+Delivery is `web-push` with VAPID and RFC 8291 payload encryption; the private
+key never leaves the server. `public/sw.js` handles `push` and
+`notificationclick` **and caches nothing** — a stale cached copy of your own
+progress would be worse than no offline mode. A subscription that the push
+service rejects as gone (404/410) is deleted; any other failure is kept and
+retried tomorrow, because a network blip is not an unsubscribe.
 
 **Audio** through a replaceable `TtsProvider`, with a `de-DE` browser
 SpeechSynthesis implementation and a null provider that hides the buttons when
@@ -410,10 +573,11 @@ that is openly planned:
 | Area | Status |
 | --- | --- |
 | **Writing review in the Coach** | **Real.** Deterministic rule-based checks on the server: noun capitalisation, missing verb, `aus`/`von`, verb-second, du/Sie mixing, subject–verb agreement, digraph spellings. It lists the checks it applied and the words it did not understand, and says it is not a language model. |
-| AI mistake explanation, generated practice, conversation | **Interface only.** `AiProvider` in `server/ai.ts` defines `explainMistake`, `evaluateWriting`, `generatePractice` and `converse`. No provider is wired up; the API returns `available: false` and the UI labels them planned. Keys would be read server-side only — nothing reaches the client bundle. |
-| Recording, speech-to-text, pronunciation scoring | **Interface only.** `src/services/speech/` defines `AudioRecorder`, `SpeechToText` and `PronunciationScorer`, all reporting `available: false`. Recording audio the app cannot evaluate would be a fake feature, so it is left out. |
+| AI mistake explanation | **Real, when a key is set.** `server/ai-claude.ts` implements `AiProvider` against the Claude API. With no `ANTHROPIC_API_KEY` the app behaves exactly as before and says so. The key is read server-side only and is not prefixed `VITE_`, so it cannot reach the client bundle. See below. |
+| Generated practice, conversation | **Decided against, not planned.** `generatePractice` and `converse` stay `available: false` with a reason, and the API says `not-generated` rather than `planned`. Every German sentence in this app has been read by a person; a generated one sitting beside an authored one with no way to tell them apart would end that quietly. |
+| Phoneme-level pronunciation scoring | **Not built, and not claimed.** Speaking *is* real (see below) — the app checks whether a recogniser understood your words. Scoring an accent is a different thing and needs a different engine; `AudioRecorder` / `SpeechToText` in `src/services/speech/index.ts` remain the interfaces a server-side recogniser would implement. |
 | Real Life scenarios | **Roadmap only.** 13 scenarios are modelled with their CEFR staging and register, and the page presents them as a roadmap with no playable content. Where a scenario's language is already taught, it links to the lesson that teaches it. |
-| A2–B2 content | **Outline only.** Topics, grammar progression, "I can" outcomes and planned unit titles for every level; no authored lessons. The level map marks them planned. |
+| B1–B2 content | **Outline only.** Topics, grammar progression, "I can" outcomes and planned unit titles for both levels; no authored lessons. The level map marks them planned. Pre-A1, A1 and A2 are written. |
 | C1 / C2 | Not implemented, but `CefrLevel` already includes them, so adding them is content, not a refactor. |
 
 ---
@@ -428,10 +592,11 @@ src/core/         Pure, DOM-free domain logic — the part worth testing hardest
   feedback/       Turning a verdict into an explanation in the learner's language.
   srs/            The review scheduler.
   progress/       Lesson mastery rules and difficulty adaptation.
-src/services/     Replaceable boundaries: TTS, speech, the API client.
+src/services/     Replaceable boundaries: TTS, speech, push, the API client.
 src/ui/           React components and pages. One component tree, two paths.
 server/           Node HTTP server, SQLite schema and migrations, the API,
-                  and the AI provider seam.
+                  push delivery, and the AI provider seam with its Claude
+                  implementation.
 tests/            Core, content, server and UI suites.
 ```
 
@@ -527,8 +692,8 @@ Run `npm run dev`, open <http://localhost:5173>, and:
    Accuracy shows `—` with "Още няма данни", not 0%. Speaking reads
    "Планирано — още не е направено".
 3. **Course.** All five levels are listed. Pre-A1 and A1 each show six linked
-   units and a level checkpoint; A2–B2 show "Това ниво е планирано, но още не е
-   написано" with their topic and grammar outlines.
+   units and a level checkpoint, A2 five; B1–B2 show "Това ниво е планирано, но
+   още не е написано" with their topic and grammar outlines.
 4. **Lesson.** Open *Откъде си и къде живееш*. The requirement checklist shows
    0/6 sections, 0/24 exercises and so on. Work through the six teaching
    sections — note the Bulgarian-only comparison of free Bulgarian word order

@@ -122,8 +122,29 @@ jobs:
           # Project Settings -> Deployment Protection -> Protection Bypass for
           # Automation generates the value.
           VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
-          TARGET: ${{ github.event.inputs.url || github.event.deployment_status.target_url }}
+          # Which URL to probe, and why it is not always the one the event
+          # carries.
+          #
+          # `target_url` is the deployment-specific address
+          # (satz-werk-<hash>-<team>.vercel.app). Vercel's Standard Protection
+          # guards those by design, *including* for production — only the
+          # project's alias is public. So on a production deploy this job kept
+          # reporting "could not check", which is a true statement about that
+          # URL and a useless one about the live app.
+          #
+          # Production therefore probes the alias. Previews keep probing their
+          # own URL, which is the only address they have.
+          ENVIRONMENT: ${{ github.event.deployment_status.environment }}
+          DEPLOY_URL: ${{ github.event.inputs.url || github.event.deployment_status.target_url }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL || 'https://satz-werk.vercel.app' }}
         run: |
+          TARGET="$DEPLOY_URL"
+          if [ -z "${{ github.event.inputs.url }}" ] && \
+             printf '%s' "$ENVIRONMENT" | grep -qi '^production$'; then
+            TARGET="$PRODUCTION_URL"
+            echo "Production deployment: probing the alias $TARGET rather than"
+            echo "$DEPLOY_URL, which Standard Protection guards by design."
+          fi
           if [ -z "$TARGET" ]; then
             echo "No URL to test." >&2
             exit 1

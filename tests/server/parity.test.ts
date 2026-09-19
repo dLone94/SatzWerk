@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type Db } from '../../server/db.ts';
+import * as push from '../../server/push.ts';
 import * as store from '../../server/store.ts';
 
 /**
@@ -89,6 +90,18 @@ async function scenario(db: Db) {
   });
   await store.setFavorite(db, 'v-die-tochter', true);
 
+  /*
+   * Push subscriptions, which are stored with an ON CONFLICT upsert keyed on
+   * the endpoint. A browser that re-subscribes returns the same endpoint with
+   * fresh keys, so the second save has to update rather than duplicate — and
+   * an upsert is exactly the shape that has already diverged between these two
+   * dialects once, in the study_days columns above.
+   */
+  await push.saveSubscription(db, { endpoint: 'https://push.example/abc', p256dh: 'k1', auth: 'a1' });
+  await push.saveSubscription(db, { endpoint: 'https://push.example/abc', p256dh: 'k2', auth: 'a2' });
+  await push.saveSubscription(db, { endpoint: 'https://push.example/def', p256dh: 'k3', auth: 'a3' });
+  await push.deleteSubscription(db, 'https://push.example/def');
+
   const progress = await store.getLessonProgress(db, 'pre-a1-u1-l2');
   const stats = await store.getStats(db);
   return {
@@ -130,6 +143,12 @@ async function scenario(db: Db) {
       accuracy: c.accuracy,
     })),
     favorites: await store.listFavorites(db),
+    subscriptions: (await push.listSubscriptions(db)).map((row) => ({
+      endpoint: row.endpoint,
+      p256dh: row.p256dh,
+      auth: row.auth,
+      lastSentAt: row.lastSentAt,
+    })),
   };
 }
 
