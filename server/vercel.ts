@@ -83,6 +83,12 @@ interface Incoming {
   secure: boolean;
   cookie?: string;
   forwardedProto?: string;
+  /**
+   * Carried because the scheduled reminder job authenticates with it and has
+   * no cookie to offer. Dropping it here was not a missing feature but a dead
+   * one: the endpoint answered every cron with 401.
+   */
+  authorization?: string;
   /** The raw body, already read. Empty for GET and HEAD. */
   text: string;
 }
@@ -125,7 +131,11 @@ async function answer(request: Incoming): Promise<Answer> {
         method: request.method,
         path: request.path,
         body,
-        headers: { cookie: request.cookie, 'x-forwarded-proto': request.forwardedProto },
+        headers: {
+          cookie: request.cookie,
+          'x-forwarded-proto': request.forwardedProto,
+          authorization: request.authorization,
+        },
         secure: request.secure,
       },
     );
@@ -220,6 +230,7 @@ async function fromWeb(request: Request): Promise<Incoming> {
     secure: url.protocol === 'https:',
     cookie: request.headers.get('cookie') ?? undefined,
     forwardedProto: request.headers.get('x-forwarded-proto') ?? undefined,
+    authorization: request.headers.get('authorization') ?? undefined,
     text: method === 'GET' || method === 'HEAD' ? '' : await request.text(),
   };
 }
@@ -246,6 +257,7 @@ async function fromNode(request: IncomingMessage): Promise<Incoming> {
     secure: (forwardedProto ?? '').split(',')[0]?.trim().toLowerCase() === 'https',
     cookie: header('cookie'),
     forwardedProto,
+    authorization: header('authorization'),
     text,
   };
 }

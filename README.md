@@ -100,6 +100,33 @@ That is the whole of it — no terminal, and no secrets to copy around. Requirin
 a local command to set a password is a poor bargain for something you are meant
 to just open in a browser.
 
+### Turning on reminders (optional)
+
+The app works fully without this; skip it and Settings will say *not configured
+on the server* rather than pretending. Three variables arm it:
+
+| Variable | Value |
+| --- | --- |
+| `VAPID_PUBLIC_KEY` | the public half of a VAPID key pair |
+| `VAPID_PRIVATE_KEY` | the private half — server-side only, never prefixed `VITE_` |
+| `CRON_SECRET` | any long random string |
+
+Generate the pair once with `npx web-push generate-vapid-keys`. Without both
+keys `GET /api/push/status` answers `{"configured": false}` and the Settings
+card says so; without `CRON_SECRET` the job endpoint returns 503 rather than
+running unauthenticated on a public URL.
+
+`vercel.json` already schedules `/api/push/run` daily at 18:00 UTC. Vercel sends
+that as a **GET** with `Authorization: Bearer $CRON_SECRET`, which is what the
+endpoint expects; it also accepts POST, so the same job can be triggered by
+anything else that can hold the secret.
+
+**On an iPhone the app has to be installed.** iOS exposes no `PushManager` in a
+Safari tab at all, so: open the URL in Safari → *Share* → *Add to Home Screen* →
+open it from the Home Screen icon → *Settings* → *Turn on reminders*. Until
+then the card says to install it, which is the only thing that would help.
+
+
 ### Checking a deployment
 
 `npm run smoke -- <url>` probes a running or deployed copy over HTTP and says
@@ -374,6 +401,38 @@ distort the one number the app promises is real. The skills row used to read
 "Planned — not built yet"; that became false the moment speaking shipped, so it
 now describes what is there and claims nothing.
 
+**A reason to come back, without nagging.** Spaced repetition only works if
+somebody actually comes back on the day, so the app can send one push
+notification — *"3 words are due"* — and it is governed by three rules:
+
+- **Only when something is really due.** The job reads `review_items` and sends
+  nothing when the count is zero. There is no "keep your streak" notification,
+  because a streak is not a reason to study and a reminder about nothing is how
+  people turn reminders off.
+- **At most one a day.** `last_sent_at` is stamped per subscription and a second
+  run on the same UTC day is a no-op, so a cron misfire cannot produce two.
+- **It says the real number.** The text comes from the same query the Review
+  page counts, in the learner's own teaching language.
+
+It is off until it is switched on from Settings, from a real tap — a permission
+prompt on page load is both bad manners and ignored by Safari. The card names
+the actual obstacle rather than failing generically: *add the app to your Home
+Screen* on an iPhone (iOS exposes no `PushManager` in a Safari tab, so nothing
+else will work), *notifications are blocked for this site*, or *not configured
+on the server*. With no VAPID keys set the feature reports itself as not
+configured and the API answers `{"configured": false}` — it never pretends to
+be armed. And when the browser's push service simply never answers — a blocked
+host returns no error, the promise just never settles — the attempt is given
+twenty seconds and then the card says so, rather than leaving a dead switch
+that looks like a broken app.
+
+Delivery is `web-push` with VAPID and RFC 8291 payload encryption; the private
+key never leaves the server. `public/sw.js` handles `push` and
+`notificationclick` **and caches nothing** — a stale cached copy of your own
+progress would be worse than no offline mode. A subscription that the push
+service rejects as gone (404/410) is deleted; any other failure is kept and
+retried tomorrow, because a network blip is not an unsubscribe.
+
 **Audio** through a replaceable `TtsProvider`, with a `de-DE` browser
 SpeechSynthesis implementation and a null provider that hides the buttons when
 the browser has no German voice. Nothing in the app calls
@@ -441,7 +500,7 @@ that is openly planned:
 | AI mistake explanation, generated practice, conversation | **Interface only.** `AiProvider` in `server/ai.ts` defines `explainMistake`, `evaluateWriting`, `generatePractice` and `converse`. No provider is wired up; the API returns `available: false` and the UI labels them planned. Keys would be read server-side only — nothing reaches the client bundle. |
 | Phoneme-level pronunciation scoring | **Not built, and not claimed.** Speaking *is* real (see below) — the app checks whether a recogniser understood your words. Scoring an accent is a different thing and needs a different engine; `AudioRecorder` / `SpeechToText` in `src/services/speech/index.ts` remain the interfaces a server-side recogniser would implement. |
 | Real Life scenarios | **Roadmap only.** 13 scenarios are modelled with their CEFR staging and register, and the page presents them as a roadmap with no playable content. Where a scenario's language is already taught, it links to the lesson that teaches it. |
-| A2–B2 content | **Outline only.** Topics, grammar progression, "I can" outcomes and planned unit titles for every level; no authored lessons. The level map marks them planned. |
+| B1–B2 content | **Outline only.** Topics, grammar progression, "I can" outcomes and planned unit titles for both levels; no authored lessons. The level map marks them planned. Pre-A1, A1 and A2 are written. |
 | C1 / C2 | Not implemented, but `CefrLevel` already includes them, so adding them is content, not a refactor. |
 
 ---
@@ -456,7 +515,7 @@ src/core/         Pure, DOM-free domain logic — the part worth testing hardest
   feedback/       Turning a verdict into an explanation in the learner's language.
   srs/            The review scheduler.
   progress/       Lesson mastery rules and difficulty adaptation.
-src/services/     Replaceable boundaries: TTS, speech, the API client.
+src/services/     Replaceable boundaries: TTS, speech, push, the API client.
 src/ui/           React components and pages. One component tree, two paths.
 server/           Node HTTP server, SQLite schema and migrations, the API,
                   and the AI provider seam.
@@ -555,8 +614,8 @@ Run `npm run dev`, open <http://localhost:5173>, and:
    Accuracy shows `—` with "Още няма данни", not 0%. Speaking reads
    "Планирано — още не е направено".
 3. **Course.** All five levels are listed. Pre-A1 and A1 each show six linked
-   units and a level checkpoint; A2–B2 show "Това ниво е планирано, но още не е
-   написано" with their topic and grammar outlines.
+   units and a level checkpoint, A2 five; B1–B2 show "Това ниво е планирано, но
+   още не е написано" with their topic and grammar outlines.
 4. **Lesson.** Open *Откъде си и къде живееш*. The requirement checklist shows
    0/6 sections, 0/24 exercises and so on. Work through the six teaching
    sections — note the Bulgarian-only comparison of free Bulgarian word order

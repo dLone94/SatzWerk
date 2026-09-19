@@ -192,6 +192,28 @@ const MIGRATIONS: Migration[] = [
       ALTER TABLE users ADD COLUMN password_set_at TEXT;
     `,
   },
+  {
+    version: 4,
+    name: 'push subscriptions, so the app can say when review is actually due',
+    sql: `
+      -- One row per browser that agreed to be reminded. The endpoint is the
+      -- identity: the same person on a phone and a laptop is two rows, and a
+      -- re-subscription from the same browser returns the same endpoint, so it
+      -- is the primary key rather than a generated id.
+      --
+      -- last_sent_at exists to stop a re-run of the sender from notifying
+      -- twice on the same day. Nothing here stores what was sent; the message
+      -- is computed from the review queue when it goes out.
+      CREATE TABLE push_subscriptions (
+        endpoint     TEXT    PRIMARY KEY,
+        p256dh       TEXT    NOT NULL,
+        auth         TEXT    NOT NULL,
+        user_id      INTEGER NOT NULL DEFAULT 1,
+        created_at   TEXT    NOT NULL,
+        last_sent_at TEXT
+      );
+    `,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
@@ -235,10 +257,21 @@ async function recordVersion(db: Db, version: number): Promise<void> {
   await db.run(sql, 'schema_version', String(version));
 }
 
-export async function migrate(db: Db): Promise<number> {
+/**
+ * Bring a database up to date, or up to `upTo` if an older schema is wanted.
+ *
+ * `upTo` exists for the tests: the upgrade path can only be exercised honestly
+ * against a database that really was built by an older version of this file,
+ * and the only way to build one of those is to run the migrations of that time
+ * and stop. Winding a current database back by hand would mean a list of drops
+ * that has to grow with every migration added here — a list nobody remembers
+ * until the day it silently stops testing anything.
+ */
+export async function migrate(db: Db, upTo: number = SCHEMA_VERSION): Promise<number> {
   let version = await currentVersion(db);
   for (const migration of MIGRATIONS) {
     if (migration.version <= version) continue;
+    if (migration.version > upTo) break;
     try {
       await db.transaction(async () => {
         await db.exec(forDialect(migration.sql, db.dialect));

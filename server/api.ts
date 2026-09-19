@@ -18,6 +18,12 @@ import {
 } from './auth.ts';
 import { findDatabaseUrl, type Db } from './db.ts';
 import * as store from './store.ts';
+import {
+  deleteSubscription,
+  pushConfig,
+  saveSubscription,
+  sendDueReminder,
+} from './push.ts';
 
 /**
  * The HTTP API, expressed as a pure function of (method, path, body).
@@ -30,7 +36,11 @@ export interface ApiRequest {
   method: string;
   path: string;
   body?: unknown;
-  /** Lower-cased request headers. `cookie` and `x-forwarded-proto` are read. */
+  /**
+   * Lower-cased request headers. `cookie`, `x-forwarded-proto` and
+   * `authorization` are read; an adapter that drops one silently disables the
+   * feature that depends on it.
+   */
   headers?: Record<string, string | undefined>;
   /** Whether the request arrived over HTTPS, when the adapter knows directly. */
   secure?: boolean;
@@ -193,6 +203,32 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   // deployment can be checked without logging in.
   if (route.length === 1 && route[0] === 'health' && method === 'GET') {
     return ok(healthReport());
+  }
+
+  /*
+   * The reminder sender, called by the platform's scheduler rather than by a
+   * browser. It sits above the session guard because a cron has no cookie —
+   * and it is guarded by its own secret instead, refusing outright when that
+   * secret is not configured rather than running unauthenticated.
+   */
+  // GET as well as POST: Vercel's scheduler invokes a cron path with GET, and
+  // a handler that only answered POST would simply never fire.
+  if (
+    route.length === 2 &&
+    route[0] === 'push' &&
+    route[1] === 'run' &&
+    (method === 'POST' || method === 'GET')
+  ) {
+    const secret = process.env.CRON_SECRET?.trim();
+    if (!secret) {
+      return { status: 503, body: { error: 'CRON_SECRET is not set, so the reminder job is disabled.' } };
+    }
+    const offered = String(request.headers?.authorization ?? '');
+    if (offered !== `Bearer ${secret}`) {
+      return { status: 401, body: { error: 'Not authorised.' } };
+    }
+    const profile = await store.getProfile(db);
+    return ok(await sendDueReminder(db, { lang: profile.teachingLanguage }));
   }
 
   const auth = ctx.auth ?? (await resolveAuth(db));
@@ -461,6 +497,36 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
         level: String(body.level ?? 'pre-a1'),
       });
       return ok(turn);
+    }
+  }
+
+  if (route[0] === 'push') {
+    // The public key is needed to subscribe and is public by design. When push
+    // is unconfigured this says so, and the settings page shows that instead
+    // of a switch that would silently do nothing.
+    if (route.length === 2 && route[1] === 'status' && method === 'GET') {
+      const config = pushConfig();
+      return ok({
+        configured: config !== null,
+        ...(config ? { publicKey: config.publicKey } : {}),
+      });
+    }
+    if (route.length === 2 && route[1] === 'subscribe' && method === 'POST') {
+      const body = asRecord(request.body);
+      const endpoint = String(body.endpoint ?? '');
+      const keys = asRecord(body.keys);
+      const p256dh = String(keys.p256dh ?? '');
+      const auth256 = String(keys.auth ?? '');
+      if (!endpoint || !p256dh || !auth256) return badRequest('endpoint and keys are required');
+      await saveSubscription(db, { endpoint, p256dh, auth: auth256 });
+      return ok({ subscribed: true });
+    }
+    if (route.length === 2 && route[1] === 'unsubscribe' && method === 'POST') {
+      const body = asRecord(request.body);
+      const endpoint = String(body.endpoint ?? '');
+      if (!endpoint) return badRequest('endpoint is required');
+      await deleteSubscription(db, endpoint);
+      return ok({ subscribed: false });
     }
   }
 

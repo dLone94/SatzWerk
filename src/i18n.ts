@@ -211,6 +211,47 @@ export const UI = {
   // Free writing needs newlines, so Enter cannot submit there.
   exerciseCtrlEnterToSubmit: s('Ctrl+Enter to check', 'Ctrl+Enter за проверка'),
 
+  // Reminders. Every state is named separately because the fixes are
+  // completely different: install the app, change a browser setting, or
+  // configure the server. "Couldn't turn on notifications" would help nobody.
+  remindersTitle: s('Reminders', 'Напомняния'),
+  remindersWhat: s(
+    'A notification when review is actually due — and nothing on the days when it is not.',
+    'Известие, когато наистина има какво да повториш — и нищо в дните, когато няма.',
+  ),
+  remindersOn: s('Reminders are on', 'Напомнянията са включени'),
+  remindersOff: s('Reminders are off', 'Напомнянията са изключени'),
+  remindersEnable: s('Turn on reminders', 'Включи напомнянията'),
+  remindersDisable: s('Turn off', 'Изключи'),
+  remindersNeedsInstall: s(
+    'Add SatzWerk to your Home Screen first — on iPhone, notifications only work for an installed app.',
+    'Първо добави SatzWerk към началния екран — на iPhone известията работят само за инсталирано приложение.',
+  ),
+  remindersUnsupported: s(
+    'This browser cannot receive notifications.',
+    'Този браузър не може да получава известия.',
+  ),
+  remindersNotConfigured: s(
+    'Not configured on the server, so there is nothing to switch on yet.',
+    'Не е настроено на сървъра, така че още няма какво да се включи.',
+  ),
+  remindersDenied: s(
+    'Notifications are blocked for this app. Allow them in your device settings, then come back.',
+    'Известията са блокирани за това приложение. Разреши ги в настройките на устройството и се върни.',
+  ),
+  remindersHonest: s(
+    'One a day at most, only when something is due. No streaks, no nagging.',
+    'Най-много едно на ден и само когато има какво да се повтаря. Без серии, без досаждане.',
+  ),
+  // Shown when the browser refuses the subscription outright. Without it a tap
+  // on "Turn on reminders" left the card exactly as it was, which reads as the
+  // app being broken rather than the browser saying no.
+  remindersWorking: s('Setting up…', 'Настройва се…'),
+  remindersFailed: s(
+    'Your browser would not set this up: {reason}',
+    'Браузърът ти отказа да го настрои: {reason}',
+  ),
+
   // Speaking. The wording is careful on purpose: the app checks whether a
   // recogniser understood the words, which is not the same as scoring an
   // accent, and it says so rather than implying more than it can do.

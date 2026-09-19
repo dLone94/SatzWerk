@@ -24,6 +24,7 @@ beforeEach(() => {
   delete process.env.DATABASE_URL;
   delete process.env.SATZWERK_PASSWORD_HASH;
   delete process.env.SATZWERK_SESSION_SECRET;
+  delete process.env.CRON_SECRET;
 });
 
 afterEach(() => {
@@ -219,5 +220,31 @@ describe('the Vercel function', () => {
     const token = /satzwerk_session=([^;]+)/.exec(setCookie!)![1]!;
     const allowed = await handler(get('/api/state', `satzwerk_session=${token}`));
     expect(allowed.status).toBe(200);
+  });
+
+  /**
+   * The scheduled reminder job has no cookie: it proves itself with a bearer
+   * token. The adapter listed the headers it forwarded by hand and did not
+   * include `authorization`, so the endpoint answered every cron with 401 —
+   * a feature that looked shipped and could never once have fired.
+   */
+  it('forwards the bearer token the reminder job arrives with', async () => {
+    process.env.VERCEL = '1';
+    process.env.CRON_SECRET = 'cron-test-secret';
+    const handler = await loadHandler();
+
+    const withToken = new Request('https://satzwerk.test/api/push/run', {
+      headers: { authorization: 'Bearer cron-test-secret' },
+    });
+    const ran = await handler(withToken);
+    expect(ran.status).toBe(200);
+
+    // Still shut to anyone without it, which is the other half of the point.
+    expect((await handler(get('/api/push/run'))).status).toBe(401);
+    const wrong = new Request('https://satzwerk.test/api/push/run', {
+      headers: { authorization: 'Bearer not-the-secret' },
+    });
+    expect((await handler(wrong)).status).toBe(401);
+    delete process.env.CRON_SECRET;
   });
 });

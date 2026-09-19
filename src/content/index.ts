@@ -387,6 +387,18 @@ export function contentStats(): ContentStats {
   };
 }
 
+/**
+ * The levels that exist as an outline but have no lessons in them yet.
+ *
+ * Derived, never written down: the moment a level's units are authored it
+ * drops out of this list on its own. A hard-coded sentence about what is
+ * missing goes stale the day after it is written, and a course that claims
+ * less than it has is the same kind of lie as one that claims more.
+ */
+export function unauthoredLevels(): Level[] {
+  return CURRICULUM.filter((level) => level.units.length === 0);
+}
+
 /** Blocks for a section, including a referenced grammar concept's blocks. */
 export function sectionBlocks(
   section: { blocks: unknown[]; grammarId?: string },

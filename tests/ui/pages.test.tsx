@@ -3,7 +3,13 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { CURRICULUM, LEVEL_OUTLINES, LEXICON, describeNoun } from '../../src/content/index.ts';
+import {
+  CURRICULUM,
+  LEVEL_OUTLINES,
+  LEXICON,
+  describeNoun,
+  unauthoredLevels,
+} from '../../src/content/index.ts';
 import type { TeachingLanguage } from '../../src/content/types.ts';
 import { tr } from '../../src/i18n.ts';
 import { nullTtsProvider } from '../../src/services/tts/index.ts';
@@ -229,6 +235,23 @@ describe.each(LANGS)('pages render in the %s path', (lang) => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(tr('onboardingTitle', lang));
     expect(screen.getByText('English')).toBeInTheDocument();
     expect(screen.getByText('Български')).toBeInTheDocument();
+  });
+});
+
+describe('settings tells the truth about what is written', () => {
+  it('names the levels that really are empty, and no others', () => {
+    mount(<SettingsPage />, 'en');
+    const empty = unauthoredLevels();
+    expect(empty.length).toBeGreaterThan(0);
+    const foot = screen.getByText(/as structure and outline/);
+    for (const level of empty) {
+      expect(foot.textContent).toContain(level.label);
+    }
+    // And crucially, not a level that has been written. A1 was named here
+    // long after it was finished, which is the regression this guards.
+    for (const level of CURRICULUM.filter((candidate) => candidate.units.length > 0)) {
+      expect(foot.textContent).not.toContain(level.label);
+    }
   });
 });
 
