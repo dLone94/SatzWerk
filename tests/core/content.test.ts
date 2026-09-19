@@ -442,6 +442,66 @@ describe('vocabulary', () => {
     expect(LEXICON.nounGender.get('tisch')).toBe('m');
     expect(LEXICON.pluralOf.get('tochter')).toBe('töchter');
   });
+
+  /**
+   * The Perfekt is data, not a rule that can be applied.
+   *
+   * gemacht is regular, gegangen is not, studiert has no ge- at all and
+   * eingekauft puts it in the middle — so the form is carried on the verb and
+   * these checks are what stop a typo in that data from becoming a wrong
+   * answer the learner is asked to produce.
+   */
+  it('gives every verb its Perfekt, except the modals the course does not teach it for', () => {
+    const verbs = VOCABULARY.filter((entry) => entry.wordType === 'verb');
+    const without = verbs.filter((entry) => !entry.perfect).map((entry) => entry.german);
+    // The modals, and only the modals: the course teaches their present tense
+    // and leaves their Perfekt to B1, so a form nothing teaches has no business
+    // on a page that says what you have learnt.
+    expect(without.sort()).toEqual(['können', 'möchten', 'müssen', 'sollen', 'wollen'].sort());
+    expect(verbs.length - without.length).toBeGreaterThan(30);
+  });
+
+  it('builds those participles in one of the shapes German allows', () => {
+    const failures: string[] = [];
+    for (const entry of VOCABULARY) {
+      const perfect = entry.perfect;
+      if (!perfect) continue;
+      const p = perfect.participle;
+      const shaped =
+        // ge…t / ge…en, the two regular shapes
+        /^ge.+(t|en)$/.test(p) ||
+        // an inseparable prefix takes no ge-: besucht, bezahlt
+        /^(be|er|ver|ent|emp|ge|miss|zer)/.test(p) ||
+        // -ieren verbs take no ge- either: studiert
+        /iert$/.test(p) ||
+        // a separable prefix puts it in the middle: eingekauft, aufgestanden
+        /ge.+(t|en)$/.test(p);
+      if (!shaped) failures.push(`${entry.id}: "${p}" is not a participle shape`);
+      if (p.includes(' ')) failures.push(`${entry.id}: "${p}" should be the participle alone`);
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it('teaches the auxiliary too, and sein only for movement or a change of state', () => {
+    const sein = VOCABULARY.filter((entry) => entry.perfect?.auxiliary === 'sein').map((e) => e.german);
+    // The whole list, so adding a verb to it is a decision rather than a typo.
+    expect(sein.sort()).toEqual(
+      [
+        // Movement.
+        'kommen', 'gehen', 'fahren', 'fliegen', 'schwimmen', 'aufstehen',
+        // Change of state.
+        'passieren', 'umziehen', 'umsteigen',
+        // The three with no reason behind them.
+        'sein', 'bleiben', 'werden',
+      ].sort(),
+    );
+  });
+
+  it('lets the validator recognise a participle rather than calling it a typo', () => {
+    for (const form of ['gegangen', 'gemacht', 'gewesen', 'eingekauft', 'studiert']) {
+      expect(LEXICON.knownWords.has(form), form).toBe(true);
+    }
+  });
 });
 
 describe('content statistics are real', () => {

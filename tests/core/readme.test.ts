@@ -58,7 +58,13 @@ describe('the README describes the content that exists', () => {
     const started = CURRICULUM.filter(
       (level) => level.units.length > 0 && level.status === 'partial',
     );
-    expect(empty.map((level) => level.label)).toEqual(['A2', 'B1', 'B2']);
+    // Derived rather than pinned. This listed A2, B1 and B2 by name until A2's
+    // first unit landed, at which point the test was asserting how far the
+    // course had got rather than whether the README told the truth about it.
+    // What has to hold is that the empty levels are the tail of the course and
+    // that the README names exactly that range.
+    expect(empty.length).toBeGreaterThan(0);
+    expect(CURRICULUM.slice(-empty.length)).toEqual(empty);
     expect(README).toContain(
       `Levels ${empty[0]!.label}–${empty.at(-1)!.label} exist as structure and outline only`,
     );

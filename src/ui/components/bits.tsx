@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { Block, ContentStatus, VocabEntry } from '../../content/types.ts';
 import { NORMAL_RATE, SLOW_RATE } from '../../services/tts/index.ts';
 import { useApp } from '../../state/AppState.tsx';
@@ -64,6 +64,49 @@ export function Meter({
       aria-label={label}
     >
       <span className="meter__fill" style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+/**
+ * The score at the end of a round, drawn as a ring that fills to the number.
+ *
+ * A finished round used to be a line of text, which is a strange way to end
+ * the one thing the learner actually did. The ring is the only place in the
+ * app where motion is the point rather than the confirmation: it takes half a
+ * second to arrive at the score, and that half second is what makes finishing
+ * feel like finishing.
+ *
+ * The number is on screen from the first frame, so nothing has to be waited
+ * for, and the ring is aria-hidden because the text beside it already says it.
+ */
+export function ScoreRing({
+  value,
+  passed,
+  caption,
+}: {
+  value: number;
+  passed: boolean;
+  caption?: string;
+}) {
+  const pct = Math.min(100, Math.max(0, Math.round(value * 100)));
+  // r = 42 in a 100-box, so the stroke has room at both ends.
+  const circumference = 2 * Math.PI * 42;
+  const style = {
+    '--ring-c': circumference,
+    '--ring-target': circumference * (1 - pct / 100),
+  } as CSSProperties;
+
+  return (
+    <div className={`score-ring${passed ? ' score-ring--passed' : ''}`}>
+      <div className="score-ring__dial" style={style} aria-hidden="true">
+        <svg viewBox="0 0 100 100">
+          <circle className="score-ring__track" cx="50" cy="50" r="42" />
+          <circle className="score-ring__value" cx="50" cy="50" r="42" />
+        </svg>
+        <span className="score-ring__num">{pct}%</span>
+      </div>
+      {caption ? <p className="score-ring__caption">{caption}</p> : null}
     </div>
   );
 }

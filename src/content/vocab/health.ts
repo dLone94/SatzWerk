@@ -99,6 +99,7 @@ const APPOINTMENTS: VocabEntry[] = [
     german: 'absagen',
     display: 'absagen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'abgesagt' },
     translation: { en: 'to cancel', bg: 'отменям, отказвам' },
     pronunciation: { en: 'AHP-zah-gen', bg: 'АП-за-ген' },
     example: {
@@ -392,6 +393,7 @@ const WEATHER: VocabEntry[] = [
     german: 'regnen',
     display: 'regnen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'geregnet' },
     translation: { en: 'to rain', bg: 'вали дъжд' },
     pronunciation: { en: 'RAYG-nen', bg: 'РЕГ-нен' },
     example: {
@@ -413,6 +415,7 @@ const WEATHER: VocabEntry[] = [
     german: 'schneien',
     display: 'schneien',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'geschneit' },
     translation: { en: 'to snow', bg: 'вали сняг' },
     pronunciation: { en: 'SHNY-en', bg: 'ШНАЙ-ен' },
     example: {
@@ -453,6 +456,7 @@ const WEATHER: VocabEntry[] = [
     german: 'scheinen',
     display: 'scheinen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'geschienen' },
     translation: { en: 'to shine', bg: 'грея, светя' },
     pronunciation: { en: 'SHY-nen', bg: 'ШАЙ-нен' },
     example: {

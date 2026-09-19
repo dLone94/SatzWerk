@@ -205,6 +205,7 @@ const QUESTION_WORDS: VocabEntry[] = [
     german: 'machen',
     display: 'machen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gemacht' },
     translation: { en: 'to do, to make', bg: 'правя' },
     pronunciation: { en: 'MAH-khen', bg: 'МА-хен' },
     example: {

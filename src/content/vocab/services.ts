@@ -1,0 +1,498 @@
+import type { VocabEntry } from '../types.ts';
+
+/**
+ * Home, city and services (A2 Unit 2).
+ *
+ * The vocabulary here exists to serve two grammar points rather than the other
+ * way round. The two-way prepositions cannot be taught without things to put in
+ * places — a wall, a corner, a shelf — and they cannot be taught without the
+ * verb pairs that go with them, which is why stellen/stehen and legen/liegen
+ * are learnt as pairs and never singly.
+ *
+ * The service vocabulary is chosen for the same reason: calling a landlord
+ * about a broken heater is the most natural situation in the course for
+ * explaining *why*, which is what weil is for.
+ */
+
+const U = 'a2-u2';
+const L1 = 'a2-u2-l1';
+const L2 = 'a2-u2-l2';
+const L3 = 'a2-u2-l3';
+
+/* ------------------------------------------------------------------ *
+ * Lesson 1 — where things are
+ * ------------------------------------------------------------------ */
+
+const PLACES: VocabEntry[] = [
+  {
+    id: 'v-die-wand',
+    german: 'Wand',
+    display: 'die Wand',
+    article: 'die',
+    gender: 'f',
+    plural: 'die Wände',
+    wordType: 'noun',
+    translation: { en: 'wall (inside a room)', bg: 'стена' },
+    pronunciation: { en: 'vant', bg: 'ванд' },
+    example: {
+      de: 'Das Bild hängt an der Wand.',
+      gloss: { en: 'The picture is hanging on the wall.', bg: 'Картината виси на стената.' },
+    },
+    tags: ['home'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L1,
+    difficulty: 3,
+    notes: {
+      en: 'Wand is an inside wall. An outside wall — of a garden or a castle — is die Mauer. English uses one word for both.',
+      bg: 'Wand е вътрешна стена. Външната — на градина или крепост — е die Mauer. Българското „стена“ покрива и двете.',
+    },
+  },
+  {
+    id: 'v-die-ecke',
+    german: 'Ecke',
+    display: 'die Ecke',
+    article: 'die',
+    gender: 'f',
+    plural: 'die Ecken',
+    wordType: 'noun',
+    translation: { en: 'corner', bg: 'ъгъл' },
+    pronunciation: { en: 'EK-e', bg: 'ЕК-е' },
+    example: {
+      de: 'Die Lampe steht in der Ecke.',
+      gloss: { en: 'The lamp is standing in the corner.', bg: 'Лампата е в ъгъла.' },
+    },
+    tags: ['home'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L1,
+    difficulty: 2,
+  },
+  {
+    id: 'v-das-regal',
+    german: 'Regal',
+    display: 'das Regal',
+    article: 'das',
+    gender: 'n',
+    plural: 'die Regale',
+    wordType: 'noun',
+    translation: { en: 'shelf, shelving unit', bg: 'рафт, етажерка' },
+    pronunciation: { en: 're-GAHL', bg: 'ре-ГАЛ' },
+    example: {
+      de: 'Die Bücher stehen im Regal.',
+      gloss: { en: 'The books are on the shelf.', bg: 'Книгите са на рафта.' },
+    },
+    tags: ['home'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L1,
+    difficulty: 2,
+    notes: {
+      en: 'Books *stand* in German — "die Bücher stehen im Regal" — because they are upright. A book lying flat would liegen.',
+      bg: 'Книгите на немски „стоят“ — „die Bücher stehen im Regal“ — защото са изправени. Книга, оставена легнала, би „liegen“.',
+    },
+  },
+  {
+    id: 'v-die-lampe',
+    german: 'Lampe',
+    display: 'die Lampe',
+    article: 'die',
+    gender: 'f',
+    plural: 'die Lampen',
+    wordType: 'noun',
+    translation: { en: 'lamp', bg: 'лампа' },
+    pronunciation: { en: 'LAM-pe', bg: 'ЛАМ-пе' },
+    example: {
+      de: 'Die Lampe ist kaputt.',
+      gloss: { en: 'The lamp is broken.', bg: 'Лампата е счупена.' },
+    },
+    tags: ['home'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L1,
+    difficulty: 1,
+  },
+  {
+    id: 'v-stehen',
+    german: 'stehen',
+    display: 'stehen',
+    wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gestanden' },
+    translation: { en: 'to stand, to be (upright)', bg: 'стоя (изправено)' },
+    pronunciation: { en: 'SHTAY-en', bg: 'ЩЕ-ен' },
+    example: {
+      de: 'Die Lampe steht in der Ecke.',
+      gloss: { en: 'The lamp is in the corner.', bg: 'Лампата е в ъгъла.' },
+    },
+    tags: ['position'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L1,
+    difficulty: 3,
+    related: ['v-liegen', 'v-haengen'],
+    notes: {
+      en: 'German does not say a thing "is" somewhere; it says how it is there. Upright things stand, flat things lie, and things on a hook hang.',
+      bg: 'Немският не казва, че нещо „е“ някъде; казва как е там. Изправените неща стоят, плоските лежат, а закачените висят.',
+    },
+  },
+  {
+    id: 'v-liegen',
+    german: 'liegen',
+    display: 'liegen',
+    wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gelegen' },
+    translation: { en: 'to lie, to be (flat)', bg: 'лежа, намирам се (легнало)' },
+    pronunciation: { en: 'LEE-gen', bg: 'ЛИ-ген' },
+    example: {
+      de: 'Das Buch liegt auf dem Tisch.',
+      gloss: { en: 'The book is on the table.', bg: 'Книгата е на масата.' },
+    },
+    tags: ['position'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L1,
+    difficulty: 3,
+    related: ['v-stehen', 'v-haengen'],
+  },
+  {
+    id: 'v-haengen',
+    german: 'hängen',
+    display: 'hängen',
+    wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gehangen' },
+    translation: { en: 'to hang', bg: 'вися, закачен съм' },
+    pronunciation: { en: 'HENG-en', bg: 'ХЕНГ-ен' },
+    example: {
+      de: 'Das Bild hängt an der Wand.',
+      gloss: { en: 'The picture is hanging on the wall.', bg: 'Картината виси на стената.' },
+    },
+    tags: ['position'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L1,
+    difficulty: 4,
+    related: ['v-stehen', 'v-liegen'],
+    notes: {
+      en: 'The one verb that is both halves of the pair: hängen means both "to hang" and "to hang something up". The case after the preposition is what tells them apart.',
+      bg: 'Единственият глагол, който е и двете половини на двойката: hängen значи и „вися“, и „закачам нещо“. Падежът след предлога е това, което ги различава.',
+    },
+  },
+  {
+    id: 'v-das-bild',
+    german: 'Bild',
+    display: 'das Bild',
+    article: 'das',
+    gender: 'n',
+    plural: 'die Bilder',
+    wordType: 'noun',
+    translation: { en: 'picture', bg: 'картина, снимка' },
+    pronunciation: { en: 'bilt', bg: 'билд' },
+    example: {
+      de: 'Das Bild ist schön.',
+      gloss: { en: 'The picture is beautiful.', bg: 'Картината е хубава.' },
+    },
+    tags: ['home'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L1,
+    difficulty: 1,
+  },
+];
+
+/* ------------------------------------------------------------------ *
+ * Lesson 2 — putting things somewhere
+ * ------------------------------------------------------------------ */
+
+const MOVING: VocabEntry[] = [
+  {
+    id: 'v-stellen',
+    german: 'stellen',
+    display: 'stellen',
+    wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gestellt' },
+    translation: { en: 'to put (upright)', bg: 'слагам (изправено)' },
+    pronunciation: { en: 'SHTEL-en', bg: 'ЩЕЛ-ен' },
+    example: {
+      de: 'Ich stelle die Lampe in die Ecke.',
+      gloss: { en: 'I am putting the lamp in the corner.', bg: 'Слагам лампата в ъгъла.' },
+    },
+    tags: ['position'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L2,
+    difficulty: 3,
+    related: ['v-stehen'],
+    notes: {
+      en: 'The active half of the pair: stellen puts something upright, stehen says it is standing there. Learn them together — stellen/stehen, legen/liegen — and the grammar follows.',
+      bg: 'Активната половина на двойката: stellen слага нещо изправено, stehen казва, че то стои там. Учи ги заедно — stellen/stehen, legen/liegen — и граматиката идва сама.',
+    },
+  },
+  {
+    id: 'v-legen',
+    german: 'legen',
+    display: 'legen',
+    wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gelegt' },
+    translation: { en: 'to put (flat), to lay', bg: 'слагам (легнало), полагам' },
+    pronunciation: { en: 'LAY-gen', bg: 'ЛЕ-ген' },
+    example: {
+      de: 'Ich lege das Buch auf den Tisch.',
+      gloss: { en: 'I am putting the book on the table.', bg: 'Слагам книгата на масата.' },
+    },
+    tags: ['position'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L2,
+    difficulty: 3,
+    related: ['v-liegen'],
+  },
+  {
+    id: 'v-der-boden',
+    german: 'Boden',
+    display: 'der Boden',
+    article: 'der',
+    gender: 'm',
+    plural: 'die Böden',
+    wordType: 'noun',
+    translation: { en: 'floor, ground', bg: 'под, земя' },
+    pronunciation: { en: 'BO-den', bg: 'БО-ден' },
+    example: {
+      de: 'Die Tasche liegt auf dem Boden.',
+      gloss: { en: 'The bag is on the floor.', bg: 'Чантата е на пода.' },
+    },
+    tags: ['home'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L2,
+    difficulty: 2,
+  },
+  {
+    id: 'v-umziehen',
+    german: 'umziehen',
+    display: 'umziehen',
+    wordType: 'verb',
+    perfect: { auxiliary: 'sein', participle: 'umgezogen' },
+    translation: { en: 'to move house', bg: 'местя се (да живея другаде)' },
+    pronunciation: { en: 'OOM-tsee-en', bg: 'УМ-ци-ен' },
+    example: {
+      de: 'Ich bin nach Berlin umgezogen.',
+      gloss: { en: 'I moved to Berlin.', bg: 'Преместих се в Берлин.' },
+    },
+    tags: ['home'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L2,
+    difficulty: 4,
+    notes: {
+      en: 'Separable and it takes sein, so the Perfekt puts ge- in the middle and uses bin: Ich bin umgezogen. Both A2 rules in one word.',
+      bg: 'Делим и взима sein, затова перфектът слага ge- по средата и използва bin: Ich bin umgezogen. Двете правила от A2 в една дума.',
+    },
+  },
+];
+
+/* ------------------------------------------------------------------ *
+ * Lesson 3 — when something is broken
+ * ------------------------------------------------------------------ */
+
+const SERVICES: VocabEntry[] = [
+  {
+    id: 'v-die-heizung',
+    german: 'Heizung',
+    display: 'die Heizung',
+    article: 'die',
+    gender: 'f',
+    plural: 'die Heizungen',
+    wordType: 'noun',
+    translation: { en: 'heating, radiator', bg: 'отопление, радиатор' },
+    pronunciation: { en: 'HY-tsoong', bg: 'ХАЙ-цунг' },
+    example: {
+      de: 'Die Heizung funktioniert nicht.',
+      gloss: { en: 'The heating is not working.', bg: 'Отоплението не работи.' },
+    },
+    tags: ['home', 'services'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L3,
+    difficulty: 3,
+    notes: {
+      en: 'German winters make this a word you will need. Nouns in -ung are always feminine, which is one of the few gender rules that never lets you down.',
+      bg: 'Немските зими правят тази дума нужна. Съществителните на -ung винаги са от женски род — едно от малкото правила за рода, което никога не лъже.',
+    },
+  },
+  {
+    id: 'v-kaputt',
+    german: 'kaputt',
+    display: 'kaputt',
+    wordType: 'adjective',
+    translation: { en: 'broken', bg: 'счупен, развален' },
+    pronunciation: { en: 'ka-POOT', bg: 'ка-ПУТ' },
+    example: {
+      de: 'Die Lampe ist kaputt.',
+      gloss: { en: 'The lamp is broken.', bg: 'Лампата е счупена.' },
+    },
+    tags: ['services'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L3,
+    difficulty: 1,
+  },
+  {
+    id: 'v-reparieren',
+    german: 'reparieren',
+    display: 'reparieren',
+    wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'repariert' },
+    translation: { en: 'to repair', bg: 'поправям' },
+    pronunciation: { en: 're-pa-REE-ren', bg: 'ре-па-РИ-рен' },
+    example: {
+      de: 'Können Sie die Heizung reparieren?',
+      gloss: { en: 'Can you repair the heating?', bg: 'Можете ли да поправите отоплението?' },
+    },
+    tags: ['services'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L3,
+    difficulty: 2,
+    notes: {
+      en: 'An -ieren verb, so its participle has no ge-: repariert. Same as studiert and passiert.',
+      bg: 'Глагол на -ieren, затова причастието му е без ge-: repariert. Като studiert и passiert.',
+    },
+  },
+  {
+    id: 'v-funktionieren',
+    german: 'funktionieren',
+    display: 'funktionieren',
+    wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'funktioniert' },
+    translation: { en: 'to work, to function (of a thing)', bg: 'работя, функционирам (за уред)' },
+    pronunciation: { en: 'foonk-tsyo-NEE-ren', bg: 'функ-цио-НИ-рен' },
+    example: {
+      de: 'Das Licht funktioniert nicht.',
+      gloss: { en: 'The light does not work.', bg: 'Осветлението не работи.' },
+    },
+    tags: ['services'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L3,
+    difficulty: 3,
+    related: ['v-arbeiten'],
+    notes: {
+      en: 'People arbeiten, machines funktionieren. "Die Heizung arbeitet nicht" would sound as odd in German as "the heating is not employed" does in English.',
+      bg: 'Хората arbeiten, машините funktionieren. „Die Heizung arbeitet nicht“ би звучало толкова странно, колкото „отоплението не е на работа“.',
+    },
+  },
+  {
+    id: 'v-anrufen',
+    german: 'anrufen',
+    display: 'anrufen',
+    wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'angerufen' },
+    translation: { en: 'to call, to phone', bg: 'обаждам се по телефона' },
+    pronunciation: { en: 'AN-roo-fen', bg: 'АН-ру-фен' },
+    example: {
+      de: 'Ich rufe den Vermieter an.',
+      gloss: { en: 'I am calling the landlord.', bg: 'Обаждам се на хазяина.' },
+    },
+    tags: ['services', 'communication'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L3,
+    difficulty: 3,
+    notes: {
+      en: 'Separable, so the an goes to the end: "Ich rufe an." Its participle puts ge- in the middle: angerufen.',
+      bg: 'Делим, затова an отива в края: „Ich rufe an.“ Причастието му слага ge- по средата: angerufen.',
+    },
+  },
+  {
+    id: 'v-der-vermieter',
+    german: 'Vermieter',
+    display: 'der Vermieter',
+    article: 'der',
+    gender: 'm',
+    plural: 'die Vermieter',
+    wordType: 'noun',
+    translation: { en: 'landlord', bg: 'хазяин, наемодател' },
+    pronunciation: { en: 'fer-MEE-ter', bg: 'фер-МИ-тер' },
+    example: {
+      de: 'Ich habe den Vermieter angerufen.',
+      gloss: { en: 'I called the landlord.', bg: 'Обадих се на хазяина.' },
+    },
+    tags: ['home', 'services'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L3,
+    difficulty: 3,
+    notes: {
+      en: 'The female form is die Vermieterin, built with the -in you met in Pre-A1 for job titles. The plural of the masculine is unchanged: die Vermieter.',
+      bg: 'Женската форма е die Vermieterin, с -in, което срещна в Pre-A1 при професиите. Множественото на мъжката не се мени: die Vermieter.',
+    },
+  },
+  {
+    id: 'v-die-miete',
+    german: 'Miete',
+    display: 'die Miete',
+    article: 'die',
+    gender: 'f',
+    plural: 'die Mieten',
+    wordType: 'noun',
+    translation: { en: 'rent', bg: 'наем' },
+    pronunciation: { en: 'MEE-te', bg: 'МИ-те' },
+    example: {
+      de: 'Die Miete ist zu hoch.',
+      gloss: { en: 'The rent is too high.', bg: 'Наемът е твърде висок.' },
+    },
+    tags: ['home', 'money'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L3,
+    difficulty: 2,
+    related: ['v-der-vermieter'],
+  },
+  {
+    id: 'v-das-problem',
+    german: 'Problem',
+    display: 'das Problem',
+    article: 'das',
+    gender: 'n',
+    plural: 'die Probleme',
+    wordType: 'noun',
+    translation: { en: 'problem', bg: 'проблем' },
+    pronunciation: { en: 'pro-BLAYM', bg: 'про-БЛЕМ' },
+    example: {
+      de: 'Ich habe ein Problem.',
+      gloss: { en: 'I have a problem.', bg: 'Имам проблем.' },
+    },
+    tags: ['services'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L3,
+    difficulty: 1,
+    notes: {
+      en: 'Neuter, despite looking like nothing else you know. "Kein Problem" is the everyday reply to a thank-you or an apology.',
+      bg: 'Среден род, макар да не прилича на нищо познато. „Kein Problem“ е всекидневният отговор на благодарност или извинение.',
+    },
+  },
+  {
+    id: 'v-weil',
+    german: 'weil',
+    display: 'weil',
+    wordType: 'conjunction',
+    translation: { en: 'because', bg: 'защото' },
+    pronunciation: { en: 'vyle', bg: 'вайл' },
+    example: {
+      de: 'Ich rufe an, weil die Heizung kaputt ist.',
+      gloss: { en: 'I am calling because the heating is broken.', bg: 'Обаждам се, защото отоплението е счупено.' },
+    },
+    tags: ['grammar-word'],
+    level: 'a2',
+    unitId: U,
+    lessonId: L3,
+    difficulty: 4,
+    notes: {
+      en: 'The word that moves the verb. Everything after weil keeps its order except the verb, which goes to the very end — and there is always a comma before weil.',
+      bg: 'Думата, която мести глагола. Всичко след weil запазва реда си освен глагола, който отива чак накрая — и винаги има запетая преди weil.',
+    },
+  },
+];
+
+export const SERVICES_VOCAB: VocabEntry[] = [...PLACES, ...MOVING, ...SERVICES];

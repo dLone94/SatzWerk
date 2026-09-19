@@ -3,6 +3,11 @@ import { FAMILY_VOCAB } from './vocab/family.ts';
 import { FOOD_VOCAB } from './vocab/food.ts';
 import { GRAMMAR_WORD_VOCAB } from './vocab/grammarWords.ts';
 import { HEALTH_VOCAB } from './vocab/health.ts';
+import { PAST_VOCAB } from './vocab/past.ts';
+import { SERVICES_VOCAB } from './vocab/services.ts';
+import { ADVICE_VOCAB } from './vocab/advice.ts';
+import { TRAVEL_VOCAB } from './vocab/travel.ts';
+import { WORK2_VOCAB } from './vocab/work2.ts';
 import { TOWN_VOCAB } from './vocab/town.ts';
 import { WORK_VOCAB } from './vocab/work.ts';
 import { HOME_VOCAB } from './vocab/home.ts';
@@ -351,6 +356,7 @@ const UNIT_1_2_VOCAB: VocabEntry[] = [
     german: 'heißen',
     display: 'heißen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'geheißen' },
     translation: { en: 'to be called', bg: 'казвам се, наричам се' },
     pronunciation: { en: 'HY-sen', bg: 'ХАЙ-сен' },
     example: { de: 'Ich heiße Teo.', gloss: { en: 'My name is Teo.', bg: 'Казвам се Тео.' } },
@@ -390,6 +396,7 @@ const UNIT_1_2_VOCAB: VocabEntry[] = [
     german: 'sein',
     display: 'sein',
     wordType: 'verb',
+    perfect: { auxiliary: 'sein', participle: 'gewesen' },
     translation: { en: 'to be', bg: 'съм, бъда' },
     pronunciation: { en: 'ZINE', bg: 'ЗАЙН' },
     example: { de: 'Ich bin Teo.', gloss: { en: 'I am Teo.', bg: 'Аз съм Тео.' } },
@@ -448,6 +455,7 @@ const UNIT_1_2_VOCAB: VocabEntry[] = [
     german: 'kommen',
     display: 'kommen',
     wordType: 'verb',
+    perfect: { auxiliary: 'sein', participle: 'gekommen' },
     translation: { en: 'to come', bg: 'идвам' },
     pronunciation: { en: 'KOM-men', bg: 'КО-мен' },
     example: { de: 'Ich komme aus Bulgarien.', gloss: { en: 'I come from Bulgaria.', bg: 'Аз съм от България.' } },
@@ -462,6 +470,7 @@ const UNIT_1_2_VOCAB: VocabEntry[] = [
     german: 'wohnen',
     display: 'wohnen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gewohnt' },
     translation: { en: 'to live, to reside', bg: 'живея (на определено място)' },
     pronunciation: { en: 'VOH-nen', bg: 'ВО-нен' },
     example: { de: 'Ich wohne in Hamburg.', gloss: { en: 'I live in Hamburg.', bg: 'Живея в Хамбург.' } },
@@ -481,6 +490,7 @@ const UNIT_1_2_VOCAB: VocabEntry[] = [
     german: 'leben',
     display: 'leben',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gelebt' },
     translation: { en: 'to live (in general)', bg: 'живея (като цяло)' },
     pronunciation: { en: 'LAY-ben', bg: 'ЛЕ-бен' },
     example: {
@@ -871,6 +881,11 @@ export const VOCABULARY: VocabEntry[] = [
   ...WORK_VOCAB,
   ...TOWN_VOCAB,
   ...HEALTH_VOCAB,
+  ...PAST_VOCAB,
+  ...SERVICES_VOCAB,
+  ...WORK2_VOCAB,
+  ...ADVICE_VOCAB,
+  ...TRAVEL_VOCAB,
 ];
 
 const BY_ID = new Map(VOCABULARY.map((entry) => [entry.id, entry]));

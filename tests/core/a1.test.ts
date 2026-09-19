@@ -135,9 +135,16 @@ describe('the A1 level checkpoint', () => {
 });
 
 describe('the course is honest about what comes next', () => {
-  it('still has A2 to B2 as outline only', () => {
-    const rest = CURRICULUM.filter((level) => ['a2', 'b1', 'b2'].includes(level.id));
-    expect(rest).toHaveLength(3);
+  it('has A2 authored and B1 to B2 as outline only', () => {
+    const a2 = CURRICULUM.find((level) => level.id === 'a2')!;
+    expect(a2.units.length).toBeGreaterThan(0);
+    // A2 finished while this test was pinned to `partial`, which was a fact
+    // about how far the course had got rather than about honesty. What has to
+    // hold is that a level with units authored is never called `planned`.
+    expect(a2.status).not.toBe('planned');
+
+    const rest = CURRICULUM.filter((level) => ['b1', 'b2'].includes(level.id));
+    expect(rest).toHaveLength(2);
     for (const level of rest) {
       expect(level.units, level.id).toHaveLength(0);
       expect(level.status, level.id).toBe('planned');

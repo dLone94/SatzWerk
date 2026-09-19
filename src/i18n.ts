@@ -287,6 +287,7 @@ export const UI = {
   wordArticle: s('Article', 'Член'),
   wordGender: s('Gender', 'Род'),
   wordPlural: s('Plural', 'Множествено число'),
+  wordPerfect: s('Perfekt', 'Perfekt (минало време)'),
   wordType: s('Word type', 'Вид дума'),
   wordPronunciation: s('Pronunciation', 'Изговор'),
   wordExamples: s('Example', 'Пример'),

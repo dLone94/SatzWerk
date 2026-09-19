@@ -394,6 +394,7 @@ const CAFE: VocabEntry[] = [
     german: 'nehmen',
     display: 'nehmen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'genommen' },
     translation: { en: 'to take, to have (ordering)', bg: 'вземам' },
     pronunciation: { en: 'NAY-men', bg: 'НЕ-мен' },
     example: {
@@ -415,6 +416,7 @@ const CAFE: VocabEntry[] = [
     german: 'bezahlen',
     display: 'bezahlen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'bezahlt' },
     translation: { en: 'to pay', bg: 'плащам' },
     pronunciation: { en: 'be-TSAH-len', bg: 'бе-ЦА-лен' },
     example: {
@@ -700,6 +702,7 @@ const SHOPPING: VocabEntry[] = [
     german: 'kaufen',
     display: 'kaufen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gekauft' },
     translation: { en: 'to buy', bg: 'купувам' },
     pronunciation: { en: 'KOW-fen', bg: 'КАУ-фен' },
     example: {

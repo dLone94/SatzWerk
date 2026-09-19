@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { resolveTarget } from '../../content/index.ts';
 import type { CefrLevel, Exercise, ExerciseStep } from '../../content/types.ts';
 import { buildFeedback, type FeedbackMessage } from '../../core/feedback/explain.ts';
@@ -120,6 +120,7 @@ export function ExercisePlayer({
 
   const inputRef = useRef<AnswerInputHandle | null>(null);
   const continueRef = useRef<HTMLButtonElement | null>(null);
+  const feedbackRef = useRef<HTMLDivElement | null>(null);
   const startedAt = useRef(Date.now());
 
   const current = playables[cursor];
@@ -147,6 +148,28 @@ export function ExercisePlayer({
   useEffect(() => {
     if (phase === 'feedback') continueRef.current?.focus();
   }, [phase]);
+
+  /*
+   * Bring the verdict into view.
+   *
+   * On a phone the feedback opens below the fold as often as not — the answer
+   * is judged, the explanation is written, and the screen looks unchanged. The
+   * focus move above handles a keyboard; this is for a thumb. `nearest` scrolls
+   * only as far as it has to, so a verdict already on screen does not jump.
+   */
+  useEffect(() => {
+    if (phase === 'answer') return;
+    const reduced =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Optional call, not just optional chaining on the node: jsdom has no
+    // scrollIntoView at all, and a throw here would take the player down.
+    feedbackRef.current?.scrollIntoView?.({
+      behavior: reduced ? 'auto' : 'smooth',
+      block: 'nearest',
+    });
+  }, [phase, current?.step.id]);
 
   const wordBank = useMemo(() => {
     if (!current) return null;
@@ -420,7 +443,15 @@ export function ExercisePlayer({
       {/* The ids are here so an end-to-end harness can tell which authored step
           it is looking at, rather than having to predict the sequence the
           adaptive ladder produces. */}
-      <div className="task" data-step-id={step.id} data-exercise-id={exercise.id} data-kind={exercise.kind}>
+      {/* Keyed by step id: React then gives each question its own node, which
+          is what makes the card arrive rather than silently swap its text. */}
+      <div
+        key={step.id}
+        className="task"
+        data-step-id={step.id}
+        data-exercise-id={exercise.id}
+        data-kind={exercise.kind}
+      >
         {step.instruction ? <p className="task__instruction">{say(step.instruction)}</p> : null}
 
         {hideText ? (
@@ -588,8 +619,16 @@ export function ExercisePlayer({
       </div>
 
       {feedback ? (
-        <div className={`feedback feedback--${feedback.tone}`} role="status" aria-live="polite">
-          <p className="feedback__headline">{say(feedback.headline)}</p>
+        <div
+          ref={feedbackRef}
+          className={`feedback feedback--${feedback.tone}`}
+          role="status"
+          aria-live="polite"
+        >
+          <p className="feedback__headline">
+            <VerdictMark tone={feedback.tone} />
+            {say(feedback.headline)}
+          </p>
 
           {result && result.verdict !== 'correct' && result.verdict !== 'empty' ? (
             <dl className="feedback__compare">
@@ -698,6 +737,36 @@ export function ExercisePlayer({
     setFeedback(message);
     setPhase('feedback');
   }
+}
+
+/**
+ * A tick or a cross, drawn rather than shown.
+ *
+ * Only the two verdicts that are simply right or simply wrong get a mark.
+ * "Almost" and a credited variant get none on purpose: the app spends a lot of
+ * effort distinguishing those from both of the others, and a mark that said
+ * either would throw that away.
+ *
+ * It also earns its place for legibility: the feedback then says which verdict
+ * it is in a shape as well as a colour.
+ */
+function VerdictMark({ tone }: { tone: FeedbackMessage['tone'] }) {
+  if (tone !== 'success' && tone !== 'error') return null;
+  const good = tone === 'success';
+  return (
+    <span className={`verdict-mark verdict-mark--${good ? 'good' : 'bad'}`} aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        {good ? (
+          <path d="M5 13l4.2 4.2L19 7.5" style={{ '--len': 22 } as CSSProperties} />
+        ) : (
+          <>
+            <path d="M7 7l10 10" style={{ '--len': 15 } as CSSProperties} />
+            <path d="M17 7L7 17" style={{ '--len': 15 } as CSSProperties} />
+          </>
+        )}
+      </svg>
+    </span>
+  );
 }
 
 /** Word-by-word comparison, so listening and dictation mistakes are visible. */

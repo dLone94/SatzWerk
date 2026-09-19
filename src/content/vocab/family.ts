@@ -315,6 +315,7 @@ const OBJECT_VERBS: VocabEntry[] = [
     german: 'kennen',
     display: 'kennen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gekannt' },
     translation: { en: 'to know (a person or place)', bg: 'познавам' },
     pronunciation: { en: 'KEN-nen', bg: 'КЕ-нен' },
     example: {
@@ -336,6 +337,7 @@ const OBJECT_VERBS: VocabEntry[] = [
     german: 'sehen',
     display: 'sehen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gesehen' },
     translation: { en: 'to see', bg: 'виждам' },
     pronunciation: { en: 'ZAY-en', bg: 'ЗЕ-ен' },
     example: {
@@ -357,6 +359,7 @@ const OBJECT_VERBS: VocabEntry[] = [
     german: 'suchen',
     display: 'suchen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gesucht' },
     translation: { en: 'to look for', bg: 'търся' },
     pronunciation: { en: 'ZOO-khen', bg: 'ЗУ-хен' },
     example: {
@@ -378,6 +381,7 @@ const OBJECT_VERBS: VocabEntry[] = [
     german: 'brauchen',
     display: 'brauchen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gebraucht' },
     translation: { en: 'to need', bg: 'трябва ми, нуждая се от' },
     pronunciation: { en: 'BROW-khen', bg: 'БРАУ-хен' },
     example: {
@@ -398,6 +402,7 @@ const OBJECT_VERBS: VocabEntry[] = [
     german: 'besuchen',
     display: 'besuchen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'besucht' },
     translation: { en: 'to visit', bg: 'посещавам, гостувам на' },
     pronunciation: { en: 'be-ZOO-khen', bg: 'бе-ЗУ-хен' },
     example: {
@@ -418,6 +423,7 @@ const OBJECT_VERBS: VocabEntry[] = [
     german: 'finden',
     display: 'finden',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gefunden' },
     translation: { en: 'to find; to think (of something)', bg: 'намирам; мисля (за нещо)' },
     pronunciation: { en: 'FIN-den', bg: 'ФИН-ден' },
     example: {
@@ -439,6 +445,7 @@ const OBJECT_VERBS: VocabEntry[] = [
     german: 'mögen',
     display: 'mögen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gemocht' },
     translation: { en: 'to like', bg: 'харесвам' },
     pronunciation: { en: 'MOE-gen', bg: 'МЬО-ген' },
     example: {

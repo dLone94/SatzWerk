@@ -221,13 +221,38 @@ level checkpoint.**
 | | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
 | | **A1 level checkpoint** | all six units with no hints, 80% to pass, with the accusative and the dative asked for side by side |
 
-Across those 36 lessons that is 343 vocabulary entries, 33 grammar concepts, 310 exercises and **933
-answer tasks** (including all fourteen checkpoints), across 175 teaching sections,
-all authored in both paths. Only 1.9% of those tasks are multiple choice; the
-rest require typing German. 84 of them carry an authored trap answer — a
+**A2 is finished: five units, fifteen lessons, five unit checkpoints and a
+level checkpoint.**
+
+| Unit | Lessons | What it teaches |
+| --- | --- | --- |
+| 1. Last weekend: the Perfekt | What you did: haben and the participle · Where you went: the verbs that take sein · war, hatte, and telling the whole story | the past tense built from verbs the learner already owns — the helper second, the participle last, which is the bracket from A1 Unit 2 in its third disguise; ge- … -t and the three groups that do it differently; which verbs take *sein* and why the Bulgarian instinct („работил съм“) produces *Ich bin gearbeitet* every time; *war*, *hatte* and *es gab*, the three places spoken German keeps the simple past |
+| 2. Home, city and services | Where things are: wo and the dative · Putting things: wohin and the accusative · When something is broken: weil | the nine two-way prepositions, and the one question — *wo* or *wohin* — that decides the case; the verb pairs *stellen*/*stehen* and *legen*/*liegen*, learnt together so the pair carries the case and it never has to be decided twice; *weil*, the first word that sends a verb to the end of its clause, taught where it is actually needed — a phone call about a broken heater |
+| 3. Work and education | What you think: dass · Courses and conditions: wenn · Plans: the future, and becoming something | *dass* and *wenn*, which do to the verb exactly what *weil* already did — so the unit says so in its first line rather than presenting a second rule; what is genuinely new is the consequence, that a *wenn*-clause in first position pushes the main verb to just after the comma, which neither English nor Bulgarian does; and the future, which is mostly the present tense with a time word |
+
+| 4. Health and advice | How you feel: reflexive verbs · Giving advice: sollen and the imperative · At the doctor: the whole visit | reflexive verbs, which is the clearest case in the course of the two paths needing *opposite* advice — Bulgarian has „се“ and puts it in the same places, so the warning is that German's changes with the person, while English forbids the word outright („I feel myself well“), so the instinct is to delete it; both mistakes are authored as traps in the same exercise; plus *sollen*, a fifth modal that behaves like the four already known, and the du-imperative, which is the du-form with two things taken off |
+
+| 5. Travel and problems | Faster, cheaper: comparing two things · The best of all: am besten · When it goes wrong: delays and missed trains | comparison, the one topic in A2 where German is *simpler* than English (every adjective takes -er, however long — there is no *mehr interessant*) and harder than Bulgarian (whose „по-“ never touches the word, while German adds umlauts); the superlative in both its shapes; and one deliberately small corner of the adjective endings — definite article, nominative and accusative, five of whose six forms are -e |
+| | **A2 level checkpoint** | all five units with no hints, 80% to pass, built around the two decisions B1 assumes: which helper a verb takes, and which case a two-way preposition wants |
+
+Across those 51 lessons that is 427 vocabulary entries, 49 grammar concepts, 420 exercises and **1248
+answer tasks** (including all twenty checkpoints), across 251 teaching sections,
+all authored in both paths. Only 1.4% of those tasks are multiple choice; the
+rest require typing German. 111 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
-written for it. Levels A2–B2 exist as structure and outline only, and the UI
+written for it. Levels B1–B2 exist as structure and outline only, and the UI
 labels them as planned.
+
+**A2 Unit 1 teaches almost no new words, on purpose.** The learner finished A1
+owning forty-three verbs; the unit gives them a second form of those rather than
+more verbs to carry, so seventeen new entries are enough — the time expressions
+a past tense needs, two verbs that take *sein* and had no reason to exist
+before, and the nouns a weekend story is made of. Every verb in the course now
+carries its Perfekt as data (`hat gemacht`, `ist gegangen`), because German
+participles cannot be derived: *gemacht* is regular, *gegangen* is not,
+*studiert* has no ge- at all and *eingekauft* puts it in the middle. The word
+page shows it, and the validator counts the participle as a word the course
+teaches rather than calling it a typo.
 
 **Practice targeted at a kind of mistake, not just at sentences.** Once the
 mistake bank shows a real pattern (three or more of the same error category),
@@ -325,6 +350,55 @@ no speaking feature yet.
 SpeechSynthesis implementation and a null provider that hides the buttons when
 the browser has no German voice. Nothing in the app calls
 `window.speechSynthesis` directly.
+
+---
+
+## The interface, and how it moves
+
+The app is used on a phone more than anywhere else, so the phone layout is the
+real one rather than a fallback.
+
+- **The navigation is at the bottom**, under a thumb, translucent over the
+  content it scrolls past. Eight destinations still do not fit across a phone,
+  so it scrolls sideways — but it no longer takes a line from the top of a
+  screen whose whole job is one German sentence and a field to type it in.
+- **Safe areas are respected**: `viewport-fit=cover` plus `env(safe-area-inset-*)`,
+  so nothing hides under the notch or the home indicator.
+- **It installs.** A web manifest, an apple-touch-icon and the standalone meta
+  tags mean *Add to Home Screen* gives an app with its own icon and no browser
+  chrome.
+- **The special letters fit on one row** on a phone (they stay 44px wide, which
+  is what a thumb needs; the gaps give way instead), and the `Alt+a` hint is
+  hidden on a touch device, because there is no Alt key on an iPhone.
+- **The whole lesson row is the tap target**, not the title text inside it.
+
+Motion follows one rule: **it may confirm what happened, and it may never be in
+the way.** Nothing between pressing Enter and the answer being judged is
+animated, because delay there is felt as slowness however pretty it is. What
+does move:
+
+| Moment | What happens | Why |
+| --- | --- | --- |
+| A new question | The card rises in, keyed to the step id | A question replacing another one in the same box is easy to miss |
+| Correct | A tick draws itself, and a ring pushes out once behind it | It lands in the same moment the word does, and it says the verdict in a shape as well as a colour |
+| Wrong | The panel rises in, then shakes once | Small enough to read as "no" rather than as a fault |
+| A finished round | A ring fills to the score over half a second | The one place where motion is the point: it is what makes finishing feel like finishing |
+| Progress, meters | Travel to the value instead of jumping | One step in a bar of thirty is invisible without the movement |
+| Any tap | The control moves under the finger | iOS's own grey tap box is turned off, so something has to replace it |
+
+Every duration is a token (`--dur-1` … `--dur-4`), and
+`prefers-reduced-motion: reduce` collapses all of them in one place while
+`--motion-shift: 0` takes the travel out of the keyframes that move rather than
+fade — so a card still appears, it just does not fly. All of it lives in one
+`Motion` section at the bottom of `src/styles.css`, so the whole motion budget
+can be read, and changed, in one place.
+
+One piece of behaviour rather than decoration: when an answer is judged, the
+feedback is scrolled into view (`block: 'nearest'`, so a verdict already on
+screen does not jump). On a phone it often opens below the fold, and without
+this the app looks like it did nothing. It is guarded with an optional call
+because jsdom has no `scrollIntoView` at all — which took the whole player down
+the first time, and is now covered by a test both ways.
 
 ---
 
@@ -483,16 +557,21 @@ Run `npm run dev`, open <http://localhost:5173>, and:
 
 ## Next milestone
 
-**Milestone 4 — A2.** Pre-A1 and A1 are both finished now, and they share the
-shape the rest of the course can copy: units of three lessons, a checkpoint per
-unit, a level checkpoint with no hints, and authored traps feeding targeted
-practice. A2 is outlined already — the perfect tense, *weil* and *dass* and the
-word order they force, comparison, and the dative widened beyond the three
-prepositions A1 kept it to — and needs the same treatment.
+**Milestone 5 — B1.** Pre-A1, A1 and A2 are all finished, and the shape has held
+for three levels: units of three lessons, a checkpoint per unit, a level
+checkpoint with no hints, and authored traps feeding targeted practice.
+
+B1 is outlined already, and the grammar it needs is mostly the other half of
+what A2 opened: the full adjective-ending system rather than one corner of it,
+the genitive, relative clauses, the passive, and *würde* and the subjunctive. A2
+ends where it should — a learner who passes its level checkpoint can choose
+between *haben* and *sein* without thinking, and can put a verb at the end of a
+clause on purpose.
 
 A1 ends where it should: a learner who passes its level checkpoint can tell the
 accusative from the dative, which is the one thing A2 assumes and cannot
-re-teach.
+re-teach. A2 Unit 1 starts where it should too — it asks for no new verbs at
+all, only a second form of the ones already owned.
 
 Two pieces of machinery still waiting on content rather than on code:
 

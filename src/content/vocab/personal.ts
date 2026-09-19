@@ -156,6 +156,7 @@ const COUNTRIES_AND_LANGUAGES: VocabEntry[] = [
     german: 'sprechen',
     display: 'sprechen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gesprochen' },
     translation: { en: 'to speak', bg: 'говоря' },
     pronunciation: { en: 'SHPRE-khen', bg: 'ШПРЕ-хен' },
     example: {
@@ -177,6 +178,7 @@ const COUNTRIES_AND_LANGUAGES: VocabEntry[] = [
     german: 'lernen',
     display: 'lernen',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gelernt' },
     translation: { en: 'to learn', bg: 'уча' },
     pronunciation: { en: 'LER-nen', bg: 'ЛЕР-нен' },
     example: {
@@ -522,6 +524,7 @@ const OCCUPATIONS: VocabEntry[] = [
     german: 'arbeiten',
     display: 'arbeiten',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gearbeitet' },
     translation: { en: 'to work', bg: 'работя' },
     pronunciation: { en: 'AR-by-ten', bg: 'АР-бай-тен' },
     example: {
@@ -685,6 +688,7 @@ const FAMILY: VocabEntry[] = [
     german: 'haben',
     display: 'haben',
     wordType: 'verb',
+    perfect: { auxiliary: 'haben', participle: 'gehabt' },
     translation: { en: 'to have', bg: 'имам' },
     pronunciation: { en: 'HAH-ben', bg: 'ХА-бен' },
     example: {
