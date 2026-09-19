@@ -281,13 +281,20 @@ level checkpoint.**
 | 5. Travel and problems | Faster, cheaper: comparing two things · The best of all: am besten · When it goes wrong: delays and missed trains | comparison, the one topic in A2 where German is *simpler* than English (every adjective takes -er, however long — there is no *mehr interessant*) and harder than Bulgarian (whose „по-“ never touches the word, while German adds umlauts); the superlative in both its shapes; and one deliberately small corner of the adjective endings — definite article, nominative and accusative, five of whose six forms are -e |
 | | **A2 level checkpoint** | all five units with no hints, 80% to pass, built around the two decisions B1 assumes: which helper a verb takes, and which case a two-way preposition wants |
 
-Across those 51 lessons that is 427 vocabulary entries, 49 grammar concepts, 420 exercises and **1248
-answer tasks** (including all twenty checkpoints), across 251 teaching sections,
+**B1 has begun.** The level where the course stops teaching German in general
+and starts teaching Germany in particular.
+
+| Unit | Lessons | What it teaches |
+| --- | --- | --- |
+| 1. Finding and renting a flat | The flat that has a balcony · A bright flat with a big balcony · The flat I live in | relative clauses, the structure that separates A2 German from B1 German — and the sharpest divergence between the two paths anywhere in the course, because English has dismantled its relative pronouns (*that* covers everything, and it is dropped outright in "the flat I saw") while Bulgarian has kept the whole system, agreement and all, so the English path is taught something it no longer has and the Bulgarian path is told plainly that it already owns nine tenths of it and has one new thing to learn: the verb goes to the end. Plus the adjective endings after *ein*, taught as a reason rather than a table — *ein* cannot show the gender, so the adjective does — where Bulgarian again has a real head start, because it already moves the definite marker onto the adjective (*голям апартамент* → *големият апартамент*). And the vocabulary of a German rental contract, where *Kaution*, *Nebenkosten* and *Kaltmiete* are legal objects before they are words |
+
+Across those 54 lessons that is 450 vocabulary entries, 52 grammar concepts, 442 exercises and **1312
+answer tasks** (including all twenty-one checkpoints), across 268 teaching sections,
 all authored in both paths. Only 1.4% of those tasks are multiple choice; the
-rest require typing German. 111 of them carry an authored trap answer — a
+rest require typing German. 122 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
-written for it. Levels B1–B2 exist as structure and outline only, and the UI
-labels them as planned.
+written for it. B1 has begun; B2 exists as structure and outline only, and the
+UI labels every unit that is not authored as planned.
 
 **A2 Unit 1 teaches almost no new words, on purpose.** The learner finished A1
 owning forty-three verbs; the unit gives them a second form of those rather than

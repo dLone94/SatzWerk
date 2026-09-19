@@ -3578,3 +3578,18 @@ body {
   line-height: 1.55;
 }
 
+
+/* Paragraph breaks inside a block that is one element.
+
+   A callout is a single <p> by design — it is one voice saying one thing — but
+   the harder explanations are written as two or three short paragraphs, and
+   collapsing them into a wall of text is exactly the wrong thing to do to the
+   hardest paragraph in a lesson. These spans restore the break without
+   nesting block elements inside a <p>. */
+.rich__para {
+  display: block;
+}
+
+.rich__para + .rich__para {
+  margin-top: 0.6em;
+}

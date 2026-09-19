@@ -472,6 +472,12 @@ describe('vocabulary', () => {
         /^ge.+(t|en)$/.test(p) ||
         // an inseparable prefix takes no ge-: besucht, bezahlt
         /^(be|er|ver|ent|emp|ge|miss|zer)/.test(p) ||
+        // durch, über, um, unter, hinter and wider are the awkward ones: they
+        // are separable on some verbs and inseparable on others, and when they
+        // are inseparable there is no ge- either. umziehen separates and gives
+        // umgezogen; unterschreiben does not and gives unterschrieben. Both
+        // are real participles, so the shape check has to allow both.
+        /^(durch|über|um|unter|hinter|wider).+(t|en)$/.test(p) ||
         // -ieren verbs take no ge- either: studiert
         /iert$/.test(p) ||
         // a separable prefix puts it in the middle: eingekauft, aufgestanden
@@ -489,6 +495,10 @@ describe('vocabulary', () => {
       [
         // Movement.
         'kommen', 'gehen', 'fahren', 'fliegen', 'schwimmen', 'aufstehen',
+        // Movement into and out of somewhere you then live. Added with B1
+        // Unit 1: they are the same motion as umziehen and take sein for the
+        // same reason.
+        'einziehen', 'ausziehen',
         // Change of state.
         'passieren', 'umziehen', 'umsteigen',
         // The three with no reason behind them.

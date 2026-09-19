@@ -178,6 +178,22 @@ export function ExercisePlayer({
     const authored = current.step.wordBank;
     if (authored) return shuffle(authored, current.step.id);
     if (!presentation.showWordBank) return null;
+    /*
+     * Never build one out of the answer for open writing.
+     *
+     * The synthesised bank is a scaffold: when a learner is struggling with a
+     * sentence that has one right answer, handing them its words in the wrong
+     * order is help. A free-writing task has no single right answer — the
+     * screen says so — and it is checked for required words rather than for
+     * matching a model. Scattering the model answer's words across the screen
+     * as chips would quietly turn "write what you want to say" into "unscramble
+     * what we had in mind", which is a different exercise and a worse one.
+     *
+     * An authored word bank above is untouched: giving a learner the
+     * vocabulary to use is a deliberate teaching choice, and it is not the
+     * answer.
+     */
+    if (current.exercise.kind === 'freeWriting') return null;
     const answer = current.step.answer.accepted[0] ?? '';
     const tokens = answer.split(/\s+/).filter(Boolean);
     return tokens.length > 1 ? shuffle(tokens, current.step.id) : null;

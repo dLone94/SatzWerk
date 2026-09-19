@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LEXICON, describeNoun, lessonById } from '../../src/content/index.ts';
-import { typeIt } from '../../src/content/authoring.ts';
+import { freeWriting, typeIt } from '../../src/content/authoring.ts';
 import type { Exercise, TeachingLanguage } from '../../src/content/types.ts';
 import { tr } from '../../src/i18n.ts';
 import type { AttemptPayload } from '../../src/services/api/client.ts';
@@ -423,5 +423,81 @@ describe('the verdict is brought into view', () => {
     mount(<ExercisePlayer exercises={[originExercise]} context="lesson" level="pre-a1" onFinish={() => {}} />);
     await user.type(field(), 'Ich komme aus Bulgarien.{Enter}');
     expect(await screen.findByText('Correct.')).toBeInTheDocument();
+  });
+});
+
+/**
+ * The support ladder gives a struggling learner a word bank built from the
+ * answer, which is real help on a sentence that has one right answer.
+ *
+ * Open writing has no single right answer — the task says so on screen, and it
+ * is checked for the words it must contain rather than against a model. Laying
+ * the model answer's words out as chips would quietly replace "write what you
+ * want to say" with "unscramble what we had in mind".
+ */
+describe('the word bank on an open-writing task', () => {
+  // Six wrong first attempts: the ladder costs two mistakes per rung, and the
+  // word bank is three rungs below where a learner starts.
+  const ROUNDS = 6;
+  const struggle = typeIt(
+    'wb-warmup',
+    { en: 'Warm up', bg: 'Загряване' },
+    Array.from({ length: ROUNDS + 1 }, () => ({
+      prompt: { en: 'I come from Bulgaria.', bg: 'Аз съм от България.' },
+      answer: 'Ich komme aus Bulgarien.',
+      hints: [],
+    })),
+  );
+
+  const open = freeWriting('wb-open', { en: 'Write freely', bg: 'Пиши свободно' }, [
+    {
+      prompt: { en: 'Write two sentences about where you live.', bg: 'Напиши две изречения къде живееш.' },
+      answer: 'Ich wohne in Hamburg und die Wohnung ist sehr hell.',
+      requiredTokens: ['wohne'],
+      shape: 'sentence',
+      hints: [],
+    },
+  ]);
+
+  /** Answer wrong twice, which is what drops the ladder one rung. */
+  async function struggleThrough(user: ReturnType<typeof userEvent.setup>) {
+    for (let i = 0; i < ROUNDS; i += 1) {
+      await user.type(field(), 'völlig falsch{Enter}');
+      // The retype gate: the player will not move on until the correct
+      // sentence has been typed out.
+      await waitFor(() =>
+        expect(document.querySelector('.feedback__retype-target')).not.toBeNull(),
+      );
+      await user.type(field(), 'Ich komme aus Bulgarien.{Enter}');
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: tr('exerciseContinue', 'en') })).toBeEnabled(),
+      );
+      await user.click(screen.getByRole('button', { name: tr('exerciseContinue', 'en') }));
+    }
+  }
+
+  it('offers one on a normal sentence once the learner is struggling', async () => {
+    const user = userEvent.setup();
+    mount(<ExercisePlayer exercises={[struggle]} context="lesson" level="pre-a1" onFinish={() => {}} />);
+    await struggleThrough(user);
+    // Now well down the ladder: the bank is the help it exists to be.
+    await waitFor(() => expect(screen.getByText(tr('exerciseWordBank', 'en'))).toBeInTheDocument());
+  });
+
+  it('never builds one out of the answer to an open-writing task', async () => {
+    const user = userEvent.setup();
+    mount(
+      <ExercisePlayer exercises={[struggle, open]} context="lesson" level="pre-a1" onFinish={() => {}} />,
+    );
+    await struggleThrough(user);
+    // Clear the last warm-up step so the open-writing task comes up, at the
+    // same lowered support level that produced a bank a moment ago.
+    await user.type(field(), 'Ich komme aus Bulgarien.{Enter}');
+    await user.click(screen.getByRole('button', { name: tr('exerciseContinue', 'en') }));
+
+    expect(await screen.findByRole('textbox')).toBeInTheDocument();
+    expect(screen.queryByText(tr('exerciseWordBank', 'en'))).not.toBeInTheDocument();
+    // And specifically none of the model answer's words as chips.
+    expect(screen.queryByRole('button', { name: 'Hamburg' })).not.toBeInTheDocument();
   });
 });

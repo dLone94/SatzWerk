@@ -65,9 +65,17 @@ describe('the README describes the content that exists', () => {
     // that the README names exactly that range.
     expect(empty.length).toBeGreaterThan(0);
     expect(CURRICULUM.slice(-empty.length)).toEqual(empty);
-    expect(README).toContain(
-      `Levels ${empty[0]!.label}–${empty.at(-1)!.label} exist as structure and outline only`,
-    );
+    // The claim, not its exact wording. This used to pin the sentence
+    // "Levels B1–B2 exist as structure and outline only", which stopped being
+    // a sentence at all once only one level was left — "Levels B2–B2" is not
+    // English. What has to hold is that the README says the phrase and names
+    // every level it applies to.
+    expect(README).toContain('exists as structure and outline only');
+    for (const level of empty) {
+      expect(README, `README does not name ${level.label} as unauthored`).toMatch(
+        new RegExp(`${level.label}[^.]{0,200}?(outline only|not authored)`),
+      );
+    }
 
     // A level with some of its units written is neither finished nor planned,
     // and the README has to say which it is.

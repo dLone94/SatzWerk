@@ -6,6 +6,62 @@ import { WORD_TYPE_LABELS } from '../../i18n.ts';
 
 /** Small shared building blocks: buttons, badges, meters, block rendering. */
 
+/**
+ * The two pieces of markup the authored content actually uses.
+ *
+ * Lesson text is plain strings, not Markdown, and that is the right call — a
+ * full Markdown pipeline for teaching prose would be a lot of machinery for a
+ * handful of asterisks. But the content had been written with two conventions
+ * in it from the start, and neither of them worked:
+ *
+ * 1. `**like this**`, for the ending or the one word a rule turns on. It was
+ *    reaching the learner with the asterisks still in it.
+ * 2. A blank line between paragraphs. HTML collapses newlines, so a callout
+ *    carefully written as three short paragraphs arrived as one long one — and
+ *    these are exactly the callouts that carry the hardest explanations.
+ *
+ * So rather than editing the intent out of the content, the renderer now
+ * honours it. Anything else is still plain text and is displayed as written.
+ */
+function emphasise(text: string, keyPrefix: string): ReactNode[] {
+  // Split on the pairs, keeping them: odd indices are what was inside.
+  return text.split(/\*\*(.+?)\*\*/g).map((piece, index) =>
+    index % 2 === 1 ? <strong key={`${keyPrefix}-b${index}`}>{piece}</strong> : piece,
+  );
+}
+
+/**
+ * A single newline is a line break, not a space.
+ *
+ * The callouts use it for short lists of parallel examples — one comparison
+ * per line, German against the learner's own language. Collapsing those into
+ * a run-on line is what HTML does by default and it makes the comparison
+ * almost unreadable, which is the opposite of what a list of comparisons is
+ * for.
+ */
+function withLineBreaks(text: string, keyPrefix: string): ReactNode[] {
+  const lines = text.split('\n');
+  return lines.flatMap((line, index) =>
+    index === 0
+      ? emphasise(line, `${keyPrefix}-l0`)
+      : [<br key={`${keyPrefix}-br${index}`} />, ...emphasise(line, `${keyPrefix}-l${index}`)],
+  );
+}
+
+export function RichText({ text }: { text: string }) {
+  const paragraphs = text.split(/\n{2,}/).filter((paragraph) => paragraph.trim().length > 0);
+  if (paragraphs.length <= 1) return <>{withLineBreaks(text, 'rt')}</>;
+  return (
+    <>
+      {paragraphs.map((paragraph, index) => (
+        <span key={index} className="rich__para">
+          {withLineBreaks(paragraph, `rt${index}`)}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function Card({
   title,
   subtitle,
@@ -171,14 +227,16 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
           case 'p':
             return (
               <p key={key} className="blocks__p">
-                {say(block.text)}
+                <RichText text={say(block.text)} />
               </p>
             );
           case 'list':
             return (
               <ul key={key} className="blocks__list">
                 {block.items.map((item, i) => (
-                  <li key={i}>{say(item)}</li>
+                  <li key={i}>
+                    <RichText text={say(item)} />
+                  </li>
                 ))}
               </ul>
             );
@@ -219,7 +277,9 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
                     {block.rows.map((row, r) => (
                       <tr key={r}>
                         {row.map((cell, c) => (
-                          <td key={c}>{typeof cell === 'string' ? cell : say(cell)}</td>
+                          <td key={c}>
+                            <RichText text={typeof cell === 'string' ? cell : say(cell)} />
+                          </td>
                         ))}
                       </tr>
                     ))}
@@ -232,7 +292,9 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
             return (
               <aside key={key} className={`callout callout--${block.tone}`}>
                 {block.title && say(block.title) ? <h4>{say(block.title)}</h4> : null}
-                <p>{say(block.text)}</p>
+                <p>
+                  <RichText text={say(block.text)} />
+                </p>
               </aside>
             );
           case 'breakdown':
