@@ -374,8 +374,10 @@ describe('the course map is honest about what is finished', () => {
     const outlineFor = (level: (typeof CURRICULUM)[number]) =>
       LEVEL_OUTLINES[level.id as keyof typeof LEVEL_OUTLINES];
     const withPlanned = CURRICULUM.filter((level) => outlineFor(level).plannedUnits.length > 0);
-    expect(withPlanned.length).toBeGreaterThan(0);
-    expect(screen.getAllByText(tr('plannedUnits', 'en')).length).toBe(withPlanned.length);
+    // Not pinned to a count. Once every planned unit has been written, the
+    // right number of "planned units" headings is zero — and the heading must
+    // then be gone rather than standing empty over nothing.
+    expect(screen.queryAllByText(tr('plannedUnits', 'en')).length).toBe(withPlanned.length);
     for (const level of withPlanned) {
       for (const unit of outlineFor(level).plannedUnits) {
         expect(screen.getByText(unit.en), unit.en).toBeInTheDocument();

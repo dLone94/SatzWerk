@@ -11,6 +11,7 @@ import { HEALTH2_VOCAB } from './vocab/health2.ts';
 import { FAMILY2_VOCAB } from './vocab/family2.ts';
 import { OPINIONS_VOCAB } from './vocab/opinions.ts';
 import { FORMAL_VOCAB } from './vocab/formal.ts';
+import { SPOKEN_VOCAB } from './vocab/spoken.ts';
 import { MEDIA_VOCAB } from './vocab/media.ts';
 import { NEGOTIATION_VOCAB } from './vocab/negotiation.ts';
 import { WORK4_VOCAB } from './vocab/work4.ts';
@@ -906,6 +907,7 @@ export const VOCABULARY: VocabEntry[] = [
   ...NEGOTIATION_VOCAB,
   ...MEDIA_VOCAB,
   ...FORMAL_VOCAB,
+  ...SPOKEN_VOCAB,
 ];
 
 const BY_ID = new Map(VOCABULARY.map((entry) => [entry.id, entry]));

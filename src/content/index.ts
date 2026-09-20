@@ -22,6 +22,8 @@ import { B2_U1_PATTERNS, B2_UNIT_1 } from './b2/unit1.ts';
 import { B2_U2_PATTERNS, B2_UNIT_2 } from './b2/unit2.ts';
 import { B2_U3_PATTERNS, B2_UNIT_3 } from './b2/unit3.ts';
 import { B2_U4_PATTERNS, B2_UNIT_4 } from './b2/unit4.ts';
+import { B2_U5_PATTERNS, B2_UNIT_5 } from './b2/unit5.ts';
+import { B2_LEVEL_CHECKPOINT } from './b2/levelCheckpoint.ts';
 import { A2_LEVEL_CHECKPOINT } from './a2/levelCheckpoint.ts';
 import { GRAMMAR_CONCEPTS, grammarById } from './grammar.ts';
 import { LEVEL_OUTLINES } from './outline/levelOutlines.ts';
@@ -125,7 +127,18 @@ export const B1: Level = {
  * finished and the course map says so — the same status A1, A2 and B1 each
  * carried while they were being written.
  */
-export const B2: Level = levelFromOutline('b2', [B2_UNIT_1, B2_UNIT_2, B2_UNIT_3, B2_UNIT_4], 'partial');
+/**
+ * B2 is finished, and with it the course: five units and the level checkpoint
+ * that draws on all of them.
+ */
+export const B2: Level = {
+  ...levelFromOutline(
+    'b2',
+    [B2_UNIT_1, B2_UNIT_2, B2_UNIT_3, B2_UNIT_4, B2_UNIT_5],
+    'available',
+  ),
+  checkpoint: B2_LEVEL_CHECKPOINT,
+};
 
 export const CURRICULUM: Level[] = [PRE_A1, A1, A2, B1, B2];
 
@@ -156,6 +169,7 @@ export const SENTENCE_PATTERNS: SentencePattern[] = [
   ...B2_U2_PATTERNS,
   ...B2_U3_PATTERNS,
   ...B2_U4_PATTERNS,
+  ...B2_U5_PATTERNS,
 ];
 
 /* ------------------------------------------------------------------ *

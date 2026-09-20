@@ -560,6 +560,8 @@ describe('vocabulary', () => {
         // Added with B2 Unit 3. A price that rises or falls has changed state
         // and nobody moved it — both are intransitive, both take sein.
         'steigen', 'sinken',
+        // Added with B2 Unit 5. Dropping by is movement, like kommen itself.
+        'vorbeikommen',
         // Change of state.
         'passieren', 'umziehen', 'umsteigen',
         // The three with no reason behind them.
