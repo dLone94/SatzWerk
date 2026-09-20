@@ -862,8 +862,9 @@ five levels: units of three lessons, a checkpoint per unit, a level checkpoint
 with no hints, and authored traps feeding targeted practice. Nothing in the
 curriculum is labelled planned, because nothing is planned.
 
-So what remains is no longer content. Two things are genuinely not built, and
-each is named as such in the app rather than implied to be coming:
+So what remains is no longer content, and the machinery that was waiting on
+use has been built. Two things are genuinely not built, and each is named as
+such in the app rather than implied to be coming:
 
 - **C1 and C2.** `CefrLevel` already includes them, so adding them would be
   authoring rather than a refactor — but there is no outline, and the course
@@ -873,11 +874,21 @@ each is named as such in the app rather than implied to be coming:
   accent is a different engine, and the dashboard shows no number for speaking
   rather than inventing one.
 
-One piece of machinery is waiting on use rather than on code:
+**Dictation has a replay budget.** The line is spoken once when the step
+opens, and after that there are two more hearings — the slow one included,
+because a budget you can dodge by always pressing the snail is not a budget.
+Unlimited replay turns dictation into transcription with a scrub bar: you stop
+listening and start sampling the audio until the words resolve. The count is
+stated before it runs out rather than after, the buttons stay visible when
+spent so nothing silently disappears, and the hint ladder and the reveal are
+untouched, so it is never a dead end. `audio.replays` makes the budget
+authorable per step.
 
-- **Dictation without replay**, which the exercise model already supports via
-  `audio.hideText` and a replay budget, and which becomes a fair test now that
-  there is a course's worth of heard-but-not-seen vocabulary behind it.
+Only dictation is budgeted. `listenChoose` hides its text too, but it is first
+listening exposure — the learner is meeting the sound for the first time and
+picking between options they can see — and rationing a first hearing teaches
+nothing. Audio beside a visible German sentence is pronunciation help rather
+than a test, and stays unlimited as well.
 
 **Interleaved review is built.** A lesson creates all its review items in one
 moment, so they share a `dueAt` and used to arrive as one contiguous run —

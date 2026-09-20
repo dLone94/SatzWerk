@@ -244,6 +244,9 @@ export const UI = {
   exerciseHintCount: s('Hint {n} of {total}', 'Подсказка {n} от {total}'),
   exerciseNoMoreHints: s('No more hints', 'Няма повече подсказки'),
   exerciseSkip: s('I do not know this one', 'Не знам това'),
+  exerciseReplaysLeft: s('{n} replays left', 'остават {n} повторения'),
+  exerciseReplaysLeftOne: s('{n} replay left', 'остава {n} повторение'),
+  exerciseReplaysGone: s('No replays left — answer what you heard', 'Няма повече повторения — напиши каквото чу'),
   exerciseReveal: s('Show the answer', 'Покажи отговора'),
   exerciseRevealWarning: s(
     'Showing the answer means no credit for this item, and it will come back soon.',

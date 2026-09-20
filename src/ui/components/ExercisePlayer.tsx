@@ -91,6 +91,14 @@ interface Playable {
 
 type Phase = 'answer' | 'feedback' | 'retype';
 
+/**
+ * Replays a dictation line gets after the automatic first play.
+ *
+ * Three hearings in total. Fewer makes a single mis-heard syllable
+ * unrecoverable; more and the learner stops listening and starts sampling.
+ */
+export const DEFAULT_REPLAYS = 2;
+
 /** Deterministic shuffle so a word bank does not reorder on every render. */
 function shuffle<T>(items: T[], seed: string): T[] {
   let hash = 2166136261;
@@ -151,6 +159,7 @@ export function ExercisePlayer({
   const [supportNote, setSupportNote] = useState<'up' | 'down' | null>(null);
   const [firstTryCorrect, setFirstTryCorrect] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [replaysUsed, setReplaysUsed] = useState(0);
 
   const inputRef = useRef<AnswerInputHandle | null>(null);
   const continueRef = useRef<HTMLButtonElement | null>(null);
@@ -171,6 +180,7 @@ export function ExercisePlayer({
     if (!current) return;
     startedAt.current = Date.now();
     setHintsShown(allowHints ? Math.min(presentation.hintsUnlocked, current.step.hints.length) : 0);
+    setReplaysUsed(0);
     const seed = current.step.scaffold ? splitScaffold(current.step.scaffold).seed : '';
     if (seed) setValue(seed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,6 +265,7 @@ export function ExercisePlayer({
     setShowExplanation(false);
     setUsedBank([]);
     setSupportNote(null);
+    setReplaysUsed(0);
     if (cursor + 1 >= total) {
       onFinish({
         total,
@@ -502,6 +513,21 @@ export function ExercisePlayer({
   const { exercise, step } = current;
   const scaffold = step.scaffold ? splitScaffold(step.scaffold) : null;
   const hideText = Boolean(step.audio?.hideText);
+  /*
+   * Only dictation is budgeted.
+   *
+   * `listenChoose` hides its text too, but the model calls it first listening
+   * exposure and means it: the learner is meeting the sound for the first
+   * time and picking between options they can see. Rationing a first hearing
+   * teaches nothing. Dictation is the one that asks you to produce what you
+   * heard, and that is the task unlimited replay quietly turns into
+   * transcription.
+   */
+  const budgeted = hideText && exercise.kind === 'dictation';
+  // Two replays unless the step says otherwise: enough to catch a word you
+  // half-heard, not enough to transcribe by repetition.
+  const replayBudget = step.audio?.replays ?? DEFAULT_REPLAYS;
+  const replaysLeft = budgeted ? Math.max(0, replayBudget - replaysUsed) : Number.POSITIVE_INFINITY;
   const isChoice = exercise.kind === 'multipleChoice' || exercise.kind === 'listenChoose';
   const isFree = exercise.kind === 'freeWriting';
   const tone =
@@ -558,9 +584,38 @@ export function ExercisePlayer({
         {step.instruction ? <p className="task__instruction">{say(step.instruction)}</p> : null}
 
         {hideText ? (
+          /*
+           * Dictation, with a budget.
+           *
+           * The line is spoken once when the step opens, and after that the
+           * learner gets `replays` more hearings — the slow one included,
+           * because a budget you can dodge by always pressing the snail is not
+           * a budget. Unlimited replay turns dictation into transcription with
+           * a scrub bar: you stop listening and start sampling until the words
+           * resolve.
+           *
+           * The count is stated before it runs out rather than after, and the
+           * buttons stay visible when spent so nothing silently disappears.
+           * This is never a dead end: the hint ladder and the reveal are
+           * untouched, and both are a press away.
+           */
           <div className="task__audio-only">
-            <AudioButton text={step.audio!.text} />
-            <AudioButton text={step.audio!.text} slow />
+            <AudioButton
+              text={step.audio!.text}
+              disabled={replaysLeft === 0}
+              onPlay={() => setReplaysUsed((used) => used + 1)}
+            />
+            <AudioButton
+              text={step.audio!.text}
+              slow
+              disabled={replaysLeft === 0}
+              onPlay={() => setReplaysUsed((used) => used + 1)}
+            />
+            {budgeted ? (
+              <span className="task__replays" role="status">
+                {replaysLeft > 0 ? t('exerciseReplaysLeft', { n: replaysLeft }) : t('exerciseReplaysGone')}
+              </span>
+            ) : null}
           </div>
         ) : null}
 

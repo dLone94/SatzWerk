@@ -3916,3 +3916,15 @@ body {
   opacity: 0.6;
   cursor: default;
 }
+
+/* How many hearings of a dictation line are left. Stated before it runs out. */
+.task__replays {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  align-self: center;
+}
+
+.audio-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
