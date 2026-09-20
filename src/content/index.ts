@@ -19,6 +19,7 @@ import { B1_U5_PATTERNS, B1_UNIT_5 } from './b1/unit5.ts';
 import { B1_U6_PATTERNS, B1_UNIT_6 } from './b1/unit6.ts';
 import { B1_LEVEL_CHECKPOINT } from './b1/levelCheckpoint.ts';
 import { B2_U1_PATTERNS, B2_UNIT_1 } from './b2/unit1.ts';
+import { B2_U2_PATTERNS, B2_UNIT_2 } from './b2/unit2.ts';
 import { A2_LEVEL_CHECKPOINT } from './a2/levelCheckpoint.ts';
 import { GRAMMAR_CONCEPTS, grammarById } from './grammar.ts';
 import { LEVEL_OUTLINES } from './outline/levelOutlines.ts';
@@ -122,7 +123,7 @@ export const B1: Level = {
  * finished and the course map says so — the same status A1, A2 and B1 each
  * carried while they were being written.
  */
-export const B2: Level = levelFromOutline('b2', [B2_UNIT_1], 'partial');
+export const B2: Level = levelFromOutline('b2', [B2_UNIT_1, B2_UNIT_2], 'partial');
 
 export const CURRICULUM: Level[] = [PRE_A1, A1, A2, B1, B2];
 
@@ -150,6 +151,7 @@ export const SENTENCE_PATTERNS: SentencePattern[] = [
   ...B1_U5_PATTERNS,
   ...B1_U6_PATTERNS,
   ...B2_U1_PATTERNS,
+  ...B2_U2_PATTERNS,
 ];
 
 /* ------------------------------------------------------------------ *

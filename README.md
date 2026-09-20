@@ -299,7 +299,7 @@ and starts teaching Germany in particular.
 | 6. Opinions and written German | In my opinion: stating a position · On the one hand: weighing both sides · Yours sincerely: the formal letter | the only B1 unit whose subject is not a situation. Almost no new grammar, deliberately — by this point every clause type German uses is already there. What is missing is the *shape* of an argument, so the fixed phrases are taught whole rather than assembled: *Meiner Meinung nach*, *Einerseits … andererseits*, *Zusammenfassend kann man sagen, dass …* Both paths get the same warning about register from different directions: English and Bulgarian formal writing both reward variation and German does not, so translating your own politeness produces something grammatical and subtly wrong. And the smallest point is the most visible — the comma after *Sehr geehrte Frau Weber,* is followed by a **small** letter, where English and Bulgarian both capitalise |
 | | **B1 level checkpoint** | all six units with no hints, 80% to pass, built around the three things that separate a B1 speaker from an A2 one: relative clauses in all three cases, register (*von meinem Bruder* against *meines Bruders*, *ich bin gegangen* against *ich ging*), and *obwohl* against *trotzdem* — nearly synonymous, opposite word order, and the commonest B1 mistake in either path, so they sit adjacent and unhinted |
 
-**B2 has begun: one unit of five is authored, the rest is outline.** B2 is
+**B2 has begun: two units of five are authored, the rest is outline.** B2 is
 where the problem stops being whether you are understood and starts being
 whether you are taken seriously — which is a question about register, not
 about grammar.
@@ -307,14 +307,15 @@ about grammar.
 | Unit | Lessons | What it teaches |
 | --- | --- | --- |
 | 1. At work: meetings and projects | The report was submitted · First of all, however, consequently · The carrying out of the project | the passive finished off — B1 stopped at *wird ausgefüllt*, and a status report needs the rest: *wurde eingereicht*, *ist bearbeitet **worden*** (where werden loses its ge-, the most recognisable B2 error there is), and the modal passive in the past. Then the distinction German draws and English cannot hear at all: *wird erledigt* is a promise, *ist erledigt* is a result, and "the order is done" is both sentences at once — while Bulgarian does make the cut, with verbal aspect rather than with the auxiliary, so that path is told its instinct is sound and warned off „се“, which is not how German builds a passive. Lesson 2 is explicitly *not* new grammar: allerdings, dennoch and folglich are the B1 adverbial family in a suit, and the lesson spends its time on the error that actually happens — the English "However," comma producing *Allerdings, wir sollten …* Lesson 3 is nominalisation, the reason German reports read as they do, and the one place at B2 where English has the easier ride: it nominalises just as heavily and joins with *of*, which maps onto the genitive, while Bulgarian joins with „на“, which maps onto *von* — grammatically fine and the wrong register in a report |
-| | **Still outlined** | Argument and negotiation · Media and society · Formal written German · Natural spoken German |
+| 2. Argument and negotiation | He says he has no time · The longer we wait, the more expensive it gets · Do just say what you think | the sharpest divergence in B2, and it runs the other way from the usual one. **Konjunktiv I** — *er sagt, er habe keine Zeit* — marks a claim as somebody else's without endorsing it. English has no grammatical marker for that at all: it backshifts the tense and leaves the rest to context, so an English speaker writes *Er sagte, er hatte keine Zeit*, which is correct German for a fact the speaker is confirming — the distancing has gone. Bulgarian has the category outright, as the renarrative („казал, че нямал време“), so that path is handed a map rather than an explanation, and warned about the one real difference: Bulgarian uses its renarrative in speech too, where German keeps Konjunktiv I almost entirely for writing. Lesson 2 is *je … desto*, the one German comparative with word order in **both** halves, where English and Bulgarian both move nothing — so it is drilled rather than reasoned about — plus *zwar … aber* and *nicht nur … sondern auch*, where the advantage flips back to Bulgarian, which splits „а“ from „но“ exactly as German splits sondern from aber while English has only "but". Lesson 3 is the modal particles — doch, mal, ja, eben, halt — the words that decide whether a disagreement lands as an invitation or an order: English has nothing equivalent and does the job with intonation, Bulgarian has its own („я“, „нали“, „все пак“) and so gets a warning about false one-to-one mapping instead of an introduction |
+| | **Still outlined** | Media and society · Formal written German · Natural spoken German |
 
-Across those 72 lessons that is 579 vocabulary entries, 70 grammar concepts, 579 exercises and **1695
-answer tasks** (including all twenty-eight checkpoints), across 365 teaching sections,
-all authored in both paths. Only 1.2% of those tasks are multiple choice; the
-rest require typing German. 133 of them carry an authored trap answer — a
+Across those 75 lessons that is 599 vocabulary entries, 74 grammar concepts, 604 exercises and **1773
+answer tasks** (including all twenty-nine checkpoints), across 381 teaching sections,
+all authored in both paths. Only 1.1% of those tasks are multiple choice; the
+rest require typing German. 140 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
-written for it. Four of B2's five units are still outline, and the UI labels
+written for it. Three of B2's five units are still outline, and the UI labels
 every unit that is not authored as planned rather than quietly leaving it out.
 
 **A2 Unit 1 teaches almost no new words, on purpose.** The learner finished A1
@@ -626,7 +627,7 @@ that is openly planned:
 | Generated practice, conversation | **Decided against, not planned.** `generatePractice` and `converse` stay `available: false` with a reason, and the API says `not-generated` rather than `planned`. Every German sentence in this app has been read by a person; a generated one sitting beside an authored one with no way to tell them apart would end that quietly. |
 | Phoneme-level pronunciation scoring | **Not built, and not claimed.** Speaking *is* real (see below) — the app checks whether a recogniser understood your words. Scoring an accent is a different thing and needs a different engine; `AudioRecorder` / `SpeechToText` in `src/services/speech/index.ts` remain the interfaces a server-side recogniser would implement. |
 | Real Life scenarios | **Roadmap only.** 13 scenarios are modelled with their CEFR staging and register, and the page presents them as a roadmap with no playable content. Where a scenario's language is already taught, it links to the lesson that teaches it. |
-| B2 units 2–5 | **Outline only.** Topics, grammar progression, "I can" outcomes and planned unit titles; no authored lessons for those four units. Settings says B2 is being written and gives the real count. Pre-A1, A1, A2 and B1 are finished, and B2 unit 1 is written. |
+| B2 units 3–5 | **Outline only.** Topics, grammar progression, "I can" outcomes and planned unit titles; no authored lessons for those three units. Settings says B2 is being written and gives the real count. Pre-A1, A1, A2 and B1 are finished, and B2 units 1 and 2 are written. |
 | C1 / C2 | Not implemented, but `CefrLevel` already includes them, so adding them is content, not a refactor. |
 
 ---
@@ -741,8 +742,8 @@ Run `npm run dev`, open <http://localhost:5173>, and:
    Accuracy shows `—` with "Още няма данни", not 0%. Speaking reads
    "Планирано — още не е направено".
 3. **Course.** All five levels are listed. Pre-A1, A1 and B1 each show six
-   linked units and a level checkpoint, A2 five; B2 shows its one authored unit
-   above a "Планирани раздели" list of the four still to come.
+   linked units and a level checkpoint, A2 five; B2 shows its two authored
+   units above a "Планирани раздели" list of the three still to come.
 4. **Lesson.** Open *Откъде си и къде живееш*. The requirement checklist shows
    0/6 sections, 0/24 exercises and so on. Work through the six teaching
    sections — note the Bulgarian-only comparison of free Bulgarian word order
