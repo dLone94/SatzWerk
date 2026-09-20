@@ -8,8 +8,11 @@ import {
   CURRICULUM,
   LEVEL_OUTLINES,
   LEXICON,
+  SCENARIOS,
   describeNoun,
   partialLevels,
+  scenarioStatus,
+  scriptFor,
   unauthoredLevels,
 } from '../../src/content/index.ts';
 import type { TeachingLanguage } from '../../src/content/types.ts';
@@ -219,8 +222,37 @@ describe.each(LANGS)('pages render in the %s path', (lang) => {
 
   it('real life', () => {
     mount(<RealLifePage />, lang);
-    // Planned scenarios must be labelled as planned.
-    expect(screen.getAllByText(tr('statusPlanned', lang)).length).toBeGreaterThan(5);
+    /*
+     * Derived, not pinned. This test used to assert that several scenarios
+     * were labelled "planned", which was true right up until they were
+     * written, and then it failed for the best possible reason. What it
+     * actually needs to guarantee is that the page agrees with the content:
+     * a stage with a script offers a way in, one without says so, and every
+     * badge matches the status derived from the scripts.
+     */
+    const stages = SCENARIOS.flatMap((scenario) =>
+      scenario.stages.map((stage) => Boolean(scriptFor(scenario.id, stage.level))),
+    );
+    const playable = stages.filter(Boolean).length;
+    const unwritten = stages.length - playable;
+
+    const links = screen.queryAllByRole('link', {
+      name: new RegExp(`${tr('realLifePlay', lang)}|${tr('realLifeReplay', lang)}`),
+    });
+    expect(links).toHaveLength(playable);
+    expect(screen.queryAllByText(tr('realLifeNotWritten', lang))).toHaveLength(unwritten);
+
+    const badges = {
+      available: 'statusAvailable',
+      partial: 'statusPartial',
+      planned: 'statusPlanned',
+    } as const;
+    for (const [status, key] of Object.entries(badges) as Array<
+      [keyof typeof badges, (typeof badges)[keyof typeof badges]]
+    >) {
+      const expected = SCENARIOS.filter((scenario) => scenarioStatus(scenario) === status).length;
+      expect(screen.queryAllByText(tr(key, lang))).toHaveLength(expected);
+    }
   });
 
   it('coach', () => {

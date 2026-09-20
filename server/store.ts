@@ -594,8 +594,12 @@ export interface ScenarioRun {
  * a scenario is meant to be replayed, and GREATEST() is spelled differently in
  * the two dialects, so the comparison happens here where it is readable.
  */
-export async function recordScenarioRun(db: Db, input: ScenarioRunInput): Promise<void> {
-  const now = new Date().toISOString();
+export async function recordScenarioRun(
+  db: Db,
+  input: ScenarioRunInput,
+  when = new Date(),
+): Promise<void> {
+  const now = when.toISOString();
   const turns = Math.max(0, Math.round(input.turns));
   const correct = Math.max(0, Math.min(turns, Math.round(input.firstTryCorrect)));
   const accuracy = turns > 0 ? correct / turns : 0;
@@ -626,8 +630,18 @@ export async function recordScenarioRun(db: Db, input: ScenarioRunInput): Promis
 export async function listScenarioRuns(db: Db): Promise<ScenarioRun[]> {
   return (
     (await db.all(
+      /*
+       * The second ORDER BY column is not decoration.
+       *
+       * last_run_at is an ISO string with millisecond precision, and two
+       * conversations finished inside the same millisecond tie on it. A tie
+       * leaves the order up to the engine, and SQLite and Postgres resolve it
+       * differently — which is exactly how CI caught this, with the two
+       * databases handing back the same two rows in opposite orders. Most
+       * recent first, then by id, is a total order on both.
+       */
       `SELECT script_id, runs, turns, first_try_correct, last_accuracy, best_accuracy, first_run_at, last_run_at
-         FROM scenario_runs ORDER BY last_run_at DESC`,
+         FROM scenario_runs ORDER BY last_run_at DESC, script_id ASC`,
     )) as Array<Record<string, unknown>>
   ).map((row) => ({
     scriptId: String(row.script_id),

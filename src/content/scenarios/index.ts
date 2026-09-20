@@ -1,6 +1,14 @@
 import type { CefrLevel, ContentStatus, ScenarioScript } from '../types.ts';
 import { SCENARIOS, type Scenario } from '../outline/realLife.ts';
 import { BAKERY_SCRIPTS } from './bakery.ts';
+import { RESTAURANT_SCRIPTS } from './restaurant.ts';
+import { SUPERMARKET_SCRIPTS } from './supermarket.ts';
+import { EMERGENCY_SCRIPTS } from './emergency.ts';
+import { HEALTH_SCRIPTS } from './health.ts';
+import { HOME_SCRIPTS } from './home.ts';
+import { OFFICE_SCRIPTS } from './offices.ts';
+import { TRANSPORT_SCRIPTS } from './transport.ts';
+import { WORK_SCRIPTS } from './work.ts';
 
 /**
  * Every playable scenario conversation.
@@ -9,7 +17,17 @@ import { BAKERY_SCRIPTS } from './bakery.ts';
  * stage is playable when a script exists for it, and the Real Life page says
  * "planned" for the rest. There is no field anyone can forget to update.
  */
-export const SCENARIO_SCRIPTS: ScenarioScript[] = [...BAKERY_SCRIPTS];
+export const SCENARIO_SCRIPTS: ScenarioScript[] = [
+  ...BAKERY_SCRIPTS,
+  ...RESTAURANT_SCRIPTS,
+  ...SUPERMARKET_SCRIPTS,
+  ...TRANSPORT_SCRIPTS,
+  ...HEALTH_SCRIPTS,
+  ...EMERGENCY_SCRIPTS,
+  ...HOME_SCRIPTS,
+  ...OFFICE_SCRIPTS,
+  ...WORK_SCRIPTS,
+];
 
 export function scriptById(id: string): ScenarioScript | undefined {
   return SCENARIO_SCRIPTS.find((entry) => entry.id === id);

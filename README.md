@@ -16,6 +16,10 @@ translations of each other — each explains German from where its own speakers
 actually stand, and a test fails if either one's prompts ever become a
 translation of the other's.
 
+Beside the course sit the **Real Life scenarios**: 13 rooms, 41 conversations,
+and someone who answers back. A lesson tells you what to say; there, the other
+person's line decides it.
+
 ---
 
 ## Quick start
@@ -622,6 +626,41 @@ the first time, and is now covered by a test both ways.
 
 ---
 
+## Real Life: the scenarios
+
+A lesson never surprises you. That is what makes it a lesson, and it is also
+the one thing it cannot rehearse: in a room, the other person's line decides
+what you say next. So Real Life is thirteen rooms, each of them staged across
+the levels — the same bakery counter at Pre-A1 (greet, point, thank, leave) and
+at B1 (they gave you the wrong thing; say so, prove it, get it fixed).
+
+Three decisions are worth stating, because each is about honesty rather than
+about code:
+
+- **Your turn is an ordinary exercise, played by the ordinary player.** Same
+  validator, same hint ladder, same mandatory retyping, and mistakes go to the
+  same mistake bank, which means a slip in a scenario comes back in tomorrow's
+  daily round. A scenario cannot mark an answer more kindly than a lesson
+  would, because it is not the thing doing the marking.
+- **The other person's German arrives without a translation.** You get the
+  line, a button that speaks it, and the meaning one press away. In the room
+  there is no subtitle, and a conversation mode that shows one by default is
+  practising reading while calling itself listening. Everything you have
+  already answered reveals itself in the transcript above.
+- **The register is fixed for the whole conversation**, not picked turn by
+  turn, because that is how it works: you decide once, at the door. Saying "du"
+  to somebody behind a counter is perfect grammar in the wrong room, so it is
+  an authored trap with its own explanation, and a test rejects any model
+  answer that uses the pronoun its script is not in.
+
+What is stored is what happened: how many times you have played each
+conversation and the best share of answers right at the first attempt. A stage
+nobody has opened shows nothing rather than a zero, and a scenario's status
+badge is derived from whether a script exists for each of its stages, so it
+cannot drift from the truth.
+
+---
+
 ## Architectural preparation, not finished features
 
 Stated plainly, because a feature that looks done and is not is worse than one
@@ -633,7 +672,7 @@ that is openly planned:
 | AI mistake explanation | **Real, when a key is set.** `server/ai-claude.ts` implements `AiProvider` against the Claude API. With no `ANTHROPIC_API_KEY` the app behaves exactly as before and says so. The key is read server-side only and is not prefixed `VITE_`, so it cannot reach the client bundle. See below. |
 | Generated practice, conversation | **Decided against, not planned.** `generatePractice` and `converse` stay `available: false` with a reason, and the API says `not-generated` rather than `planned`. Every German sentence in this app has been read by a person; a generated one sitting beside an authored one with no way to tell them apart would end that quietly. |
 | Phoneme-level pronunciation scoring | **Not built, and not claimed.** Speaking *is* real (see below) — the app checks whether a recogniser understood your words. Scoring an accent is a different thing and needs a different engine; `AudioRecorder` / `SpeechToText` in `src/services/speech/index.ts` remain the interfaces a server-side recogniser would implement. |
-| Real Life scenarios | **Roadmap only.** 13 scenarios are modelled with their CEFR staging and register, and the page presents them as a roadmap with no playable content. Where a scenario's language is already taught, it links to the lesson that teaches it. |
+| Real Life scenarios | **Playable.** 13 scenarios, 41 conversations, 169 answer steps, both teaching paths. Your turn is an ordinary exercise handed to the ordinary player, so the validator, the hints and the mandatory retyping are the same ones the course uses — and a mistake made in a scenario lands in the mistake bank like any other. The status badge is derived from whether a script exists, so it cannot claim more than has been written. |
 | Content beyond B2 | **Nothing is outstanding inside the curriculum.** All five levels are authored end to end, each with its units, unit checkpoints and a level checkpoint. What does not exist is anything above B2 — see the next row. |
 | C1 / C2 | Not implemented, but `CefrLevel` already includes them, so adding them is content, not a refactor. |
 
@@ -785,16 +824,12 @@ five levels: units of three lessons, a checkpoint per unit, a level checkpoint
 with no hints, and authored traps feeding targeted practice. Nothing in the
 curriculum is labelled planned, because nothing is planned.
 
-So what remains is no longer content. Three things are genuinely not built, and
+So what remains is no longer content. Two things are genuinely not built, and
 each is named as such in the app rather than implied to be coming:
 
 - **C1 and C2.** `CefrLevel` already includes them, so adding them would be
   authoring rather than a refactor — but there is no outline, and the course
   does not pretend otherwise.
-- **Real Life scenarios.** Thirteen are modelled with their CEFR staging and
-  register, and the page presents them as a roadmap with no playable content.
-  Where a scenario's language is already taught, it links to the lesson that
-  teaches it.
 - **Phoneme-level pronunciation scoring.** Speaking is real — the browser's
   recogniser feeds the same validator the typing loop uses — but scoring an
   accent is a different engine, and the dashboard shows no number for speaking

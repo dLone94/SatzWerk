@@ -6,6 +6,7 @@ import {
   contentStats,
   CURRICULUM,
   lessonExercises,
+  SCENARIO_SCRIPTS,
 } from '../../src/content/index.ts';
 
 /**
@@ -23,6 +24,35 @@ describe('the README describes the content that exists', () => {
       .map((lesson) => lesson.title.en)
       .filter((title) => !README.includes(title));
     expect(missing).toEqual([]);
+  });
+
+  it('quotes the real scenario totals', () => {
+    /*
+     * Derived, like every other figure here. The Real Life section went from
+     * "roadmap only" to playable in one commit, and a README that still says
+     * thirteen scenarios are unplayable is the kind of quiet lie this file
+     * exists to prevent.
+     */
+    const scenarios = new Set(SCENARIO_SCRIPTS.map((script) => script.scenarioId));
+    const steps = SCENARIO_SCRIPTS.reduce(
+      (sum, script) =>
+        sum +
+        script.beats.reduce(
+          (inner, beat) => inner + (beat.who === 'you' ? beat.exercise.steps.length : 0),
+          0,
+        ),
+      0,
+    );
+    for (const figure of [
+      `${scenarios.size} scenarios`,
+      `${SCENARIO_SCRIPTS.length} conversations`,
+      `${steps} answer steps`,
+    ]) {
+      expect(README, `README does not say "${figure}"`).toContain(figure);
+    }
+    // Every scenario the outline declares must have its title in the README,
+    // and none of them may still be described as a roadmap.
+    expect(README).not.toContain('Roadmap only');
   });
 
   it('quotes the real totals', () => {
