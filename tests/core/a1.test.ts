@@ -135,19 +135,25 @@ describe('the A1 level checkpoint', () => {
 });
 
 describe('the course is honest about what comes next', () => {
-  it('has A2 authored and B1 to B2 as outline only', () => {
-    const a2 = CURRICULUM.find((level) => level.id === 'a2')!;
-    expect(a2.units.length).toBeGreaterThan(0);
-    // A2 finished while this test was pinned to `partial`, which was a fact
-    // about how far the course had got rather than about honesty. What has to
-    // hold is that a level with units authored is never called `planned`.
-    expect(a2.status).not.toBe('planned');
-
-    const rest = CURRICULUM.filter((level) => ['b1', 'b2'].includes(level.id));
-    expect(rest).toHaveLength(2);
-    for (const level of rest) {
-      expect(level.units, level.id).toHaveLength(0);
-      expect(level.status, level.id).toBe('planned');
+  /**
+   * Derived, not pinned. This test named A2 as authored and B1–B2 as empty,
+   * which was a statement about how far the course had got — it broke the day
+   * B1's first unit landed, having caught nothing. Twice now. What actually
+   * has to hold is the honesty rule, in both directions: a level with units in
+   * it is never advertised as planned, and a level with none is never
+   * advertised as anything else.
+   */
+  it('never calls a level planned once it has units, or available while it has none', () => {
+    for (const level of CURRICULUM) {
+      if (level.units.length > 0) {
+        expect(level.status, `${level.id} has units but says planned`).not.toBe('planned');
+      } else {
+        expect(level.status, `${level.id} has no units`).toBe('planned');
+      }
     }
+    // And the empty ones are the tail of the course: levels are authored in
+    // order, so a gap in the middle would mean something had gone wrong.
+    const empty = CURRICULUM.filter((level) => level.units.length === 0);
+    expect(CURRICULUM.slice(CURRICULUM.length - empty.length)).toEqual(empty);
   });
 });

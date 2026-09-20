@@ -203,14 +203,10 @@ export const B1_OUTLINE: LevelOutline = {
     b('Advanced prepositions', 'Сложни предлози'),
     b('Narrating the past', 'Разказване в минало време'),
   ],
-  plannedUnits: [
-    b('Finding and renting a flat', 'Намиране и наемане на жилище'),
-    b('Authorities and paperwork', 'Институции и документи'),
-    b('Health and insurance', 'Здраве и осигуровки'),
-    b('Work and applications', 'Работа и кандидатстване'),
-    b('Family, school and daily life', 'Семейство, училище и ежедневие'),
-    b('Opinions and written German', 'Мнения и писмен немски'),
-  ],
+  // Every B1 unit is authored and lives in b1/. A unit leaves this list the
+  // moment it becomes playable, otherwise the course map advertises it twice —
+  // once as real and once as still to come — so the list is now empty.
+  plannedUnits: [],
 };
 
 export const B2_OUTLINE: LevelOutline = {

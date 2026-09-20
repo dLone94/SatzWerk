@@ -1,7 +1,13 @@
-import { useState } from 'react';
-import { contentStats } from '../../content/index.ts';
+import { useEffect, useState } from 'react';
+import { contentStats, unauthoredLevels } from '../../content/index.ts';
 import type { TeachingLanguage } from '../../content/types.ts';
 import { tr } from '../../i18n.ts';
+import {
+  disablePush,
+  enablePush,
+  readPushStatus,
+  type PushStatus,
+} from '../../services/push/index.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Card } from '../components/bits.tsx';
 
@@ -19,6 +25,9 @@ export function SettingsPage() {
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [passwordDone, setPasswordDone] = useState(false);
   const stats = contentStats();
+  // Named from the curriculum itself, so the sentence cannot outlive the gap
+  // it describes.
+  const pending = unauthoredLevels().map((level) => level.label);
 
   return (
     <div className="page">
@@ -96,6 +105,8 @@ export function SettingsPage() {
         </p>
       </Card>
 
+      <RemindersCard />
+
       <Card title={t('settingsContent')}>
         <ul className="content-stats">
           <li>
@@ -120,11 +131,19 @@ export function SettingsPage() {
             {lang === 'bg' ? 'Контролни проверки' : 'Checkpoints'}: <strong>{stats.checkpoints}</strong>
           </li>
         </ul>
-        <p className="card__foot">
-          {lang === 'bg'
-            ? 'Нивата A1–B2 съществуват като структура и план, но още не са написани.'
-            : 'Levels A1–B2 exist as structure and outline, but are not authored yet.'}
-        </p>
+        {pending.length > 0 ? (
+          <p className="card__foot">
+            {lang === 'bg'
+              ? `${pending.length === 1 ? 'Ниво' : 'Нивата'} ${pending.join(', ')} ${pending.length === 1 ? 'съществува' : 'съществуват'} като структура и план, но още ${pending.length === 1 ? 'не е написано' : 'не са написани'}.`
+              : `${pending.length === 1 ? 'Level' : 'Levels'} ${pending.join(', ')} ${pending.length === 1 ? 'exists' : 'exist'} as structure and outline, but ${pending.length === 1 ? 'is' : 'are'} not authored yet.`}
+          </p>
+        ) : (
+          <p className="card__foot">
+            {lang === 'bg'
+              ? 'Всички нива в структурата са написани.'
+              : 'Every level in the structure is authored.'}
+          </p>
+        )}
       </Card>
 
       <Card title={t('settingsData')} subtitle={t('settingsDataNote')}>
@@ -222,5 +241,88 @@ export function SettingsPage() {
         </Card>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The reminder switch.
+ *
+ * Every state gets its own sentence, because the thing to do about each is
+ * different: on iPhone the app has to be installed before notifications exist
+ * at all, a blocked permission can only be undone in device settings, and an
+ * unconfigured server means there is nothing to switch on. A single
+ * "couldn't turn on notifications" would leave a learner stuck on all three.
+ */
+function RemindersCard() {
+  const { t, lang } = useApp();
+  const [status, setStatus] = useState<PushStatus>({ state: 'unsupported' });
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void readPushStatus().then((next) => {
+      if (alive) setStatus(next);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /*
+   * The browser can refuse outright — a service worker that will not register,
+   * a push service that is unreachable, a private window where the API exists
+   * but does not work. Left uncaught, the tap did nothing at all and the card
+   * stayed as it was, which reads as the app being broken. Say what happened.
+   */
+  const toggle = async () => {
+    setBusy(true);
+    setFailure(null);
+    try {
+      setStatus(status.state === 'on' ? await disablePush() : await enablePush());
+    } catch (cause) {
+      setFailure(cause instanceof Error ? cause.message : String(cause));
+      setStatus(await readPushStatus().catch(() => ({ state: 'off' }) as PushStatus));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const canToggle = status.state === 'on' || status.state === 'off';
+
+  return (
+    <Card title={t('remindersTitle')} subtitle={t('remindersWhat')}>
+      <p>
+        <strong>{status.state === 'on' ? t('remindersOn') : t('remindersOff')}</strong>
+      </p>
+
+      {status.state === 'needs-install' ? <p className="muted">{t('remindersNeedsInstall')}</p> : null}
+      {status.state === 'unsupported' ? <p className="muted">{t('remindersUnsupported')}</p> : null}
+      {status.state === 'not-configured' ? (
+        <p className="muted">{t('remindersNotConfigured')}</p>
+      ) : null}
+      {status.state === 'denied' ? <p className="muted">{t('remindersDenied')}</p> : null}
+
+      {canToggle ? (
+        <button
+          type="button"
+          className={`btn ${status.state === 'on' ? 'btn--ghost' : 'btn--primary'}`}
+          onClick={() => void toggle()}
+          disabled={busy}
+        >
+          {busy
+            ? t('remindersWorking')
+            : status.state === 'on'
+              ? t('remindersDisable')
+              : t('remindersEnable')}
+        </button>
+      ) : null}
+
+      {failure ? (
+        <p className="task__warn">{tr('remindersFailed', lang, { reason: failure })}</p>
+      ) : null}
+
+      <p className="card__foot">{t('remindersHonest')}</p>
+    </Card>
   );
 }

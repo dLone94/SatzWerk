@@ -147,6 +147,8 @@ const server = createServer(async (req, res) => {
         headers: {
           cookie: req.headers.cookie,
           'x-forwarded-proto': req.headers['x-forwarded-proto'] as string | undefined,
+          // The reminder job carries a bearer token rather than a cookie.
+          authorization: req.headers.authorization,
         },
         // True when this process itself terminates TLS; otherwise the header
         // above is what a proxy in front of it says.

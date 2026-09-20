@@ -1,4 +1,4 @@
-import type { Bilingual, ErrorCategory } from '../src/content/types.ts';
+import type { Bilingual, ErrorCategory, TeachingLanguage } from '../src/content/types.ts';
 import { LEXICON } from '../src/content/index.ts';
 import { lower, tokenize } from '../src/core/validation/text.ts';
 
@@ -29,6 +29,15 @@ export interface CoachFinding {
   /** The fragment of the learner's text the finding is about. */
   excerpt?: string;
   suggestion?: string;
+  /**
+   * Written by a language model rather than by a deterministic check.
+   *
+   * It exists so the UI can mark it. A learner has to be able to tell which
+   * findings the app can stand behind and which came from something that can
+   * be confidently wrong — presenting them identically would make the
+   * reliable ones no more trustworthy than the rest.
+   */
+  generated?: boolean;
 }
 
 export interface WritingEvaluation {
@@ -40,22 +49,48 @@ export interface WritingEvaluation {
   /** Words the checker does not know, and therefore did not judge. */
   unknownWords: string[];
   note: Bilingual;
+  /**
+   * The language any `generated` findings were written in.
+   *
+   * They are written once, for the path that asked, so both halves of their
+   * `Bilingual` carry the same text. This says which language that text is.
+   */
+  generatedLanguage?: TeachingLanguage;
 }
 
 export interface MistakeExplanation {
   available: boolean;
-  explanation?: Bilingual;
+  /**
+   * The explanation, in one language.
+   *
+   * Not `Bilingual`, deliberately. Authored content is written twice, once per
+   * teaching path, by someone who knows what a Bulgarian speaker already has
+   * and an English speaker does not. A generated explanation is written once,
+   * for the path that asked; claiming it was both would mean translating it,
+   * which is the thing the two paths exist to avoid.
+   */
+  explanation?: string;
+  /** Which language `explanation` is in. */
+  language?: TeachingLanguage;
+  /** True when a model wrote it, so the UI can say so. */
+  generated?: boolean;
+  /** Why there is no explanation. Silence would read as the app being broken. */
+  error?: Bilingual;
 }
 
 export interface GeneratedPractice {
   available: boolean;
   items?: Array<{ prompt: Bilingual; answer: string }>;
+  /** Why not, when not. "Planned" and "decided against" are different answers. */
+  reason?: Bilingual;
 }
 
 export interface ConversationTurn {
   available: boolean;
   reply?: string;
   correction?: string;
+  /** Why not, when not. */
+  reason?: Bilingual;
 }
 
 /**
@@ -70,9 +105,10 @@ export interface AiProvider {
     expected: string;
     given: string;
     categories: ErrorCategory[];
-    language: 'en' | 'bg';
+    language: TeachingLanguage;
+    level?: string;
   }): Promise<MistakeExplanation>;
-  evaluateWriting(input: { text: string; language: 'en' | 'bg'; level: string }): Promise<WritingEvaluation>;
+  evaluateWriting(input: { text: string; language: TeachingLanguage; level: string }): Promise<WritingEvaluation>;
   generatePractice(input: { focus: string; level: string; count: number }): Promise<GeneratedPractice>;
   converse(input: { scenarioId: string; history: string[]; level: string }): Promise<ConversationTurn>;
 }
@@ -294,6 +330,39 @@ export const unavailableProvider: AiProvider = {
 };
 
 /**
+ * The Claude provider, loaded only if it is going to be used.
+ *
+ * `createProvider` is called on every cold start of the hosted function, and a
+ * deployment with no key set must not pay to load an SDK it will never call.
+ * So the module is pulled in on the first actual request instead, behind a
+ * wrapper that already knows it is available — the answer to "is the coach on?"
+ * comes from the environment, not from having loaded anything.
+ */
+function lazyClaudeProvider(config: import('./ai-claude.ts').ClaudeConfig): AiProvider {
+  let real: Promise<AiProvider> | undefined;
+  const load = (): Promise<AiProvider> => {
+    real ??= import('./ai-claude.ts').then((module) => module.createClaudeProvider(config));
+    return real;
+  };
+  return {
+    name: `claude:${config.model}`,
+    available: true,
+    async explainMistake(input) {
+      return (await load()).explainMistake(input);
+    },
+    async evaluateWriting(input) {
+      return (await load()).evaluateWriting(input);
+    },
+    async generatePractice(input) {
+      return (await load()).generatePractice(input);
+    },
+    async converse(input) {
+      return (await load()).converse(input);
+    },
+  };
+}
+
+/**
  * Resolve the provider for this process.
  *
  * A future provider is selected here from server-side environment variables.
@@ -301,12 +370,23 @@ export const unavailableProvider: AiProvider = {
  * the browser bundle.
  */
 export function createProvider(env: NodeJS.ProcessEnv = process.env): AiProvider {
-  const configured = env.SATZWERK_AI_PROVIDER;
-  if (!configured || configured === 'none') return unavailableProvider;
-  // No provider is implemented yet. Failing loudly beats pretending.
-  console.warn(
-    `[satzwerk] SATZWERK_AI_PROVIDER="${configured}" is set, but no provider implementation is wired up yet. ` +
-      'Falling back to rule-based checks.',
-  );
-  return unavailableProvider;
+  // An explicit opt-out wins over a key that happens to be in the environment.
+  // A key set for something else on the same host is not consent to spend it
+  // here.
+  if (env.SATZWERK_AI_PROVIDER === 'none') return unavailableProvider;
+
+  const apiKey = env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) {
+    // Not a warning. No key is the ordinary, supported state: the app works,
+    // the rule-based checks are real, and the UI says what is and is not there.
+    if (env.SATZWERK_AI_PROVIDER && env.SATZWERK_AI_PROVIDER !== 'none') {
+      console.warn(
+        `[satzwerk] SATZWERK_AI_PROVIDER="${env.SATZWERK_AI_PROVIDER}" is set but ANTHROPIC_API_KEY is not, ` +
+          'so the coach is running on rule-based checks only.',
+      );
+    }
+    return unavailableProvider;
+  }
+
+  return lazyClaudeProvider({ apiKey, model: env.SATZWERK_AI_MODEL?.trim() || 'claude-opus-5' });
 }

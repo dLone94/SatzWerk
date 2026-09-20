@@ -100,14 +100,24 @@ describe('Pre-A1 is complete', () => {
    */
   it('reports the real content totals', () => {
     const stats = contentStats();
-    // Six Pre-A1 units, six A1 units and five A2 units.
-    expect(stats.units).toBe(17);
-    expect(stats.authoredUnits).toBe(17);
-    expect(stats.lessons).toBe(51);
+    // Derived from the curriculum rather than written down. The point of this
+    // test is that contentStats never invents a number, not that the number is
+    // 17 — and a hard-coded total is a fact about how far the course happens
+    // to have got, which breaks on the day a unit lands and catches nothing.
+    const units = CURRICULUM.flatMap((level) => level.units);
+    const lessons = units.flatMap((unit) => unit.lessons);
+    expect(stats.units).toBe(units.length);
+    expect(stats.authoredUnits).toBe(units.filter((unit) => unit.status === 'available').length);
+    expect(stats.lessons).toBe(lessons.filter((lesson) => lesson.status === 'available').length);
     expect(stats.vocabulary).toBeGreaterThanOrEqual(150);
     expect(stats.grammarConcepts).toBeGreaterThanOrEqual(18);
-    // Seventeen unit checkpoints and three level checkpoints.
-    expect(stats.checkpoints).toBe(20);
+    // One checkpoint per unit that has one, plus one per level that has one.
+    const unitCheckpoints = units.filter((unit) => unit.checkpoint).length;
+    const levelCheckpoints = CURRICULUM.filter((level) => level.checkpoint).length;
+    expect(stats.checkpoints).toBe(unitCheckpoints + levelCheckpoints);
+    // And the shape the course is actually built in: every authored unit has a
+    // checkpoint, because a unit you cannot be tested on is not finished.
+    expect(unitCheckpoints).toBe(units.length);
   });
 });
 

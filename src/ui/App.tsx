@@ -10,6 +10,7 @@ import { MistakesPage } from './pages/MistakesPage.tsx';
 import { OnboardingPage } from './pages/OnboardingPage.tsx';
 import { RealLifePage } from './pages/RealLifePage.tsx';
 import { ReviewPage } from './pages/ReviewPage.tsx';
+import { SessionPage } from './pages/SessionPage.tsx';
 import { SettingsPage } from './pages/SettingsPage.tsx';
 import { SetupPage } from './pages/SetupPage.tsx';
 import { VocabularyPage } from './pages/VocabularyPage.tsx';
@@ -88,6 +89,7 @@ export function App() {
 
       <nav className="nav" aria-label={t('navCourse')}>
         <NavItem to="/" label={t('navToday')} />
+        <NavItem to="/session" label={t('navSession')} />
         <NavItem to="/course" label={t('navCourse')} />
         <NavItem to="/review" label={t('navReview')} badge={dueCount > 0 ? dueCount : undefined} />
         <NavItem to="/vocabulary" label={t('navVocabulary')} />
@@ -101,6 +103,7 @@ export function App() {
         <Routes>
           <Route path="/welcome" element={<OnboardingPage />} />
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/session" element={<SessionPage />} />
           <Route path="/course" element={<CoursePage />} />
           <Route path="/lesson/:lessonId" element={<LessonPage />} />
           <Route path="/checkpoint/:checkpointId" element={<CheckpointPage />} />

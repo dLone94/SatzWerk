@@ -349,6 +349,41 @@ describe('authored answers are consistent with the validator', () => {
 });
 
 describe('both teaching paths are authored, not translated placeholders', () => {
+  /**
+   * Every character a learner reads is from a script the course actually
+   * teaches in.
+   *
+   * This exists because a stray CJK character once landed in the middle of a
+   * Bulgarian sentence — a single keystroke, invisible in review, and the kind
+   * of thing that is never noticed until somebody is reading the lesson. The
+   * allowed punctuation is listed explicitly rather than by category, so
+   * adding a new symbol to the content is a decision.
+   */
+  it('is written only in scripts the course teaches in', () => {
+    const ALLOWED_PUNCTUATION = new Set([...'—–…„“”‘’•→·×°²½€«»№']);
+    const offenders: string[] = [];
+    const check = (label: string, node: unknown) => {
+      const found: Array<{ text: Bilingual; scope: TeachingLanguage[] }> = [];
+      collectBilinguals(node, ['en', 'bg'], found);
+      for (const { text } of found) {
+        for (const lang of ['en', 'bg'] as TeachingLanguage[]) {
+          for (const character of text[lang]) {
+            if (character.codePointAt(0)! < 128) continue;
+            if (ALLOWED_PUNCTUATION.has(character)) continue;
+            // Latin (German umlauts, ß) and Cyrillic are the two scripts the
+            // course is written in.
+            if (/[\u00C0-\u024F\u0400-\u04FF]/.test(character)) continue;
+            offenders.push(`${label} (${lang}): ${JSON.stringify(character)} in ${text[lang].slice(0, 50)}`);
+          }
+        }
+      }
+    };
+    for (const concept of GRAMMAR_CONCEPTS) check(concept.id, concept);
+    for (const entry of VOCABULARY) check(entry.id, entry);
+    for (const { exercise } of allExercises()) check(exercise.id, exercise);
+    expect(offenders).toEqual([]);
+  });
+
   it('has non-empty English and Bulgarian text wherever a path is active', () => {
     const problems: string[] = [];
     const check = (label: string, node: unknown) => {
@@ -472,6 +507,12 @@ describe('vocabulary', () => {
         /^ge.+(t|en)$/.test(p) ||
         // an inseparable prefix takes no ge-: besucht, bezahlt
         /^(be|er|ver|ent|emp|ge|miss|zer)/.test(p) ||
+        // durch, über, um, unter, hinter and wider are the awkward ones: they
+        // are separable on some verbs and inseparable on others, and when they
+        // are inseparable there is no ge- either. umziehen separates and gives
+        // umgezogen; unterschreiben does not and gives unterschrieben. Both
+        // are real participles, so the shape check has to allow both.
+        /^(durch|über|um|unter|hinter|wider).+(t|en)$/.test(p) ||
         // -ieren verbs take no ge- either: studiert
         /iert$/.test(p) ||
         // a separable prefix puts it in the middle: eingekauft, aufgestanden
@@ -489,6 +530,12 @@ describe('vocabulary', () => {
       [
         // Movement.
         'kommen', 'gehen', 'fahren', 'fliegen', 'schwimmen', 'aufstehen',
+        // Movement into and out of somewhere you then live. Added with B1
+        // Unit 1: they are the same motion as umziehen and take sein for the
+        // same reason.
+        'einziehen', 'ausziehen',
+        // Added with B1 Unit 5. Growing up is a change of state, like werden.
+        'aufwachsen',
         // Change of state.
         'passieren', 'umziehen', 'umsteigen',
         // The three with no reason behind them.

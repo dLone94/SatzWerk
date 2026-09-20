@@ -26,9 +26,20 @@ describe('migrating an existing database', () => {
   it('upgrades a database that stopped at version 1, keeping its data', async () => {
     const path = join(dir, 'v1.db');
 
-    // Build a version-1 database and put a row in it.
+    // Build a genuine version-1 database: run migration 1 and stop, which is
+    // exactly the database an older build of this app left behind. Winding a
+    // current one back by hand would mean a list of drops to maintain per
+    // migration, and the day someone forgot to extend it the test would pass
+    // while testing nothing.
     const first = await openSqlite({ path });
-    await migrate(first);
+    expect(await migrate(first, 1)).toBe(1);
+    // There is no accounts table yet, and no user_id anywhere — that is what
+    // migration 2 onwards is for.
+    const users = await first.all(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users'",
+    );
+    expect(users).toHaveLength(0);
+
     // migrate() creates the schema; seeding the profile row is openDatabase's
     // job, so a database built this way has none yet. Insert it by hand, with
     // data worth preserving across the upgrade.
@@ -40,24 +51,6 @@ describe('migrating an existing database', () => {
       now,
       now,
     );
-    // Wind it back to a genuine version-1 database: no accounts table, and no
-    // user_id on any progress table. Anything short of that would be a state
-    // that cannot actually occur, and would test nothing useful.
-    await first.exec('DROP TABLE IF EXISTS users');
-    for (const table of [
-      'profile',
-      'lesson_state',
-      'step_outcomes',
-      'review_items',
-      'attempts',
-      'mistakes',
-      'study_days',
-      'checkpoint_results',
-      'word_flags',
-    ]) {
-      await first.exec(`ALTER TABLE ${table} DROP COLUMN user_id`);
-    }
-    await first.run('UPDATE meta SET value = ? WHERE key = ?', '1', 'schema_version');
     await first.close();
 
     // Reopen: the pending migration should run and the data should survive.
