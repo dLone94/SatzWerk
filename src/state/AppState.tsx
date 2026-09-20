@@ -15,6 +15,7 @@ import type { RecallGrade, ReviewItem } from '../core/srs/scheduler.ts';
 import { tr, type UiKey } from '../i18n.ts';
 import {
   api,
+  ApiError,
   type AppStateSnapshot,
   type AttemptPayload,
   type CoachStatus,
@@ -24,6 +25,7 @@ import {
   type Stats,
   type TargetSpec,
 } from '../services/api/client.ts';
+import * as outbox from '../services/api/outbox.ts';
 import { createTtsProvider, type TtsProvider } from '../services/tts/index.ts';
 import { createSpeechRecogniser, type SpeechRecogniser } from '../services/speech/recogniser.ts';
 
@@ -71,6 +73,12 @@ export interface AppStateValue {
   setTeachingLanguage: (lang: TeachingLanguage) => Promise<void>;
   updateProfile: (patch: Partial<Profile>) => Promise<void>;
   submitAttempt: (payload: AttemptPayload) => Promise<void>;
+  /** Answers typed but not yet in the database, because the server was away. */
+  sync: SyncState;
+  /** Send what is waiting now, rather than at the next automatic attempt. */
+  syncAnswers: () => Promise<void>;
+  /** Stop reporting answers the server refused, once they have been read. */
+  dismissRefusedAnswers: () => void;
   markSectionSeen: (lessonId: string, sectionId: string) => Promise<void>;
   recordMastery: (lessonId: string, accuracy: number, passAccuracy: number) => Promise<LessonProgress>;
   recordRecovery: (lessonId: string) => Promise<void>;
@@ -90,6 +98,22 @@ export interface AppStateValue {
   resetAll: () => Promise<void>;
   lessonProgress: (lessonId: string) => LessonProgress;
 }
+
+export interface SyncState {
+  /** Waiting to be sent. Their verdicts were already shown to the learner. */
+  pending: number;
+  /** The server refused these; they will never be sent. Reported, not hidden. */
+  refused: number;
+  /**
+   * True while the queue is only in memory, because the browser will not store
+   * anything. The answers are still held; a reload would lose them.
+   */
+  atRisk: boolean;
+  /** Answers that could not even be held, because the queue is full. */
+  lost: number;
+}
+
+const NO_PENDING: SyncState = { pending: 0, refused: 0, atRisk: false, lost: 0 };
 
 /**
  * Exported so tests can mount a component with a stub state instead of a live
@@ -135,6 +159,14 @@ function indexLessons(lessons: LessonProgress[]): Record<string, LessonProgress>
 /** How often we flush accumulated active time to the server. */
 const STUDY_FLUSH_MS = 60_000;
 
+/**
+ * How often to try the answers waiting in the outbox. Often enough that a
+ * connection coming back mid-lesson is noticed without the learner doing
+ * anything; rarely enough that a long stretch with no signal is not a stream
+ * of doomed requests.
+ */
+const SYNC_RETRY_MS = 30_000;
+
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,9 +174,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<AppStateSnapshot | null>(null);
   const [coach, setCoach] = useState<CoachStatus | null>(null);
 
+  const [sync, setSync] = useState<SyncState>(NO_PENDING);
+
   const tts = useMemo(() => createTtsProvider(), []);
   const recogniser = useMemo(() => createSpeechRecogniser(), []);
   const pendingSeconds = useRef(0);
+  /** Answers the queue was too full to take. Counted so they can be owned up to. */
+  const lostAnswers = useRef(0);
+  /** The flush in flight, so the interval and the `online` event share one. */
+  const flushing = useRef<Promise<void> | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -246,6 +284,73 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setSnapshot((current) => (current ? { ...current, ...patch } : current));
   }, []);
 
+  /** What the outbox currently holds, in the shape the app shows it. */
+  const readSync = useCallback(() => {
+    const state = outbox.snapshot();
+    setSync({
+      pending: state.queued.length,
+      refused: state.rejected.length,
+      atRisk: state.queued.length > 0 && !outbox.isDurable(),
+      lost: lostAnswers.current,
+    });
+  }, []);
+
+  /**
+   * Send the answers that are waiting.
+   *
+   * Afterwards the whole snapshot is fetched again rather than patched: every
+   * sent answer moved the streak, the review schedule and possibly the mistake
+   * bank, and one request that asks the database what is true beats replaying
+   * what each answer ought to have done.
+   */
+  const flushAnswers = useCallback(async () => {
+    if (flushing.current) return flushing.current;
+    if (outbox.queuedCount() === 0) {
+      readSync();
+      return;
+    }
+
+    const run = (async () => {
+      const outcome = await outbox.flush((payload) => api.recordAttempt(payload));
+      if (outcome.sent > 0) {
+        try {
+          setSnapshot(await api.state());
+        } catch {
+          // The connection went again between the last answer and this fetch.
+          // The numbers stay as they were; nothing is invented to fill the gap.
+        }
+      }
+      readSync();
+    })();
+
+    flushing.current = run.finally(() => {
+      flushing.current = null;
+    });
+    return flushing.current;
+  }, [readSync]);
+
+  // Try again when the browser says the network is back, and on a timer for
+  // the cases it does not say — a captive wifi, a server that was restarting.
+  // Gated on having loaded once: flushing before sign-in would meet a row of
+  // 401s and mark good answers as refused.
+  const loaded = snapshot !== null;
+  useEffect(() => {
+    readSync();
+    if (!loaded) return;
+    void flushAnswers();
+
+    const onOnline = () => void flushAnswers();
+    window.addEventListener('online', onOnline);
+    const timer = window.setInterval(() => {
+      if (outbox.queuedCount() > 0) void flushAnswers();
+    }, SYNC_RETRY_MS);
+
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.clearInterval(timer);
+    };
+  }, [loaded, flushAnswers, readSync]);
+
   const mergeLesson = useCallback((progress: LessonProgress) => {
     setSnapshot((current) =>
       current
@@ -303,8 +408,54 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         patchSnapshot({ profile: updated });
       },
 
+      /**
+       * Bank an answer — and never lose it, and never stop the lesson.
+       *
+       * The verdict has already been decided by the validator in the browser
+       * and shown to the learner; this is only the record of it. So a server
+       * that cannot be reached is not a reason to refuse an answer somebody
+       * typed. It is held, and sent when there is a connection again.
+       */
       submitAttempt: async (payload) => {
-        const result = await api.recordAttempt(payload);
+        // `payload` wins so a caller can state the time itself; none does yet.
+        const stamped: AttemptPayload = { at: new Date().toISOString(), ...payload };
+
+        const hold = () => {
+          if (!outbox.enqueue(stamped)) lostAnswers.current += 1;
+          readSync();
+        };
+
+        // Never jump the queue. Earlier answers waiting means this one waits
+        // too: the review schedule is computed from one attempt to the next,
+        // so sending today's before yesterday's schedules the wrong thing.
+        if (outbox.queuedCount() > 0) {
+          hold();
+          void flushAnswers();
+          return;
+        }
+
+        let result;
+        try {
+          result = await api.recordAttempt(stamped);
+        } catch (cause) {
+          if (outbox.isUnreachable(cause)) {
+            hold();
+            return;
+          }
+          // The server was there and said no. Retrying would be refused again,
+          // so it is kept as a refusal and reported rather than retried — and
+          // the lesson carries on rather than freezing on a dead screen.
+          outbox.recordRefusal(cause instanceof Error ? cause.message : String(cause));
+          readSync();
+          if (cause instanceof ApiError && cause.status === 401) {
+            // Signed out somewhere else, or the session expired. Asking the
+            // server again puts the password screen up instead of leaving the
+            // learner typing into nothing.
+            setSession(await api.session());
+          }
+          return;
+        }
+
         setSnapshot((current) => {
           if (!current) return current;
           const byId = new Map(current.reviewItems.map((item) => [item.id, item]));
@@ -323,9 +474,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         });
         // The mistake bank changes shape on a wrong answer or a retype.
         if (result.mistakeId || payload.isRetype) {
-          const state = await api.state();
-          patchSnapshot({ mistakes: state.mistakes, stats: state.stats });
+          try {
+            const state = await api.state();
+            patchSnapshot({ mistakes: state.mistakes, stats: state.stats });
+          } catch {
+            // The answer itself is banked; only this refresh missed. The
+            // mistake list catches up on the next load.
+          }
         }
+      },
+
+      sync,
+      syncAnswers: flushAnswers,
+      dismissRefusedAnswers: () => {
+        outbox.clearRejected();
+        lostAnswers.current = 0;
+        readSync();
       },
 
       markSectionSeen: async (lessonId, sectionId) => {
@@ -389,7 +553,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setSnapshot(await api.reset());
       },
     };
-  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson]);
+  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, sync, readSync, flushAnswers]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }

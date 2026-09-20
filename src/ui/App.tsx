@@ -17,6 +17,7 @@ import { SettingsPage } from './pages/SettingsPage.tsx';
 import { SetupPage } from './pages/SetupPage.tsx';
 import { VocabularyPage } from './pages/VocabularyPage.tsx';
 import { WordPage } from './pages/WordPage.tsx';
+import { SyncBanner } from './components/SyncBanner.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
 
 export function App() {
@@ -100,6 +101,8 @@ export function App() {
         <NavItem to="/coach" label={t('navCoach')} />
         <NavItem to="/settings" label={t('navSettings')} />
       </nav>
+
+      <SyncBanner />
 
       <main id="main" className="main">
         <Routes>

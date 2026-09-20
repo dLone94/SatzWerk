@@ -101,6 +101,13 @@ export interface AttemptPayload {
   resolved: boolean;
   durationMs?: number;
   reviewTargets?: TargetSpec[];
+  /**
+   * When the answer was typed, as an ISO string. Sent because an answer can
+   * wait in the outbox for a connection, and it belongs to the day it was
+   * typed rather than the day it was finally delivered. The server uses it
+   * only if it is plausible.
+   */
+  at?: string;
 }
 
 export interface AttemptResponse {

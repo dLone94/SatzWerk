@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { handleRequest } from '../../server/api.ts';
+import { attemptTime, handleRequest } from '../../server/api.ts';
 import { openDatabase, SCHEMA_VERSION, type Db } from '../../server/db.ts';
 import * as store from '../../server/store.ts';
 import { ruleBasedWritingReview, unavailableProvider } from '../../server/ai.ts';
@@ -550,5 +550,75 @@ describe('routing', () => {
     const state = (await call('POST', '/api/reset')).body as { mistakes: unknown[]; reviewItems: unknown[] };
     expect(state.mistakes).toEqual([]);
     expect(state.reviewItems).toEqual([]);
+  });
+});
+
+describe('an answer that waited for a connection', () => {
+  /**
+   * The point of sending the time: a lesson done on the U-Bahn on Tuesday
+   * evening and delivered on Wednesday morning is Tuesday's work. Without
+   * this the streak quietly loses a day, and the dashboard says something
+   * that did not happen.
+   */
+  it('counts for the day it was typed, not the day it arrived', async () => {
+    // More than a day back, so the day it was typed is never today whatever
+    // the hour this test runs at.
+    const typedAt = new Date(Date.now() - 36 * 60 * 60 * 1000);
+    const response = await call('POST', '/api/attempts', { ...wrongAttempt, at: typedAt.toISOString() });
+    expect(response.status).toBe(200);
+
+    const day = typedAt.toISOString().slice(0, 10);
+    const row = await db.get<{ answers: number }>('SELECT answers FROM study_days WHERE day = ?', day);
+    expect(Number(row?.answers)).toBe(1);
+
+    // And today has nothing, because nothing was answered today.
+    const today = await db.get('SELECT answers FROM study_days WHERE day = ?', new Date().toISOString().slice(0, 10));
+    expect(today).toBeUndefined();
+  });
+
+  it('is stored with the time it was typed', async () => {
+    const typedAt = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    await call('POST', '/api/attempts', { ...wrongAttempt, at: typedAt.toISOString() });
+    const row = await db.get<{ created_at: string }>('SELECT created_at FROM attempts ORDER BY id DESC LIMIT 1');
+    expect(new Date(String(row!.created_at)).toISOString()).toBe(typedAt.toISOString());
+  });
+
+  it('still records an answer that carries no time at all', async () => {
+    // Every attempt written before this existed, and anything that posts by
+    // hand. The server's own clock is the fallback, exactly as before.
+    const response = await call('POST', '/api/attempts', wrongAttempt);
+    expect(response.status).toBe(200);
+    const today = await db.get<{ answers: number }>(
+      'SELECT answers FROM study_days WHERE day = ?',
+      new Date().toISOString().slice(0, 10),
+    );
+    expect(Number(today?.answers)).toBe(1);
+  });
+});
+
+describe('the time an answer claims to have been typed', () => {
+  const now = new Date('2026-09-20T20:00:00.000Z');
+
+  it('is used when it is plausible', () => {
+    const typed = '2026-09-19T18:30:00.000Z';
+    expect(attemptTime(typed, now).toISOString()).toBe(typed);
+  });
+
+  it('is ignored when the phone says the answer is from the future', () => {
+    // A clock running fast would otherwise park work where nothing shows it.
+    expect(attemptTime('2026-09-21T09:00:00.000Z', now)).toBe(now);
+    // A couple of minutes of skew is ordinary, and kept.
+    expect(attemptTime('2026-09-20T20:01:00.000Z', now).toISOString()).toBe('2026-09-20T20:01:00.000Z');
+  });
+
+  it('is ignored when it is older than any queue could be', () => {
+    // A phone that booted with a flat battery's clock, not a long tunnel.
+    expect(attemptTime('2009-01-01T00:00:00.000Z', now)).toBe(now);
+  });
+
+  it('is ignored when it is not a date at all', () => {
+    expect(attemptTime('gestern Abend', now)).toBe(now);
+    expect(attemptTime(undefined, now)).toBe(now);
+    expect(attemptTime(1758398400000, now)).toBe(now);
   });
 });

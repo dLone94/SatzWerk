@@ -385,7 +385,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     const body = asRecord(request.body);
     const validation = validateAttempt(body);
     if ('error' in validation) return badRequest(validation.error);
-    const result = await store.recordAttempt(db, validation.input);
+    const result = await store.recordAttempt(db, validation.input, validation.at);
     return ok({ ...result, stats: await store.getStats(db) });
   }
 
@@ -596,7 +596,36 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   return notFound(`No route for ${method} ${path}`);
 }
 
-type AttemptValidation = { input: store.AttemptInput } | { error: string };
+type AttemptValidation = { input: store.AttemptInput; at: Date } | { error: string };
+
+/**
+ * How long ago an answer may claim to have been typed.
+ *
+ * An answer typed in a tunnel is sent when the phone finds signal again, and it
+ * belongs to the day it was typed — otherwise a Tuesday evening of work lands
+ * on Wednesday and the streak tells a small lie. So the client sends the time
+ * and the server uses it.
+ *
+ * Within limits. The clock belongs to whoever is holding the phone, and a
+ * device that boots with a wrong one (a flat battery, a factory reset) would
+ * otherwise write attempts into 2009 or into next year, where nothing would
+ * ever show them. Outside this window the server's own clock is used instead:
+ * wrong by hours at worst, rather than wrong by years.
+ */
+export const ATTEMPT_BACKDATE_LIMIT_MS = 14 * 24 * 60 * 60 * 1000;
+
+/** Two minutes of slack for a phone clock that runs slightly fast. */
+const ATTEMPT_SKEW_MS = 2 * 60 * 1000;
+
+export function attemptTime(raw: unknown, now: Date): Date {
+  if (typeof raw !== 'string' || raw.length === 0) return now;
+  const stamped = new Date(raw);
+  const millis = stamped.getTime();
+  if (!Number.isFinite(millis)) return now;
+  if (millis > now.getTime() + ATTEMPT_SKEW_MS) return now;
+  if (millis < now.getTime() - ATTEMPT_BACKDATE_LIMIT_MS) return now;
+  return stamped;
+}
 
 const CONTEXTS = new Set(['lesson', 'mastery', 'review', 'checkpoint', 'practice', 'scenario']);
 const VERDICTS = new Set([
@@ -625,6 +654,9 @@ function validateAttempt(body: Record<string, unknown>): AttemptValidation {
   const targets = Array.isArray(body.reviewTargets) ? body.reviewTargets : [];
 
   return {
+    // When the answer was typed, which is not when it arrived if it waited in
+    // the client's outbox for the connection to come back.
+    at: attemptTime(body.at, new Date()),
     input: {
       context: context as store.AttemptContext,
       lessonId: body.lessonId ? String(body.lessonId) : undefined,
