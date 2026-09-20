@@ -2,7 +2,7 @@
 
 A personal German tutor built around one idea: **you learn German by producing German.**
 
-SatzWerk teaches from absolute beginner towards CEFR B2, with two separately
+SatzWerk teaches from absolute beginner to CEFR B2, with two separately
 authored teaching paths — **English → German** and **Bulgarian → German** — and a
 learning loop that always ends in the learner typing German:
 
@@ -10,8 +10,11 @@ learning loop that always ends in the learner typing German:
 LEARN → RECALL → TYPE → FEEDBACK → CORRECT → TYPE AGAIN → REVIEW LATER
 ```
 
-This repository contains **Milestone 2**: the whole Pre-A1 level, authored in
-both paths, on top of the Milestone 1 engine.
+The course is complete: **five levels, 28 units, 84 lessons and 33 checkpoints**,
+every one of them written by hand in both paths. The two paths are not
+translations of each other — each explains German from where its own speakers
+actually stand, and a test fails if either one's prompts ever become a
+translation of the other's.
 
 ---
 
@@ -774,34 +777,38 @@ Run `npm run dev`, open <http://localhost:5173>, and:
 
 ---
 
-## Next milestone
+## What is left
 
-**Milestone 5 — B1.** Pre-A1, A1 and A2 are all finished, and the shape has held
-for three levels: units of three lessons, a checkpoint per unit, a level
-checkpoint with no hints, and authored traps feeding targeted practice.
+**The course is finished.** Pre-A1 to B2, five levels, 28 units, 84 lessons and
+33 checkpoints, both teaching paths authored separately. The shape held for all
+five levels: units of three lessons, a checkpoint per unit, a level checkpoint
+with no hints, and authored traps feeding targeted practice. Nothing in the
+curriculum is labelled planned, because nothing is planned.
 
-B1 is outlined already, and the grammar it needs is mostly the other half of
-what A2 opened: the full adjective-ending system rather than one corner of it,
-the genitive, relative clauses, the passive, and *würde* and the subjunctive. A2
-ends where it should — a learner who passes its level checkpoint can choose
-between *haben* and *sein* without thinking, and can put a verb at the end of a
-clause on purpose.
+So what remains is no longer content. Three things are genuinely not built, and
+each is named as such in the app rather than implied to be coming:
 
-A1 ends where it should: a learner who passes its level checkpoint can tell the
-accusative from the dative, which is the one thing A2 assumes and cannot
-re-teach. A2 Unit 1 starts where it should too — it asks for no new verbs at
-all, only a second form of the ones already owned.
+- **C1 and C2.** `CefrLevel` already includes them, so adding them would be
+  authoring rather than a refactor — but there is no outline, and the course
+  does not pretend otherwise.
+- **Real Life scenarios.** Thirteen are modelled with their CEFR staging and
+  register, and the page presents them as a roadmap with no playable content.
+  Where a scenario's language is already taught, it links to the lesson that
+  teaches it.
+- **Phoneme-level pronunciation scoring.** Speaking is real — the browser's
+  recogniser feeds the same validator the typing loop uses — but scoring an
+  accent is a different engine, and the dashboard shows no number for speaking
+  rather than inventing one.
 
-Two pieces of machinery still waiting on content rather than on code:
+Two pieces of machinery are waiting on use rather than on code:
 
 - **Dictation without replay**, which the exercise model already supports via
-  `audio.hideText` and a replay budget, but which only becomes a fair test once
-  there is enough heard-but-not-seen vocabulary behind it.
-- **Interleaved review across units**, now that there are twelve units to
-  interleave rather than two.
-
-The AI Coach, conversation mode and speech evaluation stay where they are —
-behind interfaces — until the core course is worth talking about.
+  `audio.hideText` and a replay budget, and which becomes a fair test now that
+  there is a course's worth of heard-but-not-seen vocabulary behind it.
+- **Interleaved review across levels**, now that there are 28 units to
+  interleave. The daily round already mixes review, mistakes and the lesson in
+  progress; what it does not yet do is deliberately space items *across* levels
+  rather than letting the schedule decide alone.
 
 ---
 
