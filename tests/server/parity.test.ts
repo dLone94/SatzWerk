@@ -108,10 +108,17 @@ async function scenario(db: Db) {
    * by SQLite at runtime with nothing failing until a conversation was
    * actually finished in a browser; the replay below is what makes the
    * conflict branch — and Postgres's agreement with it — part of the test.
+   *
+   * The explicit clocks are not decoration either. Without them each database
+   * gets its own wall clock, three writes inside one millisecond tie while
+   * three that straddle a boundary do not, and the two runs come back in
+   * different orders for a reason that has nothing to do with the dialects.
+   * Fixed instants make the comparison mean what it claims: the bakery is
+   * replayed on day 3 so it sorts ahead of the doctor on day 2.
    */
-  await store.recordScenarioRun(db, { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 5 });
-  await store.recordScenarioRun(db, { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 2 });
-  await store.recordScenarioRun(db, { scriptId: 'sc-doctor-a2', turns: 4, firstTryCorrect: 3 });
+  await store.recordScenarioRun(db, { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 5 }, day(1));
+  await store.recordScenarioRun(db, { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 2 }, day(3));
+  await store.recordScenarioRun(db, { scriptId: 'sc-doctor-a2', turns: 4, firstTryCorrect: 3 }, day(2));
 
   const progress = await store.getLessonProgress(db, 'pre-a1-u1-l2');
   const stats = await store.getStats(db);
