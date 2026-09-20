@@ -60,23 +60,46 @@ describe('lesson text markup', () => {
    * leak a stray asterisk pair to a learner because it was written before this
    * renderer existed.
    */
+  /*
+   * Every authored string, in one render.
+   *
+   * This used to mount one component per string, which was a few hundred
+   * renders when it was written and grew with the course until it began
+   * timing out under a full test run — a flake that says nothing about the
+   * content. Collecting first and rendering once is the same assertion
+   * through the same component, in a fraction of the time.
+   */
   it('leaves no unrendered ** anywhere in the authored grammar', () => {
-    const offenders: string[] = [];
-    const scan = (value: unknown, where: string) => {
+    const texts: Array<{ where: string; text: string }> = [];
+    const collect = (value: unknown, where: string) => {
       if (typeof value === 'string') {
-        const { container } = render(<RichText text={value} />);
-        if (container.textContent?.includes('**')) offenders.push(`${where}: ${value.slice(0, 60)}`);
+        texts.push({ where, text: value });
         return;
       }
       if (Array.isArray(value)) {
-        value.forEach((item, index) => scan(item, `${where}[${index}]`));
+        value.forEach((item, index) => collect(item, `${where}[${index}]`));
         return;
       }
       if (value && typeof value === 'object') {
-        for (const [key, inner] of Object.entries(value)) scan(inner, `${where}.${key}`);
+        for (const [key, inner] of Object.entries(value)) collect(inner, `${where}.${key}`);
       }
     };
-    for (const concept of GRAMMAR_CONCEPTS) scan(concept.blocks, concept.id);
+    for (const concept of GRAMMAR_CONCEPTS) collect(concept.blocks, concept.id);
+    expect(texts.length).toBeGreaterThan(100);
+
+    const { container } = render(
+      <div>
+        {texts.map((entry, index) => (
+          <div key={index} data-where={entry.where}>
+            <RichText text={entry.text} />
+          </div>
+        ))}
+      </div>,
+    );
+
+    const offenders = [...container.querySelectorAll('[data-where]')]
+      .filter((node) => node.textContent?.includes('**'))
+      .map((node) => node.getAttribute('data-where'));
     expect(offenders).toEqual([]);
   });
 });

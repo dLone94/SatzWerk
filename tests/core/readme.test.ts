@@ -63,18 +63,25 @@ describe('the README describes the content that exists', () => {
     // course had got rather than whether the README told the truth about it.
     // What has to hold is that the empty levels are the tail of the course and
     // that the README names exactly that range.
-    expect(empty.length).toBeGreaterThan(0);
-    expect(CURRICULUM.slice(-empty.length)).toEqual(empty);
-    // The claim, not its exact wording. This used to pin the sentence
-    // "Levels B1–B2 exist as structure and outline only", which stopped being
-    // a sentence at all once only one level was left — "Levels B2–B2" is not
-    // English. What has to hold is that the README says the phrase and names
-    // every level it applies to.
-    expect(README).toContain('exists as structure and outline only');
-    for (const level of empty) {
-      expect(README, `README does not name ${level.label} as unauthored`).toMatch(
-        new RegExp(`${level.label}[^.]{0,200}?(outline only|not authored)`),
-      );
+    if (empty.length > 0) {
+      expect(CURRICULUM.slice(-empty.length)).toEqual(empty);
+      // The claim, not its exact wording. This used to pin the sentence
+      // "Levels B1–B2 exist as structure and outline only", which stopped being
+      // a sentence at all once only one level was left — "Levels B2–B2" is not
+      // English. What has to hold is that the README says the phrase and names
+      // every level it applies to.
+      expect(README).toContain('exists as structure and outline only');
+      for (const level of empty) {
+        expect(README, `README does not name ${level.label} as unauthored`).toMatch(
+          new RegExp(`${level.label}[^.]{0,200}?(outline only|not authored)`),
+        );
+      }
+    } else {
+      // Every level has at least one unit in it now. The sentence has to go:
+      // a README that still says a level is outline only, when it is not, is
+      // wrong in the same way as one that says a level is finished when it is
+      // not — it just errs in the flattering direction less obviously.
+      expect(README).not.toContain('exists as structure and outline only');
     }
 
     // A level with some of its units written is neither finished nor planned,

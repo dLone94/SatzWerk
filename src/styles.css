@@ -2262,10 +2262,175 @@ textarea.answer-field {
 
 .stages li {
   display: grid;
-  grid-template-columns: 4.2rem 1fr;
+  grid-template-columns: 4.2rem 1fr auto;
   gap: 0.5rem;
   align-items: baseline;
   font-size: 0.9rem;
+}
+
+.stages__task {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* What actually happened, under the task it happened on. */
+.stages__run {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.stages__pending {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  opacity: 0.75;
+  align-self: center;
+}
+
+/* ------------------------------------------------------------------ *
+ * A scenario, played as a conversation
+ * ------------------------------------------------------------------ */
+
+.scenario__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.scenario__progress {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.scenario__goal {
+  margin: 0.2rem 0 0;
+  font-weight: 650;
+}
+
+.scenario__register-note,
+.scenario__outro {
+  margin: 0.6rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+}
+
+/* Earlier turns stay on screen but step back, so the live one reads as live. */
+.chat__past {
+  opacity: 0.62;
+}
+
+.chat__past:hover {
+  opacity: 0.92;
+}
+
+.chat__turn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-width: 34rem;
+}
+
+.chat__turn--you {
+  margin-left: auto;
+  align-items: flex-end;
+}
+
+.chat__who {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.chat__bubble {
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-radius: 14px 14px 14px 4px;
+  padding: 0.6rem 0.8rem;
+  animation: bubble-in 220ms ease-out both;
+}
+
+.chat__bubble--you {
+  border-radius: 14px 14px 4px 14px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat__bubble {
+    animation: none;
+  }
+}
+
+.chat__de {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.chat__tools {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.chat__gloss {
+  margin: 0.4rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.chat__note {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  border-left: 2px solid var(--line);
+  padding-left: 0.6rem;
+}
+
+/* A stage direction, not speech: nobody says this out loud. */
+.chat__stage {
+  margin: 0;
+  font-style: italic;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 0.2rem 0;
+}
+
+@media (max-width: 560px) {
+  .stages li {
+    grid-template-columns: 4.2rem 1fr;
+  }
+
+  .stages li .btn,
+  .stages__pending {
+    grid-column: 2;
+    justify-self: start;
+  }
 }
 
 .stages__level {

@@ -315,6 +315,27 @@ describe('authored answers are consistent with the validator', () => {
     expect(failures).toEqual([]);
   });
 
+  /**
+   * A required token is matched against one word at a time, so a token with a
+   * space in it can never be satisfied — and free writing refuses to advance
+   * until every required token is present. A learner would be stuck on that
+   * step with no way out and no way to know why.
+   *
+   * This was real: B2 Unit 4 asked for "bitte um".
+   */
+  it('never requires a free-writing token that cannot be matched', () => {
+    const offenders: string[] = [];
+    for (const { exercise } of allExercises()) {
+      for (const step of exercise.steps) {
+        for (const token of step.answer.requiredTokens ?? []) {
+          if (/\s/.test(token)) offenders.push(`${step.id}: "${token}"`);
+          if (token.trim() === '') offenders.push(`${step.id}: empty required token`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it('gives every dictation step audio with hidden text', () => {
     const failures: string[] = [];
     for (const { exercise } of allExercises()) {
@@ -536,6 +557,11 @@ describe('vocabulary', () => {
         'einziehen', 'ausziehen',
         // Added with B1 Unit 5. Growing up is a change of state, like werden.
         'aufwachsen',
+        // Added with B2 Unit 3. A price that rises or falls has changed state
+        // and nobody moved it — both are intransitive, both take sein.
+        'steigen', 'sinken',
+        // Added with B2 Unit 5. Dropping by is movement, like kommen itself.
+        'vorbeikommen',
         // Change of state.
         'passieren', 'umziehen', 'umsteigen',
         // The three with no reason behind them.

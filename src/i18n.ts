@@ -472,12 +472,51 @@ export const UI = {
   // Real life
   realLifeTitle: s('Real life', 'Реален живот'),
   realLifeSubtitle: s(
-    'Scenarios planned for SatzWerk, each scaled across CEFR levels. None of these are playable yet — this is the roadmap, not a finished section.',
-    'Сценарии, планирани за SatzWerk, всеки степенуван по CEFR нивата. Нито един още не може да се играе — това е пътната карта, не завършен раздел.',
+    'One room, one conversation, and someone who answers back. A lesson tells you what to say; here the other person decides it.',
+    'Една стая, един разговор и някой, който ти отговаря. Урокът ти казва какво да кажеш; тук другият човек го решава.',
   ),
   realLifeRegister: s('Register', 'Стил'),
   realLifeRelated: s('Language already covered in', 'Езикът вече е покрит в'),
   realLifeStages: s('By level', 'По ниво'),
+  realLifePlayable: s('Playable now', 'Може да се играе'),
+  realLifeOutlineOnly: s('Designed, not written yet', 'Проектирано, още не написано'),
+  realLifePlay: s('Play', 'Играй'),
+  realLifeReplay: s('Play again', 'Играй пак'),
+  realLifeNotWritten: s('Not written yet', 'Още не е написано'),
+  realLifeDoneTimes: s('Played {n} times', 'Изигран {n} пъти'),
+  realLifeDoneTimesOne: s('Played {n} time', 'Изигран {n} път'),
+  realLifeBest: s('best {percent}% first time', 'най-добре {percent}% от първи опит'),
+  realLifeNothingPlayed: s(
+    'You have not played any of these yet.',
+    'Още не си играл нито един от тези.',
+  ),
+
+  // A scenario, played
+  scenarioPartner: s('You are talking to', 'Говориш с'),
+  scenarioGoal: s('What you want', 'Какво искаш'),
+  scenarioRegisterSie: s(
+    'This whole conversation is in Sie. You decide that once, at the door.',
+    'Целият разговор е на „Sie“. Решаваш го веднъж, на вратата.',
+  ),
+  scenarioRegisterDu: s(
+    'This whole conversation is in du.',
+    'Целият разговор е на „du“.',
+  ),
+  scenarioTurns: s('{n} things to say', '{n} реплики'),
+  scenarioTurnsOne: s('{n} thing to say', '{n} реплика'),
+  scenarioStart: s('Start the conversation', 'Започни разговора'),
+  scenarioMeaning: s('What did that mean?', 'Какво значеше това?'),
+  scenarioYou: s('You', 'Ти'),
+  scenarioNarrator: s('Meanwhile', 'Междувременно'),
+  scenarioLeave: s('Walk out', 'Излез'),
+  scenarioFinishedTitle: s('You got through it', 'Мина през него'),
+  scenarioScore: s(
+    '{correct} of {total} said right first time.',
+    '{correct} от {total} казани правилно от първи опит.',
+  ),
+  scenarioAgain: s('Play it again', 'Изиграй го пак'),
+  scenarioBackToList: s('Back to Real life', 'Обратно към Реален живот'),
+  scenarioMissing: s('That conversation is not written yet.', 'Този разговор още не е написан.'),
 
   // Coach
   coachTitle: s('German Coach', 'Немски наставник'),

@@ -307,7 +307,7 @@ export async function gradeReviewItem(db: Db, id: string, grade: RecallGrade): P
  * Attempts, mistakes and study days
  * ------------------------------------------------------------------ */
 
-export type AttemptContext = 'lesson' | 'mastery' | 'review' | 'checkpoint' | 'practice';
+export type AttemptContext = 'lesson' | 'mastery' | 'review' | 'checkpoint' | 'practice' | 'scenario';
 
 export interface AttemptInput {
   context: AttemptContext;
@@ -566,6 +566,81 @@ export async function listCheckpointResults(db: Db): Promise<CheckpointResult[]>
   }));
 }
 
+/* ------------------------------------------------------------------ *
+ * Real Life scenario runs
+ * ------------------------------------------------------------------ */
+
+export interface ScenarioRunInput {
+  scriptId: string;
+  turns: number;
+  firstTryCorrect: number;
+}
+
+export interface ScenarioRun {
+  scriptId: string;
+  runs: number;
+  turns: number;
+  firstTryCorrect: number;
+  lastAccuracy: number;
+  bestAccuracy: number;
+  firstRunAt: string;
+  lastRunAt: string;
+}
+
+/**
+ * Record a finished conversation.
+ *
+ * The accuracy stored is this run's, and `best_accuracy` only ever goes up —
+ * a scenario is meant to be replayed, and GREATEST() is spelled differently in
+ * the two dialects, so the comparison happens here where it is readable.
+ */
+export async function recordScenarioRun(db: Db, input: ScenarioRunInput): Promise<void> {
+  const now = new Date().toISOString();
+  const turns = Math.max(0, Math.round(input.turns));
+  const correct = Math.max(0, Math.min(turns, Math.round(input.firstTryCorrect)));
+  const accuracy = turns > 0 ? correct / turns : 0;
+  await db.run(
+    `INSERT INTO scenario_runs
+       (script_id, user_id, runs, turns, first_try_correct, last_accuracy, best_accuracy, first_run_at, last_run_at)
+     VALUES (?, 1, 1, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (script_id, user_id) DO UPDATE SET
+       runs              = scenario_runs.runs + 1,
+       turns             = excluded.turns,
+       first_try_correct = excluded.first_try_correct,
+       last_accuracy     = excluded.last_accuracy,
+       best_accuracy     = CASE
+                             WHEN excluded.best_accuracy > scenario_runs.best_accuracy
+                             THEN excluded.best_accuracy ELSE scenario_runs.best_accuracy
+                           END,
+       last_run_at       = excluded.last_run_at`,
+    input.scriptId,
+    turns,
+    correct,
+    accuracy,
+    accuracy,
+    now,
+    now,
+  );
+}
+
+export async function listScenarioRuns(db: Db): Promise<ScenarioRun[]> {
+  return (
+    (await db.all(
+      `SELECT script_id, runs, turns, first_try_correct, last_accuracy, best_accuracy, first_run_at, last_run_at
+         FROM scenario_runs ORDER BY last_run_at DESC`,
+    )) as Array<Record<string, unknown>>
+  ).map((row) => ({
+    scriptId: String(row.script_id),
+    runs: Number(row.runs),
+    turns: Number(row.turns),
+    firstTryCorrect: Number(row.first_try_correct),
+    lastAccuracy: Number(row.last_accuracy),
+    bestAccuracy: Number(row.best_accuracy),
+    firstRunAt: String(row.first_run_at),
+    lastRunAt: String(row.last_run_at),
+  }));
+}
+
 export async function setFavorite(db: Db, vocabId: string, favorite: boolean): Promise<void> {
   await db.run(`INSERT INTO word_flags (vocab_id, favorite, updated_at) VALUES (?, ?, ?)
      ON CONFLICT (vocab_id) DO UPDATE SET favorite = excluded.favorite, updated_at = excluded.updated_at`, vocabId, favorite ? 1 : 0, new Date().toISOString());
@@ -712,6 +787,7 @@ export function resetAll(db: Db): void {
     DELETE FROM study_days;
     DELETE FROM checkpoint_results;
     DELETE FROM word_flags;
+    DELETE FROM scenario_runs;
   `);
 }
 

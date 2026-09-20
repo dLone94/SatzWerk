@@ -48,9 +48,24 @@ export interface ExercisePlayerProps {
   lessonId?: string;
   /** Mastery checks and checkpoints run without hints. */
   allowHints?: boolean;
+  /**
+   * Hide the step counter.
+   *
+   * A scenario plays one turn at a time and keeps its own progress, so the
+   * player's own bar would read "1 of 1" at every turn of the conversation.
+   */
+  hideProgress?: boolean;
   /** Restrict to these step ids, used by the recovery round. */
   onlyStepIds?: string[];
   onFinish: (summary: PlayerSummary) => void;
+  /**
+   * Fired once per step, with the text the learner ended up having accepted.
+   *
+   * The scenario player needs this to build a transcript: showing the
+   * canonical answer instead would put words in the learner's mouth whenever
+   * they said something true that was not the taught form.
+   */
+  onStepDone?: (info: { stepId: string; given: string }) => void;
   onExit?: () => void;
   exitLabel?: string;
 }
@@ -84,8 +99,10 @@ export function ExercisePlayer({
   level,
   lessonId,
   allowHints = true,
+  hideProgress = false,
   onlyStepIds,
   onFinish,
+  onStepDone,
   onExit,
   exitLabel,
 }: ExercisePlayerProps) {
@@ -124,6 +141,8 @@ export function ExercisePlayer({
   const continueRef = useRef<HTMLButtonElement | null>(null);
   const feedbackRef = useRef<HTMLDivElement | null>(null);
   const startedAt = useRef(Date.now());
+  /** The last text this step had accepted, for the transcript. */
+  const accepted = useRef('');
 
   const current = playables[cursor];
   const total = playables.length;
@@ -200,6 +219,10 @@ export function ExercisePlayer({
   }, [current, presentation.showWordBank]);
 
   const advance = useCallback(() => {
+    if (current && accepted.current) {
+      onStepDone?.({ stepId: current.step.id, given: accepted.current });
+      accepted.current = '';
+    }
     setValue('');
     setPhase('answer');
     setResult(null);
@@ -220,7 +243,7 @@ export function ExercisePlayer({
     }
     setCursor((index) => index + 1);
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, [cursor, total, firstTryCorrect, onFinish]);
+  }, [cursor, total, firstTryCorrect, onFinish, onStepDone, current]);
 
   const targetsFor = useCallback(
     (step: ExerciseStep): TargetSpec[] =>
@@ -274,6 +297,7 @@ export function ExercisePlayer({
       } finally {
         setBusy(false);
       }
+      accepted.current = value;
       setFirstTryCorrect((count) => count + 1);
       setPhase('feedback');
       setFeedback({
@@ -341,6 +365,8 @@ export function ExercisePlayer({
 
     setResult(validation);
     setFeedback(message);
+    // What the learner said. When a retype is coming, the retype replaces it.
+    accepted.current = validation.credit > 0 ? value : validation.target;
     if (mustRetype) {
       setValue('');
       setPhase('retype');
@@ -398,6 +424,7 @@ export function ExercisePlayer({
     } finally {
       setBusy(false);
     }
+    accepted.current = value;
     setRetypeNudge(false);
     setPhase('feedback');
   }, [current, busy, result, value, lexicon, context, lessonId, say, submitAttempt, hintsShown, revealed]);
@@ -437,12 +464,16 @@ export function ExercisePlayer({
   return (
     <div className="player">
       <header className="player__head">
-        <div className="player__progress">
-          <span className="player__count">{t('exerciseProgress', { done: cursor + 1, total })}</span>
-          <div className="player__bar">
-            <span style={{ width: `${(cursor / total) * 100}%` }} />
+        {hideProgress ? (
+          <div className="player__progress" />
+        ) : (
+          <div className="player__progress">
+            <span className="player__count">{t('exerciseProgress', { done: cursor + 1, total })}</span>
+            <div className="player__bar">
+              <span style={{ width: `${(cursor / total) * 100}%` }} />
+            </div>
           </div>
-        </div>
+        )}
         {onExit ? (
           <button type="button" className="btn btn--ghost btn--sm" onClick={onExit}>
             {exitLabel ?? t('lessonBackToLesson')}

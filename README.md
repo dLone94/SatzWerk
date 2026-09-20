@@ -2,7 +2,7 @@
 
 A personal German tutor built around one idea: **you learn German by producing German.**
 
-SatzWerk teaches from absolute beginner towards CEFR B2, with two separately
+SatzWerk teaches from absolute beginner to CEFR B2, with two separately
 authored teaching paths — **English → German** and **Bulgarian → German** — and a
 learning loop that always ends in the learner typing German:
 
@@ -10,8 +10,11 @@ learning loop that always ends in the learner typing German:
 LEARN → RECALL → TYPE → FEEDBACK → CORRECT → TYPE AGAIN → REVIEW LATER
 ```
 
-This repository contains **Milestone 2**: the whole Pre-A1 level, authored in
-both paths, on top of the Milestone 1 engine.
+The course is complete: **five levels, 28 units, 84 lessons and 33 checkpoints**,
+every one of them written by hand in both paths. The two paths are not
+translations of each other — each explains German from where its own speakers
+actually stand, and a test fails if either one's prompts ever become a
+translation of the other's.
 
 ---
 
@@ -299,13 +302,28 @@ and starts teaching Germany in particular.
 | 6. Opinions and written German | In my opinion: stating a position · On the one hand: weighing both sides · Yours sincerely: the formal letter | the only B1 unit whose subject is not a situation. Almost no new grammar, deliberately — by this point every clause type German uses is already there. What is missing is the *shape* of an argument, so the fixed phrases are taught whole rather than assembled: *Meiner Meinung nach*, *Einerseits … andererseits*, *Zusammenfassend kann man sagen, dass …* Both paths get the same warning about register from different directions: English and Bulgarian formal writing both reward variation and German does not, so translating your own politeness produces something grammatical and subtly wrong. And the smallest point is the most visible — the comma after *Sehr geehrte Frau Weber,* is followed by a **small** letter, where English and Bulgarian both capitalise |
 | | **B1 level checkpoint** | all six units with no hints, 80% to pass, built around the three things that separate a B1 speaker from an A2 one: relative clauses in all three cases, register (*von meinem Bruder* against *meines Bruders*, *ich bin gegangen* against *ich ging*), and *obwohl* against *trotzdem* — nearly synonymous, opposite word order, and the commonest B1 mistake in either path, so they sit adjacent and unhinted |
 
-Across those 69 lessons that is 555 vocabulary entries, 66 grammar concepts, 553 exercises and **1613
-answer tasks** (including all twenty-seven checkpoints), across 349 teaching sections,
-all authored in both paths. Only 1.2% of those tasks are multiple choice; the
-rest require typing German. 141 of them carry an authored trap answer — a
+**B2 is finished: five units, fifteen lessons, five unit checkpoints and a
+level checkpoint — and with it the course is complete, Pre-A1 to B2.** B2 is
+where the problem stops being whether you are understood and starts being
+whether you are taken seriously, which is a question about register rather
+than about grammar.
+
+| Unit | Lessons | What it teaches |
+| --- | --- | --- |
+| 1. At work: meetings and projects | The report was submitted · First of all, however, consequently · The carrying out of the project | the passive finished off — B1 stopped at *wird ausgefüllt*, and a status report needs the rest: *wurde eingereicht*, *ist bearbeitet **worden*** (where werden loses its ge-, the most recognisable B2 error there is), and the modal passive in the past. Then the distinction German draws and English cannot hear at all: *wird erledigt* is a promise, *ist erledigt* is a result, and "the order is done" is both sentences at once — while Bulgarian does make the cut, with verbal aspect rather than with the auxiliary, so that path is told its instinct is sound and warned off „се“, which is not how German builds a passive. Lesson 2 is explicitly *not* new grammar: allerdings, dennoch and folglich are the B1 adverbial family in a suit, and the lesson spends its time on the error that actually happens — the English "However," comma producing *Allerdings, wir sollten …* Lesson 3 is nominalisation, the reason German reports read as they do, and the one place at B2 where English has the easier ride: it nominalises just as heavily and joins with *of*, which maps onto the genitive, while Bulgarian joins with „на“, which maps onto *von* — grammatically fine and the wrong register in a report |
+| 2. Argument and negotiation | He says he has no time · The longer we wait, the more expensive it gets · Do just say what you think | the sharpest divergence in B2, and it runs the other way from the usual one. **Konjunktiv I** — *er sagt, er habe keine Zeit* — marks a claim as somebody else's without endorsing it. English has no grammatical marker for that at all: it backshifts the tense and leaves the rest to context, so an English speaker writes *Er sagte, er hatte keine Zeit*, which is correct German for a fact the speaker is confirming — the distancing has gone. Bulgarian has the category outright, as the renarrative („казал, че нямал време“), so that path is handed a map rather than an explanation, and warned about the one real difference: Bulgarian uses its renarrative in speech too, where German keeps Konjunktiv I almost entirely for writing. Lesson 2 is *je … desto*, the one German comparative with word order in **both** halves, where English and Bulgarian both move nothing — so it is drilled rather than reasoned about — plus *zwar … aber* and *nicht nur … sondern auch*, where the advantage flips back to Bulgarian, which splits „а“ from „но“ exactly as German splits sondern from aber while English has only "but". Lesson 3 is the modal particles — doch, mal, ja, eben, halt — the words that decide whether a disagreement lands as an invitation or an order: English has nothing equivalent and does the job with intonation, Bulgarian has its own („я“, „нали“, „все пак“) and so gets a warning about false one-to-one mapping instead of an introduction |
+| 3. Media and society | The reform planned by the government · Up by ten percent, or up to ten · That can be done | the first unit whose language is mostly *read* rather than said, because a B1 learner can hold a conversation and still bounce off a front page. Its centre is the **extended participial attribute** — *die von der Regierung geplante Reform* — a whole clause sitting between an article and its noun, and here Bulgarian has the advantage outright: „планираната от правителството реформа“ is the same structure in the same order, so that path learns one thing (German puts a separate article at the front of the block) and can then write it, while English, which cannot build this at all, is given a reading strategy instead — find the article, jump to the noun at the end, then read the middle — and told it may keep using relative clauses of its own. Lesson 2 is the grammar of a number, which is small and unforgiving: *um* is by how much, *auf* is to what level, and reversing them reverses the fact; plus the counting phrases that take a singular verb (*die Zahl der Anträge **ist** gesunken*) and the Prozent/Prozentpunkt distinction German keeps rigorously. Lesson 3 is the three passive substitutes — *sein* + *zu* + infinitive, *sich lassen*, and the *-bar* adjective — where each path already owns exactly one (-bar is *-able* and „-им“), so the lesson names what transfers before it teaches what does not |
+| 4. Formal written German | With reference to your letter · Because of, despite, within · I would be grateful if you would | writing what Unit 3 taught reading, with a purpose: every example belongs to a letter that has to achieve something — a defect remedied, a refund paid, a deadline acknowledged. **Funktionsverbgefüge** are the noun-and-verb pairs officialdom runs on, where the noun means everything and the verb almost nothing (*Bezug nehmen auf*, *in Anspruch nehmen*, *zur Verfügung stellen*); both paths get the same warning rather than different ones, because the trap is identical from either side — the individual words mislead and nobody is taking anything. Lesson 2 is where B1 Unit 4's register lesson comes due: aufgrund, trotz, während, innerhalb and hinsichtlich all demand the genitive, the case that only survives in writing, and neither "because of the delay" nor „поради забавянето“ marks a case at all, so nothing transfers and the endings have to be built. Lesson 3 is the one where both paths are wrong in the *same* direction: English asks by questioning ("Could you possibly …") and Bulgarian asks with „бихте ли“, while German does not ask at all — it states a fact about itself. *Ich bitte um eine Bestätigung* is standard rather than brusque, and the politeness lives in the Konjunktiv II and the fixed frame, not in hedging |
+| 5. Natural spoken German | Did you get my message? · Got a second? · Didn’t see it | the unit that admits what the previous eighty lessons could not: a learner who has done all of them can read a rental contract and still lose the thread at a lunch table. Not because the grammar changes — it does not — but because speech swaps words (bekommen → *kriegen*, sehen → *gucken*, funktionieren → *klappen*), deletes sounds (*Haste mal kurz?* is four words said as two, *’ne Frage* is eine) and rearranges sentences (*Hab ich nicht gesehen* deletes the first slot; *Der ist echt gut, der Film* adds an afterthought; *ne?* asks for agreement without agreeing with anything). All three lessons are taught **for listening**, and every exercise asks for the full form from the spoken one rather than the other way round: nobody has ever been thought rude for saying *bekommen*, while failing to understand *Haste mal kurz?* stops a conversation dead. Here English transfers on one of the three — it drops subjects the same casual way — but builds its tag questions by rule where German has one invariant *ne?*; Bulgarian has the invariant tag already („нали?“) and moves constituents freely, so what it lacks is the verb-second frame the deletions happen inside |
+| | **B2 level checkpoint** | all five units with no hints, 80% to pass, and built around the question B2 is actually about: *can you tell which room you are in?* Every level below had one right answer per prompt; here the same fact has two correct forms and only one belongs where you are standing, so the checkpoint asks for the same content twice — *Hast du meine Nachricht gekriegt?* to a colleague and *Haben Sie meine Nachricht erhalten?* in an email — and marks the pair rather than the sentence |
+
+Across those 84 lessons that is 654 vocabulary entries, 83 grammar concepts, 678 exercises and **1986
+answer tasks** (including all thirty-three checkpoints), across 426 teaching sections,
+all authored in both paths. Only 1.0% of those tasks are multiple choice; the
+rest require typing German. 148 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
-written for it. B2 exists as structure and outline only, and the UI labels
-every unit that is not authored as planned.
+written for it. Every unit in the curriculum is now written: there is nothing
+left labelled planned, because there is nothing left planned.
 
 **A2 Unit 1 teaches almost no new words, on purpose.** The learner finished A1
 owning forty-three verbs; the unit gives them a second form of those rather than
@@ -616,7 +634,7 @@ that is openly planned:
 | Generated practice, conversation | **Decided against, not planned.** `generatePractice` and `converse` stay `available: false` with a reason, and the API says `not-generated` rather than `planned`. Every German sentence in this app has been read by a person; a generated one sitting beside an authored one with no way to tell them apart would end that quietly. |
 | Phoneme-level pronunciation scoring | **Not built, and not claimed.** Speaking *is* real (see below) — the app checks whether a recogniser understood your words. Scoring an accent is a different thing and needs a different engine; `AudioRecorder` / `SpeechToText` in `src/services/speech/index.ts` remain the interfaces a server-side recogniser would implement. |
 | Real Life scenarios | **Roadmap only.** 13 scenarios are modelled with their CEFR staging and register, and the page presents them as a roadmap with no playable content. Where a scenario's language is already taught, it links to the lesson that teaches it. |
-| B1–B2 content | **Outline only.** Topics, grammar progression, "I can" outcomes and planned unit titles for both levels; no authored lessons. The level map marks them planned. Pre-A1, A1 and A2 are written. |
+| Content beyond B2 | **Nothing is outstanding inside the curriculum.** All five levels are authored end to end, each with its units, unit checkpoints and a level checkpoint. What does not exist is anything above B2 — see the next row. |
 | C1 / C2 | Not implemented, but `CefrLevel` already includes them, so adding them is content, not a refactor. |
 
 ---
@@ -730,9 +748,9 @@ Run `npm run dev`, open <http://localhost:5173>, and:
 2. **Dashboard.** "Следващата ти полезна стъпка" suggests the first lesson.
    Accuracy shows `—` with "Още няма данни", not 0%. Speaking reads
    "Планирано — още не е направено".
-3. **Course.** All five levels are listed. Pre-A1 and A1 each show six linked
-   units and a level checkpoint, A2 five; B1–B2 show "Това ниво е планирано, но
-   още не е написано" with their topic and grammar outlines.
+3. **Course.** All five levels are listed. Pre-A1, A1 and B1 each show six
+   linked units and a level checkpoint, A2 five, B2 five. Nothing is labelled
+   "Планирано" any more, because nothing is.
 4. **Lesson.** Open *Откъде си и къде живееш*. The requirement checklist shows
    0/6 sections, 0/24 exercises and so on. Work through the six teaching
    sections — note the Bulgarian-only comparison of free Bulgarian word order
@@ -759,34 +777,38 @@ Run `npm run dev`, open <http://localhost:5173>, and:
 
 ---
 
-## Next milestone
+## What is left
 
-**Milestone 5 — B1.** Pre-A1, A1 and A2 are all finished, and the shape has held
-for three levels: units of three lessons, a checkpoint per unit, a level
-checkpoint with no hints, and authored traps feeding targeted practice.
+**The course is finished.** Pre-A1 to B2, five levels, 28 units, 84 lessons and
+33 checkpoints, both teaching paths authored separately. The shape held for all
+five levels: units of three lessons, a checkpoint per unit, a level checkpoint
+with no hints, and authored traps feeding targeted practice. Nothing in the
+curriculum is labelled planned, because nothing is planned.
 
-B1 is outlined already, and the grammar it needs is mostly the other half of
-what A2 opened: the full adjective-ending system rather than one corner of it,
-the genitive, relative clauses, the passive, and *würde* and the subjunctive. A2
-ends where it should — a learner who passes its level checkpoint can choose
-between *haben* and *sein* without thinking, and can put a verb at the end of a
-clause on purpose.
+So what remains is no longer content. Three things are genuinely not built, and
+each is named as such in the app rather than implied to be coming:
 
-A1 ends where it should: a learner who passes its level checkpoint can tell the
-accusative from the dative, which is the one thing A2 assumes and cannot
-re-teach. A2 Unit 1 starts where it should too — it asks for no new verbs at
-all, only a second form of the ones already owned.
+- **C1 and C2.** `CefrLevel` already includes them, so adding them would be
+  authoring rather than a refactor — but there is no outline, and the course
+  does not pretend otherwise.
+- **Real Life scenarios.** Thirteen are modelled with their CEFR staging and
+  register, and the page presents them as a roadmap with no playable content.
+  Where a scenario's language is already taught, it links to the lesson that
+  teaches it.
+- **Phoneme-level pronunciation scoring.** Speaking is real — the browser's
+  recogniser feeds the same validator the typing loop uses — but scoring an
+  accent is a different engine, and the dashboard shows no number for speaking
+  rather than inventing one.
 
-Two pieces of machinery still waiting on content rather than on code:
+Two pieces of machinery are waiting on use rather than on code:
 
 - **Dictation without replay**, which the exercise model already supports via
-  `audio.hideText` and a replay budget, but which only becomes a fair test once
-  there is enough heard-but-not-seen vocabulary behind it.
-- **Interleaved review across units**, now that there are twelve units to
-  interleave rather than two.
-
-The AI Coach, conversation mode and speech evaluation stay where they are —
-behind interfaces — until the core course is worth talking about.
+  `audio.hideText` and a replay budget, and which becomes a fair test now that
+  there is a course's worth of heard-but-not-seen vocabulary behind it.
+- **Interleaved review across levels**, now that there are 28 units to
+  interleave. The daily round already mixes review, mistakes and the lesson in
+  progress; what it does not yet do is deliberately space items *across* levels
+  rather than letting the schedule decide alone.
 
 ---
 

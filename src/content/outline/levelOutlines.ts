@@ -248,13 +248,7 @@ export const B2_OUTLINE: LevelOutline = {
     b('Modal particles: doch, mal, ja, eben', 'Модални частици: doch, mal, ja, eben'),
     b('Formal versus informal register', 'Официален срещу неофициален стил'),
   ],
-  plannedUnits: [
-    b('At work: meetings and projects', 'На работа: срещи и проекти'),
-    b('Argument and negotiation', 'Аргументация и преговори'),
-    b('Media and society', 'Медии и общество'),
-    b('Formal written German', 'Официален писмен немски'),
-    b('Natural spoken German', 'Естествен говорим немски'),
-  ],
+  plannedUnits: [],
 };
 
 export const LEVEL_OUTLINES: Record<'pre-a1' | 'a1' | 'a2' | 'b1' | 'b2', LevelOutline> = {

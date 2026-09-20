@@ -59,6 +59,7 @@ function stubState(aiAvailable: boolean, lang: TeachingLanguage = 'en'): AppStat
     },
     studyDays: [],
     checkpointResults: [],
+    scenarioRuns: [],
     coach: { aiAvailable, provider: aiAvailable ? 'claude:test' : 'none', features: {} },
     lang,
     t: (key, vars) => tr(key, lang, vars),
@@ -86,6 +87,7 @@ function stubState(aiAvailable: boolean, lang: TeachingLanguage = 'en'): AppStat
     resolveMistake: async () => undefined,
     toggleFavorite: async () => undefined,
     recordCheckpoint: async () => undefined,
+    recordScenarioRun: async () => undefined,
     resetAll: async () => undefined,
     lessonProgress: (lessonId) => ({
       lessonId,

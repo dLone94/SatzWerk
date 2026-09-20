@@ -351,6 +351,55 @@ export interface Level {
 }
 
 /* ------------------------------------------------------------------ *
+ * Real Life scenarios
+ * ------------------------------------------------------------------ */
+
+/**
+ * A scenario is a conversation, not a quiz.
+ *
+ * The difference matters pedagogically: in a lesson the prompt tells you what
+ * to say, and in a conversation the *other person's line* decides it. That is
+ * the one thing eighty-four lessons cannot practise, because a lesson never
+ * surprises you. So a script is a list of beats played in order — their line,
+ * then yours — and your turn is an ordinary `Exercise`, which means the same
+ * validator, the same hints and the same mandatory retyping as everywhere else.
+ * There is no second marking engine hiding in here.
+ */
+export type ScenarioBeat =
+  /** What the other person says. German first; the meaning is behind a reveal. */
+  | ({ who: 'them'; de: string; gloss: Bilingual; note?: Bilingual } & PathScoped)
+  /** Stage direction: what just happened, or what you can see. */
+  | ({ who: 'narrator'; text: Bilingual } & PathScoped)
+  /** Your turn. One exercise, usually one step, played by the exercise engine. */
+  | { who: 'you'; exercise: Exercise };
+
+/** One playable conversation: one scenario, at one level. */
+export interface ScenarioScript {
+  id: string;
+  /** The `Scenario` in the Real Life outline this belongs to. */
+  scenarioId: string;
+  level: CefrLevel;
+  /**
+   * Which register this whole conversation is in.
+   *
+   * Fixed for the script rather than chosen turn by turn, because that is how
+   * it works in a room: you decide once, at the door, and then you are stuck
+   * with it. Getting it wrong is the mistake this mode is best placed to catch,
+   * so the scripts carry authored traps for the other form.
+   */
+  register: 'du' | 'Sie';
+  /** Who you are talking to: "the baker", "the receptionist". */
+  partner: Bilingual;
+  /** What you want out of this conversation, in one line. */
+  goal: Bilingual;
+  beats: ScenarioBeat[];
+  /** What you have just proved you can do. Shown at the end. */
+  outro: Bilingual;
+  /** Lessons that teach the language this uses. */
+  lessonIds?: string[];
+}
+
+/* ------------------------------------------------------------------ *
  * Helpers
  * ------------------------------------------------------------------ */
 

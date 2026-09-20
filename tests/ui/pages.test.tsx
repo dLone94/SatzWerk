@@ -9,6 +9,7 @@ import {
   LEVEL_OUTLINES,
   LEXICON,
   describeNoun,
+  partialLevels,
   unauthoredLevels,
 } from '../../src/content/index.ts';
 import type { TeachingLanguage } from '../../src/content/types.ts';
@@ -72,6 +73,7 @@ function stubState(lang: TeachingLanguage, overrides: Partial<AppStateValue> = {
     },
     studyDays: [],
     checkpointResults: [],
+    scenarioRuns: [],
     coach: { aiAvailable: false, provider: 'none', features: { writingReview: 'rule-based', conversation: 'planned' } },
     lang,
     t: (key, vars) => tr(key, lang, vars),
@@ -101,6 +103,7 @@ function stubState(lang: TeachingLanguage, overrides: Partial<AppStateValue> = {
     resolveMistake: vi.fn(async () => undefined),
     toggleFavorite: vi.fn(async () => undefined),
     recordCheckpoint: vi.fn(async () => undefined),
+    recordScenarioRun: vi.fn(async () => undefined),
     resetAll: vi.fn(async () => undefined),
     lessonProgress: (lessonId) => ({
       lessonId,
@@ -250,7 +253,12 @@ describe('settings tells the truth about what is written', () => {
   it('names the levels that really are empty, and no others', () => {
     mount(<SettingsPage />, 'en');
     const empty = unauthoredLevels();
-    expect(empty.length).toBeGreaterThan(0);
+    if (empty.length === 0) {
+      // Every level has been started. The sentence about outlines must then be
+      // gone entirely rather than left behind naming nothing.
+      expect(screen.queryByText(/as structure and outline/)).toBeNull();
+      return;
+    }
     const foot = screen.getByText(/as structure and outline/);
     for (const level of empty) {
       expect(foot.textContent).toContain(level.label);
@@ -260,6 +268,28 @@ describe('settings tells the truth about what is written', () => {
     for (const level of CURRICULUM.filter((candidate) => candidate.units.length > 0)) {
       expect(foot.textContent).not.toContain(level.label);
     }
+  });
+
+  /**
+   * A level that is a third written is the hardest case to be honest about:
+   * it is not "not authored yet" and it is certainly not finished. B2 became
+   * exactly that the moment its first unit landed.
+   */
+  it('says a part-written level is part-written, with its real numbers', () => {
+    mount(<SettingsPage />, 'en');
+    const started = partialLevels();
+    if (started.length === 0) {
+      expect(screen.queryByText(/is being written/)).toBeNull();
+      return;
+    }
+    const foot = screen.getByText(/is being written/);
+    for (const { level, written, planned } of started) {
+      expect(foot.textContent).toContain(level.label);
+      expect(foot.textContent).toContain(String(written));
+      expect(foot.textContent).toContain(String(planned));
+    }
+    // And it must not also claim everything is done.
+    expect(screen.queryByText('Every level in the structure is authored.')).toBeNull();
   });
 });
 
@@ -330,8 +360,9 @@ describe('the course map is honest about what is finished', () => {
     // while nothing in it is authored, and which levels those are moves as the
     // course grows.
     const empty = CURRICULUM.filter((level) => level.units.length === 0);
-    expect(empty.length).toBeGreaterThan(0);
-    expect(screen.getAllByText(tr('plannedNotice', 'en')).length).toBe(empty.length);
+    // Not pinned to a count: once every level has a unit in it, the right
+    // number of wholesale "planned" notices is zero.
+    expect(screen.queryAllByText(tr('plannedNotice', 'en')).length).toBe(empty.length);
   });
 
   it('still lists what is missing from every level that has units to come', () => {
@@ -345,8 +376,10 @@ describe('the course map is honest about what is finished', () => {
     const outlineFor = (level: (typeof CURRICULUM)[number]) =>
       LEVEL_OUTLINES[level.id as keyof typeof LEVEL_OUTLINES];
     const withPlanned = CURRICULUM.filter((level) => outlineFor(level).plannedUnits.length > 0);
-    expect(withPlanned.length).toBeGreaterThan(0);
-    expect(screen.getAllByText(tr('plannedUnits', 'en')).length).toBe(withPlanned.length);
+    // Not pinned to a count. Once every planned unit has been written, the
+    // right number of "planned units" headings is zero — and the heading must
+    // then be gone rather than standing empty over nothing.
+    expect(screen.queryAllByText(tr('plannedUnits', 'en')).length).toBe(withPlanned.length);
     for (const level of withPlanned) {
       for (const unit of outlineFor(level).plannedUnits) {
         expect(screen.getByText(unit.en), unit.en).toBeInTheDocument();

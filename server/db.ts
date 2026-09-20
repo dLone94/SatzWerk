@@ -214,6 +214,33 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    version: 5,
+    name: 'scenario runs, so Real Life reports what happened rather than what is possible',
+    sql: `
+      -- One row per script per learner, not one per run. What the Real Life
+      -- page needs to say is "you have done this, twice, and the last time you
+      -- got fourteen of sixteen first time" — a running tally answers that in
+      -- one read, and the individual answers are already in the attempts table for
+      -- anything finer.
+      --
+      -- best_accuracy is kept alongside last_accuracy on purpose: a scenario is
+      -- meant to be replayed, and a learner who slips on a re-run should not
+      -- watch their record disappear.
+      CREATE TABLE scenario_runs (
+        script_id         TEXT    NOT NULL,
+        user_id           INTEGER NOT NULL DEFAULT 1,
+        runs              INTEGER NOT NULL DEFAULT 0,
+        turns             INTEGER NOT NULL DEFAULT 0,
+        first_try_correct INTEGER NOT NULL DEFAULT 0,
+        last_accuracy     REAL    NOT NULL DEFAULT 0,
+        best_accuracy     REAL    NOT NULL DEFAULT 0,
+        first_run_at      TEXT    NOT NULL,
+        last_run_at       TEXT    NOT NULL,
+        PRIMARY KEY (script_id, user_id)
+      );
+    `,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
