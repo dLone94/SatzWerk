@@ -111,10 +111,15 @@ describe('Pre-A1 is complete', () => {
     expect(stats.lessons).toBe(lessons.filter((lesson) => lesson.status === 'available').length);
     expect(stats.vocabulary).toBeGreaterThanOrEqual(150);
     expect(stats.grammarConcepts).toBeGreaterThanOrEqual(18);
-    // One checkpoint per unit that has one, plus one per level that has one.
+    // One checkpoint per unit that has one, one per level that has one, and
+    // any that belong to neither — the placement check spans the whole course,
+    // so it is counted by scope rather than by an exception carved out for it.
     const unitCheckpoints = units.filter((unit) => unit.checkpoint).length;
     const levelCheckpoints = CURRICULUM.filter((level) => level.checkpoint).length;
-    expect(stats.checkpoints).toBe(unitCheckpoints + levelCheckpoints);
+    const spanning = allCheckpoints().filter(
+      (checkpoint) => checkpoint.scope !== 'unit' && checkpoint.scope !== 'level',
+    ).length;
+    expect(stats.checkpoints).toBe(unitCheckpoints + levelCheckpoints + spanning);
     // And the shape the course is actually built in: every authored unit has a
     // checkpoint, because a unit you cannot be tested on is not finished.
     expect(unitCheckpoints).toBe(units.length);

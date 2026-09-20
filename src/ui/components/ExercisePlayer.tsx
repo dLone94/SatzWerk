@@ -55,17 +55,31 @@ export interface ExercisePlayerProps {
    * player's own bar would read "1 of 1" at every turn of the conversation.
    */
   hideProgress?: boolean;
+  /**
+   * Offer a way to answer "I do not know this one".
+   *
+   * Only the placement check uses it, and it needs it: that check runs with no
+   * hints and no reveal, and its last four questions are B2. Without an
+   * explicit way out, a beginner reaching them is stuck on a screen that will
+   * not accept an empty answer and offers no help — the exact dead end this
+   * app has already shipped once. The skip is recorded as a real attempt with
+   * an empty verdict, so it counts against the band rather than vanishing.
+   */
+  allowSkip?: boolean;
   /** Restrict to these step ids, used by the recovery round. */
   onlyStepIds?: string[];
   onFinish: (summary: PlayerSummary) => void;
   /**
-   * Fired once per step, with the text the learner ended up having accepted.
+   * Fired once per step, with the text the learner ended up having accepted
+   * and whether they got there cleanly.
    *
-   * The scenario player needs this to build a transcript: showing the
+   * The scenario player needs the text to build a transcript: showing the
    * canonical answer instead would put words in the learner's mouth whenever
-   * they said something true that was not the taught form.
+   * they said something true that was not the taught form. The placement check
+   * needs `correct`, which is the same strict notion the score uses — right at
+   * the first attempt, no hint opened, nothing revealed.
    */
-  onStepDone?: (info: { stepId: string; given: string }) => void;
+  onStepDone?: (info: { stepId: string; given: string; correct: boolean }) => void;
   onExit?: () => void;
   exitLabel?: string;
 }
@@ -100,6 +114,7 @@ export function ExercisePlayer({
   lessonId,
   allowHints = true,
   hideProgress = false,
+  allowSkip = false,
   onlyStepIds,
   onFinish,
   onStepDone,
@@ -143,6 +158,8 @@ export function ExercisePlayer({
   const startedAt = useRef(Date.now());
   /** The last text this step had accepted, for the transcript. */
   const accepted = useRef('');
+  /** Whether this step was answered cleanly, for the placement bands. */
+  const wasClean = useRef(false);
 
   const current = playables[cursor];
   const total = playables.length;
@@ -220,8 +237,13 @@ export function ExercisePlayer({
 
   const advance = useCallback(() => {
     if (current && accepted.current) {
-      onStepDone?.({ stepId: current.step.id, given: accepted.current });
+      onStepDone?.({
+        stepId: current.step.id,
+        given: accepted.current,
+        correct: wasClean.current,
+      });
       accepted.current = '';
+      wasClean.current = false;
     }
     setValue('');
     setPhase('answer');
@@ -298,6 +320,7 @@ export function ExercisePlayer({
         setBusy(false);
       }
       accepted.current = value;
+      wasClean.current = true;
       setFirstTryCorrect((count) => count + 1);
       setPhase('feedback');
       setFeedback({
@@ -352,6 +375,7 @@ export function ExercisePlayer({
     }
 
     if (clean) setFirstTryCorrect((count) => count + 1);
+    wasClean.current = clean;
 
     // Adapt the amount of support for the steps that follow.
     const outcome = clean ? 'clean' : validation.credit > 0 ? 'partial' : 'wrong';
@@ -428,6 +452,36 @@ export function ExercisePlayer({
     setRetypeNudge(false);
     setPhase('feedback');
   }, [current, busy, result, value, lexicon, context, lessonId, say, submitAttempt, hintsShown, revealed]);
+
+  const skip = useCallback(async () => {
+    if (!current || busy) return;
+    const { exercise, step } = current;
+    setBusy(true);
+    try {
+      await submitAttempt({
+        context,
+        lessonId,
+        exerciseId: exercise.id,
+        stepId: step.id,
+        prompt: step.prompt ? say(step.prompt) : undefined,
+        expected: step.answer.accepted[0] ?? '',
+        given: '',
+        verdict: 'empty',
+        credit: 0,
+        categories: [],
+        hintsUsed: hintsShown,
+        revealed,
+        isRetype: false,
+        resolved: true,
+        durationMs: Date.now() - startedAt.current,
+      });
+    } finally {
+      setBusy(false);
+    }
+    accepted.current = step.answer.accepted[0] ?? '';
+    wasClean.current = false;
+    advance();
+  }, [current, busy, context, lessonId, say, submitAttempt, hintsShown, revealed, advance]);
 
   const revealAnswer = useCallback(() => {
     if (!current) return;
@@ -646,6 +700,16 @@ export function ExercisePlayer({
             {allowHints && !isFree ? (
               <button type="button" className="btn btn--ghost btn--quiet" onClick={revealAnswer}>
                 {t('exerciseReveal')}
+              </button>
+            ) : null}
+            {allowSkip ? (
+              <button
+                type="button"
+                className="btn btn--ghost btn--quiet"
+                onClick={() => void skip()}
+                disabled={busy}
+              >
+                {t('exerciseSkip')}
               </button>
             ) : null}
             <span className="task__keyhint" id="player-keyhint">

@@ -321,8 +321,8 @@ than about grammar.
 | 5. Natural spoken German | Did you get my message? · Got a second? · Didn’t see it | the unit that admits what the previous eighty lessons could not: a learner who has done all of them can read a rental contract and still lose the thread at a lunch table. Not because the grammar changes — it does not — but because speech swaps words (bekommen → *kriegen*, sehen → *gucken*, funktionieren → *klappen*), deletes sounds (*Haste mal kurz?* is four words said as two, *’ne Frage* is eine) and rearranges sentences (*Hab ich nicht gesehen* deletes the first slot; *Der ist echt gut, der Film* adds an afterthought; *ne?* asks for agreement without agreeing with anything). All three lessons are taught **for listening**, and every exercise asks for the full form from the spoken one rather than the other way round: nobody has ever been thought rude for saying *bekommen*, while failing to understand *Haste mal kurz?* stops a conversation dead. Here English transfers on one of the three — it drops subjects the same casual way — but builds its tag questions by rule where German has one invariant *ne?*; Bulgarian has the invariant tag already („нали?“) and moves constituents freely, so what it lacks is the verb-second frame the deletions happen inside |
 | | **B2 level checkpoint** | all five units with no hints, 80% to pass, and built around the question B2 is actually about: *can you tell which room you are in?* Every level below had one right answer per prompt; here the same fact has two correct forms and only one belongs where you are standing, so the checkpoint asks for the same content twice — *Hast du meine Nachricht gekriegt?* to a colleague and *Haben Sie meine Nachricht erhalten?* in an email — and marks the pair rather than the sentence |
 
-Across those 84 lessons that is 654 vocabulary entries, 83 grammar concepts, 678 exercises and **1986
-answer tasks** (including all thirty-three checkpoints), across 426 teaching sections,
+Across those 84 lessons that is 654 vocabulary entries, 83 grammar concepts, 683 exercises and **2006
+answer tasks** (including all thirty-three checkpoints and the placement check), across 426 teaching sections,
 all authored in both paths. Only 1.0% of those tasks are multiple choice; the
 rest require typing German. 148 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
@@ -623,6 +623,44 @@ screen does not jump). On a phone it often opens below the fold, and without
 this the app looks like it did nothing. It is guarded with an optional call
 because jsdom has no `scrollIntoView` at all — which took the whole player down
 the first time, and is now covered by a test both ways.
+
+---
+
+## Where should I start?
+
+A learner who already speaks some German had two bad options: begin at Pre-A1
+and spend a week being told what *Hallo* means, or guess a level and find out
+mid-lesson that the guess was wrong. The placement check is the third: twenty
+questions, four at each level, climbing.
+
+Each group is the thing its level turns on rather than a fair sample of it. If
+you can put the verb second you have A1's central idea; if you can put it last
+after *weil* you have A2's; if *der von der Regierung geplante Bericht* means
+anything to you, you are past B1 whatever else you cannot do.
+
+What it gives back is not a grade. It reports the bands — how many questions
+at each level, how many right first time — then one recommendation derived
+from them, and then the way to overrule it: the level above and the level
+below are one click each. Twenty questions know less about a learner than the
+learner does, and the screen says so.
+
+Three details are deliberate:
+
+- **It recommends the first level you did not pass, not the level above your
+  best band.** Those differ for anyone who picked German up by ear — a B1
+  sentence and no article table is a common shape — and sending that person to
+  B2 would skip the thing they came for.
+- **There are no hints and no traps**, because nothing is being taught yet,
+  and an explicit *I do not know this one* is always available. Without it a
+  beginner reaching the B2 questions would be stuck on a screen that refuses
+  an empty answer and offers no help.
+- **There is no pass mark.** Every other checkpoint has one because passing a
+  unit is a real thing to have done; here the score is only the material the
+  recommendation is derived from.
+
+It is offered on the first-run screen to anyone who says they already speak
+some German, and from the top of the Course page — never forced, because most
+people opening this app already know they are beginners.
 
 ---
 

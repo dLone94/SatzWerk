@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TeachingLanguage } from '../../content/types.ts';
-import { contentStats } from '../../content/index.ts';
+import { contentStats, unauthoredLevels } from '../../content/index.ts';
 import { UI, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 
@@ -24,20 +24,43 @@ export function OnboardingPage() {
   const lang = profile.teachingLanguage;
   const say = (key: keyof typeof UI) => UI[key][lang];
   const stats = contentStats();
+  // Named only while some level really is an outline. When none is, the
+  // sentence simply ends after the counts.
+  const pending = unauthoredLevels().map((level) => level.label);
+  const outlineOnly =
+    pending.length === 0
+      ? ''
+      : lang === 'bg'
+        ? ` ${pending.join(', ')} засега ${pending.length === 1 ? 'е само план' : 'са само план'}.`
+        : ` ${pending.join(', ')} ${pending.length === 1 ? 'is' : 'are'} an outline only so far.`;
 
   const choose = async (next: TeachingLanguage) => {
     await setTeachingLanguage(next);
   };
 
+  const finish = async () => {
+    const minutes = custom.trim().length > 0 ? Number(custom) : target;
+    await updateProfile({
+      onboarded: true,
+      dailyTargetMinutes: Number.isFinite(minutes) && minutes > 0 ? minutes : target,
+    });
+  };
+
   const start = async () => {
     setBusy(true);
     try {
-      const minutes = custom.trim().length > 0 ? Number(custom) : target;
-      await updateProfile({
-        onboarded: true,
-        dailyTargetMinutes: Number.isFinite(minutes) && minutes > 0 ? minutes : target,
-      });
+      await finish();
       navigate('/', { replace: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startWithPlacement = async () => {
+    setBusy(true);
+    try {
+      await finish();
+      navigate('/placement', { replace: true });
     } finally {
       setBusy(false);
     }
@@ -103,12 +126,36 @@ export function OnboardingPage() {
         {say('onboardingStart')}
       </button>
 
+      {/*
+        * Offered after the start button rather than instead of it.
+        *
+        * Most people opening this already know they are beginners, and making
+        * them sit a test before their first lesson would be a strange welcome.
+        * The ones who need it are the ones who already speak some German, and
+        * they are the ones who will read this line.
+        */}
+      <p className="onboarding__placement">
+        {say('onboardingKnowSome')}{' '}
+        <button type="button" className="linklike" onClick={() => void startWithPlacement()} disabled={busy}>
+          {say('placementNav')}
+        </button>
+      </p>
+
       <p className="onboarding__footnote">{say('onboardingChangeLater')}</p>
 
+      {/*
+        * What is here, counted rather than claimed.
+        *
+        * This line used to end with "Levels A1–B2 are outlines only so far",
+        * which was true when it was written and had quietly become false: by
+        * then all five levels were authored and the first screen a new learner
+        * saw was understating the app. A sentence about what exists has to be
+        * derived from what exists, or it goes stale the day after it is typed.
+        */}
       <p className="onboarding__content">
         {lang === 'bg'
-          ? `Налични сега: ${stats.lessons} завършени урока, ${stats.answerSteps} задачи за писане, ${stats.vocabulary} думи. Нивата A1–B2 засега са само план.`
-          : `Available now: ${stats.lessons} finished lessons, ${stats.answerSteps} answer tasks, ${stats.vocabulary} words. Levels A1–B2 are outlines only so far.`}
+          ? `Налични сега: ${stats.lessons} урока на ${stats.authoredLevels} нива, ${stats.answerSteps} задачи за писане, ${stats.vocabulary} думи.${outlineOnly}`
+          : `Available now: ${stats.lessons} lessons across ${stats.authoredLevels} levels, ${stats.answerSteps} answer tasks, ${stats.vocabulary} words.${outlineOnly}`}
       </p>
     </div>
   );

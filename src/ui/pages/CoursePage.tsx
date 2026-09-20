@@ -17,7 +17,12 @@ export function CoursePage() {
   return (
     <div className="page">
       <h1 className="page__title">{t('courseTitle')}</h1>
-      <p className="page__lede">{t('courseSubtitle')}</p>
+      <p className="page__lede">
+        {t('courseSubtitle')}{' '}
+        <Link to="/placement" className="course__placement">
+          {t('placementNav')}
+        </Link>
+      </p>
 
       {CURRICULUM.map((level) => (
         <LevelCard key={level.id} level={level} />

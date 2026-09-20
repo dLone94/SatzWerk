@@ -27,6 +27,7 @@ import { B2_LEVEL_CHECKPOINT } from './b2/levelCheckpoint.ts';
 import { A2_LEVEL_CHECKPOINT } from './a2/levelCheckpoint.ts';
 import { GRAMMAR_CONCEPTS, grammarById } from './grammar.ts';
 import { LEVEL_OUTLINES } from './outline/levelOutlines.ts';
+import { PLACEMENT_CHECKPOINT } from './placement/checkpoint.ts';
 import { PRE_A1_PATTERNS, PRE_A1_UNIT_2 } from './pre-a1/unit2.ts';
 import { PRE_A1_U3_PATTERNS, PRE_A1_UNIT_3 } from './pre-a1/unit3.ts';
 import { PRE_A1_U4_PATTERNS, PRE_A1_UNIT_4 } from './pre-a1/unit4.ts';
@@ -185,6 +186,10 @@ const PATTERN_BY_ID = new Map(SENTENCE_PATTERNS.map((pattern) => [pattern.id, pa
 const CHECKPOINTS = [
   ...UNITS.map((unit) => unit.checkpoint),
   ...CURRICULUM.map((level) => level.checkpoint),
+  // The placement check belongs to no unit and no level: it spans all of them.
+  // It is listed here so that every guard the other checkpoints get — answers
+  // that validate, both paths filled in, ids that are unique — covers it too.
+  PLACEMENT_CHECKPOINT,
 ].filter((cp): cp is Checkpoint => Boolean(cp));
 const CHECKPOINT_BY_ID = new Map(CHECKPOINTS.map((cp) => [cp.id, cp]));
 
@@ -371,6 +376,7 @@ export function resolveTarget(id: string): ResolvedTarget | undefined {
 export { VOCABULARY, vocabById, vocabByGerman, vocabForLesson } from './vocabulary.ts';
 export { GRAMMAR_CONCEPTS, grammarById } from './grammar.ts';
 export { LEVEL_OUTLINES } from './outline/levelOutlines.ts';
+export { PLACEMENT_CHECKPOINT } from './placement/checkpoint.ts';
 export { SCENARIOS, scenariosForLevel } from './outline/realLife.ts';
 export type { Scenario, ScenarioStage } from './outline/realLife.ts';
 export {
