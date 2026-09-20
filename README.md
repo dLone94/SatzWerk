@@ -873,15 +873,28 @@ each is named as such in the app rather than implied to be coming:
   accent is a different engine, and the dashboard shows no number for speaking
   rather than inventing one.
 
-Two pieces of machinery are waiting on use rather than on code:
+One piece of machinery is waiting on use rather than on code:
 
 - **Dictation without replay**, which the exercise model already supports via
   `audio.hideText` and a replay budget, and which becomes a fair test now that
   there is a course's worth of heard-but-not-seen vocabulary behind it.
-- **Interleaved review across levels**, now that there are 28 units to
-  interleave. The daily round already mixes review, mistakes and the lesson in
-  progress; what it does not yet do is deliberately space items *across* levels
-  rather than letting the schedule decide alone.
+
+**Interleaved review is built.** A lesson creates all its review items in one
+moment, so they share a `dueAt` and used to arrive as one contiguous run —
+four greetings in a row, then four housing words. That is *blocked* practice,
+and blocked practice reliably feels easier than it is: inside a run you stop
+retrieving the word and start coasting on the context the run itself supplies.
+`orderQueue` now deals items out so that neighbours come from different
+lessons, using urgency to decide which bucket goes first and the interleave
+only to break ties — so nothing waits meaningfully longer than it did. The
+tiers themselves are not interleaved across: a word you have forgotten is
+worth seeing before one that is merely scheduled, whatever lesson each came
+from.
+
+The daily round takes the ordered queue too. It used to take `dueItems`
+straight from the database, which meant the one screen used every day had
+neither the urgency ordering nor the interleaving that the review page has
+always had.
 
 ---
 

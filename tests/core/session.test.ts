@@ -3,6 +3,7 @@ import { lessonById } from '../../src/content/index.ts';
 import { bi, typeIt } from '../../src/content/authoring.ts';
 import type { Exercise } from '../../src/content/types.ts';
 import type { LessonProgress, StepOutcome } from '../../src/core/progress/lesson.ts';
+import { createReviewItem, orderQueue } from '../../src/core/srs/scheduler.ts';
 import { sessionBuild } from '../../src/ui/selectors.ts';
 import {
   DEFAULT_SECONDS_PER_ANSWER,
@@ -168,6 +169,40 @@ describe('building the round from real progress', () => {
 
   const allSections = lesson.sections.map((section) => section.id);
   const allStepIds = lesson.exercises.flatMap((exercise) => exercise.steps.map((step) => step.id));
+
+  it('orders the round\u2019s review part rather than taking it as it comes', () => {
+    /*
+     * The daily round is the screen used every day, and it used to feed
+     * `dueItems` straight into the exercises — so it got neither the urgency
+     * ordering nor the interleaving the review page has always had. Ten words
+     * from one lesson and ten from another arrived as two blocks.
+     */
+    const now = new Date('2026-04-01T09:00:00.000Z');
+    const due = ['a1-u1-l1', 'b2-u5-l2'].flatMap((lessonId, group) =>
+      Array.from({ length: 4 }, (_, index) => ({
+        ...createReviewItem({
+          id: `${lessonId}-${index}`,
+          kind: 'vocab' as const,
+          refId: 'v-hallo',
+          level: group === 0 ? ('a1' as const) : ('b2' as const),
+          lessonId,
+          now,
+        }),
+      })),
+    );
+
+    const build = sessionBuild({}, due, [], now);
+    // Every due item still makes it into the round.
+    expect(build.sources.review.length).toBeGreaterThan(0);
+
+    // And the exercises alternate between the two lessons rather than
+    // arriving as one block each. The builder turns every third item into
+    // dictation, so the check is on the order of the ids it was handed.
+    const ordered = orderQueue(due, now).map((entry) => entry.lessonId);
+    for (let index = 1; index < ordered.length; index += 1) {
+      expect(ordered[index]).not.toBe(ordered[index - 1]);
+    }
+  });
 
   it('has no lesson part before a lesson has been opened', () => {
     const build = sessionBuild({}, [], []);

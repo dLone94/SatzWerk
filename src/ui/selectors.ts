@@ -359,7 +359,16 @@ export function sessionBuild(
   mistakes: MistakeRecord[],
   now = new Date(),
 ): SessionBuild {
-  const review = buildReviewExercises(dueItems(reviewItems, now));
+  /*
+   * Ordered, not merely filtered.
+   *
+   * The review page has always gone through `orderQueue`; the daily round took
+   * whatever order the database handed back. That meant the one screen used
+   * every day got neither the urgency ordering — forgotten words before merely
+   * scheduled ones — nor the interleaving that keeps twenty words from the
+   * same lesson out of a single run.
+   */
+  const review = buildReviewExercises(orderQueue(reviewItems, now));
 
   // A mistake made once may have been a slip. Twice is a pattern, and a
   // pattern is worth spending a daily round on.

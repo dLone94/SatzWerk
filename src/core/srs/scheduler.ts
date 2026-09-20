@@ -226,18 +226,92 @@ export function dueReason(item: ReviewItem): 'new' | 'learning' | 'overdue' | 's
 }
 
 /**
+ * Which lesson an item came from, for interleaving.
+ *
+ * Falls back to the level for items with no lesson — a mistake recorded in a
+ * scenario, for instance — so every item has a source and nothing collapses
+ * into one undifferentiated bucket.
+ */
+function sourceOf(item: ReviewItem): string {
+  return item.lessonId ?? `level:${item.level}`;
+}
+
+/**
+ * Deal the items out so that neighbours come from different lessons.
+ *
+ * Items created by one lesson are created in the same moment, so they share a
+ * `dueAt` and arrive as a contiguous block — twenty words from B2 Unit 5, one
+ * after another. That is *blocked* practice, and blocked practice reliably
+ * feels easier than it is: within a run you stop retrieving the word and start
+ * coasting on the context the run itself supplies.
+ *
+ * This keeps urgency as the first consideration — the bucket whose head is
+ * most overdue goes first — and only uses the interleave to break ties between
+ * buckets, so nothing waits meaningfully longer than it did. When one bucket
+ * is all that is left, its items simply run out in order rather than being
+ * held back to preserve an alternation that no longer has a partner.
+ */
+function interleave(items: ReviewItem[]): ReviewItem[] {
+  if (items.length < 3) return items;
+
+  const buckets = new Map<string, ReviewItem[]>();
+  for (const item of items) {
+    const key = sourceOf(item);
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(item);
+    else buckets.set(key, [item]);
+  }
+  if (buckets.size < 2) return items;
+
+  const out: ReviewItem[] = [];
+  let previous: string | null = null;
+  while (out.length < items.length) {
+    let chosen: string | null = null;
+    let chosenDue = Number.POSITIVE_INFINITY;
+    for (const [key, bucket] of buckets) {
+      if (bucket.length === 0) continue;
+      // Skip the bucket we just took from, unless it is the only one left.
+      if (key === previous && [...buckets.values()].some((other) => other.length > 0 && other !== bucket)) {
+        continue;
+      }
+      const due = new Date(bucket[0]!.dueAt).getTime();
+      if (due < chosenDue || (due === chosenDue && chosen !== null && key < chosen)) {
+        chosen = key;
+        chosenDue = due;
+      }
+    }
+    if (chosen === null) break;
+    out.push(buckets.get(chosen)!.shift()!);
+    previous = chosen;
+  }
+  return out;
+}
+
+/**
  * Order the queue: forgotten material first, then items still being learned,
- * then the longest overdue. Keeps a session from being all-new-all-at-once.
+ * then the longest overdue — and, within each of those tiers, dealt out so
+ * that consecutive items come from different lessons wherever the queue makes
+ * that possible.
+ *
+ * The tiers are about urgency and are not interleaved across: something you
+ * have forgotten is worth seeing before something merely scheduled, whatever
+ * lesson each came from.
  */
 export function orderQueue(items: ReviewItem[], now = new Date()): ReviewItem[] {
   const priority: Record<ReviewState, number> = { lapsed: 0, learning: 1, known: 2, new: 3 };
-  return dueItems(items, now).sort((a, b) => {
+  const sorted = dueItems(items, now).sort((a, b) => {
     if (priority[a.state] !== priority[b.state]) return priority[a.state] - priority[b.state];
     const aDue = new Date(a.dueAt).getTime();
     const bDue = new Date(b.dueAt).getTime();
     if (aDue !== bDue) return aDue - bDue;
     return a.id.localeCompare(b.id);
   });
+
+  const out: ReviewItem[] = [];
+  for (const state of ['lapsed', 'learning', 'known', 'new'] as ReviewState[]) {
+    out.push(...interleave(sorted.filter((item) => item.state === state)));
+  }
+  return out;
 }
 
 export interface QueueSummary {
