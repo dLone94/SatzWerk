@@ -249,7 +249,6 @@ export const B2_OUTLINE: LevelOutline = {
     b('Formal versus informal register', 'Официален срещу неофициален стил'),
   ],
   plannedUnits: [
-    b('At work: meetings and projects', 'На работа: срещи и проекти'),
     b('Argument and negotiation', 'Аргументация и преговори'),
     b('Media and society', 'Медии и общество'),
     b('Formal written German', 'Официален писмен немски'),

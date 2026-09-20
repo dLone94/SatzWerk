@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { contentStats, unauthoredLevels } from '../../content/index.ts';
+import { contentStats, partialLevels, unauthoredLevels } from '../../content/index.ts';
 import type { TeachingLanguage } from '../../content/types.ts';
 import { tr } from '../../i18n.ts';
 import {
@@ -28,6 +28,10 @@ export function SettingsPage() {
   // Named from the curriculum itself, so the sentence cannot outlive the gap
   // it describes.
   const pending = unauthoredLevels().map((level) => level.label);
+  // A level with two of its five units written is neither "not authored yet"
+  // nor finished, and saying either would be an overstatement in one direction
+  // or the other. It gets its own sentence, with its own real numbers.
+  const started = partialLevels();
 
   return (
     <div className="page">
@@ -137,13 +141,25 @@ export function SettingsPage() {
               ? `${pending.length === 1 ? 'Ниво' : 'Нивата'} ${pending.join(', ')} ${pending.length === 1 ? 'съществува' : 'съществуват'} като структура и план, но още ${pending.length === 1 ? 'не е написано' : 'не са написани'}.`
               : `${pending.length === 1 ? 'Level' : 'Levels'} ${pending.join(', ')} ${pending.length === 1 ? 'exists' : 'exist'} as structure and outline, but ${pending.length === 1 ? 'is' : 'are'} not authored yet.`}
           </p>
-        ) : (
+        ) : null}
+        {started.length > 0 ? (
+          <p className="card__foot">
+            {started
+              .map(({ level, written, planned }) =>
+                lang === 'bg'
+                  ? `Ниво ${level.label} се пише: ${written} ${written === 1 ? 'написан раздел' : 'написани раздела'}, още ${planned} по план.`
+                  : `Level ${level.label} is being written: ${written} ${written === 1 ? 'unit' : 'units'} so far, ${planned} still outlined.`,
+              )
+              .join(' ')}
+          </p>
+        ) : null}
+        {pending.length === 0 && started.length === 0 ? (
           <p className="card__foot">
             {lang === 'bg'
               ? 'Всички нива в структурата са написани.'
               : 'Every level in the structure is authored.'}
           </p>
-        )}
+        ) : null}
       </Card>
 
       <Card title={t('settingsData')} subtitle={t('settingsDataNote')}>

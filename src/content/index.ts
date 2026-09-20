@@ -18,6 +18,7 @@ import { B1_U4_PATTERNS, B1_UNIT_4 } from './b1/unit4.ts';
 import { B1_U5_PATTERNS, B1_UNIT_5 } from './b1/unit5.ts';
 import { B1_U6_PATTERNS, B1_UNIT_6 } from './b1/unit6.ts';
 import { B1_LEVEL_CHECKPOINT } from './b1/levelCheckpoint.ts';
+import { B2_U1_PATTERNS, B2_UNIT_1 } from './b2/unit1.ts';
 import { A2_LEVEL_CHECKPOINT } from './a2/levelCheckpoint.ts';
 import { GRAMMAR_CONCEPTS, grammarById } from './grammar.ts';
 import { LEVEL_OUTLINES } from './outline/levelOutlines.ts';
@@ -114,13 +115,16 @@ export const B1: Level = {
   checkpoint: B1_LEVEL_CHECKPOINT,
 };
 
-export const CURRICULUM: Level[] = [
-  PRE_A1,
-  A1,
-  A2,
-  B1,
-  levelFromOutline('b2', [], 'planned'),
-];
+/**
+ * B2 has started: unit 1 is authored and the rest is outline.
+ *
+ * `partial` rather than `available`, because the level is genuinely not
+ * finished and the course map says so — the same status A1, A2 and B1 each
+ * carried while they were being written.
+ */
+export const B2: Level = levelFromOutline('b2', [B2_UNIT_1], 'partial');
+
+export const CURRICULUM: Level[] = [PRE_A1, A1, A2, B1, B2];
 
 export const SENTENCE_PATTERNS: SentencePattern[] = [
   ...PRE_A1_PATTERNS,
@@ -145,6 +149,7 @@ export const SENTENCE_PATTERNS: SentencePattern[] = [
   ...B1_U4_PATTERNS,
   ...B1_U5_PATTERNS,
   ...B1_U6_PATTERNS,
+  ...B2_U1_PATTERNS,
 ];
 
 /* ------------------------------------------------------------------ *
@@ -422,6 +427,25 @@ export function contentStats(): ContentStats {
  */
 export function unauthoredLevels(): Level[] {
   return CURRICULUM.filter((level) => level.units.length === 0);
+}
+
+/**
+ * Levels that have been started and are not finished.
+ *
+ * Kept separate from `unauthoredLevels` because the two are different
+ * promises: a level with nothing in it is an outline, and a level with two of
+ * its five units written is a level you can already study. Saying "every level
+ * is authored" while one of them is a third done would be the kind of quiet
+ * overstatement this app is built not to make.
+ */
+export function partialLevels(): Array<{ level: Level; written: number; planned: number }> {
+  return CURRICULUM.filter((level) => level.units.length > 0 && level.status === 'partial').map(
+    (level) => ({
+      level,
+      written: level.units.length,
+      planned: LEVEL_OUTLINES[level.id as keyof typeof LEVEL_OUTLINES].plannedUnits.length,
+    }),
+  );
 }
 
 /** Blocks for a section, including a referenced grammar concept's blocks. */
