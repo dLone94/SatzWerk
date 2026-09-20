@@ -102,6 +102,17 @@ async function scenario(db: Db) {
   await push.saveSubscription(db, { endpoint: 'https://push.example/def', p256dh: 'k3', auth: 'a3' });
   await push.deleteSubscription(db, 'https://push.example/def');
 
+  /*
+   * Scenario runs, whose upsert is keyed on two columns rather than one. The
+   * first version of it named a single column in ON CONFLICT and was rejected
+   * by SQLite at runtime with nothing failing until a conversation was
+   * actually finished in a browser; the replay below is what makes the
+   * conflict branch — and Postgres's agreement with it — part of the test.
+   */
+  await store.recordScenarioRun(db, { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 5 });
+  await store.recordScenarioRun(db, { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 2 });
+  await store.recordScenarioRun(db, { scriptId: 'sc-doctor-a2', turns: 4, firstTryCorrect: 3 });
+
   const progress = await store.getLessonProgress(db, 'pre-a1-u1-l2');
   const stats = await store.getStats(db);
   return {
@@ -143,6 +154,17 @@ async function scenario(db: Db) {
       accuracy: c.accuracy,
     })),
     favorites: await store.listFavorites(db),
+    scenarioRuns: (await store.listScenarioRuns(db)).map((run) => ({
+      scriptId: run.scriptId,
+      runs: run.runs,
+      turns: run.turns,
+      firstTryCorrect: run.firstTryCorrect,
+      lastAccuracy: Number(run.lastAccuracy.toFixed(6)),
+      bestAccuracy: Number(run.bestAccuracy.toFixed(6)),
+      // Postgres returns REAL as a string unless coerced; a string here would
+      // print "0.4%" as NaN on the Real Life page.
+      accuracyType: typeof run.bestAccuracy,
+    })),
     subscriptions: (await push.listSubscriptions(db)).map((row) => ({
       endpoint: row.endpoint,
       p256dh: row.p256dh,

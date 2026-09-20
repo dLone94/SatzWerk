@@ -40,9 +40,23 @@ export function narrator(text: Bilingual, only?: TeachingLanguage[]): ScenarioBe
  * `task` is the objective — what you have to achieve, not the sentence. The
  * steps are ordinary answer steps, so hints, traps, review targets and
  * mandatory retyping all work exactly as they do in a lesson.
+ *
+ * `only` scopes the whole turn to one teaching path. It exists for the places
+ * where the sentence a learner would actually say depends on which household
+ * they are in — the language spoken at home, for instance — rather than on
+ * their German.
  */
-export function you(id: string, task: Bilingual, steps: StepInit[], level?: CefrLevel): ScenarioBeat {
-  return { who: 'you', exercise: exercise({ id, kind: 'type', objective: task, steps, level }) };
+export function you(
+  id: string,
+  task: Bilingual,
+  steps: StepInit[],
+  level?: CefrLevel,
+  only?: TeachingLanguage[],
+): ScenarioBeat {
+  return {
+    who: 'you',
+    exercise: exercise({ id, kind: 'type', objective: task, steps, level, only }),
+  };
 }
 
 export interface ScriptInit {
