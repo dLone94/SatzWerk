@@ -9,6 +9,7 @@ import { LoginPage } from './pages/LoginPage.tsx';
 import { MistakesPage } from './pages/MistakesPage.tsx';
 import { OnboardingPage } from './pages/OnboardingPage.tsx';
 import { RealLifePage } from './pages/RealLifePage.tsx';
+import { ScenarioPage } from './pages/ScenarioPage.tsx';
 import { ReviewPage } from './pages/ReviewPage.tsx';
 import { SessionPage } from './pages/SessionPage.tsx';
 import { SettingsPage } from './pages/SettingsPage.tsx';
@@ -112,6 +113,7 @@ export function App() {
           <Route path="/vocabulary/:wordId" element={<WordPage />} />
           <Route path="/mistakes" element={<MistakesPage />} />
           <Route path="/real-life" element={<RealLifePage />} />
+          <Route path="/scenario/:scriptId" element={<ScenarioPage />} />
           <Route path="/coach" element={<CoachPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -279,6 +279,56 @@ describe('statistics are derived from real activity', () => {
     expect((await store.listCheckpointResults(db))[0]).toMatchObject({ passed: true, accuracy: 0.8 });
   });
 
+  /*
+   * Replayed scenarios, and the reason this test exists.
+   *
+   * The first version of the upsert said ON CONFLICT (script_id) against a
+   * table keyed on (script_id, user_id). SQLite rejects that at runtime and
+   * nowhere else: every unit test passed, and the failure only appeared when a
+   * conversation was actually finished in a browser. So a second run is part
+   * of the test, not an afterthought — the conflict branch is the half that
+   * broke.
+   */
+  it('records a scenario run, and keeps the best score across replays', async () => {
+    const first = await call('POST', '/api/scenario-runs', {
+      scriptId: 'sc-bakery-a1',
+      turns: 5,
+      firstTryCorrect: 5,
+    });
+    expect(first.status).toBe(200);
+    expect((first.body as { scenarioRuns: unknown[] }).scenarioRuns).toHaveLength(1);
+
+    const second = await call('POST', '/api/scenario-runs', {
+      scriptId: 'sc-bakery-a1',
+      turns: 5,
+      firstTryCorrect: 3,
+    });
+    expect(second.status).toBe(200);
+
+    const runs = await store.listScenarioRuns(db);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toMatchObject({
+      scriptId: 'sc-bakery-a1',
+      runs: 2,
+      firstTryCorrect: 3,
+      lastAccuracy: 0.6,
+      bestAccuracy: 1,
+    });
+  });
+
+  it('refuses a scenario run with no script', async () => {
+    const response = await call('POST', '/api/scenario-runs', { turns: 3, firstTryCorrect: 3 });
+    expect(response.status).toBe(400);
+  });
+
+  it('reports scenario runs in the state the app boots from', async () => {
+    await call('POST', '/api/scenario-runs', { scriptId: 'sc-bakery-pre-a1', turns: 4, firstTryCorrect: 4 });
+    const state = await call('GET', '/api/state');
+    expect((state.body as { scenarioRuns: Array<{ scriptId: string }> }).scenarioRuns[0]?.scriptId).toBe(
+      'sc-bakery-pre-a1',
+    );
+  });
+
   it('stores favourites', async () => {
     await call('POST', '/api/vocabulary/v-hallo/favorite', { favorite: true });
     expect(await store.listFavorites(db)).toEqual(['v-hallo']);

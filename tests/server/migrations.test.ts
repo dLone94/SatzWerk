@@ -96,17 +96,21 @@ describe('migrating an existing database', () => {
 
   it('attributes every progress table to a learner', async () => {
     const db: Db = await openDatabase({ path: ':memory:' });
-    for (const table of [
-      'profile',
-      'lesson_state',
-      'step_outcomes',
-      'review_items',
-      'attempts',
-      'mistakes',
-      'study_days',
-      'checkpoint_results',
-      'word_flags',
-    ]) {
+    // Derived from the schema rather than listed here, so a table added later
+    // is covered by this test the day it is added rather than the day somebody
+    // remembers to extend a list. The two exceptions are the tables that are
+    // genuinely not per-learner: schema bookkeeping
+    // and the accounts themselves.
+    const notPerLearner = new Set(['meta', 'users']);
+    const tables = (
+      await db.all<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+      )
+    )
+      .map((row) => row.name)
+      .filter((name) => !notPerLearner.has(name));
+    expect(tables.length).toBeGreaterThan(8);
+    for (const table of tables) {
       const columns = await db.all<{ name: string }>(`SELECT name FROM pragma_table_info('${table}')`);
       expect(
         columns.map((column) => column.name),

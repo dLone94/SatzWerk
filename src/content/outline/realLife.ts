@@ -1,14 +1,16 @@
-import type { Bilingual, CefrLevel, ContentStatus } from '../types.ts';
+import type { Bilingual, CefrLevel } from '../types.ts';
 
 const bi = (en: string, bg: string): Bilingual => ({ en, bg });
 
 /**
  * The Real Life section.
  *
- * Milestone 1 ships the *plan* for these scenarios, not the scenarios. Each one
- * records which CEFR level it belongs at and what the task actually is, so the
- * UI can show an honest roadmap instead of empty buttons. `relatedLessonIds`
- * points at authored lessons that already teach the language a scenario needs.
+ * This file is the *design*: which setting, which register, and what the task
+ * becomes at each level. The playable conversations live in ../scenarios/, one
+ * script per scenario and level, and a stage is playable exactly when a script
+ * for it exists — `scenarioStatus()` derives that rather than trusting a field
+ * somebody has to remember to change. `relatedLessonIds` points at authored
+ * lessons that already teach the language a scenario needs.
  */
 
 export interface ScenarioStage {
@@ -21,7 +23,6 @@ export interface Scenario {
   title: Bilingual;
   /** Where this happens, in one line. */
   setting: Bilingual;
-  status: ContentStatus;
   /** The same setting, scaled across levels. */
   stages: ScenarioStage[];
   /** Authored lessons that already cover part of the language needed. */
@@ -34,7 +35,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-bakery',
     title: bi('At the bakery', 'В пекарната'),
     setting: bi('A German Bäckerei, morning queue.', 'Немска Bäckerei, сутрешна опашка.'),
-    status: 'planned',
     register: 'Sie',
     relatedLessonIds: ['pre-a1-u2-l1', 'pre-a1-u2-l2'],
     stages: [
@@ -48,7 +48,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-restaurant',
     title: bi('At the restaurant', 'В ресторанта'),
     setting: bi('Table service, evening.', 'Обслужване на маса, вечер.'),
-    status: 'planned',
     register: 'Sie',
     relatedLessonIds: ['pre-a1-u2-l2'],
     stages: [
@@ -62,7 +61,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-supermarket',
     title: bi('At the supermarket', 'В супермаркета'),
     setting: bi('Checkout and shelves.', 'Каса и рафтове.'),
-    status: 'planned',
     register: 'Sie',
     stages: [
       { level: 'a1', task: bi('Find an item and pay.', 'Намери продукт и плати.') },
@@ -74,7 +72,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-transport',
     title: bi('Public transport and the station', 'Градски транспорт и гарата'),
     setting: bi('U-Bahn, bus, Deutsche Bahn.', 'U-Bahn, автобус, Deutsche Bahn.'),
-    status: 'planned',
     register: 'Sie',
     stages: [
       { level: 'a1', task: bi('Buy a ticket and ask which platform.', 'Купи билет и попитай от кой коловоз.') },
@@ -86,7 +83,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-doctor',
     title: bi('At the doctor', 'При лекаря'),
     setting: bi('Reception and consultation.', 'Рецепция и консултация.'),
-    status: 'planned',
     register: 'Sie',
     stages: [
       { level: 'a1', task: bi('Make an appointment and give your name.', 'Запиши час и кажи името си.') },
@@ -98,7 +94,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-pharmacy',
     title: bi('At the pharmacy', 'В аптеката'),
     setting: bi('Apotheke counter.', 'Гише в Apotheke.'),
-    status: 'planned',
     register: 'Sie',
     stages: [
       { level: 'a1', task: bi('Ask for something for a headache.', 'Поискай нещо за главоболие.') },
@@ -110,7 +105,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-buergeramt',
     title: bi('Bürgeramt and Anmeldung', 'Bürgeramt и Anmeldung'),
     setting: bi('Registering your address.', 'Регистрация на адрес.'),
-    status: 'planned',
     register: 'Sie',
     stages: [
       { level: 'a2', task: bi('Book an appointment online and confirm it.', 'Запази час онлайн и го потвърди.') },
@@ -122,7 +116,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-apartment',
     title: bi('Apartment viewing and the landlord', 'Оглед на жилище и наемодателят'),
     setting: bi('Wohnungsbesichtigung and later the Vermieter.', 'Wohnungsbesichtigung и по-късно Vermieter.'),
-    status: 'planned',
     register: 'Sie',
     stages: [
       { level: 'a2', task: bi('Ask about rent, size and availability.', 'Попитай за наем, размер и наличност.') },
@@ -134,7 +127,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-work',
     title: bi('At work and the job interview', 'На работа и на интервю'),
     setting: bi('Office, team meeting, Bewerbungsgespräch.', 'Офис, екипна среща, Bewerbungsgespräch.'),
-    status: 'planned',
     register: 'both',
     stages: [
       { level: 'a2', task: bi('Say what you do and ask a colleague for help.', 'Кажи какво работиш и помоли колега за помощ.') },
@@ -146,7 +138,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-kita',
     title: bi('Kindergarten and school', 'Детска градина и училище'),
     setting: bi('Kita handover, parents’ evening.', 'Предаване в Kita, родителска среща.'),
-    status: 'planned',
     register: 'both',
     stages: [
       { level: 'a2', task: bi('Report that your child is ill.', 'Съобщи, че детето ти е болно.') },
@@ -158,7 +149,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-bank',
     title: bi('Bank and insurance', 'Банка и осигуровки'),
     setting: bi('Opening an account, Krankenkasse.', 'Откриване на сметка, Krankenkasse.'),
-    status: 'planned',
     register: 'Sie',
     stages: [
       { level: 'a2', task: bi('Open a current account.', 'Открий разплащателна сметка.') },
@@ -170,7 +160,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-neighbours',
     title: bi('Neighbours and the phone', 'Съседи и телефон'),
     setting: bi('Hausflur, Hausordnung, a phone call.', 'Hausflur, Hausordnung, телефонен разговор.'),
-    status: 'planned',
     register: 'both',
     stages: [
       { level: 'a1', task: bi('Greet a neighbour and introduce yourself.', 'Поздрави съсед и се представи.') },
@@ -182,7 +171,6 @@ export const SCENARIOS: Scenario[] = [
     id: 'sc-emergency',
     title: bi('Emergencies', 'Спешни ситуации'),
     setting: bi('112, urgent help.', '112, спешна помощ.'),
-    status: 'planned',
     register: 'Sie',
     stages: [
       { level: 'a1', task: bi('Call for help and give your address.', 'Извикай помощ и кажи адреса си.') },

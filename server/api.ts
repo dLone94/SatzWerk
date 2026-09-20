@@ -98,17 +98,27 @@ function asRecord(body: unknown): Record<string, unknown> {
  * every page load.
  */
 export async function fullState(db: Db) {
-  const [profile, lessons, reviewItems, mistakes, favorites, stats, studyDays, checkpointResults] =
-    await Promise.all([
-      await store.getProfile(db),
-      await store.getAllLessonProgress(db),
-      await store.listReviewItems(db),
-      await store.listMistakes(db),
-      await store.listFavorites(db),
-      await store.getStats(db),
-      await store.listStudyDays(db, 60),
-      await store.listCheckpointResults(db),
-    ]);
+  const [
+    profile,
+    lessons,
+    reviewItems,
+    mistakes,
+    favorites,
+    stats,
+    studyDays,
+    checkpointResults,
+    scenarioRuns,
+  ] = await Promise.all([
+    await store.getProfile(db),
+    await store.getAllLessonProgress(db),
+    await store.listReviewItems(db),
+    await store.listMistakes(db),
+    await store.listFavorites(db),
+    await store.getStats(db),
+    await store.listStudyDays(db, 60),
+    await store.listCheckpointResults(db),
+    await store.listScenarioRuns(db),
+  ]);
   return {
     profile,
     lessons,
@@ -118,6 +128,7 @@ export async function fullState(db: Db) {
     stats,
     studyDays,
     checkpointResults,
+    scenarioRuns,
     serverTime: new Date().toISOString(),
   };
 }
@@ -451,6 +462,18 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     return ok({ results: await store.listCheckpointResults(db) });
   }
 
+  if (route.length === 1 && route[0] === 'scenario-runs' && method === 'POST') {
+    const body = asRecord(request.body);
+    if (!body.scriptId) return badRequest('scriptId is required');
+    const turns = Number(body.turns ?? 0);
+    const firstTryCorrect = Number(body.firstTryCorrect ?? 0);
+    if (!Number.isFinite(turns) || !Number.isFinite(firstTryCorrect)) {
+      return badRequest('turns and firstTryCorrect must be numbers');
+    }
+    await store.recordScenarioRun(db, { scriptId: String(body.scriptId), turns, firstTryCorrect });
+    return ok({ scenarioRuns: await store.listScenarioRuns(db) });
+  }
+
   if (route.length === 1 && route[0] === 'study' && method === 'POST') {
     const body = asRecord(request.body);
     const seconds = Number(body.seconds ?? 0);
@@ -575,7 +598,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
 
 type AttemptValidation = { input: store.AttemptInput } | { error: string };
 
-const CONTEXTS = new Set(['lesson', 'mastery', 'review', 'checkpoint', 'practice']);
+const CONTEXTS = new Set(['lesson', 'mastery', 'review', 'checkpoint', 'practice', 'scenario']);
 const VERDICTS = new Set([
   'correct',
   'accepted-variant',

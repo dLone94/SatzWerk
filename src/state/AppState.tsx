@@ -53,6 +53,7 @@ export interface AppStateValue {
   stats: Stats;
   studyDays: AppStateSnapshot['studyDays'];
   checkpointResults: AppStateSnapshot['checkpointResults'];
+  scenarioRuns: AppStateSnapshot['scenarioRuns'];
   coach: CoachStatus | null;
 
   lang: TeachingLanguage;
@@ -85,6 +86,7 @@ export interface AppStateValue {
     accuracy: number;
     passed: boolean;
   }) => Promise<void>;
+  recordScenarioRun: (scriptId: string, turns: number, firstTryCorrect: number) => Promise<void>;
   resetAll: () => Promise<void>;
   lessonProgress: (lessonId: string) => LessonProgress;
 }
@@ -277,6 +279,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       stats: snapshot?.stats ?? EMPTY_STATS,
       studyDays: snapshot?.studyDays ?? [],
       checkpointResults: snapshot?.checkpointResults ?? [],
+      scenarioRuns: snapshot?.scenarioRuns ?? [],
       coach,
       lang,
       t,
@@ -375,6 +378,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       recordCheckpoint: async (payload) => {
         const result = await api.recordCheckpoint(payload);
         patchSnapshot({ checkpointResults: result.results });
+      },
+
+      recordScenarioRun: async (scriptId, turns, firstTryCorrect) => {
+        const result = await api.recordScenarioRun({ scriptId, turns, firstTryCorrect });
+        patchSnapshot({ scenarioRuns: result.scenarioRuns });
       },
 
       resetAll: async () => {

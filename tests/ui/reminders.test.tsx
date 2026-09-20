@@ -67,6 +67,7 @@ function stubState(): AppStateValue {
     },
     studyDays: [],
     checkpointResults: [],
+    scenarioRuns: [],
     coach: null,
     lang,
     t: (key, vars) => tr(key, lang, vars),
@@ -94,6 +95,7 @@ function stubState(): AppStateValue {
     resolveMistake: async () => undefined,
     toggleFavorite: async () => undefined,
     recordCheckpoint: async () => undefined,
+    recordScenarioRun: async () => undefined,
     resetAll: async () => undefined,
     lessonProgress: (lessonId) => ({
       lessonId,

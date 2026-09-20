@@ -73,6 +73,7 @@ function stubState(lang: TeachingLanguage, overrides: Partial<AppStateValue> = {
     },
     studyDays: [],
     checkpointResults: [],
+    scenarioRuns: [],
     coach: { aiAvailable: false, provider: 'none', features: { writingReview: 'rule-based', conversation: 'planned' } },
     lang,
     t: (key, vars) => tr(key, lang, vars),
@@ -102,6 +103,7 @@ function stubState(lang: TeachingLanguage, overrides: Partial<AppStateValue> = {
     resolveMistake: vi.fn(async () => undefined),
     toggleFavorite: vi.fn(async () => undefined),
     recordCheckpoint: vi.fn(async () => undefined),
+    recordScenarioRun: vi.fn(async () => undefined),
     resetAll: vi.fn(async () => undefined),
     lessonProgress: (lessonId) => ({
       lessonId,

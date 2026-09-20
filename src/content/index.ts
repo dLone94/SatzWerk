@@ -373,6 +373,15 @@ export { GRAMMAR_CONCEPTS, grammarById } from './grammar.ts';
 export { LEVEL_OUTLINES } from './outline/levelOutlines.ts';
 export { SCENARIOS, scenariosForLevel } from './outline/realLife.ts';
 export type { Scenario, ScenarioStage } from './outline/realLife.ts';
+export {
+  SCENARIO_SCRIPTS,
+  playableScenarios,
+  scenarioStatus,
+  scriptAnswerCount,
+  scriptById,
+  scriptFor,
+  scriptsForScenario,
+} from './scenarios/index.ts';
 
 /**
  * The validator's lexicon, extended with everything the course teaches.

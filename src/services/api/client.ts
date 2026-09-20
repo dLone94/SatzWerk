@@ -52,6 +52,17 @@ export interface CheckpointResult {
   createdAt: string;
 }
 
+export interface ScenarioRun {
+  scriptId: string;
+  runs: number;
+  turns: number;
+  firstTryCorrect: number;
+  lastAccuracy: number;
+  bestAccuracy: number;
+  firstRunAt: string;
+  lastRunAt: string;
+}
+
 export interface AppStateSnapshot {
   profile: Profile;
   lessons: LessonProgress[];
@@ -61,6 +72,7 @@ export interface AppStateSnapshot {
   stats: Stats;
   studyDays: StudyDay[];
   checkpointResults: CheckpointResult[];
+  scenarioRuns: ScenarioRun[];
   serverTime: string;
 }
 
@@ -73,7 +85,7 @@ export interface TargetSpec {
 }
 
 export interface AttemptPayload {
-  context: 'lesson' | 'mastery' | 'review' | 'checkpoint' | 'practice';
+  context: 'lesson' | 'mastery' | 'review' | 'checkpoint' | 'practice' | 'scenario';
   lessonId?: string;
   exerciseId?: string;
   stepId: string;
@@ -279,6 +291,9 @@ export const api = {
     passed: boolean;
     detail?: unknown;
   }) => post<{ results: CheckpointResult[] }>('/checkpoints', payload),
+
+  recordScenarioRun: (payload: { scriptId: string; turns: number; firstTryCorrect: number }) =>
+    post<{ scenarioRuns: ScenarioRun[] }>('/scenario-runs', payload),
 
   addStudyTime: (seconds: number) =>
     post<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds }),
