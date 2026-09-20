@@ -253,8 +253,17 @@ export interface ExerciseStep extends PathScoped {
   answer: AnswerSpec;
   /** Revealed one at a time; the last hint may contain the answer. */
   hints: Bilingual[];
-  /** Text spoken by the TTS provider. `hideText` powers dictation. */
-  audio?: { text: string; hideText?: boolean };
+  /**
+   * Text spoken by the TTS provider. `hideText` powers dictation.
+   *
+   * `replays` is how many times a dictation line may be heard *again* after
+   * the automatic first play. Unlimited replay turns dictation into
+   * transcription with a scrub bar: you stop listening and start sampling the
+   * audio until the words resolve. A budget makes it a listening task again.
+   * It applies only where the text is hidden — audio beside a visible German
+   * sentence is pronunciation help, not a test, and stays unlimited.
+   */
+  audio?: { text: string; hideText?: boolean; replays?: number };
   /** Review items this step feeds: vocab ids, pattern ids or grammar ids. */
   reviewTargets?: string[];
 }

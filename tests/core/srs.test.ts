@@ -136,4 +136,95 @@ describe('queue', () => {
     ];
     expect(orderQueue(items, later).map((i) => i.id)).toEqual(['lapsed', 'learning', 'new']);
   });
+
+  /*
+   * Interleaving, which is the whole reason orderQueue is not just a sort.
+   *
+   * A lesson creates all its review items in one moment, so they share a dueAt
+   * and used to arrive as one contiguous run — twenty B2 words in a row. That
+   * is blocked practice, and it feels easier than it is: inside a run you stop
+   * retrieving the word and start coasting on the run's own context.
+   */
+  it('deals consecutive items out from different lessons', () => {
+    const lessons = ['a1-u1-l1', 'b2-u5-l2'];
+    const items = lessons.flatMap((lessonId, group) =>
+      Array.from({ length: 5 }, (_, index) =>
+        item({
+          id: `${lessonId}-${index}`,
+          lessonId,
+          level: group === 0 ? 'a1' : 'b2',
+          state: 'known',
+          dueAt: T0.toISOString(),
+        }),
+      ),
+    );
+
+    const ordered = orderQueue(items, T0);
+    expect(ordered).toHaveLength(10);
+    const sources = ordered.map((entry) => entry.lessonId);
+    for (let index = 1; index < sources.length; index += 1) {
+      expect(sources[index], `position ${index} repeats ${sources[index]}`).not.toBe(sources[index - 1]);
+    }
+  });
+
+  it('keeps the most overdue item first even while interleaving', () => {
+    const old = item({
+      id: 'old',
+      lessonId: 'a1-u1-l1',
+      state: 'known',
+      dueAt: new Date(T0.getTime() - 5 * 86_400_000).toISOString(),
+    });
+    const recent = [0, 1].map((n) =>
+      item({ id: `recent-${n}`, lessonId: 'b2-u5-l2', state: 'known', dueAt: T0.toISOString() }),
+    );
+    expect(orderQueue([...recent, old], T0)[0]!.id).toBe('old');
+  });
+
+  it('never holds an item back once only one lesson is left', () => {
+    // Two from one lesson, four from another: the alternation runs out and the
+    // remainder must still be dealt rather than dropped.
+    const items = [
+      ...[0, 1].map((n) => item({ id: `short-${n}`, lessonId: 'l-short', state: 'known' })),
+      ...[0, 1, 2, 3].map((n) => item({ id: `long-${n}`, lessonId: 'l-long', state: 'known' })),
+    ];
+    const ordered = orderQueue(items, T0);
+    expect(ordered).toHaveLength(6);
+    expect(new Set(ordered.map((entry) => entry.id)).size).toBe(6);
+  });
+
+  it('does not interleave across urgency tiers', () => {
+    // A forgotten word is worth seeing before a merely scheduled one, whatever
+    // lesson each came from.
+    const items = [
+      item({ id: 'known-a', lessonId: 'l1', state: 'known' }),
+      item({ id: 'lapsed-a', lessonId: 'l1', state: 'lapsed' }),
+      item({ id: 'known-b', lessonId: 'l2', state: 'known' }),
+      item({ id: 'lapsed-b', lessonId: 'l2', state: 'lapsed' }),
+    ];
+    const states = orderQueue(items, T0).map((entry) => entry.state);
+    expect(states).toEqual(['lapsed', 'lapsed', 'known', 'known']);
+  });
+
+  it('interleaves by level when items have no lesson of their own', () => {
+    const items = [
+      ...[0, 1, 2].map((n) => item({ id: `a-${n}`, kind: 'mistake', level: 'a1', state: 'known' })),
+      ...[0, 1, 2].map((n) => item({ id: `b-${n}`, kind: 'mistake', level: 'b1', state: 'known' })),
+    ];
+    const levels = orderQueue(items, T0).map((entry) => entry.level);
+    for (let index = 1; index < levels.length; index += 1) {
+      expect(levels[index]).not.toBe(levels[index - 1]);
+    }
+  });
+
+  it('leaves a queue of one source exactly as it was', () => {
+    const items = [0, 1, 2, 3].map((n) =>
+      item({ id: `only-${n}`, lessonId: 'l1', state: 'known' }),
+    );
+    expect(orderQueue(items, T0).map((entry) => entry.id)).toEqual([
+      'only-0',
+      'only-1',
+      'only-2',
+      'only-3',
+    ]);
+  });
 });

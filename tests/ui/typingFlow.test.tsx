@@ -4,11 +4,11 @@ import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LEXICON, describeNoun, lessonById } from '../../src/content/index.ts';
-import { freeWriting, typeIt } from '../../src/content/authoring.ts';
+import { dictation, exercise, freeWriting, typeIt } from '../../src/content/authoring.ts';
 import type { Exercise, TeachingLanguage } from '../../src/content/types.ts';
 import { tr } from '../../src/i18n.ts';
 import type { AttemptPayload } from '../../src/services/api/client.ts';
-import { nullTtsProvider } from '../../src/services/tts/index.ts';
+import { nullTtsProvider, type TtsProvider } from '../../src/services/tts/index.ts';
 import { createSpeechRecogniser } from '../../src/services/speech/recogniser.ts';
 import { AppStateContext, type AppStateValue } from '../../src/state/AppState.tsx';
 import { ExercisePlayer } from '../../src/ui/components/ExercisePlayer.tsx';
@@ -501,5 +501,165 @@ describe('the word bank on an open-writing task', () => {
     expect(screen.queryByText(tr('exerciseWordBank', 'en'))).not.toBeInTheDocument();
     // And specifically none of the model answer's words as chips.
     expect(screen.queryByRole('button', { name: 'Hamburg' })).not.toBeInTheDocument();
+  });
+});
+
+describe('dictation has a replay budget', () => {
+  /*
+   * Unlimited replay turns dictation into transcription with a scrub bar: you
+   * stop listening and start sampling the audio until the words resolve. The
+   * budget makes it a listening task again — and must never make it a dead
+   * end, which is the failure this app has now shipped twice.
+   */
+  function countingTts() {
+    const spoken: string[] = [];
+    const provider: TtsProvider = {
+      id: 'test',
+      available: true,
+      describe: () => 'test',
+      speak: (text, options) => {
+        spoken.push(text);
+        options?.onEnd?.();
+      },
+      cancel: () => undefined,
+    };
+    return { spoken, provider };
+  }
+
+  function mountWithTts(node: ReactElement, provider: TtsProvider) {
+    return render(
+      <AppStateContext.Provider value={{ ...stubState('en'), tts: provider }}>
+        {node}
+      </AppStateContext.Provider>,
+    );
+  }
+
+  const heard = dictation('dict', bi('Listen and type', 'Слушай и напиши'), [
+    { id: 'dict-1', prompt: null, answer: 'Ich wohne in Hamburg.' },
+    { id: 'dict-2', prompt: null, answer: 'Ich komme aus Bulgarien.' },
+  ]);
+
+  it('speaks once on its own, then spends the budget and stops', async () => {
+    const user = userEvent.setup();
+    const { spoken, provider } = countingTts();
+    mountWithTts(
+      <ExercisePlayer exercises={[heard]} context="lesson" level="pre-a1" onFinish={() => {}} />,
+      provider,
+    );
+
+    // The automatic first play is the question being asked; it is not a replay.
+    await waitFor(() => expect(spoken).toHaveLength(1));
+    expect(screen.getByText(tr('exerciseReplaysLeft', 'en', { n: 2 }))).toBeInTheDocument();
+
+    const play = () => screen.getAllByRole('button', { name: /Play|Slower/ })[0]!;
+    await user.click(play());
+    expect(screen.getByText(tr('exerciseReplaysLeftOne', 'en', { n: 1 }))).toBeInTheDocument();
+    await user.click(play());
+    expect(screen.getByText(tr('exerciseReplaysGone', 'en'))).toBeInTheDocument();
+    expect(spoken).toHaveLength(3);
+
+    // Spent means spent, for the slow button too — a budget you can dodge by
+    // always pressing the snail is not a budget.
+    for (const button of screen.getAllByRole('button', { name: /Play|Slower/ })) {
+      expect(button).toBeDisabled();
+    }
+    await user.click(play()).catch(() => {});
+    expect(spoken).toHaveLength(3);
+  });
+
+  it('is never a dead end: the answer still goes through with the budget spent', async () => {
+    const user = userEvent.setup();
+    const { provider } = countingTts();
+    const finished = vi.fn();
+    mountWithTts(
+      <ExercisePlayer exercises={[heard]} context="lesson" level="pre-a1" onFinish={finished} />,
+      provider,
+    );
+
+    const play = () => screen.getAllByRole('button', { name: /Play|Slower/ })[0]!;
+    await user.click(play());
+    await user.click(play());
+    expect(screen.getByText(tr('exerciseReplaysGone', 'en'))).toBeInTheDocument();
+
+    await user.type(field(), 'Ich wohne in Hamburg.{Enter}');
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: tr('exerciseContinue', 'en') })).toBeInTheDocument(),
+    );
+  });
+
+  it('gives the next line its own budget', async () => {
+    const user = userEvent.setup();
+    const { provider } = countingTts();
+    mountWithTts(
+      <ExercisePlayer exercises={[heard]} context="lesson" level="pre-a1" onFinish={() => {}} />,
+      provider,
+    );
+
+    const play = () => screen.getAllByRole('button', { name: /Play|Slower/ })[0]!;
+    await user.click(play());
+    await user.click(play());
+    await user.type(field(), 'Ich wohne in Hamburg.{Enter}');
+    await user.click(await screen.findByRole('button', { name: tr('exerciseContinue', 'en') }));
+
+    await waitFor(() =>
+      expect(screen.getByText(tr('exerciseReplaysLeft', 'en', { n: 2 }))).toBeInTheDocument(),
+    );
+  });
+
+  it('does not ration a first hearing', async () => {
+    /*
+     * `listenChoose` hides its text too, but the model calls it first
+     * listening exposure and means it: the learner is meeting the sound for
+     * the first time and choosing between options they can see. The browser
+     * run caught this — the budget was counting down on one of these before
+     * the learner had ever heard the word.
+     */
+    const { provider } = countingTts();
+    const firstHearing = exercise({
+      id: 'listen',
+      kind: 'listenChoose',
+      objective: bi('Which word?', 'Коя дума?'),
+      steps: [
+        {
+          id: 'listen-1',
+          prompt: null,
+          answer: 'die Tochter',
+          audio: { text: 'die Tochter', hideText: true },
+          choices: [
+            { id: 'a', de: 'die Tochter' },
+            { id: 'b', de: 'der Sohn' },
+          ],
+          correct: 'a',
+        },
+      ],
+    });
+    mountWithTts(
+      <ExercisePlayer exercises={[firstHearing]} context="lesson" level="pre-a1" onFinish={() => {}} />,
+      provider,
+    );
+
+    expect(screen.queryByText(tr('exerciseReplaysGone', 'en'))).not.toBeInTheDocument();
+    expect(screen.queryByText(tr('exerciseReplaysLeft', 'en', { n: 2 }))).not.toBeInTheDocument();
+    for (const button of screen.getAllByRole('button', { name: /Play|Slower/ })) {
+      expect(button).not.toBeDisabled();
+    }
+  });
+
+  it('does not budget audio that sits beside visible German', async () => {
+    // Pronunciation help on a prompt you can already read is not a test, so it
+    // stays unlimited.
+    const { provider } = countingTts();
+    const spoken = typeIt('spoken', bi('Say it', 'Кажи го'), [
+      { id: 'spoken-1', prompt: bi('I live in Hamburg.', 'Живея в Хамбург.'), answer: 'Ich wohne in Hamburg.', audio: 'Ich wohne in Hamburg.' },
+    ]);
+    mountWithTts(
+      <ExercisePlayer exercises={[spoken]} context="lesson" level="pre-a1" onFinish={() => {}} />,
+      provider,
+    );
+    expect(screen.queryByText(tr('exerciseReplaysGone', 'en'))).not.toBeInTheDocument();
+    expect(screen.queryByText(tr('exerciseReplaysLeft', 'en', { n: 2 }))).not.toBeInTheDocument();
+    for (const button of screen.getAllByRole('button', { name: /Play|Slower/ })) {
+      expect(button).not.toBeDisabled();
+    }
   });
 });

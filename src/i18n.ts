@@ -243,6 +243,10 @@ export const UI = {
   exerciseHint: s('Hint', 'Подсказка'),
   exerciseHintCount: s('Hint {n} of {total}', 'Подсказка {n} от {total}'),
   exerciseNoMoreHints: s('No more hints', 'Няма повече подсказки'),
+  exerciseSkip: s('I do not know this one', 'Не знам това'),
+  exerciseReplaysLeft: s('{n} replays left', 'остават {n} повторения'),
+  exerciseReplaysLeftOne: s('{n} replay left', 'остава {n} повторение'),
+  exerciseReplaysGone: s('No replays left — answer what you heard', 'Няма повече повторения — напиши каквото чу'),
   exerciseReveal: s('Show the answer', 'Покажи отговора'),
   exerciseRevealWarning: s(
     'Showing the answer means no credit for this item, and it will come back soon.',
@@ -468,6 +472,39 @@ export const UI = {
   mistakesRecent: s('Most recent', 'Най-скорошни'),
   mistakesYouWrote: s('you wrote', 'ти написа'),
   mistakesCorrectIs: s('correct is', 'правилното е'),
+
+  onboardingKnowSome: s(
+    'Already speak some German?',
+    'Вече говориш малко немски?',
+  ),
+
+  // Placement: where should I start?
+  placementNav: s('Where to start', 'Откъде да започна'),
+  placementIntroTitle: s('Twenty questions, four per level', 'Двайсет въпроса, по четири на ниво'),
+  placementHonesty: s(
+    'This is not an exam and it does not certify anything. Twenty questions can tell you roughly which level will not bore you and will not drown you, and the result shows you the working so you can disagree with it.',
+    'Това не е изпит и не удостоверява нищо. Двайсет въпроса могат да ти подскажат приблизително кое ниво няма да те отегчи и няма да те удави, а резултатът ти показва сметката, за да можеш да не се съгласиш с нея.',
+  ),
+  placementStart: s('Start the check', 'Започни проверката'),
+  placementSkip: s('Skip it, I will choose myself', 'Пропусни, ще избера сам'),
+  placementResultTitle: s('What the answers suggest', 'Какво подсказват отговорите'),
+  placementStartAt: s('Start at', 'Започни от'),
+  placementBands: s('By level', 'По ниво'),
+  placementBandKnown: s('you had this', 'това го имаш'),
+  placementBandGap: s('the first gap', 'първата дупка'),
+  placementBandNotYet: s('not yet', 'още не'),
+  placementCaveat: s(
+    'Derived from {asked} answers, which is enough to point at a level and not enough to be sure of one.',
+    'Изведено от {asked} отговора — достатъчно, за да посочи ниво, но не и за да бъде сигурно в него.',
+  ),
+  placementToppedOut: s(
+    'You answered every level, including B2. The check has nothing harder to ask, which means it cannot tell you where you are — only that it is at or above the top of this course.',
+    'Отговори на всички нива, включително B2. Проверката няма какво по-трудно да пита, тоест не може да ти каже къде си — само че е на върха на този курс или над него.',
+  ),
+  placementOpenFirstLesson: s('Open the first lesson', 'Отвори първия урок'),
+  placementSeeCourse: s('See the whole course', 'Виж целия курс'),
+  placementDisagree: s('Not right? Start here instead:', 'Не е вярно? Започни оттук:'),
+  placementAgain: s('Take it again', 'Направи я пак'),
 
   // Real life
   realLifeTitle: s('Real life', 'Реален живот'),

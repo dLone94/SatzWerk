@@ -8,7 +8,9 @@ import {
   CURRICULUM,
   LEVEL_OUTLINES,
   LEXICON,
+  PLACEMENT_CHECKPOINT,
   SCENARIOS,
+  contentStats,
   describeNoun,
   partialLevels,
   scenarioStatus,
@@ -28,6 +30,7 @@ import { DashboardPage } from '../../src/ui/pages/DashboardPage.tsx';
 import { LessonPage } from '../../src/ui/pages/LessonPage.tsx';
 import { MistakesPage } from '../../src/ui/pages/MistakesPage.tsx';
 import { OnboardingPage } from '../../src/ui/pages/OnboardingPage.tsx';
+import { PlacementPage } from '../../src/ui/pages/PlacementPage.tsx';
 import { RealLifePage } from '../../src/ui/pages/RealLifePage.tsx';
 import { ReviewPage } from '../../src/ui/pages/ReviewPage.tsx';
 import { SessionPage } from '../../src/ui/pages/SessionPage.tsx';
@@ -278,6 +281,64 @@ describe.each(LANGS)('pages render in the %s path', (lang) => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(tr('onboardingTitle', lang));
     expect(screen.getByText('English')).toBeInTheDocument();
     expect(screen.getByText('Български')).toBeInTheDocument();
+
+    /*
+     * The first screen a new learner sees must not understate the app.
+     *
+     * This line once ended "Levels A1–B2 are outlines only so far", which was
+     * true when written and had silently become false — all five levels were
+     * authored by then. So: it names the levels that really are an outline,
+     * and no level that has lessons in it.
+     */
+    const counts = screen.getByText(new RegExp(String(contentStats().lessons)));
+    const empty = unauthoredLevels().map((level) => level.label);
+    for (const label of empty) {
+      expect(counts.textContent, `${label} is an outline and is not named`).toContain(label);
+    }
+    for (const level of CURRICULUM.filter((entry) => entry.units.length > 0)) {
+      expect(
+        counts.textContent,
+        `${level.label} has lessons but is named as an outline`,
+      ).not.toContain(`${level.label} is an outline`);
+    }
+    if (empty.length === 0) {
+      expect(counts.textContent).not.toMatch(/outline|план/);
+    }
+  });
+});
+
+describe('the placement check', () => {
+  it('asks about every authored level, four questions each', () => {
+    /*
+     * Derived from the content, so adding a level without placement questions
+     * for it fails here rather than silently producing a check that cannot
+     * recommend the new level.
+     */
+    const byLevel = new Map<string, number>();
+    for (const exercise of PLACEMENT_CHECKPOINT.exercises) {
+      byLevel.set(exercise.level, (byLevel.get(exercise.level) ?? 0) + exercise.steps.length);
+    }
+    for (const level of CURRICULUM.filter((entry) => entry.units.length > 0)) {
+      expect(byLevel.get(level.id), `no placement questions at ${level.label}`).toBeGreaterThanOrEqual(3);
+    }
+    // And nothing at a level the course cannot send anybody to.
+    for (const level of byLevel.keys()) {
+      expect(CURRICULUM.find((entry) => entry.id === level)?.units.length ?? 0).toBeGreaterThan(0);
+    }
+  });
+
+  it('offers no hints, because it is measuring rather than teaching', () => {
+    for (const exercise of PLACEMENT_CHECKPOINT.exercises) {
+      for (const step of exercise.steps) {
+        expect(step.hints, `${step.id} has hints`).toHaveLength(0);
+      }
+    }
+  });
+
+  it('shows the intro before anything is answered', () => {
+    mount(<PlacementPage />, 'en');
+    expect(screen.getByText(tr('placementHonesty', 'en'))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: tr('placementStart', 'en') })).toBeInTheDocument();
   });
 });
 

@@ -8,6 +8,7 @@ import { LessonPage } from './pages/LessonPage.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
 import { MistakesPage } from './pages/MistakesPage.tsx';
 import { OnboardingPage } from './pages/OnboardingPage.tsx';
+import { PlacementPage } from './pages/PlacementPage.tsx';
 import { RealLifePage } from './pages/RealLifePage.tsx';
 import { ScenarioPage } from './pages/ScenarioPage.tsx';
 import { ReviewPage } from './pages/ReviewPage.tsx';
@@ -112,6 +113,7 @@ export function App() {
           <Route path="/vocabulary" element={<VocabularyPage />} />
           <Route path="/vocabulary/:wordId" element={<WordPage />} />
           <Route path="/mistakes" element={<MistakesPage />} />
+          <Route path="/placement" element={<PlacementPage />} />
           <Route path="/real-life" element={<RealLifePage />} />
           <Route path="/scenario/:scriptId" element={<ScenarioPage />} />
           <Route path="/coach" element={<CoachPage />} />

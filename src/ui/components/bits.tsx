@@ -192,10 +192,15 @@ export function AudioButton({
   text,
   slow = false,
   compact = false,
+  disabled = false,
+  onPlay,
 }: {
   text: string;
   slow?: boolean;
   compact?: boolean;
+  /** Dictation spends a replay budget; a spent button stays visible but dead. */
+  disabled?: boolean;
+  onPlay?: () => void;
 }) {
   const { tts, t } = useApp();
   if (!tts.available) return null;
@@ -203,8 +208,13 @@ export function AudioButton({
     <button
       type="button"
       className={`audio-btn${compact ? ' audio-btn--compact' : ''}`}
+      disabled={disabled}
       onMouseDown={(event) => event.preventDefault()}
-      onClick={() => tts.speak(text, { rate: slow ? SLOW_RATE : NORMAL_RATE })}
+      onClick={() => {
+        if (disabled) return;
+        tts.speak(text, { rate: slow ? SLOW_RATE : NORMAL_RATE });
+        onPlay?.();
+      }}
       aria-label={`${slow ? t('exercisePlaySlow') : t('exercisePlayAudio')}: ${text}`}
       title={slow ? t('exercisePlaySlow') : t('exercisePlayAudio')}
     >

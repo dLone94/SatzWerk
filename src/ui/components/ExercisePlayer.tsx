@@ -55,17 +55,31 @@ export interface ExercisePlayerProps {
    * player's own bar would read "1 of 1" at every turn of the conversation.
    */
   hideProgress?: boolean;
+  /**
+   * Offer a way to answer "I do not know this one".
+   *
+   * Only the placement check uses it, and it needs it: that check runs with no
+   * hints and no reveal, and its last four questions are B2. Without an
+   * explicit way out, a beginner reaching them is stuck on a screen that will
+   * not accept an empty answer and offers no help — the exact dead end this
+   * app has already shipped once. The skip is recorded as a real attempt with
+   * an empty verdict, so it counts against the band rather than vanishing.
+   */
+  allowSkip?: boolean;
   /** Restrict to these step ids, used by the recovery round. */
   onlyStepIds?: string[];
   onFinish: (summary: PlayerSummary) => void;
   /**
-   * Fired once per step, with the text the learner ended up having accepted.
+   * Fired once per step, with the text the learner ended up having accepted
+   * and whether they got there cleanly.
    *
-   * The scenario player needs this to build a transcript: showing the
+   * The scenario player needs the text to build a transcript: showing the
    * canonical answer instead would put words in the learner's mouth whenever
-   * they said something true that was not the taught form.
+   * they said something true that was not the taught form. The placement check
+   * needs `correct`, which is the same strict notion the score uses — right at
+   * the first attempt, no hint opened, nothing revealed.
    */
-  onStepDone?: (info: { stepId: string; given: string }) => void;
+  onStepDone?: (info: { stepId: string; given: string; correct: boolean }) => void;
   onExit?: () => void;
   exitLabel?: string;
 }
@@ -76,6 +90,14 @@ interface Playable {
 }
 
 type Phase = 'answer' | 'feedback' | 'retype';
+
+/**
+ * Replays a dictation line gets after the automatic first play.
+ *
+ * Three hearings in total. Fewer makes a single mis-heard syllable
+ * unrecoverable; more and the learner stops listening and starts sampling.
+ */
+export const DEFAULT_REPLAYS = 2;
 
 /** Deterministic shuffle so a word bank does not reorder on every render. */
 function shuffle<T>(items: T[], seed: string): T[] {
@@ -100,6 +122,7 @@ export function ExercisePlayer({
   lessonId,
   allowHints = true,
   hideProgress = false,
+  allowSkip = false,
   onlyStepIds,
   onFinish,
   onStepDone,
@@ -136,6 +159,7 @@ export function ExercisePlayer({
   const [supportNote, setSupportNote] = useState<'up' | 'down' | null>(null);
   const [firstTryCorrect, setFirstTryCorrect] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [replaysUsed, setReplaysUsed] = useState(0);
 
   const inputRef = useRef<AnswerInputHandle | null>(null);
   const continueRef = useRef<HTMLButtonElement | null>(null);
@@ -143,6 +167,8 @@ export function ExercisePlayer({
   const startedAt = useRef(Date.now());
   /** The last text this step had accepted, for the transcript. */
   const accepted = useRef('');
+  /** Whether this step was answered cleanly, for the placement bands. */
+  const wasClean = useRef(false);
 
   const current = playables[cursor];
   const total = playables.length;
@@ -154,6 +180,7 @@ export function ExercisePlayer({
     if (!current) return;
     startedAt.current = Date.now();
     setHintsShown(allowHints ? Math.min(presentation.hintsUnlocked, current.step.hints.length) : 0);
+    setReplaysUsed(0);
     const seed = current.step.scaffold ? splitScaffold(current.step.scaffold).seed : '';
     if (seed) setValue(seed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -220,8 +247,13 @@ export function ExercisePlayer({
 
   const advance = useCallback(() => {
     if (current && accepted.current) {
-      onStepDone?.({ stepId: current.step.id, given: accepted.current });
+      onStepDone?.({
+        stepId: current.step.id,
+        given: accepted.current,
+        correct: wasClean.current,
+      });
       accepted.current = '';
+      wasClean.current = false;
     }
     setValue('');
     setPhase('answer');
@@ -233,6 +265,7 @@ export function ExercisePlayer({
     setShowExplanation(false);
     setUsedBank([]);
     setSupportNote(null);
+    setReplaysUsed(0);
     if (cursor + 1 >= total) {
       onFinish({
         total,
@@ -298,6 +331,7 @@ export function ExercisePlayer({
         setBusy(false);
       }
       accepted.current = value;
+      wasClean.current = true;
       setFirstTryCorrect((count) => count + 1);
       setPhase('feedback');
       setFeedback({
@@ -352,6 +386,7 @@ export function ExercisePlayer({
     }
 
     if (clean) setFirstTryCorrect((count) => count + 1);
+    wasClean.current = clean;
 
     // Adapt the amount of support for the steps that follow.
     const outcome = clean ? 'clean' : validation.credit > 0 ? 'partial' : 'wrong';
@@ -429,6 +464,36 @@ export function ExercisePlayer({
     setPhase('feedback');
   }, [current, busy, result, value, lexicon, context, lessonId, say, submitAttempt, hintsShown, revealed]);
 
+  const skip = useCallback(async () => {
+    if (!current || busy) return;
+    const { exercise, step } = current;
+    setBusy(true);
+    try {
+      await submitAttempt({
+        context,
+        lessonId,
+        exerciseId: exercise.id,
+        stepId: step.id,
+        prompt: step.prompt ? say(step.prompt) : undefined,
+        expected: step.answer.accepted[0] ?? '',
+        given: '',
+        verdict: 'empty',
+        credit: 0,
+        categories: [],
+        hintsUsed: hintsShown,
+        revealed,
+        isRetype: false,
+        resolved: true,
+        durationMs: Date.now() - startedAt.current,
+      });
+    } finally {
+      setBusy(false);
+    }
+    accepted.current = step.answer.accepted[0] ?? '';
+    wasClean.current = false;
+    advance();
+  }, [current, busy, context, lessonId, say, submitAttempt, hintsShown, revealed, advance]);
+
   const revealAnswer = useCallback(() => {
     if (!current) return;
     setRevealed(true);
@@ -448,6 +513,21 @@ export function ExercisePlayer({
   const { exercise, step } = current;
   const scaffold = step.scaffold ? splitScaffold(step.scaffold) : null;
   const hideText = Boolean(step.audio?.hideText);
+  /*
+   * Only dictation is budgeted.
+   *
+   * `listenChoose` hides its text too, but the model calls it first listening
+   * exposure and means it: the learner is meeting the sound for the first
+   * time and picking between options they can see. Rationing a first hearing
+   * teaches nothing. Dictation is the one that asks you to produce what you
+   * heard, and that is the task unlimited replay quietly turns into
+   * transcription.
+   */
+  const budgeted = hideText && exercise.kind === 'dictation';
+  // Two replays unless the step says otherwise: enough to catch a word you
+  // half-heard, not enough to transcribe by repetition.
+  const replayBudget = step.audio?.replays ?? DEFAULT_REPLAYS;
+  const replaysLeft = budgeted ? Math.max(0, replayBudget - replaysUsed) : Number.POSITIVE_INFINITY;
   const isChoice = exercise.kind === 'multipleChoice' || exercise.kind === 'listenChoose';
   const isFree = exercise.kind === 'freeWriting';
   const tone =
@@ -504,9 +584,38 @@ export function ExercisePlayer({
         {step.instruction ? <p className="task__instruction">{say(step.instruction)}</p> : null}
 
         {hideText ? (
+          /*
+           * Dictation, with a budget.
+           *
+           * The line is spoken once when the step opens, and after that the
+           * learner gets `replays` more hearings — the slow one included,
+           * because a budget you can dodge by always pressing the snail is not
+           * a budget. Unlimited replay turns dictation into transcription with
+           * a scrub bar: you stop listening and start sampling until the words
+           * resolve.
+           *
+           * The count is stated before it runs out rather than after, and the
+           * buttons stay visible when spent so nothing silently disappears.
+           * This is never a dead end: the hint ladder and the reveal are
+           * untouched, and both are a press away.
+           */
           <div className="task__audio-only">
-            <AudioButton text={step.audio!.text} />
-            <AudioButton text={step.audio!.text} slow />
+            <AudioButton
+              text={step.audio!.text}
+              disabled={replaysLeft === 0}
+              onPlay={() => setReplaysUsed((used) => used + 1)}
+            />
+            <AudioButton
+              text={step.audio!.text}
+              slow
+              disabled={replaysLeft === 0}
+              onPlay={() => setReplaysUsed((used) => used + 1)}
+            />
+            {budgeted ? (
+              <span className="task__replays" role="status">
+                {replaysLeft > 0 ? t('exerciseReplaysLeft', { n: replaysLeft }) : t('exerciseReplaysGone')}
+              </span>
+            ) : null}
           </div>
         ) : null}
 
@@ -646,6 +755,16 @@ export function ExercisePlayer({
             {allowHints && !isFree ? (
               <button type="button" className="btn btn--ghost btn--quiet" onClick={revealAnswer}>
                 {t('exerciseReveal')}
+              </button>
+            ) : null}
+            {allowSkip ? (
+              <button
+                type="button"
+                className="btn btn--ghost btn--quiet"
+                onClick={() => void skip()}
+                disabled={busy}
+              >
+                {t('exerciseSkip')}
               </button>
             ) : null}
             <span className="task__keyhint" id="player-keyhint">

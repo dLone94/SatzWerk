@@ -360,6 +360,17 @@ describe('authored answers are consistent with the validator', () => {
       ) {
         continue;
       }
+      /*
+       * The placement check is the one place where retyping would be wrong.
+       *
+       * Mandatory retyping exists because the correction is where the learning
+       * happens — but placement is not teaching anything. It is asking twenty
+       * questions to find out where to begin, and making a beginner copy out
+       * twenty sentences they could not produce would be both pointless and
+       * unkind. Named by id rather than waved through by scope, so a second
+       * exception has to be argued for.
+       */
+      if (exercise.id.startsWith('pl-')) continue;
       const hasSentence = exercise.steps.some((step) => step.answer.shape === 'sentence');
       if (hasSentence && exercise.mandatoryRetype === false) {
         failures.push(`${exercise.id}: sentences must trigger a retype`);
