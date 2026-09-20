@@ -316,6 +316,34 @@ describe('statistics are derived from real activity', () => {
     });
   });
 
+  it('lists scenario runs in a total order, even on a tie', async () => {
+    /*
+     * Two conversations finished inside the same millisecond tie on
+     * last_run_at, and a tie leaves the order up to the database engine.
+     * SQLite and Postgres resolve it differently, which is how CI caught it:
+     * the same two rows came back in opposite orders. The listing breaks the
+     * tie on script_id so both agree, and so the Real Life page does not
+     * reshuffle itself.
+     */
+    const sameInstant = new Date('2026-05-01T09:00:00.000Z');
+    await store.recordScenarioRun(db, { scriptId: 'sc-doctor-a2', turns: 4, firstTryCorrect: 3 }, sameInstant);
+    await store.recordScenarioRun(db, { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 5 }, sameInstant);
+    await store.recordScenarioRun(
+      db,
+      { scriptId: 'sc-kita-a2', turns: 4, firstTryCorrect: 4 },
+      new Date('2026-05-02T09:00:00.000Z'),
+    );
+
+    const runs = await store.listScenarioRuns(db);
+    expect(runs.map((run) => run.scriptId)).toEqual([
+      // Most recent first …
+      'sc-kita-a2',
+      // … then the tied pair, in id order.
+      'sc-bakery-a1',
+      'sc-doctor-a2',
+    ]);
+  });
+
   it('refuses a scenario run with no script', async () => {
     const response = await call('POST', '/api/scenario-runs', { turns: 3, firstTryCorrect: 3 });
     expect(response.status).toBe(400);
