@@ -16,6 +16,7 @@ import {
   type ReviewKind,
 } from '../src/core/srs/scheduler.ts';
 import type { Verdict } from '../src/core/validation/validate.ts';
+import { localDay, plausibleOffset, streakOn } from '../src/core/progress/days.ts';
 import type { Db } from './db.ts';
 
 /**
@@ -118,7 +119,11 @@ export async function getProfile({ db, userId }: Scope): Promise<Profile> {
     dailyTargetMinutes: Number(row.daily_target_minutes ?? 20),
     displayName: (row.display_name as string | null) ?? null,
     onboarded: Number(row.onboarded ?? 0) === 1,
-    createdAt: String(row.created_at),
+    // Every learner is given a profile row, so this default should never be
+    // reached — but `String(undefined)` is the string "undefined", and a date
+    // field carrying that word renders as "Invalid Date" on the dashboard
+    // rather than failing anywhere a reader would see it.
+    createdAt: row.created_at == null ? new Date().toISOString() : String(row.created_at),
   };
 }
 
@@ -420,6 +425,12 @@ export interface AttemptInput {
   resolved: boolean;
   durationMs?: number;
   reviewTargets?: TargetSpec[];
+  /**
+   * Minutes from UTC where the answer was typed, so it is filed under the
+   * learner's own calendar day rather than under a UTC one. Absent means UTC,
+   * which is what every row written before this existed already means.
+   */
+  tzOffsetMinutes?: number;
 }
 
 export interface AttemptResult {
@@ -435,7 +446,7 @@ const CREDIT_VERDICTS = new Set<Verdict>(['correct', 'accepted-variant']);
 export async function recordAttempt(scope: Scope, input: AttemptInput, now = new Date()): Promise<AttemptResult> {
   const { db, userId } = scope;
   const iso = now.toISOString();
-  const day = iso.slice(0, 10);
+  const day = localDay(now, plausibleOffset(input.tzOffsetMinutes));
 
   return db.transaction(async () => {
     // RETURNING rather than a last-insert-rowid lookup: SQLite and Postgres
@@ -764,8 +775,13 @@ export async function listFavorites({ db, userId }: Scope): Promise<string[]> {
   }>).map((row) => row.vocab_id);
 }
 
-export async function addStudyTime({ db, userId }: Scope, seconds: number, now = new Date()): Promise<void> {
-  const day = now.toISOString().slice(0, 10);
+export async function addStudyTime(
+  { db, userId }: Scope,
+  seconds: number,
+  now = new Date(),
+  tzOffsetMinutes = 0,
+): Promise<void> {
+  const day = localDay(now, plausibleOffset(tzOffsetMinutes));
   await db.run(`INSERT INTO study_days (day, user_id, seconds_active, answers, correct) VALUES (?, ?, ?, 0, 0)
      ON CONFLICT (day, user_id) DO UPDATE SET seconds_active = study_days.seconds_active + excluded.seconds_active`, day, userId, Math.max(0, Math.min(3600, Math.round(seconds))));
 }
@@ -830,7 +846,7 @@ export interface Stats {
   retypedCorrections: number;
 }
 
-export async function getStats(scope: Scope, now = new Date()): Promise<Stats> {
+export async function getStats(scope: Scope, now = new Date(), tzOffsetMinutes = 0): Promise<Stats> {
   const { db, userId } = scope;
   const totals = await db.get(`SELECT COUNT(*) AS answers,
               SUM(CASE WHEN verdict IN ('correct','accepted-variant') AND revealed = 0 THEN 1 ELSE 0 END) AS correct,
@@ -855,7 +871,7 @@ export async function getStats(scope: Scope, now = new Date()): Promise<Stats> {
     accuracy: answers > 0 ? correct / answers : 0,
     totalStudySeconds: Number(study.seconds ?? 0),
     studyDays: Number(study.days ?? 0),
-    streak: await computeStreak(scope, now),
+    streak: await computeStreak(scope, now, tzOffsetMinutes),
     categoryCounts: categories.map((row) => ({
       category: row.category as ErrorCategory,
       count: Number(row.count),
@@ -868,26 +884,19 @@ export async function getStats(scope: Scope, now = new Date()): Promise<Stats> {
  * The streak is counted backwards from today over days that actually contain
  * answers. A day with no activity ends it. Nothing is invented.
  */
-export async function computeStreak({ db, userId }: Scope, now = new Date()): Promise<number> {
-  const days = new Set(
-    (await db.all('SELECT day FROM study_days WHERE answers > 0 AND user_id = ?', userId) as Array<{ day: string }>).map(
-      (row) => row.day,
-    ),
-  );
-  if (days.size === 0) return 0;
-
-  const today = now.toISOString().slice(0, 10);
-  const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
-  // A streak stays alive until the end of the following day.
-  let cursor = days.has(today) ? new Date(today) : days.has(yesterday) ? new Date(yesterday) : null;
-  if (!cursor) return 0;
-
-  let streak = 0;
-  while (days.has(cursor.toISOString().slice(0, 10))) {
-    streak += 1;
-    cursor = new Date(cursor.getTime() - 86_400_000);
-  }
-  return streak;
+export async function computeStreak(
+  { db, userId }: Scope,
+  now = new Date(),
+  tzOffsetMinutes = 0,
+): Promise<number> {
+  const days = (
+    await db.all('SELECT day FROM study_days WHERE answers > 0 AND user_id = ?', userId) as Array<{
+      day: string;
+    }>
+  ).map((row) => row.day);
+  // The rule itself is in the pure core, because the dashboard counts the same
+  // thing against the browser's own calendar and the two must not disagree.
+  return streakOn(days, localDay(now, plausibleOffset(tzOffsetMinutes)));
 }
 
 /**

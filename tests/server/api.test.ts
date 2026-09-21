@@ -707,3 +707,185 @@ describe('minutes studied without a connection', () => {
     expect(Number(today?.seconds_active)).toBe(120);
   });
 });
+
+describe('numbers a client could plausibly get wrong', () => {
+  /**
+   * Every one of these used to end in a lost piece of work rather than a
+   * corrected one. The API checks `verdict`, `context` and `credit`, and these
+   * three slipped through into the database — where two of them hit a NOT NULL
+   * constraint, produced a 500, and were read by the browser as "the server
+   * refused this", which means dropped and never sent again.
+   */
+  it('accepts an answer whose duration makes no sense, and banks it', async () => {
+    const response = await call('POST', '/api/attempts', { ...wrongAttempt, durationMs: 'soon' });
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    expect((await store.getStats(scopeOf(db))).totalAnswers).toBe(1);
+  });
+
+  it('never lets time studied run backwards', async () => {
+    // A negative duration used to be passed straight through, and subtracted
+    // from the minutes the learner had actually earned that day.
+    await call('POST', '/api/attempts', { ...wrongAttempt, stepId: 'a', durationMs: 60_000 });
+    const earned = (await store.getStats(scopeOf(db))).totalStudySeconds;
+    await call('POST', '/api/attempts', { ...wrongAttempt, stepId: 'b', durationMs: -5_000 });
+    expect((await store.getStats(scopeOf(db))).totalStudySeconds).toBeGreaterThanOrEqual(earned);
+  });
+
+  /**
+   * A category the app has no name for used to be stored and then counted as a
+   * row in the learner's own mistake statistics, labelled with whatever string
+   * arrived.
+   */
+  it('keeps invented categories out of the mistake statistics', async () => {
+    const response = await call('POST', '/api/attempts', {
+      ...wrongAttempt,
+      // The invented ones first, because the primary category is the one that
+      // becomes a row in the mistake bank.
+      categories: ['verb-form', '<script>alert(1)</script>', 'article'],
+    });
+    expect(response.status).toBe(200);
+    const stats = await store.getStats(scopeOf(db));
+    expect(stats.categoryCounts.map((row) => row.category)).toEqual(['article']);
+    // And the answer itself is still banked: a label is not worth an answer.
+    expect(stats.totalAnswers).toBe(1);
+  });
+
+  it('refuses a checkpoint accuracy that is not a number, in words', async () => {
+    const response = await call('POST', '/api/checkpoints', {
+      checkpointId: 'pre-a1-u1-checkpoint',
+      scope: 'unit',
+      targetId: 'pre-a1-u1',
+      accuracy: 'most',
+      passed: true,
+    });
+    // A 400 the client can read, not a 500 it treats as a refusal after the
+    // row has already failed to insert.
+    expect(response.status).toBe(400);
+    expect(String((response.body as { error: string }).error)).toMatch(/accuracy/);
+  });
+
+  it('keeps a checkpoint accuracy inside the range it claims to be a share of', async () => {
+    await call('POST', '/api/checkpoints', {
+      checkpointId: 'pre-a1-u1-checkpoint',
+      scope: 'unit',
+      targetId: 'pre-a1-u1',
+      accuracy: 7,
+      passed: true,
+    });
+    const [result] = await store.listCheckpointResults(scopeOf(db));
+    expect(result!.accuracy).toBe(1);
+  });
+});
+
+describe('the day an answer belongs to', () => {
+  /**
+   * Three evenings running, the middle one finished at half past midnight.
+   *
+   * Every day used to be a UTC day, so that middle round was filed under the
+   * evening before and the day it actually happened on held nothing at all.
+   * The app then reported a streak of one to somebody who had studied three
+   * days in a row — which is precisely the kind of number this app is not
+   * allowed to get wrong.
+   */
+  const BERLIN = 120;
+
+  it('files it under the learner’s own calendar day', async () => {
+    for (const [step, at] of [
+      ['mon', '2026-09-14T19:00:00Z'],
+      ['tue', '2026-09-14T22:30:00Z'],
+      ['wed', '2026-09-16T19:00:00Z'],
+    ] as const) {
+      const response = await call('POST', '/api/attempts', {
+        ...wrongAttempt,
+        stepId: step,
+        at,
+        tzOffsetMinutes: BERLIN,
+      });
+      expect(response.status).toBe(200);
+    }
+
+    const days = (await store.listStudyDays(scopeOf(db))).map((day) => day.day).sort();
+    expect(days).toEqual(['2026-09-14', '2026-09-15', '2026-09-16']);
+    expect(
+      await store.computeStreak(scopeOf(db), new Date('2026-09-16T19:00:00Z'), BERLIN),
+      'three evenings running is a streak of three',
+    ).toBe(3);
+  });
+
+  it('falls back to UTC when the browser says nothing', async () => {
+    await call('POST', '/api/attempts', { ...wrongAttempt, at: '2026-09-14T22:30:00Z' });
+    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual(['2026-09-14']);
+  });
+
+  it('ignores an offset no part of the world has', async () => {
+    await call('POST', '/api/attempts', {
+      ...wrongAttempt,
+      at: '2026-09-14T22:30:00Z',
+      tzOffsetMinutes: 60 * 400,
+    });
+    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual(['2026-09-14']);
+  });
+
+  it('counts minutes studied under the same calendar', async () => {
+    await handleRequest(ctx(), {
+      method: 'POST',
+      path: '/api/study',
+      body: { seconds: 300, at: '2026-09-14T22:30:00Z', tzOffsetMinutes: BERLIN },
+    });
+    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual(['2026-09-15']);
+  });
+});
+
+describe('the one request that draws the whole app', () => {
+  /**
+   * `fullState` is nine independent queries, and its comment said they went
+   * out together. They did not: every element of the `Promise.all` array was
+   * written `await store.…`, so each one was awaited while the array was being
+   * built and the next was not even sent until it came back. Nine sequential
+   * round trips, on every page load, to a database on the other side of the
+   * Atlantic — invisible locally, where SQLite answers in microseconds.
+   *
+   * So the test is about time, measured against a database that is slow on
+   * purpose. The margin is wide: what is being told apart is "one round trip
+   * at a time" from "all of them at once", not one millisecond from two.
+   */
+  const LATENCY_MS = 20;
+
+  /** A real database with a hosted one's latency bolted on. */
+  function slowed(inner: Db): Db {
+    const wait = () => new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
+    return {
+      dialect: inner.dialect,
+      all: async (sql, ...params) => (await wait(), inner.all(sql, ...params)),
+      get: async (sql, ...params) => (await wait(), inner.get(sql, ...params)),
+      run: async (sql, ...params) => (await wait(), inner.run(sql, ...params)),
+      exec: (sql) => inner.exec(sql),
+      transaction: (body) => inner.transaction(body),
+      close: () => inner.close(),
+    } as Db;
+  }
+
+  it('asks its questions at the same time, not one after another', async () => {
+    const { fullState } = await import('../../server/api.ts');
+    const scope: store.Scope = { db: slowed(db), userId: 1 };
+
+    // How long the slowest single branch takes, measured rather than assumed:
+    // the statistics are several queries deep on their own.
+    const oneBranch = Date.now();
+    await store.getStats(scope);
+    const slowestBranch = Date.now() - oneBranch;
+
+    const started = Date.now();
+    const state = await fullState(scope);
+    const together = Date.now() - started;
+
+    expect(state.profile.teachingLanguage).toBe('en');
+    // Sequentially this is the sum of every branch; together it is the slowest
+    // one plus a little. Half the sum is a threshold neither reading can reach
+    // from the wrong side.
+    expect(
+      together,
+      `fullState took ${together}ms; its slowest single branch alone takes ${slowestBranch}ms`,
+    ).toBeLessThan(slowestBranch + LATENCY_MS * 4);
+  }, 30_000);
+});

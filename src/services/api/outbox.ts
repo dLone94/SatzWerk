@@ -61,7 +61,7 @@ const MAX_REJECTED = 20;
 export type PendingWrite =
   | { kind: 'attempt'; payload: AttemptPayload }
   | { kind: 'reviewGrade'; id: string; grade: RecallGrade }
-  | { kind: 'studyTime'; seconds: number; at: string }
+  | { kind: 'studyTime'; seconds: number; at: string; tzOffsetMinutes?: number }
   | { kind: 'sectionSeen'; lessonId: string; sectionId: string }
   | { kind: 'recovery'; lessonId: string }
   | { kind: 'mastery'; lessonId: string; accuracy: number; passAccuracy: number }
