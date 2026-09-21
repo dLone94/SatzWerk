@@ -574,8 +574,35 @@ export async function openDatabase(options: OpenOptions = {}, upTo?: number): Pr
   const url = options.databaseUrl ?? (options.path ? undefined : findDatabaseUrl()?.url);
   const db = url ? await openPostgresDriver(url) : await openSqliteDriver(options.path);
   await migrate(db, upTo);
-  if (upTo === undefined) await seedProfile(db);
+  if (upTo === undefined) {
+    await seedProfile(db);
+    await alignLearnerIds(db);
+  }
   return db;
+}
+
+/**
+ * Teach Postgres where the learner ids have got to.
+ *
+ * Migration 6 inserts the first learner with an explicit id — it has to be 1,
+ * because every existing progress row already says `user_id = 1`. An explicit
+ * id does not advance a BIGSERIAL sequence, so the *next* learner is handed
+ * id 1 as well and the insert dies on the primary key. SQLite does not have
+ * this problem (AUTOINCREMENT takes max + 1), which is exactly why it took a
+ * rehearsal against a populated Postgres to find: every test passed, and
+ * adding a second learner on the hosted copy would have thrown.
+ *
+ * Run on every open, because it is cheap, idempotent, and the alternative is
+ * remembering to run it after the one migration that seeds a row by hand.
+ */
+async function alignLearnerIds(db: Db): Promise<void> {
+  if (db.dialect !== 'postgres') return;
+  await db.run(
+    `SELECT setval(
+       pg_get_serial_sequence('learners', 'id'),
+       GREATEST((SELECT MAX(id) FROM learners), 1)
+     )`,
+  );
 }
 
 /**
