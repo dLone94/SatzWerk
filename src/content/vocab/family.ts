@@ -209,7 +209,7 @@ const FAMILY: VocabEntry[] = [
     unitId: U,
     lessonId: L1,
     difficulty: 2,
-    related: ['v-maedchen'],
+    related: ['v-das-maedchen'],
     notes: {
       bg: 'Тук родовете се разминават: „момче“ е среден род на български, но der Junge е мъжки на немски. Пиши der, не das — колкото и да звучи странно.',
       en: 'Note the pair: der Junge is masculine as you would expect, but das Mädchen is neuter, which you would not.',
