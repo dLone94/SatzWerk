@@ -241,6 +241,169 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    version: 6,
+    name: 'more than one learner, because a household is not one person',
+    sql: `
+      -- The people, kept apart from the household password.
+      --
+      -- \`users\` is the account: one row, one shared password, because everybody
+      -- in this flat already shares the door key. Who is *studying* is a
+      -- different question, and this is where the answer lives. Splitting them
+      -- also avoids fighting the CHECK (id = 1) on \`users\`, which is still
+      -- true of the account and now says nothing about the learners.
+      --
+      -- Every progress table already carries \`user_id\`, added in migration 2
+      -- against exactly this day, so there is nothing to backfill: the rows
+      -- that exist belong to learner 1, and learner 1 is created here from the
+      -- label the account was already using.
+      CREATE TABLE learners (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT    NOT NULL,
+        created_at TEXT    NOT NULL
+      );
+
+      INSERT INTO learners (id, name, created_at)
+      SELECT 1, COALESCE(NULLIF(label, ''), 'me'), created_at FROM users WHERE id = 1;
+
+      -- And now the part migration 2 thought it had already solved.
+      --
+      -- Adding \`user_id\` to every table was necessary but not sufficient: the
+      -- *keys* were still single-learner. \`profile\` refused a second row
+      -- outright (CHECK (id = 1)); \`lesson_state\` keyed on lesson_id alone, so
+      -- two people could not both be working on the same lesson; the same for
+      -- step outcomes, review items, mistakes, study days and word flags. The
+      -- second learner would have collided with the first on their first
+      -- answer.
+      --
+      -- Widening a primary key means rebuilding the table in both dialects, so
+      -- that is what this does: new table, copy the rows, drop, rename. The
+      -- column lists are written out rather than SELECT *, because the order
+      -- has to be pinned for the copy to mean anything.
+
+      CREATE TABLE profile_v6 (
+        user_id              INTEGER PRIMARY KEY,
+        teaching_language    TEXT    NOT NULL DEFAULT 'en',
+        daily_target_minutes INTEGER NOT NULL DEFAULT 20,
+        display_name         TEXT,
+        onboarded            INTEGER NOT NULL DEFAULT 0,
+        created_at           TEXT    NOT NULL,
+        updated_at           TEXT    NOT NULL
+      );
+      INSERT INTO profile_v6 (user_id, teaching_language, daily_target_minutes, display_name, onboarded, created_at, updated_at)
+        SELECT user_id, teaching_language, daily_target_minutes, display_name, onboarded, created_at, updated_at FROM profile;
+      DROP TABLE profile;
+      ALTER TABLE profile_v6 RENAME TO profile;
+
+      CREATE TABLE lesson_state_v6 (
+        lesson_id             TEXT    NOT NULL,
+        user_id               INTEGER NOT NULL DEFAULT 1,
+        sections_seen         TEXT    NOT NULL DEFAULT '[]',
+        mastery_attempts      INTEGER NOT NULL DEFAULT 0,
+        mastery_best_accuracy REAL    NOT NULL DEFAULT 0,
+        mastery_passed        INTEGER NOT NULL DEFAULT 0,
+        recovery_rounds       INTEGER NOT NULL DEFAULT 0,
+        started_at            TEXT,
+        completed_at          TEXT,
+        last_active_at        TEXT,
+        PRIMARY KEY (lesson_id, user_id)
+      );
+      INSERT INTO lesson_state_v6 (lesson_id, user_id, sections_seen, mastery_attempts, mastery_best_accuracy, mastery_passed, recovery_rounds, started_at, completed_at, last_active_at)
+        SELECT lesson_id, user_id, sections_seen, mastery_attempts, mastery_best_accuracy, mastery_passed, recovery_rounds, started_at, completed_at, last_active_at FROM lesson_state;
+      DROP TABLE lesson_state;
+      ALTER TABLE lesson_state_v6 RENAME TO lesson_state;
+
+      CREATE TABLE step_outcomes_v6 (
+        lesson_id         TEXT    NOT NULL,
+        step_id           TEXT    NOT NULL,
+        user_id           INTEGER NOT NULL DEFAULT 1,
+        attempts          INTEGER NOT NULL DEFAULT 0,
+        first_try_correct INTEGER NOT NULL DEFAULT 0,
+        best_credit       REAL    NOT NULL DEFAULT 0,
+        resolved          INTEGER NOT NULL DEFAULT 0,
+        hints_used        INTEGER NOT NULL DEFAULT 0,
+        revealed          INTEGER NOT NULL DEFAULT 0,
+        updated_at        TEXT    NOT NULL,
+        PRIMARY KEY (lesson_id, step_id, user_id)
+      );
+      INSERT INTO step_outcomes_v6 (lesson_id, step_id, user_id, attempts, first_try_correct, best_credit, resolved, hints_used, revealed, updated_at)
+        SELECT lesson_id, step_id, user_id, attempts, first_try_correct, best_credit, resolved, hints_used, revealed, updated_at FROM step_outcomes;
+      DROP TABLE step_outcomes;
+      ALTER TABLE step_outcomes_v6 RENAME TO step_outcomes;
+
+      CREATE TABLE review_items_v6 (
+        id             TEXT    NOT NULL,
+        user_id        INTEGER NOT NULL DEFAULT 1,
+        kind           TEXT    NOT NULL,
+        ref_id         TEXT    NOT NULL,
+        lesson_id      TEXT,
+        level          TEXT    NOT NULL,
+        state          TEXT    NOT NULL,
+        ease           REAL    NOT NULL,
+        interval_days  REAL    NOT NULL,
+        due_at         TEXT    NOT NULL,
+        last_review_at TEXT,
+        success_count  INTEGER NOT NULL DEFAULT 0,
+        failure_count  INTEGER NOT NULL DEFAULT 0,
+        lapses         INTEGER NOT NULL DEFAULT 0,
+        learning_step  INTEGER NOT NULL DEFAULT 0,
+        created_at     TEXT    NOT NULL,
+        PRIMARY KEY (id, user_id)
+      );
+      INSERT INTO review_items_v6 (id, user_id, kind, ref_id, lesson_id, level, state, ease, interval_days, due_at, last_review_at, success_count, failure_count, lapses, learning_step, created_at)
+        SELECT id, user_id, kind, ref_id, lesson_id, level, state, ease, interval_days, due_at, last_review_at, success_count, failure_count, lapses, learning_step, created_at FROM review_items;
+      DROP TABLE review_items;
+      ALTER TABLE review_items_v6 RENAME TO review_items;
+      CREATE INDEX idx_review_due ON review_items (due_at);
+      CREATE UNIQUE INDEX idx_review_ref ON review_items (kind, ref_id, user_id);
+
+      CREATE TABLE mistakes_v6 (
+        id              TEXT    NOT NULL,
+        user_id         INTEGER NOT NULL DEFAULT 1,
+        category        TEXT    NOT NULL,
+        expected        TEXT    NOT NULL,
+        last_given      TEXT    NOT NULL,
+        step_id         TEXT,
+        lesson_id       TEXT,
+        occurrences     INTEGER NOT NULL DEFAULT 1,
+        corrected_count INTEGER NOT NULL DEFAULT 0,
+        first_seen_at   TEXT    NOT NULL,
+        last_seen_at    TEXT    NOT NULL,
+        resolved_at     TEXT,
+        PRIMARY KEY (id, user_id)
+      );
+      INSERT INTO mistakes_v6 (id, user_id, category, expected, last_given, step_id, lesson_id, occurrences, corrected_count, first_seen_at, last_seen_at, resolved_at)
+        SELECT id, user_id, category, expected, last_given, step_id, lesson_id, occurrences, corrected_count, first_seen_at, last_seen_at, resolved_at FROM mistakes;
+      DROP TABLE mistakes;
+      ALTER TABLE mistakes_v6 RENAME TO mistakes;
+      CREATE INDEX idx_mistakes_category ON mistakes (category);
+
+      CREATE TABLE study_days_v6 (
+        day            TEXT    NOT NULL,
+        user_id        INTEGER NOT NULL DEFAULT 1,
+        seconds_active INTEGER NOT NULL DEFAULT 0,
+        answers        INTEGER NOT NULL DEFAULT 0,
+        correct        INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (day, user_id)
+      );
+      INSERT INTO study_days_v6 (day, user_id, seconds_active, answers, correct)
+        SELECT day, user_id, seconds_active, answers, correct FROM study_days;
+      DROP TABLE study_days;
+      ALTER TABLE study_days_v6 RENAME TO study_days;
+
+      CREATE TABLE word_flags_v6 (
+        vocab_id   TEXT    NOT NULL,
+        user_id    INTEGER NOT NULL DEFAULT 1,
+        favorite   INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT    NOT NULL,
+        PRIMARY KEY (vocab_id, user_id)
+      );
+      INSERT INTO word_flags_v6 (vocab_id, user_id, favorite, updated_at)
+        SELECT vocab_id, user_id, favorite, updated_at FROM word_flags;
+      DROP TABLE word_flags;
+      ALTER TABLE word_flags_v6 RENAME TO word_flags;
+    `,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
@@ -402,11 +565,16 @@ export function findDatabaseUrl(
  * that is the signal that this is a hosted deployment. Otherwise it is SQLite,
  * so local development and the tests need no configuration at all.
  */
-export async function openDatabase(options: OpenOptions = {}): Promise<Db> {
+/**
+ * `upTo` stops the migrations early, which is only ever wanted by a test that
+ * needs a database genuinely built by an older version of this file. Seeding is
+ * skipped then too, because the rows it writes may not have their columns yet.
+ */
+export async function openDatabase(options: OpenOptions = {}, upTo?: number): Promise<Db> {
   const url = options.databaseUrl ?? (options.path ? undefined : findDatabaseUrl()?.url);
   const db = url ? await openPostgresDriver(url) : await openSqliteDriver(options.path);
-  await migrate(db);
-  await seedProfile(db);
+  await migrate(db, upTo);
+  if (upTo === undefined) await seedProfile(db);
   return db;
 }
 
@@ -459,10 +627,18 @@ async function seedProfile(db: Db): Promise<void> {
     now,
   );
   await db.run(
-    `INSERT INTO profile (id, teaching_language, daily_target_minutes, onboarded, created_at, updated_at)
+    `INSERT INTO profile (user_id, teaching_language, daily_target_minutes, onboarded, created_at, updated_at)
      VALUES (1, 'en', 20, 0, ?, ?)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT (user_id) DO NOTHING`,
     now,
+    now,
+  );
+  // The first learner. On an upgraded database migration 6 has already
+  // created this row from the account's label; on a fresh one there was
+  // nothing to copy, so it is created here beside the profile it owns.
+  await db.run(
+    `INSERT INTO learners (id, name, created_at) VALUES (1, 'me', ?)
+     ON CONFLICT (id) DO NOTHING`,
     now,
   );
 }

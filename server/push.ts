@@ -1,7 +1,6 @@
 import webpush from 'web-push';
 import { dueItems } from '../src/core/srs/scheduler.ts';
-import type { Db } from './driver.ts';
-import { listReviewItems } from './store.ts';
+import { listReviewItems, type Scope } from './store.ts';
 
 /**
  * Reminders, and the rules they obey.
@@ -59,30 +58,36 @@ export function pushConfig(env: NodeJS.ProcessEnv = process.env): PushConfig | n
  * ------------------------------------------------------------------ */
 
 export async function saveSubscription(
-  db: Db,
+  { db, userId }: Scope,
   input: { endpoint: string; p256dh: string; auth: string },
   now = new Date(),
 ): Promise<void> {
   // The endpoint is the identity, so re-subscribing from the same browser
-  // refreshes the keys rather than making a duplicate.
+  // refreshes the keys rather than making a duplicate. It also moves the
+  // subscription to whoever is studying here now: one phone, one person at a
+  // time, and the reminder should be about their reviews.
   await db.run(
     `INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_id, created_at)
-     VALUES (?, ?, ?, 1, ?)
-     ON CONFLICT (endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth`,
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth, user_id = excluded.user_id`,
     input.endpoint,
     input.p256dh,
     input.auth,
+    userId,
     now.toISOString(),
   );
 }
 
-export async function deleteSubscription(db: Db, endpoint: string): Promise<void> {
+export async function deleteSubscription({ db }: Scope, endpoint: string): Promise<void> {
+  // Not scoped by learner: unsubscribing is about this browser, and the
+  // endpoint identifies it exactly.
   await db.run('DELETE FROM push_subscriptions WHERE endpoint = ?', endpoint);
 }
 
-export async function listSubscriptions(db: Db): Promise<PushSubscriptionRecord[]> {
+export async function listSubscriptions({ db, userId }: Scope): Promise<PushSubscriptionRecord[]> {
   const rows = (await db.all(
-    'SELECT endpoint, p256dh, auth, last_sent_at FROM push_subscriptions',
+    'SELECT endpoint, p256dh, auth, last_sent_at FROM push_subscriptions WHERE user_id = ?',
+    userId,
   )) as Array<Record<string, unknown>>;
   return rows.map((row) => ({
     endpoint: String(row.endpoint),
@@ -92,7 +97,7 @@ export async function listSubscriptions(db: Db): Promise<PushSubscriptionRecord[
   }));
 }
 
-export async function isSubscribed(db: Db, endpoint: string): Promise<boolean> {
+export async function isSubscribed({ db }: Scope, endpoint: string): Promise<boolean> {
   const row = await db.get('SELECT endpoint FROM push_subscriptions WHERE endpoint = ?', endpoint);
   return row !== undefined;
 }
@@ -187,7 +192,7 @@ export type PushSender = (
  * a transient failure is not a reason to forget a device.
  */
 export async function sendDueReminder(
-  db: Db,
+  scope: Scope,
   options: {
     lang?: 'en' | 'bg';
     now?: Date;
@@ -202,8 +207,9 @@ export async function sendDueReminder(
     return { configured: false, dueCount: 0, sent: 0, skipped: 0, removed: 0, reason: 'not-configured' };
   }
 
-  const subscriptions = await listSubscriptions(db);
-  const dueCount = dueItems(await listReviewItems(db), now).length;
+  const { db } = scope;
+  const subscriptions = await listSubscriptions(scope);
+  const dueCount = dueItems(await listReviewItems(scope), now).length;
 
   if (subscriptions.length === 0) {
     return { configured: true, dueCount, sent: 0, skipped: 0, removed: 0, reason: 'no-subscriptions' };
@@ -255,7 +261,7 @@ export async function sendDueReminder(
     } catch (error) {
       const status = (error as { statusCode?: number }).statusCode;
       if (status === 404 || status === 410) {
-        await deleteSubscription(db, subscription.endpoint);
+        await deleteSubscription(scope, subscription.endpoint);
         removed += 1;
       } else {
         skipped += 1;

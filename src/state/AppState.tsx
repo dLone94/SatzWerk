@@ -23,6 +23,7 @@ import {
   api,
   ApiError,
   type AppStateSnapshot,
+  type Learner,
   type AttemptPayload,
   type CoachStatus,
   type MistakeRecord,
@@ -79,6 +80,14 @@ export interface AppStateValue {
   setTeachingLanguage: (lang: TeachingLanguage) => Promise<void>;
   updateProfile: (patch: Partial<Profile>) => Promise<void>;
   submitAttempt: (payload: AttemptPayload) => Promise<void>;
+  /** Everybody who studies on this copy, and who is studying here now. */
+  learners: Learner[];
+  studyingAs: number;
+  /** Hand the app to somebody else. Refuses while answers are waiting to be saved. */
+  studyAs: (id: number) => Promise<'switched' | 'answers-waiting'>;
+  addLearner: (name: string) => Promise<void>;
+  renameLearner: (id: number, name: string) => Promise<void>;
+
   /** Answers typed but not yet in the database, because the server was away. */
   sync: SyncState;
   /** Send what is waiting now, rather than at the next automatic attempt. */
@@ -187,6 +196,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [coach, setCoach] = useState<CoachStatus | null>(null);
 
   const [sync, setSync] = useState<SyncState>(NO_PENDING);
+  const [learners, setLearners] = useState<Learner[]>([]);
+  const [studyingAs, setStudyingAs] = useState(1);
 
   const tts = useMemo(() => createTtsProvider(), []);
   const recogniser = useMemo(() => createSpeechRecogniser(), []);
@@ -220,9 +231,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setError(null);
         return;
       }
-      const [state, coachStatus] = await Promise.all([api.state(), api.coachStatus()]);
+      const [state, coachStatus, household] = await Promise.all([
+        api.state(),
+        api.coachStatus(),
+        api.learners(),
+      ]);
       setSnapshot(state);
       setCoach(coachStatus);
+      setLearners(household.learners);
+      setStudyingAs(household.studyingAs);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -608,6 +625,46 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         }
       },
 
+      learners,
+      studyingAs,
+
+      /**
+       * Hand the app to somebody else.
+       *
+       * The refusal is the interesting part. Answers wait in an outbox when
+       * the server cannot be reached, and they carry no learner of their own —
+       * they would be sent as whoever is studying when the connection returns.
+       * Switching with a queue would file one person's sentences under
+       * another's name, so it is refused until they are saved, and the caller
+       * says why.
+       */
+      studyAs: async (id) => {
+        if (outbox.queuedCount() > 0) {
+          await flushAnswers();
+          if (outbox.queuedCount() > 0) return 'answers-waiting';
+        }
+        const household = await api.studyAs(id);
+        setLearners(household.learners);
+        setStudyingAs(household.studyingAs);
+        // Everything below belongs to somebody else now.
+        setReady(false);
+        await load();
+        return 'switched';
+      },
+
+      addLearner: async (name) => {
+        const household = await api.addLearner(name);
+        setLearners(household.learners);
+        setStudyingAs(household.studyingAs);
+        setReady(false);
+        await load();
+      },
+
+      renameLearner: async (id, name) => {
+        const household = await api.renameLearner(id, name);
+        setLearners(household.learners);
+      },
+
       sync,
       syncAnswers: flushAnswers,
       dismissRefusedAnswers: () => {
@@ -791,7 +848,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setSnapshot(await api.reset());
       },
     };
-  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, sync, readSync, flushAnswers, refuse]);
+  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, sync, readSync, flushAnswers, refuse, learners, studyingAs]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }

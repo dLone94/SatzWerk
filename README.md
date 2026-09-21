@@ -53,6 +53,34 @@ server restart and a cleared browser cache.
 
 ---
 
+## What it costs to run
+
+Nothing, and that is a requirement rather than a happy accident.
+
+Everything the app needs has a free tier that a household of three comfortably
+fits inside: the bundle is static files, the API is one small serverless
+function, the database is a few megabytes of Postgres, and the German voice,
+the speech recogniser and the push notifications are all the browser's own.
+Locally it is a SQLite file and costs nothing at all.
+
+There is exactly **one** part of SatzWerk that can ever put a number on a bill,
+and it is off unless you switch it on: `ANTHROPIC_API_KEY` enables the
+*Why was this wrong?* button, and the Claude API is billed per token, with no
+free tier beyond a small trial credit on a new account. With no key set the
+button does not appear — not greyed out, not "coming soon", absent — and every
+authored explanation, every trap, every correction and the whole deterministic
+writing review keep working exactly as they do now. **If you want the app to
+cost nothing, set no key**, and check that none is set in your hosting
+project's environment variables.
+
+If you do want the button, it is cents rather than a subscription: the model is
+`claude-opus-5` by default, about half a cent per explanation, and
+`SATZWERK_AI_MODEL` switches it — `claude-haiku-4-5` is roughly a sixth of a
+cent. Either way you are billed for what you press, and pressing nothing costs
+nothing.
+
+---
+
 ## Hosting it on Vercel
 
 The app runs locally with no setup at all. Hosting it needs two things it does
@@ -576,6 +604,44 @@ SpeechSynthesis implementation and a null provider that hides the buttons when
 the browser has no German voice. Nothing in the app calls
 `window.speechSynthesis` directly.
 
+**Who is studying.** A German mother, a Bulgarian-speaking father and a son do
+not share a streak. Each person on a copy of SatzWerk has their own progress,
+their own review queue, their own mistake bank and — the point for this
+household — their own teaching path, so German through English and German
+through Bulgarian happen in the same flat on the same evening without anybody
+toggling anything.
+
+The switch is in Settings, and it is deliberately **not a second login**:
+everybody here already shares the one password, so what this buys is separate
+*work*, not privacy, and the card says exactly that rather than implying a lock
+it does not have. The choice is a cookie, so it is per device — a phone stays
+the person who carries it — and adding somebody hands them the app immediately,
+landing them on the first-run screen as themselves, which is the right moment
+to ask which language they learn German through.
+
+One refusal is worth knowing about. Answers wait in the outbox when the server
+cannot be reached, and they carry no learner of their own: they are sent as
+whoever is studying when the connection returns. Handing the app over with a
+queue would file one person's sentences under another's name, so it is refused
+until they are saved, and it says how many are waiting.
+
+This was advertised as easy and was not. Migration 2 added a `user_id` column
+to every progress table against exactly this day — necessary, and not
+sufficient: the *keys* were still single-learner. `profile` refused a second
+row outright (`CHECK (id = 1)`), and `lesson_state`, `step_outcomes`,
+`review_items`, `mistakes`, `study_days` and `word_flags` were keyed without
+the learner, so the second person's first answer would have collided with the
+first person's. Migration 6 rebuilds those seven tables with wider keys, and
+the old README line promising "an added column rather than a rewrite" has been
+corrected rather than quietly left standing.
+
+Two tests guard it: one plays two learners against the real API and checks that
+answers, streaks, mistakes, review schedules, favourites, lesson progress and
+"start again" all stay apart, and one **scans the source** of `store.ts` and
+`push.ts` and fails if any statement naming a per-learner table forgets
+`user_id` — because the failure mode of missing one is not a crash, it is one
+person quietly reading another's progress.
+
 **Saying your line, in a conversation.** After any correct sentence the app
 already offers *say it and see whether a machine understood you*. In Real Life
 the microphone does something different: it **answers**. Press it, speak your
@@ -1014,9 +1080,12 @@ always had.
   digraph where the *answer* has the special letter, which avoids treating
   `Masse` and `Maße` as equivalent. Accepting the reverse direction would hide a
   real spelling distinction, so it is reported as a spelling mistake instead.
-- **Single learner.** The `profile` table has one row by design. It is a table
-  rather than a key-value blob so that multi-user support is an added column
-  rather than a rewrite.
+- **A household, not an account.** Several people can learn on one copy, each
+  with their own progress and their own teaching path, and the switch between
+  them is not a login — see *Who is studying* above. What is genuinely shared
+  is the password: anybody who can open the app can switch to anybody's
+  profile, and the app says so where you switch rather than implying a privacy
+  it does not provide.
 - **Postgres is reached over TCP, including on Neon.** Neon's HTTP driver is
   the usual advice for serverless and was the default here until it hung a real
   deployment: its one-shot endpoint cannot run multi-statement DDL or hold a

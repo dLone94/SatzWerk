@@ -96,6 +96,9 @@ beforeEach(() => {
     if (url.endsWith('/api/coach/status')) {
       return json({ aiAvailable: false, provider: 'none', features: {} });
     }
+    if (url.endsWith('/api/learners')) {
+      return json({ learners: [{ id: 1, name: 'me', createdAt: snapshot.serverTime }], studyingAs: 1 });
+    }
 
     if (url.includes('/api/reviews/')) {
       posted.push({ url, ...(JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>) });

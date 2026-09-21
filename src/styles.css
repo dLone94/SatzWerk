@@ -4027,3 +4027,96 @@ body {
 .speak--answer .speak__note {
   max-width: 44ch;
 }
+
+/*
+ * Who is studying.
+ *
+ * The name sits in the top bar only when there is more than one person on this
+ * copy — a household of one should not be reminded that it could be a
+ * household of two.
+ */
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.topbar__who {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-decoration: none;
+  white-space: nowrap;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar__who:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+.learners {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.learners__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.learners__row.is-active {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.learners__name {
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.learners__badge {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.learners__add {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.learners__add label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.learners__add input {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+
+.learners__add .btn {
+  justify-self: start;
+}

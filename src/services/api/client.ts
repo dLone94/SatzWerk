@@ -264,7 +264,25 @@ export interface SessionState {
   canChangePassword?: boolean;
 }
 
+export interface Learner {
+  id: number;
+  name: string;
+  createdAt: string;
+}
+
+export interface LearnerList {
+  learners: Learner[];
+  /** The learner this browser is studying as. */
+  studyingAs: number;
+}
+
 export const api = {
+  learners: () => request<LearnerList>('/learners'),
+  addLearner: (name: string) => post<LearnerList>('/learners', { name }),
+  studyAs: (id: number) => post<LearnerList>('/learners/select', { id }),
+  renameLearner: (id: number, name: string) =>
+    request<LearnerList>(`/learners/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
+
   health: () => request<{ ok: boolean }>('/health'),
   state: () => request<AppStateSnapshot>('/state'),
 
