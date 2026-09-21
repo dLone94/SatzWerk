@@ -17,7 +17,7 @@ import {
   markSectionSeen as markSectionSeenIn,
   type LessonProgress,
 } from '../core/progress/lesson.ts';
-import type { RecallGrade, ReviewItem } from '../core/srs/scheduler.ts';
+import { scheduleReview, type RecallGrade, type ReviewItem } from '../core/srs/scheduler.ts';
 import { tr, type UiKey } from '../i18n.ts';
 import {
   api,
@@ -207,6 +207,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
    * looking at the screen, not by a test; there is one for it now.
    */
   const lessonsRef = useRef<Record<string, LessonProgress>>({});
+  /** The same, for the review schedule: two grades in a row must compose. */
+  const reviewItemsRef = useRef<ReviewItem[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -277,12 +279,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const seconds = Math.round(pendingSeconds.current);
       if (seconds < 10) return;
       pendingSeconds.current = 0;
+      const at = new Date().toISOString();
       void api
-        .addStudyTime(seconds)
+        .addStudyTime(seconds, at)
         .then((result) =>
           setSnapshot((current) => (current ? { ...current, stats: result.stats, studyDays: result.studyDays } : current)),
         )
-        .catch(() => undefined);
+        .catch((cause: unknown) => {
+          // Time on task used to be dropped on the floor here. It is real
+          // measured time, and it belongs to the day it was spent, so it waits
+          // with everything else rather than vanishing.
+          if (outbox.isUnreachable(cause)) outbox.enqueue({ kind: 'studyTime', seconds, at });
+        });
     }, STUDY_FLUSH_MS);
 
     return () => {
@@ -294,6 +302,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // The server's answer is the truth; the mirror above follows it.
   useEffect(() => {
     lessonsRef.current = indexLessons(snapshot?.lessons ?? []);
+    reviewItemsRef.current = snapshot?.reviewItems ?? [];
   }, [snapshot]);
 
   const profile = snapshot?.profile ?? DEFAULT_PROFILE;
@@ -323,6 +332,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     switch (write.kind) {
       case 'attempt':
         return api.recordAttempt(write.payload);
+      case 'reviewGrade':
+        return api.gradeReview(write.id, write.grade);
+      case 'studyTime':
+        return api.addStudyTime(write.seconds, write.at);
       case 'sectionSeen':
         return api.markSectionSeen(write.lessonId, write.sectionId);
       case 'recovery':
@@ -658,16 +671,51 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         patchSnapshot({ reviewItems: result.reviewItems });
       },
 
+      /**
+       * Grading a grammar concept from memory.
+       *
+       * The scheduler is a pure function both sides use, so a grade given
+       * without a connection can be applied here and confirmed later — exactly
+       * like a mastery result. Before this, the button simply did nothing and
+       * the grade was gone.
+       */
       gradeReview: async (id, grade) => {
-        const item = await api.gradeReview(id, grade);
-        setSnapshot((current) =>
-          current
-            ? {
-                ...current,
-                reviewItems: current.reviewItems.map((existing) => (existing.id === item.id ? item : existing)),
-              }
-            : current,
-        );
+        const replace = (item: ReviewItem) => {
+          // The mirror first, so grading a second concept in the same breath
+          // starts from the first one's result rather than from before it.
+          reviewItemsRef.current = reviewItemsRef.current.map((existing) =>
+            existing.id === item.id ? item : existing,
+          );
+          setSnapshot((current) =>
+            current
+              ? {
+                  ...current,
+                  reviewItems: current.reviewItems.map((existing) =>
+                    existing.id === item.id ? item : existing,
+                  ),
+                }
+              : current,
+          );
+        };
+
+        const hold = () => {
+          const current = reviewItemsRef.current.find((item) => item.id === id);
+          if (!outbox.enqueue({ kind: 'reviewGrade', id, grade })) lostAnswers.current += 1;
+          if (current) replace(scheduleReview(current, grade));
+          readSync();
+        };
+
+        if (outbox.queuedCount() > 0) {
+          hold();
+          void flushAnswers();
+          return;
+        }
+        try {
+          replace(await api.gradeReview(id, grade));
+        } catch (cause) {
+          if (outbox.isUnreachable(cause)) return hold();
+          await refuse(cause);
+        }
       },
 
       resolveMistake: async (id) => {

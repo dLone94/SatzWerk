@@ -4012,3 +4012,18 @@ body {
     transform: scale(calc(1 - 0.18 * var(--motion-shift)));
   }
 }
+
+/*
+ * The microphone offered as a way to answer, rather than as a way to practise
+ * an answer already marked right. It sits in the row of controls under the
+ * box, so it reads as one option among several and not as the main way in —
+ * typing still is, even here.
+ */
+.speak--answer {
+  margin-top: 0;
+  flex: 1 1 100%;
+}
+
+.speak--answer .speak__note {
+  max-width: 44ch;
+}

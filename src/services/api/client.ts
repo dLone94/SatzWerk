@@ -311,8 +311,12 @@ export const api = {
   recordScenarioRun: (payload: ScenarioRunPayload) =>
     post<{ scenarioRuns: ScenarioRun[] }>('/scenario-runs', payload),
 
-  addStudyTime: (seconds: number) =>
-    post<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds }),
+  /**
+   * `at` is when the time was spent, which is not when it was sent if it
+   * waited for a connection — minutes belong to the day they were studied.
+   */
+  addStudyTime: (seconds: number, at?: string) =>
+    post<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds, at }),
 
   coachStatus: () => request<CoachStatus>('/coach/status'),
 

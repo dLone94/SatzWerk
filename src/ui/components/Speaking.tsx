@@ -4,6 +4,15 @@ import { judgeSpoken, type SpokenJudgement } from '../../core/validation/speech.
 import type { RecognitionError } from '../../services/speech/recogniser.ts';
 import { useApp } from '../../state/AppState.tsx';
 
+/*
+ * The two speaking controls.
+ *
+ * `SpeakCheck` comes after a correct answer: say the sentence and find out
+ * whether a machine understood it. `SpeakAnswer` comes instead of typing one,
+ * in a conversation, where saying your line is the thing being rehearsed.
+ * They share the microphone, the error wording and the icon.
+ */
+
 /**
  * Say the sentence, and find out whether a machine understood it.
  *
@@ -139,5 +148,102 @@ function MicIcon() {
       <path d="M5 11a7 7 0 0 0 14 0" />
       <path d="M12 18v3" />
     </svg>
+  );
+}
+
+
+/**
+ * Answer by speaking, in a conversation.
+ *
+ * Only Real Life offers this, and the boundary is deliberate. Typing is the
+ * discipline the course is built on — a lesson makes you produce the letters,
+ * including the ones a phone keyboard hides — and letting a lesson be answered
+ * aloud would quietly remove the practice it exists for. A conversation is the
+ * opposite case: in a bakery nobody types, and the line you have to produce is
+ * a spoken one.
+ *
+ * What it does *not* do is submit for you. The transcript goes into the answer
+ * box and stops there, because a recogniser mishears, and being marked wrong
+ * for a machine's mistake would be the worst kind of unfair feedback. The
+ * learner reads what landed, fixes it if it is wrong, and presses enter — so
+ * the answer that reaches the validator is always one somebody chose to send.
+ */
+export function SpeakAnswer({ onHeard }: { onHeard: (text: string) => void }) {
+  const { t, recogniser } = useApp();
+  const [phase, setPhase] = useState<'idle' | 'listening'>('idle');
+  const [partial, setPartial] = useState('');
+  const [error, setError] = useState<RecognitionError | null>(null);
+  const [heard, setHeard] = useState(false);
+  const alive = useRef(true);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      recogniser.stop();
+    };
+  }, [recogniser]);
+
+  const listen = useCallback(async () => {
+    setPhase('listening');
+    setPartial('');
+    setError(null);
+
+    const result = await recogniser.listen({
+      lang: 'de-DE',
+      onPartial: (text) => {
+        if (alive.current) setPartial(text);
+      },
+    });
+    if (!alive.current) return;
+
+    setPhase('idle');
+    if (!result.transcript) {
+      setError(result.error ?? 'failed');
+      return;
+    }
+    setHeard(true);
+    onHeard(result.transcript);
+  }, [recogniser, onHeard]);
+
+  // Nothing to listen with: say nothing rather than promising something.
+  if (!recogniser.available) return null;
+
+  return (
+    <div className="speak speak--answer">
+      <div className="speak__row">
+        {phase === 'listening' ? (
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm speak__btn is-listening"
+            onClick={() => recogniser.stop()}
+          >
+            <span className="speak__pulse" aria-hidden="true" />
+            {t('speakStop')}
+          </button>
+        ) : (
+          <button type="button" className="btn btn--ghost btn--sm speak__btn" onClick={() => void listen()}>
+            <MicIcon />
+            {heard || error ? t('speakAgain') : t('speakSay')}
+          </button>
+        )}
+
+        {phase === 'listening' ? (
+          <span className="speak__status" role="status">
+            {partial || t('speakListening')}
+          </span>
+        ) : null}
+      </div>
+
+      {error ? (
+        <p className="speak__error" role="status">
+          {t(ERROR_KEYS[error])}
+        </p>
+      ) : null}
+
+      {/* Said once something has been heard, because that is the moment it
+          matters: the box holds a machine's guess, not a verdict. */}
+      {heard && !error ? <p className="speak__note">{t('speakSayHint')}</p> : null}
+    </div>
   );
 }

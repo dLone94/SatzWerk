@@ -478,7 +478,9 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     const body = asRecord(request.body);
     const seconds = Number(body.seconds ?? 0);
     if (!Number.isFinite(seconds)) return badRequest('seconds must be a number');
-    await store.addStudyTime(db, seconds);
+    // Minutes studied in a tunnel belong to the day they were spent, under the
+    // same plausibility rule as an answer's own timestamp.
+    await store.addStudyTime(db, seconds, attemptTime(body.at, new Date()));
     return ok({ stats: await store.getStats(db), studyDays: await store.listStudyDays(db, 60) });
   }
 

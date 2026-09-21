@@ -276,3 +276,19 @@ describe('upgrading the app', () => {
     expect(outbox.queuedCount()).toBe(0);
   });
 });
+
+describe('the last two writes', () => {
+  it('holds a review grade and the minutes studied', async () => {
+    outbox.enqueue({ kind: 'reviewGrade', id: 'r-1', grade: 'good' });
+    outbox.enqueue({ kind: 'studyTime', seconds: 300, at: new Date().toISOString() });
+
+    expect(outbox.answersWaiting()).toBe(0);
+    expect(outbox.queuedCount()).toBe(2);
+
+    const kinds: string[] = [];
+    await outbox.flush(async (write) => {
+      kinds.push(write.kind);
+    });
+    expect(kinds).toEqual(['reviewGrade', 'studyTime']);
+  });
+});

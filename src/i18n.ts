@@ -364,6 +364,11 @@ export const UI = {
   speakTry: s('Say it', 'Кажи го'),
   speakAgain: s('Say it again', 'Кажи го пак'),
   speakListening: s('Listening…', 'Слушам…'),
+  speakSay: s('Say it', 'Кажи го'),
+  speakSayHint: s(
+    'That is what the recogniser heard. Read it, fix anything it got wrong, and send it — a machine mishearing you should never be marked against you.',
+    'Това чу разпознавателят. Прочети го, оправи каквото е разбрал грешно и го изпрати — грешка на машината не трябва да се пише на твоя сметка.',
+  ),
   speakStop: s('Stop', 'Спри'),
   speakHeard: s('Heard', 'Чух'),
   speakUnderstood: s('Understood — that is the sentence.', 'Разбрано — това е изречението.'),

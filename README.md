@@ -576,6 +576,28 @@ SpeechSynthesis implementation and a null provider that hides the buttons when
 the browser has no German voice. Nothing in the app calls
 `window.speechSynthesis` directly.
 
+**Saying your line, in a conversation.** After any correct sentence the app
+already offers *say it and see whether a machine understood you*. In Real Life
+the microphone does something different: it **answers**. Press it, speak your
+line, and the transcript lands in the answer box.
+
+Two decisions make that honest rather than convenient:
+
+- **It never submits for you.** A recogniser mishears, and being marked wrong
+  for a machine's mistake is the worst kind of unfair feedback. What lands in
+  the box is a draft; the app says whose guess it is, in the learner's
+  language, and the answer that reaches the validator is always one somebody
+  read and chose to send. So a mishearing costs nothing — you fix the umlaut
+  it flattened and press enter.
+- **Only conversations offer it.** Typing is the discipline a lesson exists
+  for, down to the letters a phone keyboard hides, and letting a lesson be
+  answered aloud would quietly remove the practice it is there to give. A
+  bakery counter is the opposite case: nobody types at one. A dictation never
+  offers it either — it asks what you *heard*.
+
+The recogniser stays behind the same interface as before, so a browser without
+one shows no microphone at all: not a disabled button, not a promise.
+
 **Answers survive a lost connection.** The app is used on a phone, and a phone
 loses signal — in the U-Bahn, in a lift, in the corner of a flat the router
 does not reach. Until now every answer went straight to the database and the
@@ -637,6 +659,14 @@ Order holds across the two kinds. A lesson finished without a connection
 queues its answers, then its result, then its completion, and they are sent in
 that order — a result that arrived before the answers it summarises would be
 scored against a lesson the database had not seen yet.
+
+The last two writes are held on the same terms. A **grammar concept graded
+from memory** on the Review page used to throw and leave the row untouched —
+no error, no held work, the grade simply gone; the scheduler is a pure
+function both sides use, so the row now moves to where the database will put
+it. And the **minutes on task**, which were measured and then dropped on the
+floor if the flush failed, wait with everything else and carry the time they
+were spent, so they land on the right day.
 
 ---
 

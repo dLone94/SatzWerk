@@ -680,3 +680,26 @@ describe('one mastery rule, on both sides', () => {
     expect((again.body as { completedAt?: string }).completedAt).toBe(completedAt);
   });
 });
+
+describe('minutes studied without a connection', () => {
+  it('count for the day they were spent', async () => {
+    const spentAt = new Date(Date.now() - 36 * 60 * 60 * 1000);
+    const response = await call('POST', '/api/study', { seconds: 300, at: spentAt.toISOString() });
+    expect(response.status).toBe(200);
+
+    const row = await db.get<{ seconds_active: number }>(
+      'SELECT seconds_active FROM study_days WHERE day = ?',
+      spentAt.toISOString().slice(0, 10),
+    );
+    expect(Number(row?.seconds_active)).toBe(300);
+  });
+
+  it('fall back to the server clock when no time is given', async () => {
+    await call('POST', '/api/study', { seconds: 120 });
+    const today = await db.get<{ seconds_active: number }>(
+      'SELECT seconds_active FROM study_days WHERE day = ?',
+      new Date().toISOString().slice(0, 10),
+    );
+    expect(Number(today?.seconds_active)).toBe(120);
+  });
+});

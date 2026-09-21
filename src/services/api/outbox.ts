@@ -1,3 +1,4 @@
+import type { RecallGrade } from '../../core/srs/scheduler.ts';
 import {
   ApiError,
   type AttemptPayload,
@@ -59,6 +60,8 @@ const MAX_REJECTED = 20;
  */
 export type PendingWrite =
   | { kind: 'attempt'; payload: AttemptPayload }
+  | { kind: 'reviewGrade'; id: string; grade: RecallGrade }
+  | { kind: 'studyTime'; seconds: number; at: string }
   | { kind: 'sectionSeen'; lessonId: string; sectionId: string }
   | { kind: 'recovery'; lessonId: string }
   | { kind: 'mastery'; lessonId: string; accuracy: number; passAccuracy: number }
@@ -209,6 +212,8 @@ function isQueued(value: unknown): value is QueuedWrite {
 
 const WRITE_KINDS = new Set<PendingWrite['kind']>([
   'attempt',
+  'reviewGrade',
+  'studyTime',
   'sectionSeen',
   'recovery',
   'mastery',

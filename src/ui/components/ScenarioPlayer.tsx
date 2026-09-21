@@ -211,6 +211,8 @@ export function ScenarioPlayer({ script, onFinish, onExit }: ScenarioPlayerProps
           context="scenario"
           level={script.level}
           hideProgress
+          // The one place the microphone can answer rather than only rehearse.
+          allowSpeaking
           onStepDone={({ given }) => setSaid((entries) => [...entries, { segment: cursor, text: given }])}
           onFinish={finishSegment}
         />
