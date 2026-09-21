@@ -287,6 +287,28 @@ export const UI = {
   ),
   syncDismiss: s('Understood', 'Разбрах'),
 
+  /*
+   * Writes nobody holds a queue for.
+   *
+   * A typed answer waits in the outbox, because losing one would lose work.
+   * A preference is different: it is cheap to set again, and holding it would
+   * mean the app quietly disagreeing with the database about what the daily
+   * target is. So these are not held — but they are not swallowed either.
+   * Before this, going offline and tapping the star threw an uncaught error
+   * into the console, the star stayed empty, and the app said nothing at all.
+   */
+  notSavedTitle: s('That did not save', 'Това не се запази'),
+  notSavedReason: s(
+    'The server could not be reached, so nothing was changed. Try again in a moment.',
+    'Сървърът е недостъпен, така че нищо не беше променено. Опитай пак след малко.',
+  ),
+  notSavedFavorite: s('The word was not starred.', 'Думата не беше отбелязана.'),
+  notSavedProfile: s('The setting was not changed.', 'Настройката не беше променена.'),
+  notSavedMistake: s('The mistake was not put away.', 'Грешката не беше отметната.'),
+  notSavedLearner: s('The learner list was not changed.', 'Списъкът с учащи не беше променен.'),
+  notSavedReset: s('Nothing was deleted.', 'Нищо не беше изтрито.'),
+  notSavedReviews: s('The review items were not created.', 'Повторенията не бяха създадени.'),
+
   exerciseReveal: s('Show the answer', 'Покажи отговора'),
   exerciseRevealWarning: s(
     'Showing the answer means no credit for this item, and it will come back soon.',

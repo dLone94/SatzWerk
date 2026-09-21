@@ -17,6 +17,7 @@ import {
   markSectionSeen as markSectionSeenIn,
   type LessonProgress,
 } from '../core/progress/lesson.ts';
+import { streakOn, todayHere } from '../core/progress/days.ts';
 import { scheduleReview, type RecallGrade, type ReviewItem } from '../core/srs/scheduler.ts';
 import { tr, type UiKey } from '../i18n.ts';
 import {
@@ -84,9 +85,17 @@ export interface AppStateValue {
   learners: Learner[];
   studyingAs: number;
   /** Hand the app to somebody else. Refuses while answers are waiting to be saved. */
-  studyAs: (id: number) => Promise<'switched' | 'answers-waiting'>;
+  studyAs: (id: number) => Promise<'switched' | 'answers-waiting' | 'failed'>;
   addLearner: (name: string) => Promise<void>;
   renameLearner: (id: number, name: string) => Promise<void>;
+
+  /**
+   * A write that did not land and is not being held: a preference, a star, a
+   * mistake put away. Named so the app can say which one, in the learner's
+   * own language, instead of throwing into the console.
+   */
+  notice: UiKey | null;
+  dismissNotice: () => void;
 
   /** Answers typed but not yet in the database, because the server was away. */
   sync: SyncState;
@@ -171,6 +180,11 @@ function emptyProgress(lessonId: string): LessonProgress {
   };
 }
 
+/** The days that actually hold answers, which is all a streak is counted from. */
+function daysAnswered(studyDays: AppStateSnapshot['studyDays']): string[] {
+  return studyDays.filter((day) => day.answers > 0).map((day) => day.day);
+}
+
 function indexLessons(lessons: LessonProgress[]): Record<string, LessonProgress> {
   const out: Record<string, LessonProgress> = {};
   for (const lesson of lessons) out[lesson.lessonId] = lesson;
@@ -196,6 +210,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [coach, setCoach] = useState<CoachStatus | null>(null);
 
   const [sync, setSync] = useState<SyncState>(NO_PENDING);
+  const [notice, setNotice] = useState<UiKey | null>(null);
   const [learners, setLearners] = useState<Learner[]>([]);
   const [studyingAs, setStudyingAs] = useState(1);
 
@@ -297,8 +312,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       if (seconds < 10) return;
       pendingSeconds.current = 0;
       const at = new Date().toISOString();
+      const tzOffsetMinutes = -new Date().getTimezoneOffset();
       void api
-        .addStudyTime(seconds, at)
+        .addStudyTime(seconds, at, tzOffsetMinutes)
         .then((result) =>
           setSnapshot((current) => (current ? { ...current, stats: result.stats, studyDays: result.studyDays } : current)),
         )
@@ -306,7 +322,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           // Time on task used to be dropped on the floor here. It is real
           // measured time, and it belongs to the day it was spent, so it waits
           // with everything else rather than vanishing.
-          if (outbox.isUnreachable(cause)) outbox.enqueue({ kind: 'studyTime', seconds, at });
+          if (outbox.isUnreachable(cause)) {
+            outbox.enqueue({ kind: 'studyTime', seconds, at, tzOffsetMinutes });
+          }
         });
     }, STUDY_FLUSH_MS);
 
@@ -352,7 +370,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       case 'reviewGrade':
         return api.gradeReview(write.id, write.grade);
       case 'studyTime':
-        return api.addStudyTime(write.seconds, write.at);
+        return api.addStudyTime(write.seconds, write.at, write.tzOffsetMinutes);
       case 'sectionSeen':
         return api.markSectionSeen(write.lessonId, write.sectionId);
       case 'recovery':
@@ -519,6 +537,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    /**
+     * A write that is not worth queueing, and not allowed to disappear.
+     *
+     * Answers go in the outbox because losing one loses work. A preference is
+     * different: setting it again costs a tap, and holding it would mean the
+     * app disagreeing with the database about what the daily target is until
+     * the queue drained. So these are attempted once — and when the attempt
+     * fails the app says which one failed, rather than leaving an uncaught
+     * rejection in the console and a star that did not fill.
+     */
+    const reporting = async <T,>(what: UiKey, work: () => Promise<T>): Promise<T | undefined> => {
+      try {
+        const result = await work();
+        setNotice(null);
+        return result;
+      } catch {
+        setNotice(what);
+        return undefined;
+      }
+    };
+
     return {
       ready,
       error,
@@ -532,7 +571,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       reviewItems: snapshot?.reviewItems ?? [],
       mistakes: snapshot?.mistakes ?? [],
       favorites: snapshot?.favorites ?? [],
-      stats: snapshot?.stats ?? EMPTY_STATS,
+      /*
+       * The streak is recounted here, against this browser's calendar.
+       *
+       * The server counts it too, from the same pure rule, but it has to pick
+       * a day without knowing where the phone is — and for the couple of hours
+       * each night when those two disagree, the one that matters is the one on
+       * the wall behind the learner. Everything else in `stats` is the
+       * server's, untouched.
+       */
+      stats: snapshot
+        ? { ...snapshot.stats, streak: streakOn(daysAnswered(snapshot.studyDays), todayHere()) }
+        : EMPTY_STATS,
       studyDays: snapshot?.studyDays ?? [],
       checkpointResults: snapshot?.checkpointResults ?? [],
       scenarioRuns: snapshot?.scenarioRuns ?? [],
@@ -550,13 +600,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       lessonProgress: (lessonId: string) => lessons[lessonId] ?? emptyProgress(lessonId),
 
       setTeachingLanguage: async (next) => {
-        const updated = await api.updateProfile({ teachingLanguage: next });
-        patchSnapshot({ profile: updated });
+        await reporting('notSavedProfile', async () => {
+          patchSnapshot({ profile: await api.updateProfile({ teachingLanguage: next }) });
+        });
       },
 
       updateProfile: async (patch) => {
-        const updated = await api.updateProfile(patch);
-        patchSnapshot({ profile: updated });
+        await reporting('notSavedProfile', async () => {
+          patchSnapshot({ profile: await api.updateProfile(patch) });
+        });
       },
 
       /**
@@ -569,7 +621,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
        */
       submitAttempt: async (payload) => {
         // `payload` wins so a caller can state the time itself; none does yet.
-        const stamped: AttemptPayload = { at: new Date().toISOString(), ...payload };
+        const stamped: AttemptPayload = {
+          at: new Date().toISOString(),
+          // Negated, because `getTimezoneOffset` counts from local to UTC and
+          // everything downstream counts the other way.
+          tzOffsetMinutes: -new Date().getTimezoneOffset(),
+          ...payload,
+        };
 
         const hold = () => {
           if (!outbox.enqueue({ kind: 'attempt', payload: stamped })) lostAnswers.current += 1;
@@ -643,27 +701,36 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           await flushAnswers();
           if (outbox.queuedCount() > 0) return 'answers-waiting';
         }
-        const household = await api.studyAs(id);
-        setLearners(household.learners);
-        setStudyingAs(household.studyingAs);
-        // Everything below belongs to somebody else now.
-        setReady(false);
-        await load();
-        return 'switched';
+        const switched = await reporting('notSavedLearner', async () => {
+          const household = await api.studyAs(id);
+          setLearners(household.learners);
+          setStudyingAs(household.studyingAs);
+          // Everything below belongs to somebody else now.
+          setReady(false);
+          await load();
+          return true;
+        });
+        return switched ? 'switched' : 'failed';
       },
 
       addLearner: async (name) => {
-        const household = await api.addLearner(name);
-        setLearners(household.learners);
-        setStudyingAs(household.studyingAs);
-        setReady(false);
-        await load();
+        await reporting('notSavedLearner', async () => {
+          const household = await api.addLearner(name);
+          setLearners(household.learners);
+          setStudyingAs(household.studyingAs);
+          setReady(false);
+          await load();
+        });
       },
 
       renameLearner: async (id, name) => {
-        const household = await api.renameLearner(id, name);
-        setLearners(household.learners);
+        await reporting('notSavedLearner', async () => {
+          setLearners((await api.renameLearner(id, name)).learners);
+        });
       },
+
+      notice,
+      dismissNotice: () => setNotice(null),
 
       sync,
       syncAnswers: flushAnswers,
@@ -724,8 +791,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
       ensureReviewItems: async (targets) => {
         if (targets.length === 0) return;
-        const result = await api.ensureReviewItems(targets);
-        patchSnapshot({ reviewItems: result.reviewItems });
+        await reporting('notSavedReviews', async () => {
+          patchSnapshot({ reviewItems: (await api.ensureReviewItems(targets)).reviewItems });
+        });
       },
 
       /**
@@ -776,14 +844,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       },
 
       resolveMistake: async (id) => {
-        const mistakes = await api.resolveMistake(id);
-        patchSnapshot({ mistakes });
+        await reporting('notSavedMistake', async () => {
+          patchSnapshot({ mistakes: await api.resolveMistake(id) });
+        });
       },
 
       toggleFavorite: async (vocabId) => {
         const isFavorite = (snapshot?.favorites ?? []).includes(vocabId);
-        const result = await api.setFavorite(vocabId, !isFavorite);
-        patchSnapshot({ favorites: result.favorites });
+        await reporting('notSavedFavorite', async () => {
+          patchSnapshot({ favorites: (await api.setFavorite(vocabId, !isFavorite)).favorites });
+        });
       },
 
       recordCheckpoint: async (payload) => {
@@ -845,10 +915,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       },
 
       resetAll: async () => {
-        setSnapshot(await api.reset());
+        await reporting('notSavedReset', async () => {
+          setSnapshot(await api.reset());
+        });
       },
     };
-  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, sync, readSync, flushAnswers, refuse, learners, studyingAs]);
+  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, sync, readSync, flushAnswers, refuse, learners, studyingAs, notice]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }
