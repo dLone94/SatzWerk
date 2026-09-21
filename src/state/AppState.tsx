@@ -10,7 +10,13 @@ import {
 } from 'react';
 import type { Bilingual, TeachingLanguage } from '../content/types.ts';
 import { LEXICON, describeNoun } from '../content/index.ts';
-import type { LessonProgress } from '../core/progress/lesson.ts';
+import {
+  applyCompletion,
+  applyMastery,
+  applyRecoveryRound,
+  markSectionSeen as markSectionSeenIn,
+  type LessonProgress,
+} from '../core/progress/lesson.ts';
 import type { RecallGrade, ReviewItem } from '../core/srs/scheduler.ts';
 import { tr, type UiKey } from '../i18n.ts';
 import {
@@ -100,8 +106,14 @@ export interface AppStateValue {
 }
 
 export interface SyncState {
-  /** Waiting to be sent. Their verdicts were already shown to the learner. */
+  /** Answers waiting to be sent. Their verdicts were already shown. */
   pending: number;
+  /**
+   * Everything else waiting: a mastery result, a finished lesson, a
+   * conversation played. Counted apart because "answers" is the word that
+   * means something to whoever typed them.
+   */
+  other: number;
   /** The server refused these; they will never be sent. Reported, not hidden. */
   refused: number;
   /**
@@ -113,7 +125,7 @@ export interface SyncState {
   lost: number;
 }
 
-const NO_PENDING: SyncState = { pending: 0, refused: 0, atRisk: false, lost: 0 };
+const NO_PENDING: SyncState = { pending: 0, other: 0, refused: 0, atRisk: false, lost: 0 };
 
 /**
  * Exported so tests can mount a component with a stub state instead of a live
@@ -183,6 +195,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const lostAnswers = useRef(0);
   /** The flush in flight, so the interval and the `online` event share one. */
   const flushing = useRef<Promise<void> | null>(null);
+  /*
+   * Lesson progress as it stands *now*, rather than as it stood when React
+   * last rendered.
+   *
+   * Finishing a lesson is two writes in one tick — the mastery result, then the
+   * completion — and offline each applies a rule to the progress before it.
+   * Read from a render closure, the second one starts from the state before the
+   * first and quietly undoes it: the screen said "passed" while the
+   * requirement list below it still said the check was not done. Found by
+   * looking at the screen, not by a test; there is one for it now.
+   */
+  const lessonsRef = useRef<Record<string, LessonProgress>>({});
 
   const load = useCallback(async () => {
     try {
@@ -267,6 +291,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // The server's answer is the truth; the mirror above follows it.
+  useEffect(() => {
+    lessonsRef.current = indexLessons(snapshot?.lessons ?? []);
+  }, [snapshot]);
+
   const profile = snapshot?.profile ?? DEFAULT_PROFILE;
   const lang = profile.teachingLanguage;
 
@@ -284,11 +313,38 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setSnapshot((current) => (current ? { ...current, ...patch } : current));
   }, []);
 
+  /**
+   * The one place that knows how each held write reaches the server.
+   *
+   * The outbox itself knows nothing about the API — it is a queue of what
+   * happened, in order. This turns an entry back into the request it was.
+   */
+  const sendWrite = useCallback((write: outbox.PendingWrite): Promise<unknown> => {
+    switch (write.kind) {
+      case 'attempt':
+        return api.recordAttempt(write.payload);
+      case 'sectionSeen':
+        return api.markSectionSeen(write.lessonId, write.sectionId);
+      case 'recovery':
+        return api.recordRecovery(write.lessonId);
+      case 'mastery':
+        return api.recordMastery(write.lessonId, write.accuracy, write.passAccuracy);
+      case 'complete':
+        return api.completeLesson(write.lessonId);
+      case 'checkpoint':
+        return api.recordCheckpoint(write.payload);
+      case 'scenarioRun':
+        return api.recordScenarioRun(write.payload);
+    }
+  }, []);
+
   /** What the outbox currently holds, in the shape the app shows it. */
   const readSync = useCallback(() => {
     const state = outbox.snapshot();
+    const answers = state.queued.filter((item) => item.write.kind === 'attempt').length;
     setSync({
-      pending: state.queued.length,
+      pending: answers,
+      other: state.queued.length - answers,
       refused: state.rejected.length,
       atRisk: state.queued.length > 0 && !outbox.isDurable(),
       lost: lostAnswers.current,
@@ -311,7 +367,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
 
     const run = (async () => {
-      const outcome = await outbox.flush((payload) => api.recordAttempt(payload));
+      const outcome = await outbox.flush(sendWrite);
       if (outcome.sent > 0) {
         try {
           setSnapshot(await api.state());
@@ -327,7 +383,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       flushing.current = null;
     });
     return flushing.current;
-  }, [readSync]);
+  }, [readSync, sendWrite]);
 
   // Try again when the browser says the network is back, and on a timer for
   // the cases it does not say — a captive wifi, a server that was restarting.
@@ -351,7 +407,29 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     };
   }, [loaded, flushAnswers, readSync]);
 
+  /**
+   * A write the server was there for and said no to.
+   *
+   * Retrying it would be refused again, so it is kept with its reason and
+   * reported rather than queued — and whatever the learner was doing carries
+   * on, instead of freezing on a screen that has swallowed their work.
+   */
+  const refuse = useCallback(
+    async (cause: unknown) => {
+      outbox.recordRefusal(cause instanceof Error ? cause.message : String(cause));
+      readSync();
+      if (cause instanceof ApiError && cause.status === 401) {
+        // Signed out somewhere else, or the session expired. Asking the server
+        // again puts the password screen up instead of leaving somebody typing
+        // into nothing.
+        setSession(await api.session());
+      }
+    },
+    [readSync],
+  );
+
   const mergeLesson = useCallback((progress: LessonProgress) => {
+    lessonsRef.current = { ...lessonsRef.current, [progress.lessonId]: progress };
     setSnapshot((current) =>
       current
         ? {
@@ -367,6 +445,49 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppStateValue>(() => {
     const lessons = indexLessons(snapshot?.lessons ?? []);
+
+    /**
+     * Send a lesson write, or hold it and apply its rule locally.
+     *
+     * `local` is the same pure function the server applies, so what the learner
+     * sees offline is what the database will hold once the queue drains. On a
+     * refusal nothing is claimed: the progress comes back unchanged, and the
+     * strip at the top of the app reports what was refused.
+     */
+    const lessonWrite = async (
+      lessonId: string,
+      send: () => Promise<LessonProgress>,
+      write: outbox.PendingWrite,
+      local: (prior: LessonProgress) => LessonProgress,
+    ): Promise<LessonProgress> => {
+      const prior = lessonsRef.current[lessonId] ?? lessons[lessonId] ?? emptyProgress(lessonId);
+
+      const hold = () => {
+        const optimistic = local(prior);
+        if (!outbox.enqueue(write)) lostAnswers.current += 1;
+        mergeLesson(optimistic);
+        readSync();
+        return optimistic;
+      };
+
+      // Never jump the queue. Answers from this very lesson may still be
+      // waiting, and the mastery result belongs behind them.
+      if (outbox.queuedCount() > 0) {
+        const optimistic = hold();
+        void flushAnswers();
+        return optimistic;
+      }
+
+      try {
+        const progress = await send();
+        mergeLesson(progress);
+        return progress;
+      } catch (cause) {
+        if (outbox.isUnreachable(cause)) return hold();
+        await refuse(cause);
+        return prior;
+      }
+    };
 
     return {
       ready,
@@ -421,7 +542,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         const stamped: AttemptPayload = { at: new Date().toISOString(), ...payload };
 
         const hold = () => {
-          if (!outbox.enqueue(stamped)) lostAnswers.current += 1;
+          if (!outbox.enqueue({ kind: 'attempt', payload: stamped })) lostAnswers.current += 1;
           readSync();
         };
 
@@ -442,17 +563,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             hold();
             return;
           }
-          // The server was there and said no. Retrying would be refused again,
-          // so it is kept as a refusal and reported rather than retried — and
-          // the lesson carries on rather than freezing on a dead screen.
-          outbox.recordRefusal(cause instanceof Error ? cause.message : String(cause));
-          readSync();
-          if (cause instanceof ApiError && cause.status === 401) {
-            // Signed out somewhere else, or the session expired. Asking the
-            // server again puts the password screen up instead of leaving the
-            // learner typing into nothing.
-            setSession(await api.session());
-          }
+          await refuse(cause);
           return;
         }
 
@@ -492,22 +603,53 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         readSync();
       },
 
+      /*
+       * Working through a lesson, and finishing one.
+       *
+       * Each of these four is a rule applied to numbers the browser already
+       * has — which is why `src/core/progress/lesson.ts` holds the rule and the
+       * server applies the same function. So when the server cannot be
+       * reached, the write is held and the rule is applied here: the learner
+       * sees the result they would have seen, and the database agrees when the
+       * queue drains. Nothing is guessed at; the arithmetic simply happens one
+       * side earlier.
+       */
+
       markSectionSeen: async (lessonId, sectionId) => {
-        mergeLesson(await api.markSectionSeen(lessonId, sectionId));
+        await lessonWrite(
+          lessonId,
+          () => api.markSectionSeen(lessonId, sectionId),
+          { kind: 'sectionSeen', lessonId, sectionId },
+          (prior) => markSectionSeenIn(prior, sectionId),
+        );
       },
 
-      recordMastery: async (lessonId, accuracy, passAccuracy) => {
-        const progress = await api.recordMastery(lessonId, accuracy, passAccuracy);
-        mergeLesson(progress);
-        return progress;
-      },
+      // The one write whose value the caller needs: the lesson page shows
+      // "passed" or "not yet" from it, so offline it must still answer.
+      recordMastery: (lessonId, accuracy, passAccuracy) =>
+        lessonWrite(
+          lessonId,
+          () => api.recordMastery(lessonId, accuracy, passAccuracy),
+          { kind: 'mastery', lessonId, accuracy, passAccuracy },
+          (prior) => applyMastery(prior, accuracy, passAccuracy, new Date().toISOString()),
+        ),
 
       recordRecovery: async (lessonId) => {
-        mergeLesson(await api.recordRecovery(lessonId));
+        await lessonWrite(
+          lessonId,
+          () => api.recordRecovery(lessonId),
+          { kind: 'recovery', lessonId },
+          (prior) => applyRecoveryRound(prior, new Date().toISOString()),
+        );
       },
 
       completeLesson: async (lessonId) => {
-        mergeLesson(await api.completeLesson(lessonId));
+        await lessonWrite(
+          lessonId,
+          () => api.completeLesson(lessonId),
+          { kind: 'complete', lessonId },
+          (prior) => applyCompletion(prior, new Date().toISOString()),
+        );
       },
 
       ensureReviewItems: async (targets) => {
@@ -540,20 +682,68 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       },
 
       recordCheckpoint: async (payload) => {
-        const result = await api.recordCheckpoint(payload);
-        patchSnapshot({ checkpointResults: result.results });
+        const hold = () => {
+          if (!outbox.enqueue({ kind: 'checkpoint', payload })) lostAnswers.current += 1;
+          // The row the server would store is the row we just sent, so showing
+          // it is reporting, not guessing. The server's own list replaces it
+          // when the queue drains.
+          const row = {
+            checkpointId: payload.checkpointId,
+            accuracy: payload.accuracy,
+            passed: payload.passed,
+            createdAt: new Date().toISOString(),
+          };
+          setSnapshot((current) =>
+            current ? { ...current, checkpointResults: [...current.checkpointResults, row] } : current,
+          );
+          readSync();
+        };
+
+        if (outbox.queuedCount() > 0) {
+          hold();
+          void flushAnswers();
+          return;
+        }
+        try {
+          const result = await api.recordCheckpoint(payload);
+          patchSnapshot({ checkpointResults: result.results });
+        } catch (cause) {
+          if (outbox.isUnreachable(cause)) return hold();
+          await refuse(cause);
+        }
       },
 
       recordScenarioRun: async (scriptId, turns, firstTryCorrect) => {
-        const result = await api.recordScenarioRun({ scriptId, turns, firstTryCorrect });
-        patchSnapshot({ scenarioRuns: result.scenarioRuns });
+        const payload = { scriptId, turns, firstTryCorrect };
+
+        const hold = () => {
+          if (!outbox.enqueue({ kind: 'scenarioRun', payload })) lostAnswers.current += 1;
+          // Unlike a checkpoint row, a scenario's stored figures are an
+          // aggregate the server computes across every run. Rather than
+          // guessing at it, the Real Life badges stay as they were and the
+          // strip says a run is waiting.
+          readSync();
+        };
+
+        if (outbox.queuedCount() > 0) {
+          hold();
+          void flushAnswers();
+          return;
+        }
+        try {
+          const result = await api.recordScenarioRun(payload);
+          patchSnapshot({ scenarioRuns: result.scenarioRuns });
+        } catch (cause) {
+          if (outbox.isUnreachable(cause)) return hold();
+          await refuse(cause);
+        }
       },
 
       resetAll: async () => {
         setSnapshot(await api.reset());
       },
     };
-  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, sync, readSync, flushAnswers]);
+  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, sync, readSync, flushAnswers, refuse]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }

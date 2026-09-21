@@ -11,7 +11,11 @@ import * as outbox from '../../src/services/api/outbox.ts';
  * failing that sentence.
  */
 
-function answer(stepId: string, given: string): AttemptPayload {
+function attempt(stepId: string, given: string): outbox.PendingWrite {
+  return { kind: 'attempt', payload: payloadFor(stepId, given) };
+}
+
+function payloadFor(stepId: string, given: string): AttemptPayload {
   return {
     context: 'lesson',
     lessonId: 'pre-a1-u1-l1',
@@ -28,34 +32,40 @@ function answer(stepId: string, given: string): AttemptPayload {
   };
 }
 
+/** The German in a queued answer, for asserting order without a type cast. */
+function textOf(item: outbox.QueuedWrite): string {
+  return item.write.kind === 'attempt' ? item.write.payload.given : item.write.kind;
+}
+
 beforeEach(() => {
   outbox.reset();
+  window.localStorage.removeItem('satzwerk.outbox.v1');
 });
 
 describe('the outbox', () => {
   it('holds an answer and reports how many are waiting', () => {
     expect(outbox.queuedCount()).toBe(0);
-    expect(outbox.enqueue(answer('s1', 'Guten Tag'))).toBe(true);
-    expect(outbox.enqueue(answer('s2', 'Danke'))).toBe(true);
+    expect(outbox.enqueue(attempt('s1', 'Guten Tag'))).toBe(true);
+    expect(outbox.enqueue(attempt('s2', 'Danke'))).toBe(true);
     expect(outbox.queuedCount()).toBe(2);
   });
 
   it('survives a reload, because a phone closed in a tunnel is the normal case', () => {
-    outbox.enqueue(answer('s1', 'Guten Tag'));
+    outbox.enqueue(attempt('s1', 'Guten Tag'));
     // What a fresh page load sees: the module state is gone, the store is not.
-    const stored = window.localStorage.getItem('satzwerk.outbox.v1');
+    const stored = window.localStorage.getItem('satzwerk.outbox.v2');
     expect(stored).toContain('Guten Tag');
-    expect(outbox.snapshot().queued[0]?.payload.given).toBe('Guten Tag');
+    expect(textOf(outbox.snapshot().queued[0]!)).toBe('Guten Tag');
   });
 
   it('sends what is waiting in the order it was typed', async () => {
-    outbox.enqueue(answer('s1', 'eins'));
-    outbox.enqueue(answer('s2', 'zwei'));
-    outbox.enqueue(answer('s3', 'drei'));
+    outbox.enqueue(attempt('s1', 'eins'));
+    outbox.enqueue(attempt('s2', 'zwei'));
+    outbox.enqueue(attempt('s3', 'drei'));
 
     const seen: string[] = [];
-    const outcome = await outbox.flush(async (payload) => {
-      seen.push(payload.given);
+    const outcome = await outbox.flush(async (write) => {
+      if (write.kind === 'attempt') seen.push(write.payload.given);
     });
 
     // Not a detail: the review schedule is computed from one attempt to the
@@ -66,9 +76,9 @@ describe('the outbox', () => {
   });
 
   it('stops at the first answer it cannot send, and keeps the rest', async () => {
-    outbox.enqueue(answer('s1', 'eins'));
-    outbox.enqueue(answer('s2', 'zwei'));
-    outbox.enqueue(answer('s3', 'drei'));
+    outbox.enqueue(attempt('s1', 'eins'));
+    outbox.enqueue(attempt('s2', 'zwei'));
+    outbox.enqueue(attempt('s3', 'drei'));
 
     let calls = 0;
     const outcome = await outbox.flush(async () => {
@@ -77,29 +87,29 @@ describe('the outbox', () => {
     });
 
     expect(outcome).toEqual({ sent: 1, rejected: 0, remaining: 2 });
-    expect(outbox.snapshot().queued.map((item) => item.payload.given)).toEqual(['zwei', 'drei']);
+    expect(outbox.snapshot().queued.map(textOf)).toEqual(['zwei', 'drei']);
   });
 
   it('keeps an answer typed while the queue was being sent', async () => {
-    outbox.enqueue(answer('s1', 'eins'));
+    outbox.enqueue(attempt('s1', 'eins'));
 
     let typedAlready = false;
     const outcome = await outbox.flush(async () => {
       // The learner answers the next step before this request comes back.
       if (typedAlready) return;
       typedAlready = true;
-      outbox.enqueue(answer('s2', 'zwei'));
+      outbox.enqueue(attempt('s2', 'zwei'));
     });
 
     // The pass sends what was waiting when it started and reports the new one
     // as still waiting, rather than chasing a queue the learner keeps filling.
     expect(outcome).toEqual({ sent: 1, rejected: 0, remaining: 1 });
-    expect(outbox.snapshot().queued.map((item) => item.payload.given)).toEqual(['zwei']);
+    expect(outbox.snapshot().queued.map(textOf)).toEqual(['zwei']);
   });
 
   it('takes out an answer the server refuses, and says why', async () => {
-    outbox.enqueue(answer('s1', 'eins'));
-    outbox.enqueue(answer('s2', 'zwei'));
+    outbox.enqueue(attempt('s1', 'eins'));
+    outbox.enqueue(attempt('s2', 'zwei'));
 
     let calls = 0;
     const outcome = await outbox.flush(async () => {
@@ -116,11 +126,11 @@ describe('the outbox', () => {
 
   it('refuses to hold more than it can, rather than dropping the oldest', () => {
     for (let index = 0; index < outbox.MAX_QUEUED; index += 1) {
-      expect(outbox.enqueue(answer(`s${index}`, `answer ${index}`))).toBe(true);
+      expect(outbox.enqueue(attempt(`s${index}`, `answer ${index}`))).toBe(true);
     }
     // The caller is told, so it can tell the learner; the earliest work stays.
-    expect(outbox.enqueue(answer('one-too-many', 'zu viel'))).toBe(false);
-    expect(outbox.snapshot().queued[0]?.payload.given).toBe('answer 0');
+    expect(outbox.enqueue(attempt('one-too-many', 'zu viel'))).toBe(false);
+    expect(textOf(outbox.snapshot().queued[0]!)).toBe('answer 0');
     expect(outbox.queuedCount()).toBe(outbox.MAX_QUEUED);
   });
 });
@@ -157,13 +167,13 @@ describe('when the browser will not store anything', () => {
     });
 
     try {
-      outbox.enqueue(answer('s1', 'eins'));
+      outbox.enqueue(attempt('s1', 'eins'));
       expect(outbox.queuedCount()).toBe(1);
       expect(outbox.isDurable()).toBe(false);
 
       const sent: string[] = [];
-      const outcome = await outbox.flush(async (payload) => {
-        sent.push(payload.given);
+      const outcome = await outbox.flush(async (write) => {
+        if (write.kind === 'attempt') sent.push(write.payload.given);
       });
       expect(sent).toEqual(['eins']);
       expect(outcome.remaining).toBe(0);
@@ -171,5 +181,98 @@ describe('when the browser will not store anything', () => {
       getItem.mockRestore();
       setItem.mockRestore();
     }
+  });
+});
+
+describe('finishing a lesson without a connection', () => {
+  it('keeps the answers and the result in the order they happened', async () => {
+    // What a lesson in a tunnel actually looks like: answers, then the
+    // mastery result, then the completion.
+    outbox.enqueue(attempt('s1', 'eins'));
+    outbox.enqueue(attempt('s2', 'zwei'));
+    outbox.enqueue({ kind: 'mastery', lessonId: 'l1', accuracy: 1, passAccuracy: 0.8 });
+    outbox.enqueue({ kind: 'complete', lessonId: 'l1' });
+
+    const seen: string[] = [];
+    const outcome = await outbox.flush(async (write) => {
+      seen.push(write.kind === 'attempt' ? write.payload.given : write.kind);
+    });
+
+    // The result must not arrive before the answers it summarises.
+    expect(seen).toEqual(['eins', 'zwei', 'mastery', 'complete']);
+    expect(outcome).toEqual({ sent: 4, rejected: 0, remaining: 0 });
+  });
+
+  it('counts answers apart from everything else', () => {
+    outbox.enqueue(attempt('s1', 'eins'));
+    outbox.enqueue({ kind: 'mastery', lessonId: 'l1', accuracy: 1, passAccuracy: 0.8 });
+    outbox.enqueue({ kind: 'scenarioRun', payload: { scriptId: 'bakery', turns: 4, firstTryCorrect: 3 } });
+
+    // The strip says "1 answer is waiting", not "3 answers".
+    expect(outbox.answersWaiting()).toBe(1);
+    expect(outbox.queuedCount()).toBe(3);
+  });
+
+  it('holds a checkpoint result and a conversation', async () => {
+    outbox.enqueue({
+      kind: 'checkpoint',
+      payload: { checkpointId: 'cp-1', scope: 'unit', targetId: 'u1', accuracy: 0.9, passed: true },
+    });
+    outbox.enqueue({ kind: 'sectionSeen', lessonId: 'l1', sectionId: 's-intro' });
+    outbox.enqueue({ kind: 'recovery', lessonId: 'l1' });
+
+    const kinds: string[] = [];
+    await outbox.flush(async (write) => {
+      kinds.push(write.kind);
+    });
+    expect(kinds).toEqual(['checkpoint', 'sectionSeen', 'recovery']);
+  });
+
+  it('refuses a write it does not recognise back out of storage', () => {
+    // A queue entry from a future version of the app would be sent nowhere
+    // and would block everything behind it, so it is not accepted at all.
+    outbox.enqueue(attempt('s1', 'eins'));
+    const raw = JSON.parse(window.localStorage.getItem('satzwerk.outbox.v2')!) as {
+      queued: unknown[];
+    };
+    raw.queued.push({ id: 'x', write: { kind: 'somethingNew', lessonId: 'l1' } });
+    window.localStorage.setItem('satzwerk.outbox.v2', JSON.stringify(raw));
+
+    expect(outbox.queuedCount()).toBe(1);
+    expect(textOf(outbox.snapshot().queued[0]!)).toBe('eins');
+  });
+});
+
+describe('upgrading the app', () => {
+  it('carries over answers held by the answers-only queue', async () => {
+    // A phone that went into the tunnel on the old version and came out on
+    // the new one. Upgrading must not be a way to lose somebody's work.
+    window.localStorage.setItem(
+      'satzwerk.outbox.v1',
+      JSON.stringify({
+        queued: [{ id: 'old-1', payload: payloadFor('s1', 'Guten Morgen') }],
+        rejected: [],
+      }),
+    );
+
+    expect(outbox.queuedCount()).toBe(1);
+    expect(textOf(outbox.snapshot().queued[0]!)).toBe('Guten Morgen');
+
+    const sent: string[] = [];
+    await outbox.flush(async (write) => {
+      if (write.kind === 'attempt') sent.push(write.payload.given);
+    });
+    expect(sent).toEqual(['Guten Morgen']);
+
+    // And the old key is gone, so it cannot be read a second time.
+    expect(window.localStorage.getItem('satzwerk.outbox.v1')).toBeNull();
+  });
+
+  it('ignores an old entry that is not an answer at all', () => {
+    window.localStorage.setItem(
+      'satzwerk.outbox.v1',
+      JSON.stringify({ queued: [{ id: 'old-1' }, 'nonsense'], rejected: [] }),
+    );
+    expect(outbox.queuedCount()).toBe(0);
   });
 });

@@ -612,6 +612,32 @@ reload would lose them. And a queue that is genuinely full refuses the newest
 answer rather than quietly dropping the oldest, and counts what it could not
 keep.
 
+**And the writes at the end of a lesson, which the answers alone did not
+cover.** Holding every answer still left the moment after the last one: the
+mastery result went straight to the server, threw, and left a lesson finished
+in a tunnel sitting on a screen that would not move. The same was true of a
+played conversation and a checkpoint.
+
+They are held too now, and *why they can be* is the part worth stating,
+because it is the difference between holding work and inventing progress. Each
+of these is a rule applied to numbers the browser already has — a mastery
+result is "attempts + 1, best so far, and passed if this run cleared the bar".
+So the rule lives in `src/core/progress/lesson.ts` as `applyMastery` and its
+neighbours, **the server applies exactly those functions** before writing its
+row, and a test fails if the two ever drift apart. Offline the arithmetic
+simply happens one side earlier, and the database confirms it when the queue
+drains.
+
+Where a figure is *not* a rule the browser can apply, nothing is claimed: a
+scenario's stored numbers are an aggregate the server computes across every
+run, so the Real Life badges stay exactly as they were while a run is waiting
+and the strip says one is waiting, rather than guessing at a new average.
+
+Order holds across the two kinds. A lesson finished without a connection
+queues its answers, then its result, then its completion, and they are sent in
+that order — a result that arrived before the answers it summarises would be
+scored against a lesson the database had not seen yet.
+
 ---
 
 ## The interface, and how it moves

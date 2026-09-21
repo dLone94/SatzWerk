@@ -17,7 +17,7 @@ export function SyncBanner() {
   const { t, sync, syncAnswers, dismissRefusedAnswers } = useApp();
   const [working, setWorking] = useState(false);
 
-  if (sync.pending === 0 && sync.refused === 0 && sync.lost === 0) return null;
+  if (sync.pending === 0 && sync.other === 0 && sync.refused === 0 && sync.lost === 0) return null;
 
   const trouble = sync.refused > 0 || sync.lost > 0;
 
@@ -28,6 +28,7 @@ export function SyncBanner() {
           <span className="sync__dot" aria-hidden="true" />
           {sync.pending > 0 ? t('syncPending', { n: sync.pending }) : t('syncTitle')}
         </p>
+        {sync.other > 0 ? <p className="sync__note">{t('syncOther', { n: sync.other })}</p> : null}
         {sync.pending > 0 ? <p className="sync__note">{t('syncExplain')}</p> : null}
         {sync.atRisk ? <p className="sync__note sync__note--warn">{t('syncAtRisk')}</p> : null}
         {sync.refused > 0 ? (
@@ -39,7 +40,7 @@ export function SyncBanner() {
       </div>
 
       <div className="sync__actions">
-        {sync.pending > 0 ? (
+        {sync.pending + sync.other > 0 ? (
           <button
             type="button"
             className="btn btn--quiet btn--sm"

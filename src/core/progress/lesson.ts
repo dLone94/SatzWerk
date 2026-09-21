@@ -99,6 +99,61 @@ export function markSectionSeen(progress: LessonProgress, sectionId: string): Le
   return { ...progress, sectionsSeen: [...progress.sectionsSeen, sectionId] };
 }
 
+/*
+ * What finishing a lesson does to its progress.
+ *
+ * These three were the database's business until the browser had to answer the
+ * same question without it. A lesson done in a tunnel still has to show whether
+ * the mastery check was passed, and that decision is a rule, not a fact the
+ * server holds: a passing accuracy, a count, a best-so-far. So the rule lives
+ * here, in the pure core, and `server/store.ts` applies exactly this function
+ * before writing the row — see `tests/server/api.test.ts`, which fails if the
+ * two ever drift.
+ *
+ * Nothing is invented offline; the same arithmetic simply happens one side
+ * earlier, and is confirmed when the write arrives.
+ */
+
+export function applyMastery(
+  progress: LessonProgress,
+  accuracy: number,
+  passAccuracy: number,
+  now: string,
+): LessonProgress {
+  return {
+    ...progress,
+    startedAt: progress.startedAt ?? now,
+    lastActiveAt: now,
+    mastery: {
+      attempts: progress.mastery.attempts + 1,
+      // Best, not latest: a second run that goes worse does not take away what
+      // was already shown.
+      bestAccuracy: Math.max(progress.mastery.bestAccuracy, accuracy),
+      passed: progress.mastery.passed || accuracy >= passAccuracy,
+    },
+  };
+}
+
+export function applyRecoveryRound(progress: LessonProgress, now: string): LessonProgress {
+  return {
+    ...progress,
+    startedAt: progress.startedAt ?? now,
+    lastActiveAt: now,
+    recoveryRounds: progress.recoveryRounds + 1,
+  };
+}
+
+export function applyCompletion(progress: LessonProgress, now: string): LessonProgress {
+  return {
+    ...progress,
+    startedAt: progress.startedAt ?? now,
+    lastActiveAt: now,
+    // The first completion is the one that counts; finishing again does not
+    // move the date.
+    completedAt: progress.completedAt ?? now,
+  };
+}
+
 /** First-try accuracy over every practice step the learner has attempted. */
 export function practiceAccuracy(progress: LessonProgress): number {
   const outcomes = Object.values(progress.practice);

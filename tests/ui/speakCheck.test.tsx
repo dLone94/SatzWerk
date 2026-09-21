@@ -75,7 +75,7 @@ function stubState(recogniser: SpeechRecogniser, lang: TeachingLanguage = 'en'):
     setTeachingLanguage: async () => undefined,
     updateProfile: async () => undefined,
     submitAttempt: async () => undefined,
-    sync: { pending: 0, refused: 0, atRisk: false, lost: 0 },
+    sync: { pending: 0, other: 0, refused: 0, atRisk: false, lost: 0 },
     syncAnswers: async () => {},
     dismissRefusedAnswers: () => {},
     markSectionSeen: async () => undefined,

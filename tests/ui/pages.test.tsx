@@ -94,7 +94,7 @@ function stubState(lang: TeachingLanguage, overrides: Partial<AppStateValue> = {
     setTeachingLanguage: vi.fn(async () => undefined),
     updateProfile: vi.fn(async () => undefined),
     submitAttempt: vi.fn(async () => undefined),
-    sync: { pending: 0, refused: 0, atRisk: false, lost: 0 },
+    sync: { pending: 0, other: 0, refused: 0, atRisk: false, lost: 0 },
     syncAnswers: async () => {},
     dismissRefusedAnswers: () => {},
     markSectionSeen: vi.fn(async () => undefined),

@@ -110,6 +110,21 @@ export interface AttemptPayload {
   at?: string;
 }
 
+export interface CheckpointPayload {
+  checkpointId: string;
+  scope: string;
+  targetId: string;
+  accuracy: number;
+  passed: boolean;
+  detail?: unknown;
+}
+
+export interface ScenarioRunPayload {
+  scriptId: string;
+  turns: number;
+  firstTryCorrect: number;
+}
+
 export interface AttemptResponse {
   attemptId: number;
   reviewItems: ReviewItem[];
@@ -290,16 +305,10 @@ export const api = {
   setFavorite: (vocabId: string, favorite: boolean) =>
     post<{ favorites: string[] }>(`/vocabulary/${encodeURIComponent(vocabId)}/favorite`, { favorite }),
 
-  recordCheckpoint: (payload: {
-    checkpointId: string;
-    scope: string;
-    targetId: string;
-    accuracy: number;
-    passed: boolean;
-    detail?: unknown;
-  }) => post<{ results: CheckpointResult[] }>('/checkpoints', payload),
+  recordCheckpoint: (payload: CheckpointPayload) =>
+    post<{ results: CheckpointResult[] }>('/checkpoints', payload),
 
-  recordScenarioRun: (payload: { scriptId: string; turns: number; firstTryCorrect: number }) =>
+  recordScenarioRun: (payload: ScenarioRunPayload) =>
     post<{ scenarioRuns: ScenarioRun[] }>('/scenario-runs', payload),
 
   addStudyTime: (seconds: number) =>

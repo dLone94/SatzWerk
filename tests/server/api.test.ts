@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { attemptTime, handleRequest } from '../../server/api.ts';
+import { applyMastery, applyRecoveryRound } from '../../src/core/progress/lesson.ts';
 import { openDatabase, SCHEMA_VERSION, type Db } from '../../server/db.ts';
 import * as store from '../../server/store.ts';
 import { ruleBasedWritingReview, unavailableProvider } from '../../server/ai.ts';
@@ -620,5 +621,62 @@ describe('the time an answer claims to have been typed', () => {
     expect(attemptTime('gestern Abend', now)).toBe(now);
     expect(attemptTime(undefined, now)).toBe(now);
     expect(attemptTime(1758398400000, now)).toBe(now);
+  });
+});
+
+describe('one mastery rule, on both sides', () => {
+  /**
+   * The browser has to decide "did I pass?" with no database to ask — a lesson
+   * finished in a tunnel still shows its result. That decision is a rule, so
+   * the rule lives in the pure core and the server applies it before writing.
+   *
+   * These tests exist to fail if the two ever drift apart, because a rule
+   * duplicated in two places is a rule that will disagree with itself.
+   */
+  it('stores exactly what the shared function computes', async () => {
+    const before = await store.getLessonProgress(db, 'pre-a1-u1-l1');
+
+    const response = await call('POST', '/api/lessons/pre-a1-u1-l1/mastery', {
+      accuracy: 0.9,
+      passAccuracy: 0.8,
+    });
+    expect(response.status).toBe(200);
+
+    const stored = response.body as { mastery: unknown };
+    const expected = applyMastery(before, 0.9, 0.8, new Date().toISOString());
+    expect(stored.mastery).toEqual(expected.mastery);
+  });
+
+  it('agrees with the shared function over a run that goes worse', async () => {
+    await call('POST', '/api/lessons/pre-a1-u1-l1/mastery', { accuracy: 0.9, passAccuracy: 0.8 });
+    const middle = await store.getLessonProgress(db, 'pre-a1-u1-l1');
+
+    const response = await call('POST', '/api/lessons/pre-a1-u1-l1/mastery', {
+      accuracy: 0.4,
+      passAccuracy: 0.8,
+    });
+    const stored = (response.body as { mastery: unknown }).mastery;
+    const expected = applyMastery(middle, 0.4, 0.8, new Date().toISOString()).mastery;
+
+    // Still passed, best accuracy still 0.9, attempts now 2 — on both sides.
+    expect(stored).toEqual(expected);
+    expect(stored).toMatchObject({ attempts: 2, bestAccuracy: 0.9, passed: true });
+  });
+
+  it('agrees about a recovery round and about completing', async () => {
+    const before = await store.getLessonProgress(db, 'pre-a1-u1-l2');
+
+    const recovery = await call('POST', '/api/lessons/pre-a1-u1-l2/recovery', {});
+    expect((recovery.body as { recoveryRounds: number }).recoveryRounds).toBe(
+      applyRecoveryRound(before, new Date().toISOString()).recoveryRounds,
+    );
+
+    const first = await call('POST', '/api/lessons/pre-a1-u1-l2/complete', {});
+    const completedAt = (first.body as { completedAt?: string }).completedAt;
+    expect(completedAt).toBeTruthy();
+
+    // Finishing again does not move the date, on either side.
+    const again = await call('POST', '/api/lessons/pre-a1-u1-l2/complete', {});
+    expect((again.body as { completedAt?: string }).completedAt).toBe(completedAt);
   });
 });

@@ -1,7 +1,12 @@
-import { ApiError, type AttemptPayload } from './client.ts';
+import {
+  ApiError,
+  type AttemptPayload,
+  type CheckpointPayload,
+  type ScenarioRunPayload,
+} from './client.ts';
 
 /**
- * Answers that have not reached the server yet.
+ * Work that has not reached the server yet.
  *
  * This app is used on a phone: in a queue at the bakery, on the U-Bahn, in a
  * flat whose signal dies at the kitchen table. Until now every answer went
@@ -15,14 +20,24 @@ import { ApiError, type AttemptPayload } from './client.ts';
  * server is not a reason to refuse the answer; it is a reason to hold it and
  * send it later.
  *
+ * The same is true of the things that happen at the *end* of a lesson — the
+ * mastery result, the completion, a finished conversation. Those are rules
+ * applied to numbers the browser already has (`applyMastery` and its
+ * neighbours in `src/core/progress/lesson.ts`, which the server applies too),
+ * not facts only the database could know. So they queue as well, rather than
+ * leaving somebody who answered every question in a tunnel with a lesson that
+ * never finished.
+ *
  * This is deliberately not an offline mode. Nothing here pretends to know what
- * the dashboard would say, and no progress number is invented while the queue
- * is full; the counts simply stay as they were, and the app says out loud how
- * many answers are waiting. What is promised is only this: nothing typed is
- * thrown away.
+ * the dashboard would say, and no statistic is invented while the queue is
+ * full; the counts simply stay as they were, and the app says out loud what is
+ * waiting. What is promised is only this: nothing anybody did is thrown away.
  */
 
-const KEY = 'satzwerk.outbox.v1';
+const KEY = 'satzwerk.outbox.v2';
+
+/** The answers-only shape this queue had before it held anything else. */
+const KEY_V1 = 'satzwerk.outbox.v1';
 
 /**
  * Enough for a very long stretch without signal — a full lesson is well under
@@ -34,10 +49,27 @@ export const MAX_QUEUED = 500;
 /** Kept so a refusal can be reported; older ones fall off the end. */
 const MAX_REJECTED = 20;
 
-export interface QueuedAttempt {
-  /** Local, so the same answer is never sent twice from two tabs. */
+/**
+ * Everything the app writes that nobody is waiting on a *value* from.
+ *
+ * A read is not here and never will be: there is nothing to queue about asking
+ * a question. These are the writes, in the order they happened, because that
+ * order is the learner's own — the answers, then the result of the check those
+ * answers were part of.
+ */
+export type PendingWrite =
+  | { kind: 'attempt'; payload: AttemptPayload }
+  | { kind: 'sectionSeen'; lessonId: string; sectionId: string }
+  | { kind: 'recovery'; lessonId: string }
+  | { kind: 'mastery'; lessonId: string; accuracy: number; passAccuracy: number }
+  | { kind: 'complete'; lessonId: string }
+  | { kind: 'checkpoint'; payload: CheckpointPayload }
+  | { kind: 'scenarioRun'; payload: ScenarioRunPayload };
+
+export interface QueuedWrite {
+  /** Local, so the same write is never sent twice from two tabs. */
   id: string;
-  payload: AttemptPayload;
+  write: PendingWrite;
 }
 
 export interface RejectedAttempt {
@@ -48,7 +80,7 @@ export interface RejectedAttempt {
 }
 
 export interface OutboxState {
-  queued: QueuedAttempt[];
+  queued: QueuedWrite[];
   rejected: RejectedAttempt[];
 }
 
@@ -93,7 +125,7 @@ function read(): OutboxState {
   if (!store) return memory;
   try {
     const raw = store.getItem(KEY);
-    if (raw === null) return durable ? EMPTY : memory;
+    if (raw === null) return durable ? carriedOver(store) : memory;
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return EMPTY;
     const record = parsed as Partial<OutboxState>;
@@ -105,6 +137,50 @@ function read(): OutboxState {
     durable = false;
     return memory;
   }
+}
+
+/**
+ * Answers held by the previous, answers-only version of this queue.
+ *
+ * Upgrading the app must not be a way to lose somebody's work: a phone that
+ * went into a tunnel on the old version and came out on the new one still has
+ * its answers in the old key, so they are read once, rewritten in the current
+ * shape and the old key is dropped.
+ */
+function carriedOver(store: Storage): OutboxState {
+  let raw: string | null = null;
+  try {
+    raw = store.getItem(KEY_V1);
+  } catch {
+    return EMPTY;
+  }
+  if (raw === null) return EMPTY;
+
+  let queued: QueuedWrite[] = [];
+  try {
+    const parsed = JSON.parse(raw) as { queued?: unknown };
+    if (Array.isArray(parsed.queued)) {
+      queued = parsed.queued
+        .filter((item): item is { id: string; payload: AttemptPayload } => {
+          if (!item || typeof item !== 'object') return false;
+          const record = item as { id?: unknown; payload?: unknown };
+          return typeof record.id === 'string' && Boolean(record.payload);
+        })
+        .map((item) => ({ id: item.id, write: { kind: 'attempt', payload: item.payload } }));
+    }
+  } catch {
+    return EMPTY;
+  }
+
+  const state: OutboxState = { queued, rejected: [] };
+  write(state);
+  try {
+    store.removeItem(KEY_V1);
+  } catch {
+    // Left behind; it is only read when the current key is absent, and the
+    // write above has just created it.
+  }
+  return state;
 }
 
 function write(state: OutboxState): void {
@@ -122,11 +198,24 @@ function write(state: OutboxState): void {
   }
 }
 
-function isQueued(value: unknown): value is QueuedAttempt {
+function isQueued(value: unknown): value is QueuedWrite {
   if (!value || typeof value !== 'object') return false;
-  const record = value as Partial<QueuedAttempt>;
-  return typeof record.id === 'string' && Boolean(record.payload) && typeof record.payload === 'object';
+  const record = value as Partial<QueuedWrite>;
+  if (typeof record.id !== 'string' || !record.write || typeof record.write !== 'object') return false;
+  // An unknown kind would be sent nowhere and block everything behind it, so
+  // it is not accepted back out of storage at all.
+  return WRITE_KINDS.has((record.write as PendingWrite).kind);
 }
+
+const WRITE_KINDS = new Set<PendingWrite['kind']>([
+  'attempt',
+  'sectionSeen',
+  'recovery',
+  'mastery',
+  'complete',
+  'checkpoint',
+  'scenarioRun',
+]);
 
 function isRejected(value: unknown): value is RejectedAttempt {
   if (!value || typeof value !== 'object') return false;
@@ -149,16 +238,21 @@ export function queuedCount(): number {
   return read().queued.length;
 }
 
+/** How many of the waiting writes are answers somebody typed. */
+export function answersWaiting(): number {
+  return read().queued.filter((item) => item.write.kind === 'attempt').length;
+}
+
 /**
- * Hold an answer. Returns false only when the queue is full, and then the
- * caller must tell the learner — the alternative is dropping the oldest work
- * to make room for the newest, which loses a sentence somebody typed without
- * ever saying so.
+ * Hold a write. Returns false only when the queue is full, and then the caller
+ * must tell the learner — the alternative is dropping the oldest work to make
+ * room for the newest, which loses a sentence somebody typed without ever
+ * saying so.
  */
-export function enqueue(payload: AttemptPayload): boolean {
+export function enqueue(write_: PendingWrite): boolean {
   const state = read();
   if (state.queued.length >= MAX_QUEUED) return false;
-  write({ ...state, queued: [...state.queued, { id: nextId(), payload }] });
+  write({ ...state, queued: [...state.queued, { id: nextId(), write: write_ }] });
   return true;
 }
 
@@ -206,7 +300,7 @@ export interface FlushOutcome {
 
 /** Send what is waiting, oldest first. Safe to call when nothing is. */
 export async function flush(
-  send: (payload: AttemptPayload) => Promise<unknown>,
+  send: (write: PendingWrite) => Promise<unknown>,
 ): Promise<FlushOutcome> {
   let sent = 0;
   let rejected = 0;
@@ -223,7 +317,7 @@ export async function flush(
     if (!item) continue;
 
     try {
-      await send(item.payload);
+      await send(item.write);
       sent += 1;
       drop(id);
     } catch (cause) {
