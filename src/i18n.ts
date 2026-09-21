@@ -247,6 +247,46 @@ export const UI = {
   exerciseReplaysLeft: s('{n} replays left', 'остават {n} повторения'),
   exerciseReplaysLeftOne: s('{n} replay left', 'остава {n} повторение'),
   exerciseReplaysGone: s('No replays left — answer what you heard', 'Няма повече повторения — напиши каквото чу'),
+  // Answers typed while the server could not be reached
+  syncTitle: s('Not saved yet', 'Още не са запазени'),
+  syncPending: s('{n} answers are waiting', 'Чакат {n} отговора'),
+  syncPendingOne: s('{n} answer is waiting', 'Чака {n} отговор'),
+  syncExplain: s(
+    'They were checked the moment you typed them. They reach the database as soon as there is a connection again.',
+    'Проверени са още щом ги написа. Ще стигнат до базата веднага щом има връзка.',
+  ),
+  syncOther: s(
+    '{n} finished pieces of work are waiting too — a lesson result, a round, a conversation.',
+    'Чакат и {n} завършени неща — резултат от урок, кръг или разговор.',
+  ),
+  syncOtherOne: s(
+    '{n} finished piece of work is waiting too — a lesson result, a round or a conversation.',
+    'Чака и {n} завършено нещо — резултат от урок, кръг или разговор.',
+  ),
+  syncNow: s('Try now', 'Опитай сега'),
+  syncWorking: s('Sending…', 'Изпраща се…'),
+  syncAtRisk: s(
+    'This browser is not storing them, so closing the app would lose them.',
+    'Този браузър не ги запазва — ако затвориш приложението, ще се загубят.',
+  ),
+  syncRefused: s(
+    'The server refused {n} answers or results, so they cannot be saved.',
+    'Сървърът отказа {n} отговора или резултата и те не могат да бъдат запазени.',
+  ),
+  syncRefusedOne: s(
+    'The server refused {n} answer or result, so it cannot be saved.',
+    'Сървърът отказа {n} отговор или резултат и той не може да бъде запазен.',
+  ),
+  syncLost: s(
+    '{n} answers or results could not be kept — there was no room left.',
+    'Не успяхме да запазим {n} отговора или резултата — нямаше повече място.',
+  ),
+  syncLostOne: s(
+    '{n} answer or result could not be kept — there was no room left.',
+    'Не успяхме да запазим {n} отговор или резултат — нямаше повече място.',
+  ),
+  syncDismiss: s('Understood', 'Разбрах'),
+
   exerciseReveal: s('Show the answer', 'Покажи отговора'),
   exerciseRevealWarning: s(
     'Showing the answer means no credit for this item, and it will come back soon.',

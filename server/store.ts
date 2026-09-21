@@ -1,6 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { CefrLevel, ErrorCategory, TeachingLanguage } from '../src/content/types.ts';
-import type { LessonProgress, StepOutcome } from '../src/core/progress/lesson.ts';
+import {
+  applyCompletion,
+  applyMastery,
+  applyRecoveryRound,
+  type LessonProgress,
+  type StepOutcome,
+} from '../src/core/progress/lesson.ts';
 import {
   createReviewItem,
   gradeFromAttempt,
@@ -167,13 +173,14 @@ export async function recordMastery(
 ): Promise<LessonProgress> {
   const now = new Date().toISOString();
   await ensureLessonState(db, lessonId, now);
-  const current = await getLessonProgress(db, lessonId);
-  const passed = current.mastery.passed || accuracy >= passAccuracy;
+  // The rule is `applyMastery` in the pure core, because the browser has to be
+  // able to answer "did I pass?" from a tunnel, with no database to ask.
+  const next = applyMastery(await getLessonProgress(db, lessonId), accuracy, passAccuracy, now);
   await db.run(`UPDATE lesson_state
      SET mastery_attempts = ?, mastery_best_accuracy = ?, mastery_passed = ?, last_active_at = ?
-     WHERE lesson_id = ?`, current.mastery.attempts + 1,
-    Math.max(current.mastery.bestAccuracy, accuracy),
-    passed ? 1 : 0,
+     WHERE lesson_id = ?`, next.mastery.attempts,
+    next.mastery.bestAccuracy,
+    next.mastery.passed ? 1 : 0,
     now,
     lessonId,);
   return await getLessonProgress(db, lessonId);
@@ -182,16 +189,18 @@ export async function recordMastery(
 export async function recordRecoveryRound(db: Db, lessonId: string): Promise<LessonProgress> {
   const now = new Date().toISOString();
   await ensureLessonState(db, lessonId, now);
-  await db.run('UPDATE lesson_state SET recovery_rounds = recovery_rounds + 1, last_active_at = ? WHERE lesson_id = ?', now, lessonId);
+  const next = applyRecoveryRound(await getLessonProgress(db, lessonId), now);
+  await db.run('UPDATE lesson_state SET recovery_rounds = ?, last_active_at = ? WHERE lesson_id = ?', next.recoveryRounds, now, lessonId);
   return await getLessonProgress(db, lessonId);
 }
 
 export async function completeLesson(db: Db, lessonId: string): Promise<LessonProgress> {
   const now = new Date().toISOString();
   await ensureLessonState(db, lessonId, now);
+  const next = applyCompletion(await getLessonProgress(db, lessonId), now);
   await db.run(`UPDATE lesson_state
-     SET completed_at = COALESCE(completed_at, ?), last_active_at = ?
-     WHERE lesson_id = ?`, now, now, lessonId);
+     SET completed_at = ?, last_active_at = ?
+     WHERE lesson_id = ?`, next.completedAt ?? now, now, lessonId);
   return await getLessonProgress(db, lessonId);
 }
 

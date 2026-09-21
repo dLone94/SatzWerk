@@ -7,6 +7,11 @@
  * or silently dropping work they had done — and a half-working offline mode is
  * the kind of feature that looks finished and is not. So this handles pushes
  * and nothing else.
+ *
+ * Answers are a separate matter, and they are handled: one typed without a
+ * connection waits in the app's outbox (`src/services/api/outbox.ts`) and is
+ * sent when there is one. That holds work rather than caching pages, so
+ * nothing here needs to change for it.
  */
 
 self.addEventListener('install', () => {

@@ -2,7 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { handleRequest } from '../../server/api.ts';
+import { attemptTime, handleRequest } from '../../server/api.ts';
+import { applyMastery, applyRecoveryRound } from '../../src/core/progress/lesson.ts';
 import { openDatabase, SCHEMA_VERSION, type Db } from '../../server/db.ts';
 import * as store from '../../server/store.ts';
 import { ruleBasedWritingReview, unavailableProvider } from '../../server/ai.ts';
@@ -550,5 +551,132 @@ describe('routing', () => {
     const state = (await call('POST', '/api/reset')).body as { mistakes: unknown[]; reviewItems: unknown[] };
     expect(state.mistakes).toEqual([]);
     expect(state.reviewItems).toEqual([]);
+  });
+});
+
+describe('an answer that waited for a connection', () => {
+  /**
+   * The point of sending the time: a lesson done on the U-Bahn on Tuesday
+   * evening and delivered on Wednesday morning is Tuesday's work. Without
+   * this the streak quietly loses a day, and the dashboard says something
+   * that did not happen.
+   */
+  it('counts for the day it was typed, not the day it arrived', async () => {
+    // More than a day back, so the day it was typed is never today whatever
+    // the hour this test runs at.
+    const typedAt = new Date(Date.now() - 36 * 60 * 60 * 1000);
+    const response = await call('POST', '/api/attempts', { ...wrongAttempt, at: typedAt.toISOString() });
+    expect(response.status).toBe(200);
+
+    const day = typedAt.toISOString().slice(0, 10);
+    const row = await db.get<{ answers: number }>('SELECT answers FROM study_days WHERE day = ?', day);
+    expect(Number(row?.answers)).toBe(1);
+
+    // And today has nothing, because nothing was answered today.
+    const today = await db.get('SELECT answers FROM study_days WHERE day = ?', new Date().toISOString().slice(0, 10));
+    expect(today).toBeUndefined();
+  });
+
+  it('is stored with the time it was typed', async () => {
+    const typedAt = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    await call('POST', '/api/attempts', { ...wrongAttempt, at: typedAt.toISOString() });
+    const row = await db.get<{ created_at: string }>('SELECT created_at FROM attempts ORDER BY id DESC LIMIT 1');
+    expect(new Date(String(row!.created_at)).toISOString()).toBe(typedAt.toISOString());
+  });
+
+  it('still records an answer that carries no time at all', async () => {
+    // Every attempt written before this existed, and anything that posts by
+    // hand. The server's own clock is the fallback, exactly as before.
+    const response = await call('POST', '/api/attempts', wrongAttempt);
+    expect(response.status).toBe(200);
+    const today = await db.get<{ answers: number }>(
+      'SELECT answers FROM study_days WHERE day = ?',
+      new Date().toISOString().slice(0, 10),
+    );
+    expect(Number(today?.answers)).toBe(1);
+  });
+});
+
+describe('the time an answer claims to have been typed', () => {
+  const now = new Date('2026-09-20T20:00:00.000Z');
+
+  it('is used when it is plausible', () => {
+    const typed = '2026-09-19T18:30:00.000Z';
+    expect(attemptTime(typed, now).toISOString()).toBe(typed);
+  });
+
+  it('is ignored when the phone says the answer is from the future', () => {
+    // A clock running fast would otherwise park work where nothing shows it.
+    expect(attemptTime('2026-09-21T09:00:00.000Z', now)).toBe(now);
+    // A couple of minutes of skew is ordinary, and kept.
+    expect(attemptTime('2026-09-20T20:01:00.000Z', now).toISOString()).toBe('2026-09-20T20:01:00.000Z');
+  });
+
+  it('is ignored when it is older than any queue could be', () => {
+    // A phone that booted with a flat battery's clock, not a long tunnel.
+    expect(attemptTime('2009-01-01T00:00:00.000Z', now)).toBe(now);
+  });
+
+  it('is ignored when it is not a date at all', () => {
+    expect(attemptTime('gestern Abend', now)).toBe(now);
+    expect(attemptTime(undefined, now)).toBe(now);
+    expect(attemptTime(1758398400000, now)).toBe(now);
+  });
+});
+
+describe('one mastery rule, on both sides', () => {
+  /**
+   * The browser has to decide "did I pass?" with no database to ask — a lesson
+   * finished in a tunnel still shows its result. That decision is a rule, so
+   * the rule lives in the pure core and the server applies it before writing.
+   *
+   * These tests exist to fail if the two ever drift apart, because a rule
+   * duplicated in two places is a rule that will disagree with itself.
+   */
+  it('stores exactly what the shared function computes', async () => {
+    const before = await store.getLessonProgress(db, 'pre-a1-u1-l1');
+
+    const response = await call('POST', '/api/lessons/pre-a1-u1-l1/mastery', {
+      accuracy: 0.9,
+      passAccuracy: 0.8,
+    });
+    expect(response.status).toBe(200);
+
+    const stored = response.body as { mastery: unknown };
+    const expected = applyMastery(before, 0.9, 0.8, new Date().toISOString());
+    expect(stored.mastery).toEqual(expected.mastery);
+  });
+
+  it('agrees with the shared function over a run that goes worse', async () => {
+    await call('POST', '/api/lessons/pre-a1-u1-l1/mastery', { accuracy: 0.9, passAccuracy: 0.8 });
+    const middle = await store.getLessonProgress(db, 'pre-a1-u1-l1');
+
+    const response = await call('POST', '/api/lessons/pre-a1-u1-l1/mastery', {
+      accuracy: 0.4,
+      passAccuracy: 0.8,
+    });
+    const stored = (response.body as { mastery: unknown }).mastery;
+    const expected = applyMastery(middle, 0.4, 0.8, new Date().toISOString()).mastery;
+
+    // Still passed, best accuracy still 0.9, attempts now 2 — on both sides.
+    expect(stored).toEqual(expected);
+    expect(stored).toMatchObject({ attempts: 2, bestAccuracy: 0.9, passed: true });
+  });
+
+  it('agrees about a recovery round and about completing', async () => {
+    const before = await store.getLessonProgress(db, 'pre-a1-u1-l2');
+
+    const recovery = await call('POST', '/api/lessons/pre-a1-u1-l2/recovery', {});
+    expect((recovery.body as { recoveryRounds: number }).recoveryRounds).toBe(
+      applyRecoveryRound(before, new Date().toISOString()).recoveryRounds,
+    );
+
+    const first = await call('POST', '/api/lessons/pre-a1-u1-l2/complete', {});
+    const completedAt = (first.body as { completedAt?: string }).completedAt;
+    expect(completedAt).toBeTruthy();
+
+    // Finishing again does not move the date, on either side.
+    const again = await call('POST', '/api/lessons/pre-a1-u1-l2/complete', {});
+    expect((again.body as { completedAt?: string }).completedAt).toBe(completedAt);
   });
 });

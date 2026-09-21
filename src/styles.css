@@ -3928,3 +3928,87 @@ body {
   opacity: 0.45;
   cursor: default;
 }
+
+/*
+ * The "not saved yet" strip.
+ *
+ * Deliberately not an alarm. An answer waiting for a connection is normal on a
+ * phone, and the lesson under it is unaffected, so this is a quiet line with a
+ * slow pulse rather than a red bar. It turns warm only when something actually
+ * went wrong — an answer the server refused, or one there was no room to keep.
+ */
+.sync {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0 auto;
+  padding: 0.55rem 1rem;
+  width: 100%;
+  max-width: var(--max);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-alt);
+  animation: sw-rise-sm var(--dur-2) var(--ease-out) both;
+}
+
+.sync--trouble {
+  background: var(--warn-soft);
+  border-color: color-mix(in srgb, var(--warn) 30%, transparent);
+}
+
+.sync__body {
+  min-width: 0;
+}
+
+.sync__headline {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.sync__note {
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.sync__note--warn {
+  color: var(--warn);
+}
+
+/* Something is in hand and being carried, rather than something being wrong. */
+.sync__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+  animation: sw-sync-pulse 2.4s ease-in-out infinite;
+}
+
+.sync--trouble .sync__dot {
+  background: var(--warn);
+  animation: none;
+}
+
+.sync__actions {
+  display: flex;
+  gap: 0.4rem;
+  flex: none;
+}
+
+@keyframes sw-sync-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(calc(1 - 0.18 * var(--motion-shift)));
+  }
+}

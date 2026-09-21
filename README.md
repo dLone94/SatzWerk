@@ -566,7 +566,8 @@ that looks like a broken app.
 Delivery is `web-push` with VAPID and RFC 8291 payload encryption; the private
 key never leaves the server. `public/sw.js` handles `push` and
 `notificationclick` **and caches nothing** — a stale cached copy of your own
-progress would be worse than no offline mode. A subscription that the push
+progress would be worse than no offline mode. What survives a lost connection
+is answers, held in the outbox described above, not pages. A subscription that the push
 service rejects as gone (404/410) is deleted; any other failure is kept and
 retried tomorrow, because a network blip is not an unsubscribe.
 
@@ -574,6 +575,68 @@ retried tomorrow, because a network blip is not an unsubscribe.
 SpeechSynthesis implementation and a null provider that hides the buttons when
 the browser has no German voice. Nothing in the app calls
 `window.speechSynthesis` directly.
+
+**Answers survive a lost connection.** The app is used on a phone, and a phone
+loses signal — in the U-Bahn, in a lift, in the corner of a flat the router
+does not reach. Until now every answer went straight to the database and the
+app gave up if it could not: you typed a sentence, pressed enter, and nothing
+happened at all. The answer was gone and the screen was dead.
+
+This is not an offline mode, and the difference is the point. Nothing is
+cached, no progress is guessed at, and no number anywhere moves until the
+database says it moved. What changed is only where an answer waits. The
+validator that marks it runs in the browser, so the verdict, the correction and
+the mandatory retype never needed the server in the first place; an answer that
+cannot be sent goes into an **outbox** in `localStorage`, the lesson carries on
+exactly as it would have, and a quiet strip at the top of the app says how many
+answers are waiting — the one honest thing to say while the stats below it are
+a little behind.
+
+They go out oldest first: when the browser reports the network is back, on a
+thirty-second retry for the cases it does not report, and on the next load.
+Order is not a detail — the review schedule is computed from one attempt to the
+next, so an answer that jumps the queue schedules the wrong thing, which is why
+a new answer typed while others are waiting joins the back of the queue instead
+of being sent straight out. Each one carries the time it was **typed**, so a
+lesson done on the U-Bahn on Tuesday evening counts for Tuesday even though it
+arrives on Wednesday; the server takes that time only if it is plausible — not
+in the future, not older than any queue could be — because the clock belongs to
+whoever is holding the phone.
+
+Three failures are named rather than hidden. An answer the server actively
+refuses is never retried forever: it comes out of the queue and is reported,
+and a 401 puts the password screen back up instead of leaving somebody typing
+into nothing. A browser that will not store anything — private mode, site data
+blocked — still holds answers in memory, and the strip says plainly that a
+reload would lose them. And a queue that is genuinely full refuses the newest
+answer rather than quietly dropping the oldest, and counts what it could not
+keep.
+
+**And the writes at the end of a lesson, which the answers alone did not
+cover.** Holding every answer still left the moment after the last one: the
+mastery result went straight to the server, threw, and left a lesson finished
+in a tunnel sitting on a screen that would not move. The same was true of a
+played conversation and a checkpoint.
+
+They are held too now, and *why they can be* is the part worth stating,
+because it is the difference between holding work and inventing progress. Each
+of these is a rule applied to numbers the browser already has — a mastery
+result is "attempts + 1, best so far, and passed if this run cleared the bar".
+So the rule lives in `src/core/progress/lesson.ts` as `applyMastery` and its
+neighbours, **the server applies exactly those functions** before writing its
+row, and a test fails if the two ever drift apart. Offline the arithmetic
+simply happens one side earlier, and the database confirms it when the queue
+drains.
+
+Where a figure is *not* a rule the browser can apply, nothing is claimed: a
+scenario's stored numbers are an aggregate the server computes across every
+run, so the Real Life badges stay exactly as they were while a run is waiting
+and the strip says one is waiting, rather than guessing at a new average.
+
+Order holds across the two kinds. A lesson finished without a connection
+queues its answers, then its result, then its completion, and they are sent in
+that order — a result that arrived before the answers it summarises would be
+scored against a lesson the database had not seen yet.
 
 ---
 
@@ -933,9 +996,12 @@ always had.
   cover, so it is the default; `SATZWERK_PG_TRANSPORT=http` opts back in. The
   reason to want HTTP is connection exhaustion, which one learner will not
   cause — and where it matters, Neon's pooler endpoint solves it for TCP too.
-- **There is no CI yet**, so the test, typecheck and build results quoted here
-  were produced locally rather than on a runner.
-- **The bundle is a single chunk** (~730 kB, 206 kB gzipped — the whole
-  curriculum is typed data compiled into it). Fine for a
-  personal app on localhost; route-level code splitting is the obvious first
-  step if this ever ships publicly.
+- **CI runs the suite twice** — once on SQLite, once against a real Postgres —
+  plus a smoke test against the deployment the platform reports ready
+  (`.github/workflows/ci.yml`). The numbers quoted here were produced locally;
+  the runner is what stops them going stale.
+- **The bundle is a single chunk** (2.4 MB, 638 kB gzipped — five levels of
+  curriculum and forty-one scenario scripts are typed data compiled into it,
+  and it grows with every lesson written). Fine over wifi for a personal app;
+  route-level code splitting is the obvious first step if this ever ships
+  publicly, and the first thing to do if it ever feels slow to open.

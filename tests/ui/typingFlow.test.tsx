@@ -67,6 +67,9 @@ function stubState(lang: TeachingLanguage): AppStateValue {
     reload: async () => undefined,
     setTeachingLanguage: async () => undefined,
     updateProfile: async () => undefined,
+    sync: { pending: 0, other: 0, refused: 0, atRisk: false, lost: 0 },
+    syncAnswers: async () => {},
+    dismissRefusedAnswers: () => {},
     submitAttempt: async (payload) => {
       attempts.push(payload);
     },

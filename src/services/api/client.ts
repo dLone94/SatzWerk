@@ -101,6 +101,28 @@ export interface AttemptPayload {
   resolved: boolean;
   durationMs?: number;
   reviewTargets?: TargetSpec[];
+  /**
+   * When the answer was typed, as an ISO string. Sent because an answer can
+   * wait in the outbox for a connection, and it belongs to the day it was
+   * typed rather than the day it was finally delivered. The server uses it
+   * only if it is plausible.
+   */
+  at?: string;
+}
+
+export interface CheckpointPayload {
+  checkpointId: string;
+  scope: string;
+  targetId: string;
+  accuracy: number;
+  passed: boolean;
+  detail?: unknown;
+}
+
+export interface ScenarioRunPayload {
+  scriptId: string;
+  turns: number;
+  firstTryCorrect: number;
 }
 
 export interface AttemptResponse {
@@ -283,16 +305,10 @@ export const api = {
   setFavorite: (vocabId: string, favorite: boolean) =>
     post<{ favorites: string[] }>(`/vocabulary/${encodeURIComponent(vocabId)}/favorite`, { favorite }),
 
-  recordCheckpoint: (payload: {
-    checkpointId: string;
-    scope: string;
-    targetId: string;
-    accuracy: number;
-    passed: boolean;
-    detail?: unknown;
-  }) => post<{ results: CheckpointResult[] }>('/checkpoints', payload),
+  recordCheckpoint: (payload: CheckpointPayload) =>
+    post<{ results: CheckpointResult[] }>('/checkpoints', payload),
 
-  recordScenarioRun: (payload: { scriptId: string; turns: number; firstTryCorrect: number }) =>
+  recordScenarioRun: (payload: ScenarioRunPayload) =>
     post<{ scenarioRuns: ScenarioRun[] }>('/scenario-runs', payload),
 
   addStudyTime: (seconds: number) =>
