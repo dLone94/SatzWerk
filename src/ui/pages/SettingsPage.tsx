@@ -37,6 +37,8 @@ export function SettingsPage() {
     <div className="page">
       <h1 className="page__title">{t('settingsTitle')}</h1>
 
+      <Learners />
+
       <Card title={t('settingsLanguage')} subtitle={t('settingsLanguageNote')}>
         <div className="chips">
           {(['en', 'bg'] as TeachingLanguage[]).map((code) => (
@@ -339,6 +341,102 @@ function RemindersCard() {
       ) : null}
 
       <p className="card__foot">{t('remindersHonest')}</p>
+    </Card>
+  );
+}
+
+
+/**
+ * Who is studying.
+ *
+ * A household shares one password and one copy of the app, so this is a switch
+ * rather than a second login — and it says so, because a control that looks
+ * like a lock and is not would be worse than no control. What it does buy is
+ * real: separate progress, separate reviews, and a teaching path each, so
+ * German through English and German through Bulgarian can happen in the same
+ * flat on the same evening.
+ */
+function Learners() {
+  const { t, learners, studyingAs, studyAs, addLearner, renameLearner } = useApp();
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [waiting, setWaiting] = useState(0);
+
+  const hand = async (id: number) => {
+    setBusy(true);
+    setWaiting(0);
+    try {
+      const outcome = await studyAs(id);
+      if (outcome === 'answers-waiting') setWaiting(1);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title={t('learnersTitle')} subtitle={t('learnersNote')}>
+      <ul className="learners">
+        {learners.map((learner) => (
+          <li key={learner.id} className={`learners__row${learner.id === studyingAs ? ' is-active' : ''}`}>
+            <span className="learners__name">{learner.name}</span>
+            {learner.id === studyingAs ? (
+              <span className="learners__badge">{t('learnersStudying')}</span>
+            ) : (
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                disabled={busy}
+                onClick={() => void hand(learner.id)}
+              >
+                {t('learnersSwitch')}
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn btn--quiet btn--sm"
+              onClick={() => {
+                const next = window.prompt(t('learnersName'), learner.name);
+                if (next && next.trim()) void renameLearner(learner.id, next.trim());
+              }}
+            >
+              {t('learnersRename')}
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {waiting > 0 ? (
+        <p className="task__warn" role="status">
+          {t('learnersWaiting', { n: waiting })}
+        </p>
+      ) : null}
+
+      <form
+        className="learners__add"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!name.trim()) return;
+          setBusy(true);
+          void addLearner(name.trim()).finally(() => {
+            setName('');
+            setBusy(false);
+          });
+        }}
+      >
+        <label htmlFor="learner-name">{t('learnersAdd')}</label>
+        <input
+          id="learner-name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder={t('learnersName')}
+          maxLength={40}
+        />
+        <button type="submit" className="btn btn--primary btn--sm" disabled={busy || !name.trim()}>
+          {t('learnersSave')}
+        </button>
+      </form>
+
+      <p className="card__foot">{t('learnersNotAWall')}</p>
     </Card>
   );
 }

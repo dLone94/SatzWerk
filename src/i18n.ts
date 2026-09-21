@@ -364,6 +364,11 @@ export const UI = {
   speakTry: s('Say it', 'Кажи го'),
   speakAgain: s('Say it again', 'Кажи го пак'),
   speakListening: s('Listening…', 'Слушам…'),
+  speakSay: s('Say it', 'Кажи го'),
+  speakSayHint: s(
+    'That is what the recogniser heard. Read it, fix anything it got wrong, and send it — a machine mishearing you should never be marked against you.',
+    'Това чу разпознавателят. Прочети го, оправи каквото е разбрал грешно и го изпрати — грешка на машината не трябва да се пише на твоя сметка.',
+  ),
   speakStop: s('Stop', 'Спри'),
   speakHeard: s('Heard', 'Чух'),
   speakUnderstood: s('Understood — that is the sentence.', 'Разбрано — това е изречението.'),
@@ -621,6 +626,30 @@ export const UI = {
 
   // Settings
   settingsTitle: s('Settings', 'Настройки'),
+  // Who is studying — a household switch, not a second password
+  learnersTitle: s('Who is studying?', 'Кой учи?'),
+  learnersNote: s(
+    'Each person keeps their own progress, their own reviews and their own teaching path. This device remembers who you are, so you only pick once.',
+    'Всеки пази своя напредък, своите повторения и своя път на преподаване. Това устройство помни кой си, така че избираш само веднъж.',
+  ),
+  learnersNotAWall: s(
+    'This is not a lock. Anybody who can open the app can switch between you — it keeps your work apart, not private.',
+    'Това не е ключалка. Всеки, който може да отвори приложението, може да сменя между вас — разделя работата, не я скрива.',
+  ),
+  learnersStudying: s('studying now', 'учи сега'),
+  learnersSwitch: s('Hand over', 'Подай нататък'),
+  learnersAdd: s('Add somebody', 'Добави някого'),
+  learnersName: s('Their name', 'Името им'),
+  learnersSave: s('Add', 'Добави'),
+  learnersRename: s('Rename', 'Преименувай'),
+  learnersWaiting: s(
+    'Not yet — {n} answers are still waiting to be saved, and they belong to whoever typed them. Try again once they are in.',
+    'Още не — {n} отговора чакат да бъдат запазени и принадлежат на онзи, който ги е написал. Опитай пак, щом влязат.',
+  ),
+  learnersWaitingOne: s(
+    'Not yet — {n} answer is still waiting to be saved, and it belongs to whoever typed it. Try again once it is in.',
+    'Още не — {n} отговор чака да бъде запазен и принадлежи на онзи, който го е написал. Опитай пак, щом влезе.',
+  ),
   settingsLanguage: s('Teaching language', 'Език на обучение'),
   settingsLanguageNote: s(
     'German stays the target language. Switching does not affect your progress.',

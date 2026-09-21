@@ -64,6 +64,40 @@ export interface ApiContext {
 }
 
 const TEACHING_LANGUAGES = new Set<string>(['en', 'bg']);
+
+/**
+ * Which learner this browser is studying as.
+ *
+ * A cookie rather than a header, for two reasons: it survives a reload without
+ * the client having to remember anything, and it is per device — so a phone
+ * stays the person who holds it while the tablet on the kitchen table stays
+ * somebody else.
+ *
+ * It is deliberately not a security boundary. Everybody in the household
+ * already shares the one password; this answers "who is studying", not "who is
+ * allowed in", and the UI says as much. An unknown or missing value falls back
+ * to learner 1, which is whose progress a single-learner database already had.
+ */
+export const LEARNER_COOKIE = 'satzwerk_learner';
+
+async function resolveLearner(db: Db, request: ApiRequest): Promise<number> {
+  const raw = parseCookies(request.headers?.cookie)[LEARNER_COOKIE];
+  const id = Number(raw);
+  if (!Number.isInteger(id) || id < 1) return 1;
+  return (await store.getLearner(db, id)) ? id : 1;
+}
+
+function learnerCookie(id: number, secure: boolean): string {
+  const bits = [
+    `${LEARNER_COOKIE}=${id}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${60 * 60 * 24 * 365}`,
+  ];
+  if (secure) bits.push('Secure');
+  return bits.join('; ');
+}
 const GRADES = new Set<string>(['again', 'hard', 'good', 'easy']);
 
 /**
@@ -97,7 +131,7 @@ function asRecord(body: unknown): Record<string, unknown> {
  * after another would be eight sequential round trips to a hosted database on
  * every page load.
  */
-export async function fullState(db: Db) {
+export async function fullState(scope: store.Scope) {
   const [
     profile,
     lessons,
@@ -109,15 +143,15 @@ export async function fullState(db: Db) {
     checkpointResults,
     scenarioRuns,
   ] = await Promise.all([
-    await store.getProfile(db),
-    await store.getAllLessonProgress(db),
-    await store.listReviewItems(db),
-    await store.listMistakes(db),
-    await store.listFavorites(db),
-    await store.getStats(db),
-    await store.listStudyDays(db, 60),
-    await store.listCheckpointResults(db),
-    await store.listScenarioRuns(db),
+    await store.getProfile(scope),
+    await store.getAllLessonProgress(scope),
+    await store.listReviewItems(scope),
+    await store.listMistakes(scope),
+    await store.listFavorites(scope),
+    await store.getStats(scope),
+    await store.listStudyDays(scope, 60),
+    await store.listCheckpointResults(scope),
+    await store.listScenarioRuns(scope),
   ]);
   return {
     profile,
@@ -238,8 +272,28 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     if (offered !== `Bearer ${secret}`) {
       return { status: 401, body: { error: 'Not authorised.' } };
     }
-    const profile = await store.getProfile(db);
-    return ok(await sendDueReminder(db, { lang: profile.teachingLanguage }));
+    /*
+     * One reminder per learner, each in their own language.
+     *
+     * A cron has no cookie, so there is no "who is studying" to read here —
+     * and there should not be: a household's evening reminder is everybody's.
+     * Each learner's due count comes from their own reviews and goes to the
+     * subscriptions registered while they were the one studying.
+     */
+    const learners = await store.listLearners(db);
+    const reports = [];
+    for (const learner of learners) {
+      const theirs: store.Scope = { db, userId: learner.id };
+      const profile = await store.getProfile(theirs);
+      reports.push({
+        learner: learner.name,
+        ...(await sendDueReminder(theirs, { lang: profile.teachingLanguage })),
+      });
+    }
+    // The shape of a single report is kept at the top level for the one-learner
+    // case, which is every household that has not added anybody: a smoke test
+    // and a cron log should not have to learn a new shape to stay readable.
+    return ok(reports.length === 1 ? { ...reports[0]!, learners: reports } : { learners: reports });
   }
 
   const auth = ctx.auth ?? (await resolveAuth(db));
@@ -320,6 +374,51 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     };
   }
 
+  /*
+   * From here on, every query is somebody's.
+   *
+   * Resolved once, so no route below can accidentally read a different
+   * learner's rows — and typed as a `Scope`, so a store call that forgets whose
+   * data it wants does not compile.
+   */
+  const scope: store.Scope = { db, userId: await resolveLearner(db, request) };
+
+  // Who is here, and who else could be.
+  if (route[0] === 'learners') {
+    if (route.length === 1 && method === 'GET') {
+      return ok({ learners: await store.listLearners(db), studyingAs: scope.userId });
+    }
+    if (route.length === 1 && method === 'POST') {
+      const name = String(asRecord(request.body).name ?? '').trim();
+      if (!name) return badRequest('A learner needs a name.');
+      const learner = await store.createLearner(db, name);
+      // Created, and immediately studying as them: adding somebody is
+      // something you do in order to hand them the phone.
+      return {
+        status: 200,
+        body: { learners: await store.listLearners(db), studyingAs: learner.id },
+        headers: { 'set-cookie': learnerCookie(learner.id, secure) },
+      };
+    }
+    if (route.length === 2 && method === 'POST' && route[1] === 'select') {
+      const id = Number(asRecord(request.body).id);
+      if (!(await store.getLearner(db, id))) return badRequest('No such learner.');
+      return {
+        status: 200,
+        body: { learners: await store.listLearners(db), studyingAs: id },
+        headers: { 'set-cookie': learnerCookie(id, secure) },
+      };
+    }
+    if (route.length === 2 && method === 'PUT') {
+      const id = Number(route[1]);
+      const name = String(asRecord(request.body).name ?? '').trim();
+      if (!name) return badRequest('A learner needs a name.');
+      const learner = await store.renameLearner(db, id, name);
+      if (!learner) return notFound('No such learner.');
+      return ok({ learners: await store.listLearners(db), studyingAs: scope.userId });
+    }
+  }
+
   // Changing the password needs the current one, so a borrowed session cannot
   // lock the owner out.
   if (route.length === 1 && route[0] === 'password' && method === 'POST') {
@@ -354,11 +453,11 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   }
 
   if (route.length === 1 && route[0] === 'state' && method === 'GET') {
-    return ok(await fullState(db));
+    return ok(await fullState(scope));
   }
 
   if (route.length === 1 && route[0] === 'profile') {
-    if (method === 'GET') return ok(await store.getProfile(db));
+    if (method === 'GET') return ok(await store.getProfile(scope));
     if (method === 'PUT' || method === 'PATCH') {
       const body = asRecord(request.body);
       const patch: store.ProfilePatch = {};
@@ -377,7 +476,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
         patch.displayName = body.displayName === null ? null : String(body.displayName).slice(0, 80);
       }
       if (body.onboarded !== undefined) patch.onboarded = Boolean(body.onboarded);
-      return ok(await store.updateProfile(db, patch));
+      return ok(await store.updateProfile(scope, patch));
     }
   }
 
@@ -385,17 +484,17 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     const body = asRecord(request.body);
     const validation = validateAttempt(body);
     if ('error' in validation) return badRequest(validation.error);
-    const result = await store.recordAttempt(db, validation.input, validation.at);
-    return ok({ ...result, stats: await store.getStats(db) });
+    const result = await store.recordAttempt(scope, validation.input, validation.at);
+    return ok({ ...result, stats: await store.getStats(scope) });
   }
 
   if (route[0] === 'lessons' && route[1]) {
     const lessonId = decodeURIComponent(route[1]);
     if (route.length === 2 && method === 'GET') {
-      return ok(await store.getLessonProgress(db, lessonId));
+      return ok(await store.getLessonProgress(scope, lessonId));
     }
     if (route.length === 4 && route[2] === 'sections' && method === 'POST') {
-      return ok(await store.markSectionSeen(db, lessonId, decodeURIComponent(route[3]!)));
+      return ok(await store.markSectionSeen(scope, lessonId, decodeURIComponent(route[3]!)));
     }
     if (route.length === 3 && route[2] === 'mastery' && method === 'POST') {
       const body = asRecord(request.body);
@@ -404,29 +503,29 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       if (!Number.isFinite(accuracy) || !Number.isFinite(passAccuracy)) {
         return badRequest('accuracy and passAccuracy are required numbers');
       }
-      return ok(await store.recordMastery(db, lessonId, accuracy, passAccuracy));
+      return ok(await store.recordMastery(scope, lessonId, accuracy, passAccuracy));
     }
     if (route.length === 3 && route[2] === 'recovery' && method === 'POST') {
-      return ok(await store.recordRecoveryRound(db, lessonId));
+      return ok(await store.recordRecoveryRound(scope, lessonId));
     }
     if (route.length === 3 && route[2] === 'complete' && method === 'POST') {
-      return ok(await store.completeLesson(db, lessonId));
+      return ok(await store.completeLesson(scope, lessonId));
     }
   }
 
   if (route[0] === 'reviews') {
-    if (route.length === 1 && method === 'GET') return ok(await store.listReviewItems(db));
+    if (route.length === 1 && method === 'GET') return ok(await store.listReviewItems(scope));
     if (route.length === 2 && route[1] === 'ensure' && method === 'POST') {
       const body = asRecord(request.body);
       const targets = Array.isArray(body.targets) ? (body.targets as store.TargetSpec[]) : [];
-      const created = await store.ensureReviewItems(db, targets);
-      return ok({ created, reviewItems: await store.listReviewItems(db) });
+      const created = await store.ensureReviewItems(scope, targets);
+      return ok({ created, reviewItems: await store.listReviewItems(scope) });
     }
     if (route.length === 3 && route[2] === 'grade' && method === 'POST') {
       const body = asRecord(request.body);
       const grade = String(body.grade);
       if (!GRADES.has(grade)) return badRequest('grade must be again, hard, good or easy');
-      const item = await store.gradeReviewItem(db, decodeURIComponent(route[1]!), grade as RecallGrade);
+      const item = await store.gradeReviewItem(scope, decodeURIComponent(route[1]!), grade as RecallGrade);
       if (!item) return notFound('Review item not found');
       return ok(item);
     }
@@ -434,24 +533,24 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
 
   if (route[0] === 'mistakes') {
     if (route.length === 1 && method === 'GET') {
-      return ok(await store.listMistakes(db, true));
+      return ok(await store.listMistakes(scope, true));
     }
     if (route.length === 3 && route[2] === 'resolve' && method === 'POST') {
-      await store.resolveMistake(db, decodeURIComponent(route[1]!));
-      return ok(await store.listMistakes(db));
+      await store.resolveMistake(scope, decodeURIComponent(route[1]!));
+      return ok(await store.listMistakes(scope));
     }
   }
 
   if (route[0] === 'vocabulary' && route.length === 3 && route[2] === 'favorite' && method === 'POST') {
     const body = asRecord(request.body);
-    await store.setFavorite(db, decodeURIComponent(route[1]!), Boolean(body.favorite));
-    return ok({ favorites: await store.listFavorites(db) });
+    await store.setFavorite(scope, decodeURIComponent(route[1]!), Boolean(body.favorite));
+    return ok({ favorites: await store.listFavorites(scope) });
   }
 
   if (route.length === 1 && route[0] === 'checkpoints' && method === 'POST') {
     const body = asRecord(request.body);
     if (!body.checkpointId) return badRequest('checkpointId is required');
-    await store.recordCheckpointResult(db, {
+    await store.recordCheckpointResult(scope, {
       checkpointId: String(body.checkpointId),
       scope: String(body.scope ?? 'unit'),
       targetId: String(body.targetId ?? ''),
@@ -459,7 +558,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       passed: Boolean(body.passed),
       detail: body.detail,
     });
-    return ok({ results: await store.listCheckpointResults(db) });
+    return ok({ results: await store.listCheckpointResults(scope) });
   }
 
   if (route.length === 1 && route[0] === 'scenario-runs' && method === 'POST') {
@@ -470,20 +569,22 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     if (!Number.isFinite(turns) || !Number.isFinite(firstTryCorrect)) {
       return badRequest('turns and firstTryCorrect must be numbers');
     }
-    await store.recordScenarioRun(db, { scriptId: String(body.scriptId), turns, firstTryCorrect });
-    return ok({ scenarioRuns: await store.listScenarioRuns(db) });
+    await store.recordScenarioRun(scope, { scriptId: String(body.scriptId), turns, firstTryCorrect });
+    return ok({ scenarioRuns: await store.listScenarioRuns(scope) });
   }
 
   if (route.length === 1 && route[0] === 'study' && method === 'POST') {
     const body = asRecord(request.body);
     const seconds = Number(body.seconds ?? 0);
     if (!Number.isFinite(seconds)) return badRequest('seconds must be a number');
-    await store.addStudyTime(db, seconds);
-    return ok({ stats: await store.getStats(db), studyDays: await store.listStudyDays(db, 60) });
+    // Minutes studied in a tunnel belong to the day they were spent, under the
+    // same plausibility rule as an answer's own timestamp.
+    await store.addStudyTime(scope, seconds, attemptTime(body.at, new Date()));
+    return ok({ stats: await store.getStats(scope), studyDays: await store.listStudyDays(scope, 60) });
   }
 
   if (route.length === 1 && route[0] === 'attempts-recent' && method === 'GET') {
-    return ok(await store.listRecentAttempts(db, 50));
+    return ok(await store.listRecentAttempts(scope, 50));
   }
 
   if (route[0] === 'coach') {
@@ -576,21 +677,21 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       const p256dh = String(keys.p256dh ?? '');
       const auth256 = String(keys.auth ?? '');
       if (!endpoint || !p256dh || !auth256) return badRequest('endpoint and keys are required');
-      await saveSubscription(db, { endpoint, p256dh, auth: auth256 });
+      await saveSubscription(scope, { endpoint, p256dh, auth: auth256 });
       return ok({ subscribed: true });
     }
     if (route.length === 2 && route[1] === 'unsubscribe' && method === 'POST') {
       const body = asRecord(request.body);
       const endpoint = String(body.endpoint ?? '');
       if (!endpoint) return badRequest('endpoint is required');
-      await deleteSubscription(db, endpoint);
+      await deleteSubscription(scope, endpoint);
       return ok({ subscribed: false });
     }
   }
 
   if (route.length === 1 && route[0] === 'reset' && method === 'POST') {
-    await store.resetAll(db);
-    return ok(await fullState(db));
+    await store.resetAll(scope);
+    return ok(await fullState(scope));
   }
 
   return notFound(`No route for ${method} ${path}`);

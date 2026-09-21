@@ -18,7 +18,7 @@ import {
 } from '../../core/validation/validate.ts';
 import { CATEGORY_LABELS } from '../../i18n.ts';
 import { ExplainWhy } from './ExplainWhy.tsx';
-import { SpeakCheck } from './SpeakCheck.tsx';
+import { SpeakAnswer, SpeakCheck } from './Speaking.tsx';
 import type { AttemptPayload, TargetSpec } from '../../services/api/client.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AnswerInput, type AnswerInputHandle } from './AnswerInput.tsx';
@@ -66,6 +66,16 @@ export interface ExercisePlayerProps {
    * an empty verdict, so it counts against the band rather than vanishing.
    */
   allowSkip?: boolean;
+  /**
+   * Offer the microphone as a way to *answer*, not only as a way to practise
+   * saying an answer that is already right.
+   *
+   * Real Life passes it and nothing else does. Typing is what a lesson is for
+   * — it makes you produce the letters, including the ones a phone keyboard
+   * hides — and answering a lesson aloud would remove the practice it exists
+   * for. A conversation is the opposite: in a bakery nobody types.
+   */
+  allowSpeaking?: boolean;
   /** Restrict to these step ids, used by the recovery round. */
   onlyStepIds?: string[];
   onFinish: (summary: PlayerSummary) => void;
@@ -123,6 +133,7 @@ export function ExercisePlayer({
   allowHints = true,
   hideProgress = false,
   allowSkip = false,
+  allowSpeaking = false,
   onlyStepIds,
   onFinish,
   onStepDone,
@@ -766,6 +777,16 @@ export function ExercisePlayer({
               >
                 {t('exerciseSkip')}
               </button>
+            ) : null}
+            {/* A dictation asks what you heard, so answering it by voice would
+                test nothing; everywhere else in a conversation it is offered. */}
+            {allowSpeaking && exercise.kind !== 'dictation' ? (
+              <SpeakAnswer
+                onHeard={(text) => {
+                  setValue(text);
+                  inputRef.current?.focus();
+                }}
+              />
             ) : null}
             <span className="task__keyhint" id="player-keyhint">
               {t(isFree ? 'exerciseCtrlEnterToSubmit' : 'exerciseEnterToSubmit')}

@@ -17,12 +17,13 @@ import {
   markSectionSeen as markSectionSeenIn,
   type LessonProgress,
 } from '../core/progress/lesson.ts';
-import type { RecallGrade, ReviewItem } from '../core/srs/scheduler.ts';
+import { scheduleReview, type RecallGrade, type ReviewItem } from '../core/srs/scheduler.ts';
 import { tr, type UiKey } from '../i18n.ts';
 import {
   api,
   ApiError,
   type AppStateSnapshot,
+  type Learner,
   type AttemptPayload,
   type CoachStatus,
   type MistakeRecord,
@@ -79,6 +80,14 @@ export interface AppStateValue {
   setTeachingLanguage: (lang: TeachingLanguage) => Promise<void>;
   updateProfile: (patch: Partial<Profile>) => Promise<void>;
   submitAttempt: (payload: AttemptPayload) => Promise<void>;
+  /** Everybody who studies on this copy, and who is studying here now. */
+  learners: Learner[];
+  studyingAs: number;
+  /** Hand the app to somebody else. Refuses while answers are waiting to be saved. */
+  studyAs: (id: number) => Promise<'switched' | 'answers-waiting'>;
+  addLearner: (name: string) => Promise<void>;
+  renameLearner: (id: number, name: string) => Promise<void>;
+
   /** Answers typed but not yet in the database, because the server was away. */
   sync: SyncState;
   /** Send what is waiting now, rather than at the next automatic attempt. */
@@ -187,6 +196,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [coach, setCoach] = useState<CoachStatus | null>(null);
 
   const [sync, setSync] = useState<SyncState>(NO_PENDING);
+  const [learners, setLearners] = useState<Learner[]>([]);
+  const [studyingAs, setStudyingAs] = useState(1);
 
   const tts = useMemo(() => createTtsProvider(), []);
   const recogniser = useMemo(() => createSpeechRecogniser(), []);
@@ -207,6 +218,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
    * looking at the screen, not by a test; there is one for it now.
    */
   const lessonsRef = useRef<Record<string, LessonProgress>>({});
+  /** The same, for the review schedule: two grades in a row must compose. */
+  const reviewItemsRef = useRef<ReviewItem[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -218,9 +231,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setError(null);
         return;
       }
-      const [state, coachStatus] = await Promise.all([api.state(), api.coachStatus()]);
+      const [state, coachStatus, household] = await Promise.all([
+        api.state(),
+        api.coachStatus(),
+        api.learners(),
+      ]);
       setSnapshot(state);
       setCoach(coachStatus);
+      setLearners(household.learners);
+      setStudyingAs(household.studyingAs);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -277,12 +296,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const seconds = Math.round(pendingSeconds.current);
       if (seconds < 10) return;
       pendingSeconds.current = 0;
+      const at = new Date().toISOString();
       void api
-        .addStudyTime(seconds)
+        .addStudyTime(seconds, at)
         .then((result) =>
           setSnapshot((current) => (current ? { ...current, stats: result.stats, studyDays: result.studyDays } : current)),
         )
-        .catch(() => undefined);
+        .catch((cause: unknown) => {
+          // Time on task used to be dropped on the floor here. It is real
+          // measured time, and it belongs to the day it was spent, so it waits
+          // with everything else rather than vanishing.
+          if (outbox.isUnreachable(cause)) outbox.enqueue({ kind: 'studyTime', seconds, at });
+        });
     }, STUDY_FLUSH_MS);
 
     return () => {
@@ -294,6 +319,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // The server's answer is the truth; the mirror above follows it.
   useEffect(() => {
     lessonsRef.current = indexLessons(snapshot?.lessons ?? []);
+    reviewItemsRef.current = snapshot?.reviewItems ?? [];
   }, [snapshot]);
 
   const profile = snapshot?.profile ?? DEFAULT_PROFILE;
@@ -323,6 +349,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     switch (write.kind) {
       case 'attempt':
         return api.recordAttempt(write.payload);
+      case 'reviewGrade':
+        return api.gradeReview(write.id, write.grade);
+      case 'studyTime':
+        return api.addStudyTime(write.seconds, write.at);
       case 'sectionSeen':
         return api.markSectionSeen(write.lessonId, write.sectionId);
       case 'recovery':
@@ -595,6 +625,46 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         }
       },
 
+      learners,
+      studyingAs,
+
+      /**
+       * Hand the app to somebody else.
+       *
+       * The refusal is the interesting part. Answers wait in an outbox when
+       * the server cannot be reached, and they carry no learner of their own —
+       * they would be sent as whoever is studying when the connection returns.
+       * Switching with a queue would file one person's sentences under
+       * another's name, so it is refused until they are saved, and the caller
+       * says why.
+       */
+      studyAs: async (id) => {
+        if (outbox.queuedCount() > 0) {
+          await flushAnswers();
+          if (outbox.queuedCount() > 0) return 'answers-waiting';
+        }
+        const household = await api.studyAs(id);
+        setLearners(household.learners);
+        setStudyingAs(household.studyingAs);
+        // Everything below belongs to somebody else now.
+        setReady(false);
+        await load();
+        return 'switched';
+      },
+
+      addLearner: async (name) => {
+        const household = await api.addLearner(name);
+        setLearners(household.learners);
+        setStudyingAs(household.studyingAs);
+        setReady(false);
+        await load();
+      },
+
+      renameLearner: async (id, name) => {
+        const household = await api.renameLearner(id, name);
+        setLearners(household.learners);
+      },
+
       sync,
       syncAnswers: flushAnswers,
       dismissRefusedAnswers: () => {
@@ -658,16 +728,51 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         patchSnapshot({ reviewItems: result.reviewItems });
       },
 
+      /**
+       * Grading a grammar concept from memory.
+       *
+       * The scheduler is a pure function both sides use, so a grade given
+       * without a connection can be applied here and confirmed later — exactly
+       * like a mastery result. Before this, the button simply did nothing and
+       * the grade was gone.
+       */
       gradeReview: async (id, grade) => {
-        const item = await api.gradeReview(id, grade);
-        setSnapshot((current) =>
-          current
-            ? {
-                ...current,
-                reviewItems: current.reviewItems.map((existing) => (existing.id === item.id ? item : existing)),
-              }
-            : current,
-        );
+        const replace = (item: ReviewItem) => {
+          // The mirror first, so grading a second concept in the same breath
+          // starts from the first one's result rather than from before it.
+          reviewItemsRef.current = reviewItemsRef.current.map((existing) =>
+            existing.id === item.id ? item : existing,
+          );
+          setSnapshot((current) =>
+            current
+              ? {
+                  ...current,
+                  reviewItems: current.reviewItems.map((existing) =>
+                    existing.id === item.id ? item : existing,
+                  ),
+                }
+              : current,
+          );
+        };
+
+        const hold = () => {
+          const current = reviewItemsRef.current.find((item) => item.id === id);
+          if (!outbox.enqueue({ kind: 'reviewGrade', id, grade })) lostAnswers.current += 1;
+          if (current) replace(scheduleReview(current, grade));
+          readSync();
+        };
+
+        if (outbox.queuedCount() > 0) {
+          hold();
+          void flushAnswers();
+          return;
+        }
+        try {
+          replace(await api.gradeReview(id, grade));
+        } catch (cause) {
+          if (outbox.isUnreachable(cause)) return hold();
+          await refuse(cause);
+        }
       },
 
       resolveMistake: async (id) => {
@@ -743,7 +848,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setSnapshot(await api.reset());
       },
     };
-  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, sync, readSync, flushAnswers, refuse]);
+  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, sync, readSync, flushAnswers, refuse, learners, studyingAs]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }

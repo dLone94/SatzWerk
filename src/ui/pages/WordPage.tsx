@@ -4,7 +4,7 @@ import { lessonById, vocabById } from '../../content/index.ts';
 import { UI, WORD_TYPE_LABELS, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AudioButton, Card, EmptyState, formatRelativeDate } from '../components/bits.tsx';
-import { SpeakCheck } from '../components/SpeakCheck.tsx';
+import { SpeakCheck } from '../components/Speaking.tsx';
 import { buildVocabViews, type VocabView } from '../selectors.ts';
 import { stateLabel } from './VocabularyPage.tsx';
 

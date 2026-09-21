@@ -62,7 +62,7 @@ describe('migrating an existing database', () => {
     expect(Number(version!.value)).toBe(SCHEMA_VERSION);
 
     const profile = await second.get<{ teaching_language: string; user_id: number }>(
-      'SELECT teaching_language, user_id FROM profile WHERE id = 1',
+      'SELECT teaching_language, user_id FROM profile WHERE user_id = 1',
     );
     expect(profile!.teaching_language).toBe('bg');
     expect(profile!.user_id).toBe(1);
@@ -75,7 +75,7 @@ describe('migrating an existing database', () => {
   it('is idempotent: opening twice changes nothing', async () => {
     const path = join(dir, 'twice.db');
     const first = await openDatabase({ path });
-    await first.run('UPDATE profile SET display_name = ? WHERE id = 1', 'Teo');
+    await first.run('UPDATE profile SET display_name = ? WHERE user_id = 1', 'Teo');
     await first.close();
 
     const second = await openDatabase({ path });
@@ -85,7 +85,7 @@ describe('migrating an existing database', () => {
     );
     expect(Number(version!.value)).toBe(SCHEMA_VERSION);
     const profile = await second.get<{ display_name: string }>(
-      'SELECT display_name FROM profile WHERE id = 1',
+      'SELECT display_name FROM profile WHERE user_id = 1',
     );
     expect(profile!.display_name).toBe('Teo');
     // Exactly one account, not one per open.
@@ -98,10 +98,11 @@ describe('migrating an existing database', () => {
     const db: Db = await openDatabase({ path: ':memory:' });
     // Derived from the schema rather than listed here, so a table added later
     // is covered by this test the day it is added rather than the day somebody
-    // remembers to extend a list. The two exceptions are the tables that are
-    // genuinely not per-learner: schema bookkeeping
-    // and the accounts themselves.
-    const notPerLearner = new Set(['meta', 'users']);
+    // remembers to extend a list. The exceptions are the tables that are
+    // genuinely not per-learner: schema bookkeeping, the household account,
+    // and the list of learners itself — which is identified by `id`, being the
+    // thing every other table's `user_id` points at.
+    const notPerLearner = new Set(['meta', 'users', 'learners']);
     const tables = (
       await db.all<{ name: string }>(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
@@ -145,5 +146,35 @@ describe('the placeholder rewrite the Postgres driver relies on', () => {
 
   it('leaves SQL with no placeholders untouched', () => {
     expect(toPositional('SELECT 1')).toBe('SELECT 1');
+  });
+});
+
+describe('more than one learner', () => {
+  it('starts with the learner whose progress already exists', async () => {
+    const db: Db = await openDatabase({ path: ':memory:' });
+    const learners = await db.all<{ id: number; name: string }>('SELECT id, name FROM learners ORDER BY id');
+
+    // Exactly one, and it is learner 1 — the id every existing progress row
+    // already carries, so nothing had to be backfilled.
+    expect(learners).toHaveLength(1);
+    expect(learners[0]!.id).toBe(1);
+    await db.close();
+  });
+
+  it('carries over the name the account was already using', async () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'satzwerk-learners-')), 'app.db');
+
+    // A database built by the version before learners existed, with the
+    // account row written by hand: stopping the migrations early skips the
+    // seeding too, exactly as an older build would have left it after its own
+    // seed ran.
+    const before: Db = await openDatabase({ path: file }, 5);
+    await before.run("INSERT INTO users (id, label, created_at) VALUES (1, 'Teo', ?)", new Date().toISOString());
+    await before.close();
+
+    const after: Db = await openDatabase({ path: file });
+    const learner = await after.get<{ name: string }>('SELECT name FROM learners WHERE id = 1');
+    expect(learner?.name).toBe('Teo');
+    await after.close();
   });
 });

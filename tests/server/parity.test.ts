@@ -6,6 +6,10 @@ import { openDatabase, type Db } from '../../server/db.ts';
 import * as push from '../../server/push.ts';
 import * as store from '../../server/store.ts';
 
+/** Every store call belongs to somebody; in these tests it is the first learner. */
+const scopeOf = (db: Db): store.Scope => ({ db, userId: 1 });
+
+
 /**
  * Cross-dialect parity.
  *
@@ -53,42 +57,42 @@ const day = (n: number) => new Date(`2026-03-0${n}T10:00:00Z`);
  * Postgres returns as 64-bit integers.
  */
 async function scenario(db: Db) {
-  await store.recordAttempt(db, attempt({ hintsUsed: 1 }), day(1));
+  await store.recordAttempt(scopeOf(db), attempt({ hintsUsed: 1 }), day(1));
   await store.recordAttempt(
-    db,
+    scopeOf(db),
     attempt({ given: 'eine', verdict: 'correct', credit: 1, categories: [], hintsUsed: 3, resolved: true }),
     day(2),
   );
-  await store.recordAttempt(db, attempt({ credit: 0.45 }), day(3));
-  const outcome = (await store.getLessonProgress(db, 'pre-a1-u1-l2')).practice['u1l2-ex4-s2'];
+  await store.recordAttempt(scopeOf(db), attempt({ credit: 0.45 }), day(3));
+  const outcome = (await store.getLessonProgress(scopeOf(db), 'pre-a1-u1-l2')).practice['u1l2-ex4-s2'];
 
   await store.recordAttempt(
-    db,
+    scopeOf(db),
     attempt({ given: 'eine', verdict: 'correct', credit: 1, categories: [], isRetype: true, resolved: true }),
     day(4),
   );
-  const afterRetype = (await store.getLessonProgress(db, 'pre-a1-u1-l2')).practice['u1l2-ex4-s2'];
+  const afterRetype = (await store.getLessonProgress(scopeOf(db), 'pre-a1-u1-l2')).practice['u1l2-ex4-s2'];
 
   await store.recordAttempt(
-    db,
+    scopeOf(db),
     attempt({ reviewTargets: [{ kind: 'vocab', refId: 'v-die-tochter', level: 'pre-a1', difficulty: 2 }] }),
     day(5),
   );
 
-  await store.markSectionSeen(db, 'pre-a1-u1-l2', 'u1l2-intro');
-  await store.markSectionSeen(db, 'pre-a1-u1-l2', 'u1l2-intro');
-  await store.recordMastery(db, 'pre-a1-u1-l2', 0.9, 0.8);
-  await store.recordMastery(db, 'pre-a1-u1-l2', 0.7, 0.8);
-  await store.addStudyTime(db, 90, day(5));
-  await store.addStudyTime(db, 30, day(5));
-  await store.recordCheckpointResult(db, {
+  await store.markSectionSeen(scopeOf(db), 'pre-a1-u1-l2', 'u1l2-intro');
+  await store.markSectionSeen(scopeOf(db), 'pre-a1-u1-l2', 'u1l2-intro');
+  await store.recordMastery(scopeOf(db), 'pre-a1-u1-l2', 0.9, 0.8);
+  await store.recordMastery(scopeOf(db), 'pre-a1-u1-l2', 0.7, 0.8);
+  await store.addStudyTime(scopeOf(db), 90, day(5));
+  await store.addStudyTime(scopeOf(db), 30, day(5));
+  await store.recordCheckpointResult(scopeOf(db), {
     checkpointId: 'pre-a1-u1-checkpoint',
     scope: 'unit',
     targetId: 'pre-a1-u1',
     accuracy: 0.9,
     passed: true,
   });
-  await store.setFavorite(db, 'v-die-tochter', true);
+  await store.setFavorite(scopeOf(db), 'v-die-tochter', true);
 
   /*
    * Push subscriptions, which are stored with an ON CONFLICT upsert keyed on
@@ -97,10 +101,10 @@ async function scenario(db: Db) {
    * an upsert is exactly the shape that has already diverged between these two
    * dialects once, in the study_days columns above.
    */
-  await push.saveSubscription(db, { endpoint: 'https://push.example/abc', p256dh: 'k1', auth: 'a1' });
-  await push.saveSubscription(db, { endpoint: 'https://push.example/abc', p256dh: 'k2', auth: 'a2' });
-  await push.saveSubscription(db, { endpoint: 'https://push.example/def', p256dh: 'k3', auth: 'a3' });
-  await push.deleteSubscription(db, 'https://push.example/def');
+  await push.saveSubscription(scopeOf(db), { endpoint: 'https://push.example/abc', p256dh: 'k1', auth: 'a1' });
+  await push.saveSubscription(scopeOf(db), { endpoint: 'https://push.example/abc', p256dh: 'k2', auth: 'a2' });
+  await push.saveSubscription(scopeOf(db), { endpoint: 'https://push.example/def', p256dh: 'k3', auth: 'a3' });
+  await push.deleteSubscription(scopeOf(db), 'https://push.example/def');
 
   /*
    * Scenario runs, whose upsert is keyed on two columns rather than one. The
@@ -116,23 +120,23 @@ async function scenario(db: Db) {
    * Fixed instants make the comparison mean what it claims: the bakery is
    * replayed on day 3 so it sorts ahead of the doctor on day 2.
    */
-  await store.recordScenarioRun(db, { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 5 }, day(1));
-  await store.recordScenarioRun(db, { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 2 }, day(3));
-  await store.recordScenarioRun(db, { scriptId: 'sc-doctor-a2', turns: 4, firstTryCorrect: 3 }, day(2));
+  await store.recordScenarioRun(scopeOf(db), { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 5 }, day(1));
+  await store.recordScenarioRun(scopeOf(db), { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 2 }, day(3));
+  await store.recordScenarioRun(scopeOf(db), { scriptId: 'sc-doctor-a2', turns: 4, firstTryCorrect: 3 }, day(2));
 
-  const progress = await store.getLessonProgress(db, 'pre-a1-u1-l2');
-  const stats = await store.getStats(db);
+  const progress = await store.getLessonProgress(scopeOf(db), 'pre-a1-u1-l2');
+  const stats = await store.getStats(scopeOf(db));
   return {
     outcome,
     afterRetype,
-    reviewItems: (await store.listReviewItems(db)).map((item) => ({
+    reviewItems: (await store.listReviewItems(scopeOf(db))).map((item) => ({
       id: item.id,
       state: item.state,
       lapses: item.lapses,
       successCount: item.successCount,
       failureCount: item.failureCount,
     })),
-    mistakes: (await store.listMistakes(db)).map((m) => ({
+    mistakes: (await store.listMistakes(scopeOf(db))).map((m) => ({
       category: m.category,
       occurrences: m.occurrences,
       correctedCount: m.correctedCount,
@@ -154,14 +158,14 @@ async function scenario(db: Db) {
     },
     sections: progress.sectionsSeen,
     mastery: progress.mastery,
-    studyDays: await store.listStudyDays(db, 5),
-    checkpoints: (await store.listCheckpointResults(db)).map((c) => ({
+    studyDays: await store.listStudyDays(scopeOf(db), 5),
+    checkpoints: (await store.listCheckpointResults(scopeOf(db))).map((c) => ({
       checkpointId: c.checkpointId,
       passed: c.passed,
       accuracy: c.accuracy,
     })),
-    favorites: await store.listFavorites(db),
-    scenarioRuns: (await store.listScenarioRuns(db)).map((run) => ({
+    favorites: await store.listFavorites(scopeOf(db)),
+    scenarioRuns: (await store.listScenarioRuns(scopeOf(db))).map((run) => ({
       scriptId: run.scriptId,
       runs: run.runs,
       turns: run.turns,
@@ -172,7 +176,7 @@ async function scenario(db: Db) {
       // print "0.4%" as NaN on the Real Life page.
       accuracyType: typeof run.bestAccuracy,
     })),
-    subscriptions: (await push.listSubscriptions(db)).map((row) => ({
+    subscriptions: (await push.listSubscriptions(scopeOf(db))).map((row) => ({
       endpoint: row.endpoint,
       p256dh: row.p256dh,
       auth: row.auth,
@@ -234,7 +238,7 @@ describeParity('SQLite and Postgres agree', () => {
   }, 30_000);
 
   it('rolls a failed transaction back on Postgres', async () => {
-    const before = await store.getStats(postgres);
+    const before = await store.getStats(scopeOf(postgres));
     await expect(
       postgres.transaction(async () => {
         await postgres.run(
@@ -247,6 +251,6 @@ describeParity('SQLite and Postgres agree', () => {
 
     const orphan = await postgres.get('SELECT day FROM study_days WHERE day = ?', '1999-01-01');
     expect(orphan).toBeUndefined();
-    expect((await store.getStats(postgres)).totalAnswers).toBe(before.totalAnswers);
+    expect((await store.getStats(scopeOf(postgres))).totalAnswers).toBe(before.totalAnswers);
   }, 30_000);
 });

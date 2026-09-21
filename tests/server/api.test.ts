@@ -8,6 +8,10 @@ import { openDatabase, SCHEMA_VERSION, type Db } from '../../server/db.ts';
 import * as store from '../../server/store.ts';
 import { ruleBasedWritingReview, unavailableProvider } from '../../server/ai.ts';
 
+/** Every store call belongs to somebody; in these tests it is the first learner. */
+const scopeOf = (db: Db): store.Scope => ({ db, userId: 1 });
+
+
 let db: Db;
 
 const ctx = () => ({ db, provider: unavailableProvider });
@@ -83,7 +87,7 @@ describe('attempts, mistakes and the retyping distinction', () => {
     expect(result.reviewItems).toHaveLength(1);
     expect(result.reviewItems[0]!.id).toBe('vocab:v-die-tochter');
 
-    const mistakes = await store.listMistakes(db);
+    const mistakes = await store.listMistakes(scopeOf(db));
     expect(mistakes).toHaveLength(1);
     expect(mistakes[0]).toMatchObject({ category: 'article', expected: 'eine', occurrences: 1, correctedCount: 0 });
   });
@@ -91,7 +95,7 @@ describe('attempts, mistakes and the retyping distinction', () => {
   it('counts a repeated mistake instead of duplicating it', async () => {
     await call('POST', '/api/attempts', wrongAttempt);
     await call('POST', '/api/attempts', wrongAttempt);
-    const mistakes = await store.listMistakes(db);
+    const mistakes = await store.listMistakes(scopeOf(db));
     expect(mistakes).toHaveLength(1);
     expect(mistakes[0]!.occurrences).toBe(2);
   });
@@ -100,14 +104,14 @@ describe('attempts, mistakes and the retyping distinction', () => {
     await call('POST', '/api/attempts', wrongAttempt);
     await call('POST', '/api/attempts', retypeAttempt);
 
-    const mistakes = await store.listMistakes(db);
+    const mistakes = await store.listMistakes(scopeOf(db));
     expect(mistakes).toHaveLength(1);
     // The mistake is still on record, and the correction is recorded beside it.
     expect(mistakes[0]!.occurrences).toBe(1);
     expect(mistakes[0]!.correctedCount).toBe(1);
 
     // The retyping resolves the step but must not repair the first-try record.
-    const progress = await store.getLessonProgress(db, 'pre-a1-u1-l2');
+    const progress = await store.getLessonProgress(scopeOf(db), 'pre-a1-u1-l2');
     const outcome = progress.practice['u1l2-ex4-s2']!;
     expect(outcome.resolved).toBe(true);
     expect(outcome.firstTryCorrect).toBe(false);
@@ -116,10 +120,10 @@ describe('attempts, mistakes and the retyping distinction', () => {
 
   it('does not let a retyping reschedule the review item', async () => {
     await call('POST', '/api/attempts', wrongAttempt);
-    const afterWrong = (await store.getReviewItem(db, 'vocab:v-die-tochter'))!;
+    const afterWrong = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
     const response = await call('POST', '/api/attempts', retypeAttempt);
     expect((response.body as { reviewItems: unknown[] }).reviewItems).toHaveLength(0);
-    const afterRetype = (await store.getReviewItem(db, 'vocab:v-die-tochter'))!;
+    const afterRetype = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
     expect(afterRetype.dueAt).toBe(afterWrong.dueAt);
   });
 
@@ -132,9 +136,9 @@ describe('attempts, mistakes and the retyping distinction', () => {
       categories: [],
       resolved: true,
     });
-    const outcome = (await store.getLessonProgress(db, 'pre-a1-u1-l2')).practice['u1l2-ex4-s2']!;
+    const outcome = (await store.getLessonProgress(scopeOf(db), 'pre-a1-u1-l2')).practice['u1l2-ex4-s2']!;
     expect(outcome.firstTryCorrect).toBe(true);
-    expect(await store.listMistakes(db)).toHaveLength(0);
+    expect(await store.listMistakes(scopeOf(db))).toHaveLength(0);
   });
 
   it('rejects a malformed attempt', async () => {
@@ -147,10 +151,10 @@ describe('attempts, mistakes and the retyping distinction', () => {
 
   it('resolves a mistake on request', async () => {
     await call('POST', '/api/attempts', wrongAttempt);
-    const id = (await store.listMistakes(db))[0]!.id;
+    const id = (await store.listMistakes(scopeOf(db)))[0]!.id;
     await call('POST', `/api/mistakes/${id}/resolve`);
-    expect(await store.listMistakes(db)).toHaveLength(0);
-    expect(await store.listMistakes(db, true)).toHaveLength(1);
+    expect(await store.listMistakes(scopeOf(db))).toHaveLength(0);
+    expect(await store.listMistakes(scopeOf(db), true)).toHaveLength(1);
   });
 });
 
@@ -177,7 +181,7 @@ describe('review queue', () => {
     await call('POST', '/api/reviews/ensure', {
       targets: [{ refId: 'v-hallo', kind: 'vocab', level: 'pre-a1' }],
     });
-    const before = (await store.getReviewItem(db, 'vocab:v-hallo'))!;
+    const before = (await store.getReviewItem(scopeOf(db), 'vocab:v-hallo'))!;
     const response = await call('POST', '/api/reviews/vocab%3Av-hallo/grade', { grade: 'good' });
     expect(response.status).toBe(200);
     const after = response.body as { state: string; dueAt: string };
@@ -241,7 +245,7 @@ describe('statistics are derived from real activity', () => {
   it('computes accuracy from first attempts only, not from retypings', async () => {
     await call('POST', '/api/attempts', wrongAttempt);
     await call('POST', '/api/attempts', retypeAttempt);
-    const stats = await store.getStats(db);
+    const stats = await store.getStats(scopeOf(db));
     // One first attempt, which was wrong.
     expect(stats.accuracy).toBe(0);
     expect(stats.retypedCorrections).toBe(1);
@@ -249,7 +253,7 @@ describe('statistics are derived from real activity', () => {
   });
 
   it('counts a streak only over days with real answers', async () => {
-    expect(await store.computeStreak(db)).toBe(0);
+    expect(await store.computeStreak(scopeOf(db))).toBe(0);
     const today = new Date('2026-03-10T12:00:00Z');
     const insert = (day: string) =>
       db.run('INSERT INTO study_days (day, seconds_active, answers, correct) VALUES (?, 60, 3, 2)', day);
@@ -258,12 +262,12 @@ describe('statistics are derived from real activity', () => {
     await insert('2026-03-08');
     // Gap on the 7th.
     await insert('2026-03-06');
-    expect(await store.computeStreak(db, today)).toBe(3);
+    expect(await store.computeStreak(scopeOf(db), today)).toBe(3);
   });
 
   it('adds study time without inventing answers', async () => {
     await call('POST', '/api/study', { seconds: 120 });
-    const stats = await store.getStats(db);
+    const stats = await store.getStats(scopeOf(db));
     expect(stats.totalStudySeconds).toBe(120);
     expect(stats.totalAnswers).toBe(0);
   });
@@ -277,7 +281,7 @@ describe('statistics are derived from real activity', () => {
       passed: true,
     });
     expect(response.status).toBe(200);
-    expect((await store.listCheckpointResults(db))[0]).toMatchObject({ passed: true, accuracy: 0.8 });
+    expect((await store.listCheckpointResults(scopeOf(db)))[0]).toMatchObject({ passed: true, accuracy: 0.8 });
   });
 
   /*
@@ -306,7 +310,7 @@ describe('statistics are derived from real activity', () => {
     });
     expect(second.status).toBe(200);
 
-    const runs = await store.listScenarioRuns(db);
+    const runs = await store.listScenarioRuns(scopeOf(db));
     expect(runs).toHaveLength(1);
     expect(runs[0]).toMatchObject({
       scriptId: 'sc-bakery-a1',
@@ -327,15 +331,15 @@ describe('statistics are derived from real activity', () => {
      * reshuffle itself.
      */
     const sameInstant = new Date('2026-05-01T09:00:00.000Z');
-    await store.recordScenarioRun(db, { scriptId: 'sc-doctor-a2', turns: 4, firstTryCorrect: 3 }, sameInstant);
-    await store.recordScenarioRun(db, { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 5 }, sameInstant);
+    await store.recordScenarioRun(scopeOf(db), { scriptId: 'sc-doctor-a2', turns: 4, firstTryCorrect: 3 }, sameInstant);
+    await store.recordScenarioRun(scopeOf(db), { scriptId: 'sc-bakery-a1', turns: 5, firstTryCorrect: 5 }, sameInstant);
     await store.recordScenarioRun(
-      db,
+      scopeOf(db),
       { scriptId: 'sc-kita-a2', turns: 4, firstTryCorrect: 4 },
       new Date('2026-05-02T09:00:00.000Z'),
     );
 
-    const runs = await store.listScenarioRuns(db);
+    const runs = await store.listScenarioRuns(scopeOf(db));
     expect(runs.map((run) => run.scriptId)).toEqual([
       // Most recent first …
       'sc-kita-a2',
@@ -360,9 +364,9 @@ describe('statistics are derived from real activity', () => {
 
   it('stores favourites', async () => {
     await call('POST', '/api/vocabulary/v-hallo/favorite', { favorite: true });
-    expect(await store.listFavorites(db)).toEqual(['v-hallo']);
+    expect(await store.listFavorites(scopeOf(db))).toEqual(['v-hallo']);
     await call('POST', '/api/vocabulary/v-hallo/favorite', { favorite: false });
-    expect(await store.listFavorites(db)).toEqual([]);
+    expect(await store.listFavorites(scopeOf(db))).toEqual([]);
   });
 });
 
@@ -634,7 +638,7 @@ describe('one mastery rule, on both sides', () => {
    * duplicated in two places is a rule that will disagree with itself.
    */
   it('stores exactly what the shared function computes', async () => {
-    const before = await store.getLessonProgress(db, 'pre-a1-u1-l1');
+    const before = await store.getLessonProgress(scopeOf(db), 'pre-a1-u1-l1');
 
     const response = await call('POST', '/api/lessons/pre-a1-u1-l1/mastery', {
       accuracy: 0.9,
@@ -649,7 +653,7 @@ describe('one mastery rule, on both sides', () => {
 
   it('agrees with the shared function over a run that goes worse', async () => {
     await call('POST', '/api/lessons/pre-a1-u1-l1/mastery', { accuracy: 0.9, passAccuracy: 0.8 });
-    const middle = await store.getLessonProgress(db, 'pre-a1-u1-l1');
+    const middle = await store.getLessonProgress(scopeOf(db), 'pre-a1-u1-l1');
 
     const response = await call('POST', '/api/lessons/pre-a1-u1-l1/mastery', {
       accuracy: 0.4,
@@ -664,7 +668,7 @@ describe('one mastery rule, on both sides', () => {
   });
 
   it('agrees about a recovery round and about completing', async () => {
-    const before = await store.getLessonProgress(db, 'pre-a1-u1-l2');
+    const before = await store.getLessonProgress(scopeOf(db), 'pre-a1-u1-l2');
 
     const recovery = await call('POST', '/api/lessons/pre-a1-u1-l2/recovery', {});
     expect((recovery.body as { recoveryRounds: number }).recoveryRounds).toBe(
@@ -678,5 +682,28 @@ describe('one mastery rule, on both sides', () => {
     // Finishing again does not move the date, on either side.
     const again = await call('POST', '/api/lessons/pre-a1-u1-l2/complete', {});
     expect((again.body as { completedAt?: string }).completedAt).toBe(completedAt);
+  });
+});
+
+describe('minutes studied without a connection', () => {
+  it('count for the day they were spent', async () => {
+    const spentAt = new Date(Date.now() - 36 * 60 * 60 * 1000);
+    const response = await call('POST', '/api/study', { seconds: 300, at: spentAt.toISOString() });
+    expect(response.status).toBe(200);
+
+    const row = await db.get<{ seconds_active: number }>(
+      'SELECT seconds_active FROM study_days WHERE day = ?',
+      spentAt.toISOString().slice(0, 10),
+    );
+    expect(Number(row?.seconds_active)).toBe(300);
+  });
+
+  it('fall back to the server clock when no time is given', async () => {
+    await call('POST', '/api/study', { seconds: 120 });
+    const today = await db.get<{ seconds_active: number }>(
+      'SELECT seconds_active FROM study_days WHERE day = ?',
+      new Date().toISOString().slice(0, 10),
+    );
+    expect(Number(today?.seconds_active)).toBe(120);
   });
 });

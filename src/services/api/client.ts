@@ -264,7 +264,25 @@ export interface SessionState {
   canChangePassword?: boolean;
 }
 
+export interface Learner {
+  id: number;
+  name: string;
+  createdAt: string;
+}
+
+export interface LearnerList {
+  learners: Learner[];
+  /** The learner this browser is studying as. */
+  studyingAs: number;
+}
+
 export const api = {
+  learners: () => request<LearnerList>('/learners'),
+  addLearner: (name: string) => post<LearnerList>('/learners', { name }),
+  studyAs: (id: number) => post<LearnerList>('/learners/select', { id }),
+  renameLearner: (id: number, name: string) =>
+    request<LearnerList>(`/learners/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
+
   health: () => request<{ ok: boolean }>('/health'),
   state: () => request<AppStateSnapshot>('/state'),
 
@@ -311,8 +329,12 @@ export const api = {
   recordScenarioRun: (payload: ScenarioRunPayload) =>
     post<{ scenarioRuns: ScenarioRun[] }>('/scenario-runs', payload),
 
-  addStudyTime: (seconds: number) =>
-    post<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds }),
+  /**
+   * `at` is when the time was spent, which is not when it was sent if it
+   * waited for a connection — minutes belong to the day they were studied.
+   */
+  addStudyTime: (seconds: number, at?: string) =>
+    post<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds, at }),
 
   coachStatus: () => request<CoachStatus>('/coach/status'),
 

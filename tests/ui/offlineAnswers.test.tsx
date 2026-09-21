@@ -4,6 +4,7 @@ import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { typeIt } from '../../src/content/authoring.ts';
+import { createReviewItem, scheduleReview } from '../../src/core/srs/scheduler.ts';
 import type { Exercise } from '../../src/content/types.ts';
 import * as outbox from '../../src/services/api/outbox.ts';
 import { AppStateProvider, useApp } from '../../src/state/AppState.tsx';
@@ -42,7 +43,15 @@ const snapshot = {
     createdAt: new Date().toISOString(),
   },
   lessons: [],
-  reviewItems: [],
+  reviewItems: [
+    createReviewItem({
+      id: 'rv-1',
+      kind: 'grammar',
+      refId: 'g-word-order',
+      level: 'pre-a1',
+      now: new Date('2026-09-01T08:00:00.000Z'),
+    }),
+  ],
   mistakes: [],
   favorites: [],
   stats: {
@@ -86,6 +95,16 @@ beforeEach(() => {
     if (url.endsWith('/api/state')) return json(snapshot);
     if (url.endsWith('/api/coach/status')) {
       return json({ aiAvailable: false, provider: 'none', features: {} });
+    }
+    if (url.endsWith('/api/learners')) {
+      return json({ learners: [{ id: 1, name: 'me', createdAt: snapshot.serverTime }], studyingAs: 1 });
+    }
+
+    if (url.includes('/api/reviews/')) {
+      posted.push({ url, ...(JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>) });
+      if (attemptsBehave === 'unreachable') throw new TypeError('Failed to fetch');
+      if (attemptsBehave === 'refuse') return json({ error: 'grade is not recognised' }, 400);
+      return json({ ...snapshot.reviewItems[0], state: 'known', intervalDays: 3 });
     }
 
     if (url.includes('/api/lessons/') || url.endsWith('/api/checkpoints')) {
@@ -357,5 +376,79 @@ describe('finishing and completing in the same breath', () => {
     await waitFor(() => expect(screen.getByTestId('recorded')).toHaveTextContent('passed'));
     // Both writes are held, in order.
     expect(outbox.queuedCount()).toBe(2);
+  });
+});
+
+/**
+ * Grading a grammar concept from memory, with no connection.
+ *
+ * This was the quietest of the losses: the button threw, nothing caught it,
+ * and the row simply did not move. No error, no held work — the grade was
+ * gone and the learner had no way to know.
+ */
+function GradeHarness() {
+  const { ready, gradeReview, reviewItems, sync } = useApp();
+  if (!ready) return <p>loading</p>;
+  const item = reviewItems[0];
+  return (
+    <>
+      <SyncBanner />
+      <p>
+        state: <span data-testid="state">{item?.state ?? 'none'}</span>
+      </p>
+      <p>
+        due: <span data-testid="due">{item?.dueAt ?? 'none'}</span>
+      </p>
+      <p>
+        waiting: <span data-testid="waiting">{`${sync.pending}+${sync.other}`}</span>
+      </p>
+      <button type="button" onClick={() => void gradeReview('rv-1', 'good')}>
+        grade it good
+      </button>
+    </>
+  );
+}
+
+describe('grading a review while the server is unreachable', () => {
+  it('schedules it with the rule both sides share, and holds the grade', async () => {
+    render(
+      <AppStateProvider>
+        <GradeHarness />
+      </AppStateProvider>,
+    );
+    await screen.findByRole('button', { name: 'grade it good' });
+    const before = screen.getByTestId('due').textContent;
+
+    attemptsBehave = 'unreachable';
+    await userEvent.setup().click(screen.getByRole('button', { name: 'grade it good' }));
+
+    // The scheduler is a pure function the server uses too, so the row moves
+    // to where the database will put it.
+    const expected = scheduleReview(snapshot.reviewItems[0]!, 'good');
+    await waitFor(() => expect(screen.getByTestId('state')).toHaveTextContent(expected.state));
+    expect(screen.getByTestId('due').textContent).not.toBe(before);
+    expect(screen.getByTestId('waiting')).toHaveTextContent('0+1');
+  });
+
+  it('sends the held grade when the connection comes back', async () => {
+    render(
+      <AppStateProvider>
+        <GradeHarness />
+      </AppStateProvider>,
+    );
+    await screen.findByRole('button', { name: 'grade it good' });
+
+    attemptsBehave = 'unreachable';
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'grade it good' }));
+    await waitFor(() => expect(outbox.queuedCount()).toBe(1));
+
+    attemptsBehave = 'accept';
+    await user.click(screen.getByRole('button', { name: 'Try now' }));
+    await waitFor(() => expect(outbox.queuedCount()).toBe(0));
+
+    const grades = posted.filter((body) => String(body.url ?? '').includes('/api/reviews/'));
+    expect(grades.length).toBe(2);
+    expect(grades[grades.length - 1]).toMatchObject({ grade: 'good' });
   });
 });

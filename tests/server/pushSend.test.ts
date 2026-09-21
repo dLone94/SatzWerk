@@ -13,6 +13,10 @@ import {
 } from '../../server/push.ts';
 import * as store from '../../server/store.ts';
 
+/** Every store call belongs to somebody; in these tests it is the first learner. */
+const scopeOf = (db: Db): store.Scope => ({ db, userId: 1 });
+
+
 /**
  * The send path, in two halves.
  *
@@ -102,7 +106,7 @@ describe('sending a reminder', () => {
     dbPath = join(tmpdir(), `satzwerk-push-${Date.now()}.db`);
     db = await openDatabase({ path: dbPath });
     // Two items to be due: both new, so the scheduler calls both due now.
-    await store.ensureReviewItems(db, [
+    await store.ensureReviewItems(scopeOf(db), [
       { kind: 'vocab', refId: 'v-die-tochter', level: 'pre-a1', difficulty: 2 },
       { kind: 'vocab', refId: 'v-der-tisch', level: 'pre-a1', difficulty: 2 },
     ]);
@@ -115,22 +119,22 @@ describe('sending a reminder', () => {
 
   it('sends nothing at all when push is not configured', async () => {
     const send = vi.fn();
-    const report = await sendDueReminder(db, { env: {} as NodeJS.ProcessEnv, send });
+    const report = await sendDueReminder(scopeOf(db), { env: {} as NodeJS.ProcessEnv, send });
     expect(report).toMatchObject({ configured: false, sent: 0, reason: 'not-configured' });
     expect(send).not.toHaveBeenCalled();
   });
 
   it('sends nothing when nobody has subscribed', async () => {
     const send = vi.fn();
-    const report = await sendDueReminder(db, { env, send });
+    const report = await sendDueReminder(scopeOf(db), { env, send });
     expect(report).toMatchObject({ configured: true, sent: 0, reason: 'no-subscriptions' });
     expect(send).not.toHaveBeenCalled();
   });
 
   it('sends the real due count, once', async () => {
-    await saveSubscription(db, { endpoint: 'https://push.example/one', ...browserKeys() });
+    await saveSubscription(scopeOf(db), { endpoint: 'https://push.example/one', ...browserKeys() });
     const send = vi.fn<PushSender>(async () => undefined);
-    const report = await sendDueReminder(db, {
+    const report = await sendDueReminder(scopeOf(db), {
       env,
       send,
       now: dayAfter(1),
@@ -147,7 +151,7 @@ describe('sending a reminder', () => {
 
   it('does not send twice on the same day', async () => {
     const send = vi.fn<PushSender>(async () => undefined);
-    const report = await sendDueReminder(db, {
+    const report = await sendDueReminder(scopeOf(db), {
       env,
       send,
       // Later the same UTC day as the send above.
@@ -159,7 +163,7 @@ describe('sending a reminder', () => {
 
   it('sends again the next day', async () => {
     const send = vi.fn<PushSender>(async () => undefined);
-    const report = await sendDueReminder(db, {
+    const report = await sendDueReminder(scopeOf(db), {
       env,
       send,
       now: dayAfter(2),
@@ -175,14 +179,14 @@ describe('sending a reminder', () => {
     const send = vi.fn<PushSender>(async () => {
       throw new Error('network unreachable');
     });
-    const report = await sendDueReminder(db, {
+    const report = await sendDueReminder(scopeOf(db), {
       env,
       send,
       now: dayAfter(3),
     });
     expect(report).toMatchObject({ sent: 0, skipped: 1, removed: 0 });
     expect(report.errors?.[0]).toContain('network unreachable');
-    expect(await listSubscriptions(db)).toHaveLength(1);
+    expect(await listSubscriptions(scopeOf(db))).toHaveLength(1);
   });
 
   /**
@@ -193,12 +197,12 @@ describe('sending a reminder', () => {
     const send = vi.fn<PushSender>(async () => {
       throw Object.assign(new Error('gone'), { statusCode: 410 });
     });
-    const report = await sendDueReminder(db, {
+    const report = await sendDueReminder(scopeOf(db), {
       env,
       send,
       now: dayAfter(4),
     });
     expect(report).toMatchObject({ sent: 0, removed: 1 });
-    expect(await listSubscriptions(db)).toHaveLength(0);
+    expect(await listSubscriptions(scopeOf(db))).toHaveLength(0);
   });
 });

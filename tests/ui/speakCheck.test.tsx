@@ -10,7 +10,10 @@ import type { RecognitionResult, SpeechRecogniser } from '../../src/services/spe
 import { nullTtsProvider } from '../../src/services/tts/index.ts';
 import { createSpeechRecogniser } from '../../src/services/speech/recogniser.ts';
 import { AppStateContext, type AppStateValue } from '../../src/state/AppState.tsx';
-import { SpeakCheck } from '../../src/ui/components/SpeakCheck.tsx';
+import { SpeakCheck } from '../../src/ui/components/Speaking.tsx';
+import { ExercisePlayer } from '../../src/ui/components/ExercisePlayer.tsx';
+import { typeIt } from '../../src/content/authoring.ts';
+import type { Exercise } from '../../src/content/types.ts';
 
 /**
  * The speaking control, driven through a stub recogniser.
@@ -75,6 +78,11 @@ function stubState(recogniser: SpeechRecogniser, lang: TeachingLanguage = 'en'):
     setTeachingLanguage: async () => undefined,
     updateProfile: async () => undefined,
     submitAttempt: async () => undefined,
+    learners: [{ id: 1, name: 'me', createdAt: new Date().toISOString() }],
+    studyingAs: 1,
+    studyAs: async () => 'switched' as const,
+    addLearner: async () => {},
+    renameLearner: async () => {},
     sync: { pending: 0, other: 0, refused: 0, atRisk: false, lost: 0 },
     syncAnswers: async () => {},
     dismissRefusedAnswers: () => {},
@@ -203,5 +211,96 @@ describe('the speaking check', () => {
     expect(screen.getByRole('button', { name: tr('speakStop', 'en') })).toBeInTheDocument();
     release({ transcript: 'es regnet' });
     await waitFor(() => expect(screen.getByText(tr('speakUnderstood', 'en'))).toBeInTheDocument());
+  });
+});
+
+describe('answering by voice', () => {
+  /**
+   * The rule under test: speaking fills the box and stops there.
+   *
+   * A recogniser mishears, and being marked wrong for a machine's mistake is
+   * the worst kind of unfair feedback — so the transcript is a draft the
+   * learner reads and sends, never a submission made on their behalf.
+   */
+  const scenarioTurn: Exercise = typeIt('t-bakery', { en: 'At the counter', bg: 'На щанда' }, [
+    {
+      id: 't-bakery-s1',
+      prompt: { en: 'Ask for a bread roll.', bg: 'Поискай едно хлебче.' },
+      answer: 'Ein Brötchen, bitte.',
+    },
+  ]);
+
+  function mountTurn(recogniser: SpeechRecogniser, lang: TeachingLanguage = 'en') {
+    return mount(
+      <ExercisePlayer
+        exercises={[scenarioTurn]}
+        context="scenario"
+        level="pre-a1"
+        allowSpeaking
+        hideProgress
+        onFinish={() => {}}
+      />,
+      recogniser,
+      lang,
+    );
+  }
+
+  it('puts what was heard in the box, and does not send it', async () => {
+    const user = userEvent.setup();
+    mountTurn(stubRecogniser({ transcript: 'Ein Brötchen, bitte.' }));
+
+    await user.click(screen.getByRole('button', { name: tr('speakSay', 'en') }));
+
+    const box = await screen.findByRole('textbox');
+    await waitFor(() => expect(box).toHaveValue('Ein Brötchen, bitte.'));
+    // Nothing has been marked: no verdict anywhere on screen.
+    expect(screen.queryByText(/Correct\./)).not.toBeInTheDocument();
+    // And the app says whose guess is in the box.
+    expect(screen.getByText(new RegExp(tr('speakSayHint', 'en').slice(0, 30)))).toBeInTheDocument();
+  });
+
+  it('lets a mishearing be corrected before it counts', async () => {
+    const user = userEvent.setup();
+    mountTurn(stubRecogniser({ transcript: 'ein Brotchen bitte' }));
+
+    await user.click(screen.getByRole('button', { name: tr('speakSay', 'en') }));
+    const box = await screen.findByRole('textbox');
+    await waitFor(() => expect(box).toHaveValue('ein Brotchen bitte'));
+
+    // The learner fixes the umlaut the recogniser flattened, then sends it.
+    await user.clear(box);
+    await user.type(box, 'Ein Brötchen, bitte.');
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByText(/Correct\./)).toBeInTheDocument();
+  });
+
+  it('is offered in a conversation and nowhere else', async () => {
+    // A lesson is where the typing practice lives; answering it aloud would
+    // quietly remove the thing the lesson is for.
+    mount(
+      <ExercisePlayer
+        exercises={[scenarioTurn]}
+        context="lesson"
+        level="pre-a1"
+        onFinish={() => {}}
+      />,
+      stubRecogniser({ transcript: 'Ein Brötchen, bitte.' }),
+    );
+    expect(screen.queryByRole('button', { name: tr('speakSay', 'en') })).not.toBeInTheDocument();
+  });
+
+  it('says nothing at all where there is no recogniser', async () => {
+    mountTurn(createSpeechRecogniser({}));
+    expect(screen.queryByRole('button', { name: tr('speakSay', 'en') })).not.toBeInTheDocument();
+  });
+
+  it('names what went wrong when the microphone is refused', async () => {
+    const user = userEvent.setup();
+    mountTurn(stubRecogniser({ error: 'denied' }));
+    await user.click(screen.getByRole('button', { name: tr('speakSay', 'en') }));
+    expect(await screen.findByText(tr('speakDenied', 'en'))).toBeInTheDocument();
+    // The box is untouched, so typing is still the way through.
+    expect(screen.getByRole('textbox')).toHaveValue('');
   });
 });

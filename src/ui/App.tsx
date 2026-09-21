@@ -21,7 +21,7 @@ import { SyncBanner } from './components/SyncBanner.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
 
 export function App() {
-  const { ready, error, session, profile, reload, t, reviewItems } = useApp();
+  const { ready, error, session, profile, reload, t, reviewItems, learners, studyingAs } = useApp();
   const location = useLocation();
 
   if (!ready) {
@@ -87,7 +87,15 @@ export function App() {
             <p className="topbar__tag">{t('tagline')}</p>
           </div>
         </div>
-        <LanguageToggle />
+        <div className="topbar__right">
+          {/* Only once there is somebody to be confused with. */}
+          {learners.length > 1 ? (
+            <NavLink to="/settings" className="topbar__who" title={t('learnersTitle')}>
+              {learners.find((learner) => learner.id === studyingAs)?.name ?? ''}
+            </NavLink>
+          ) : null}
+          <LanguageToggle />
+        </div>
       </header>
 
       <nav className="nav" aria-label={t('navCourse')}>
