@@ -1,4 +1,4 @@
-import { normaliseRow, toPositional, type Db, type Param, type Row } from './driver.ts';
+import { createGate, normaliseRow, toPositional, type Db, type Param, type Row } from './driver.ts';
 
 /**
  * The Postgres driver: what runs when the app is hosted.
@@ -97,18 +97,24 @@ async function openNeon(url: string): Promise<Db> {
   // A transaction has to run on one session, and each HTTP query is its own.
   // Multi-statement DDL is the same story. Both go through a pool, created
   // only if something needs it.
-  let pool: { session: Session; end: () => Promise<void> } | null = null;
-  const pooled = async (): Promise<Session> => {
+  let pool: { checkout: () => Promise<Lease>; end: () => Promise<void> } | null = null;
+  const pooled = async (): Promise<Lease> => {
     if (!pool) {
       const created = new Pool({ connectionString: url });
-      pool = { session: created as unknown as Session, end: () => created.end() };
+      pool = {
+        checkout: async () => {
+          const client = (await created.connect()) as unknown as Session & { release: () => void };
+          return { session: client, release: () => client.release() };
+        },
+        end: () => created.end(),
+      };
     }
-    return pool.session;
+    return pool.checkout();
   };
 
   return build({
     oneOff: async () => http,
-    session: pooled,
+    lease: pooled,
     close: async () => {
       if (pool) {
         await pool.end();
@@ -151,11 +157,25 @@ async function openStandard(url: string): Promise<Db> {
     max: 1,
     idleTimeoutMillis: 10_000,
   });
-  const session = pool as unknown as Session;
-
   return build({
-    oneOff: async () => session,
-    session: async () => session,
+    // A single statement is what `pool.query` is for: it checks a connection
+    // out, runs the statement and gives it straight back.
+    oneOff: async () => pool as unknown as Session,
+    /*
+     * A transaction is not.
+     *
+     * `pool.query` releases the connection after every statement, so a BEGIN
+     * sent that way is handed back to the pool immediately and the COMMIT can
+     * land on a different connection entirely — a transaction in name only.
+     * `max: 1` hid that by making "a different connection" impossible, which
+     * is not a guarantee, it is a coincidence one config change away from
+     * silent data loss. So anything that needs one session throughout checks
+     * a client out and holds it.
+     */
+    lease: async () => {
+      const client = await pool.connect();
+      return { session: client as unknown as Session, release: () => client.release() };
+    },
     close: () => pool.end(),
   });
 }
@@ -164,17 +184,25 @@ async function openStandard(url: string): Promise<Db> {
  * Shared behaviour
  * ------------------------------------------------------------------ */
 
+/** A session borrowed for as long as one caller needs it, and then returned. */
+interface Lease {
+  session: Session;
+  release: () => void;
+}
+
 interface Sessions {
   /** For a single statement, where a dedicated session is not needed. */
   oneOff: () => Promise<Session>;
   /** For DDL and transactions, which need one session throughout. */
-  session: () => Promise<Session>;
+  lease: () => Promise<Lease>;
   close: () => Promise<void>;
 }
 
 function build(transport: Sessions): Db {
   // Set while a transaction is open, so every query inside it goes to the same
-  // session as the BEGIN.
+  // session as the BEGIN. The gate is what keeps anybody else's query out of
+  // it — and what makes a second transaction wait rather than fail.
+  const gate = createGate();
   let active: Session | null = null;
 
   const run = async (sql: string, params: Param[]): Promise<QueryResult> => {
@@ -185,43 +213,65 @@ function build(transport: Sessions): Db {
   return {
     dialect: 'postgres',
 
-    async all<T = Row>(sql: string, ...params: Param[]): Promise<T[]> {
-      const result = await run(sql, params);
-      return result.rows.map((row) => normaliseRow(row)) as T[];
+    all<T = Row>(sql: string, ...params: Param[]): Promise<T[]> {
+      return gate.statement(async () => {
+        const result = await run(sql, params);
+        return result.rows.map((row) => normaliseRow(row)) as T[];
+      });
     },
 
-    async get<T = Row>(sql: string, ...params: Param[]): Promise<T | undefined> {
-      const result = await run(sql, params);
-      const row = result.rows[0];
-      return row === undefined ? undefined : (normaliseRow(row) as T);
+    get<T = Row>(sql: string, ...params: Param[]): Promise<T | undefined> {
+      return gate.statement(async () => {
+        const result = await run(sql, params);
+        const row = result.rows[0];
+        return row === undefined ? undefined : (normaliseRow(row) as T);
+      });
     },
 
-    async run(sql: string, ...params: Param[]): Promise<{ changes: number }> {
-      const result = await run(sql, params);
-      return { changes: result.rowCount ?? 0 };
+    run(sql: string, ...params: Param[]): Promise<{ changes: number }> {
+      return gate.statement(async () => {
+        const result = await run(sql, params);
+        return { changes: result.rowCount ?? 0 };
+      });
     },
 
-    async exec(sql: string): Promise<void> {
-      // Several statements in one string, which needs a real session.
-      const session = active ?? (await transport.session());
-      await session.query(sql, []);
+    exec(sql: string): Promise<void> {
+      return gate.statement(async () => {
+        // Several statements in one string, which needs a real session.
+        if (active) {
+          await active.query(sql, []);
+          return;
+        }
+        const lease = await transport.lease();
+        try {
+          await lease.session.query(sql, []);
+        } finally {
+          lease.release();
+        }
+      });
     },
 
-    async transaction<T>(body: () => Promise<T>): Promise<T> {
-      if (active) throw new Error('transaction() cannot be nested');
-      const session = await transport.session();
-      active = session;
-      await session.query('BEGIN', []);
-      try {
-        const result = await body();
-        await session.query('COMMIT', []);
-        return result;
-      } catch (error) {
-        await session.query('ROLLBACK', []);
-        throw error;
-      } finally {
-        active = null;
-      }
+    transaction<T>(body: () => Promise<T>): Promise<T> {
+      return gate.exclusive(async () => {
+        const lease = await transport.lease();
+        active = lease.session;
+        try {
+          await lease.session.query('BEGIN', []);
+          try {
+            const result = await body();
+            await lease.session.query('COMMIT', []);
+            return result;
+          } catch (error) {
+            // A rollback that itself fails must not replace the real error:
+            // the reason the transaction failed is the one worth reporting.
+            await lease.session.query('ROLLBACK', []).catch(() => undefined);
+            throw error;
+          }
+        } finally {
+          active = null;
+          lease.release();
+        }
+      });
     },
 
     close: transport.close,

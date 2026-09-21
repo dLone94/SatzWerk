@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { normaliseRow, type Db, type Param, type Row } from './driver.ts';
+import { createGate, normaliseRow, type Db, type Param, type Row } from './driver.ts';
 
 /**
  * The SQLite driver: what runs locally and in the tests.
@@ -52,47 +52,56 @@ export async function openSqlite(options: SqliteOptions = {}): Promise<Db> {
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
 
-  let depth = 0;
+  const gate = createGate();
 
   return {
     dialect: 'sqlite',
 
-    async all<T = Row>(sql: string, ...params: Param[]): Promise<T[]> {
-      const rows = db.prepare(forSqlite(sql)).all(...(params as never[])) as Row[];
-      return rows.map((row) => normaliseRow(row)) as T[];
+    all<T = Row>(sql: string, ...params: Param[]): Promise<T[]> {
+      return gate.statement(async () => {
+        const rows = db.prepare(forSqlite(sql)).all(...(params as never[])) as Row[];
+        return rows.map((row) => normaliseRow(row)) as T[];
+      });
     },
 
-    async get<T = Row>(sql: string, ...params: Param[]): Promise<T | undefined> {
-      const row = db.prepare(forSqlite(sql)).get(...(params as never[])) as Row | undefined;
-      return row === undefined ? undefined : (normaliseRow(row) as T);
+    get<T = Row>(sql: string, ...params: Param[]): Promise<T | undefined> {
+      return gate.statement(async () => {
+        const row = db.prepare(forSqlite(sql)).get(...(params as never[])) as Row | undefined;
+        return row === undefined ? undefined : (normaliseRow(row) as T);
+      });
     },
 
-    async run(sql: string, ...params: Param[]): Promise<{ changes: number }> {
-      const result = db.prepare(forSqlite(sql)).run(...(params as never[]));
-      return { changes: Number(result.changes) };
+    run(sql: string, ...params: Param[]): Promise<{ changes: number }> {
+      return gate.statement(async () => {
+        const result = db.prepare(forSqlite(sql)).run(...(params as never[]));
+        return { changes: Number(result.changes) };
+      });
     },
 
-    async exec(sql: string): Promise<void> {
-      db.exec(forSqlite(sql));
+    exec(sql: string): Promise<void> {
+      return gate.statement(async () => {
+        db.exec(forSqlite(sql));
+      });
     },
 
-    async transaction<T>(body: () => Promise<T>): Promise<T> {
-      // Guard against nesting rather than emulating savepoints: nothing in this
-      // project nests transactions, and a silent partial rollback would be a
-      // much worse bug than a loud error here.
-      if (depth > 0) throw new Error('transaction() cannot be nested');
-      depth++;
-      db.exec('BEGIN');
-      try {
-        const result = await body();
-        db.exec('COMMIT');
-        return result;
-      } catch (error) {
-        db.exec('ROLLBACK');
-        throw error;
-      } finally {
-        depth--;
-      }
+    /**
+     * Savepoints are still not emulated — nothing here nests, and a silent
+     * partial rollback would be worse than the error. What changed is that a
+     * *concurrent* transaction now waits its turn instead of being told it is
+     * a nested one, which it never was.
+     */
+    transaction<T>(body: () => Promise<T>): Promise<T> {
+      return gate.exclusive(async () => {
+        db.exec('BEGIN');
+        try {
+          const result = await body();
+          db.exec('COMMIT');
+          return result;
+        } catch (error) {
+          db.exec('ROLLBACK');
+          throw error;
+        }
+      });
     },
 
     async close(): Promise<void> {
