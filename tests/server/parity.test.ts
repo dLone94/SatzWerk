@@ -254,3 +254,144 @@ describeParity('SQLite and Postgres agree', () => {
     expect((await store.getStats(scopeOf(postgres))).totalAnswers).toBe(before.totalAnswers);
   }, 30_000);
 });
+
+/**
+ * The upgrade path on Postgres: a database that already holds progress.
+ *
+ * Every other migration test runs on SQLite, and CI only ever migrates an
+ * empty Postgres. That gap hid a real bug. Migration 6 seeds the first
+ * learner with an explicit `id = 1` — it has to, because every existing
+ * progress row already says `user_id = 1` — and an explicit id does not
+ * advance a BIGSERIAL sequence. So the next learner was handed id 1 too and
+ * the insert died on the primary key. SQLite's AUTOINCREMENT takes max + 1,
+ * so the whole suite stayed green while "Add somebody" would have thrown on
+ * the hosted copy.
+ *
+ * Hence both halves below: the data survives the seven-table rebuild, *and*
+ * somebody else can still be added afterwards.
+ */
+describeParity('upgrading a Postgres database that already has progress in it', () => {
+  let db: Db;
+
+  beforeAll(async () => {
+    const admin = await openDatabase({ databaseUrl: POSTGRES_URL! });
+    await admin.exec(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
+    await admin.close();
+
+    // Stop the migrations at 5 and write the rows by hand: that is the
+    // database the version before learners left behind. Winding a current one
+    // back instead would mean a list of columns to maintain, and the day
+    // someone forgot to extend it this test would pass while testing nothing.
+    const at = '2026-09-20T09:00:00.000Z';
+    const before = await openDatabase({ databaseUrl: POSTGRES_URL! }, 5);
+    await before.run("INSERT INTO users (id, label, created_at) VALUES (1, 'Teo', ?)", at);
+    await before.run(
+      `INSERT INTO profile (id, teaching_language, daily_target_minutes, display_name, onboarded, created_at, updated_at)
+       VALUES (1, 'bg', 30, 'Teo', 1, ?, ?)`,
+      at,
+      at,
+    );
+    await before.run(
+      `INSERT INTO lesson_state (lesson_id, sections_seen, mastery_attempts, mastery_best_accuracy, mastery_passed,
+                                 recovery_rounds, started_at, completed_at, last_active_at)
+       VALUES ('pre-a1-u1-l1', '["u1l1-intro"]', 2, 1, 1, 1, ?, ?, ?)`,
+      at,
+      at,
+      at,
+    );
+    await before.run(
+      `INSERT INTO step_outcomes (lesson_id, step_id, attempts, first_try_correct, best_credit, resolved,
+                                  hints_used, revealed, updated_at)
+       VALUES ('pre-a1-u1-l1', 'u1l1-ex1-s1', 3, 1, 1, 1, 0, 0, ?)`,
+      at,
+    );
+    await before.run(
+      `INSERT INTO review_items (id, kind, ref_id, lesson_id, level, state, ease, interval_days, due_at,
+                                 success_count, failure_count, lapses, learning_step, created_at)
+       VALUES ('vocab:v-der-tisch', 'vocab', 'v-der-tisch', 'pre-a1-u1-l1', 'pre-a1', 'known', 2.5, 6, ?, 4, 1, 0, 0, ?)`,
+      at,
+      at,
+    );
+    await before.run(
+      `INSERT INTO attempts (created_at, context, step_id, expected, given, verdict, credit, categories,
+                             hints_used, revealed, is_retype)
+       VALUES (?, 'lesson', 'u1l1-ex1-s1', 'der Tisch', 'die Tisch', 'incorrect', 0, '["article"]', 0, 0, 0)`,
+      at,
+    );
+    await before.run(
+      `INSERT INTO mistakes (id, category, expected, last_given, step_id, lesson_id, occurrences,
+                             corrected_count, first_seen_at, last_seen_at)
+       VALUES ('article:der Tisch:u1l1-ex1-s1', 'article', 'der Tisch', 'die Tisch', 'u1l1-ex1-s1',
+               'pre-a1-u1-l1', 5, 2, ?, ?)`,
+      at,
+      at,
+    );
+    await before.run(
+      "INSERT INTO study_days (day, seconds_active, answers, correct) VALUES ('2026-09-20', 900, 40, 33)",
+    );
+    await before.run(
+      `INSERT INTO checkpoint_results (checkpoint_id, scope, target_id, accuracy, passed, detail, created_at)
+       VALUES ('cp-pre-a1-u1', 'unit', 'pre-a1-u1', 0.9, 1, '{}', ?)`,
+      at,
+    );
+    await before.run("INSERT INTO word_flags (vocab_id, favorite, updated_at) VALUES ('v-der-tisch', 1, ?)", at);
+    await before.run(
+      `INSERT INTO scenario_runs (script_id, user_id, runs, turns, first_try_correct, last_accuracy,
+                                  best_accuracy, first_run_at, last_run_at)
+       VALUES ('sc-bakery-pre-a1', 1, 3, 4, 4, 1, 1, ?, ?)`,
+      at,
+      at,
+    );
+    await before.close();
+
+    // The upgrade itself, exactly as a deployment runs it on its next boot.
+    db = await openDatabase({ databaseUrl: POSTGRES_URL! });
+  }, 60_000);
+
+  afterAll(async () => {
+    await db?.close();
+  });
+
+  it('keeps every table it rebuilds', async () => {
+    const scope = scopeOf(db);
+    const lesson = await store.getLessonProgress(scope, 'pre-a1-u1-l1');
+    const stats = await store.getStats(scope);
+
+    expect(await store.getProfile(scope)).toMatchObject({
+      teachingLanguage: 'bg',
+      dailyTargetMinutes: 30,
+      displayName: 'Teo',
+    });
+    expect(lesson.mastery).toMatchObject({ attempts: 2, passed: true });
+    expect(lesson.sectionsSeen).toEqual(['u1l1-intro']);
+    expect(Object.keys(lesson.practice)).toEqual(['u1l1-ex1-s1']);
+    expect(await store.getReviewItem(scope, 'vocab:v-der-tisch')).toMatchObject({
+      state: 'known',
+      intervalDays: 6,
+      successCount: 4,
+    });
+    expect((await store.listMistakes(scope)).map((m) => m.occurrences)).toEqual([5]);
+    expect(stats.totalAnswers).toBe(1);
+    expect(stats.totalStudySeconds).toBe(900);
+    expect((await store.listStudyDays(scope, 5)).map((d) => d.answers)).toEqual([40]);
+    expect((await store.listCheckpointResults(scope)).map((c) => c.passed)).toEqual([true]);
+    expect(await store.listFavorites(scope)).toEqual(['v-der-tisch']);
+    expect((await store.listScenarioRuns(scope)).map((r) => r.runs)).toEqual([3]);
+  }, 30_000);
+
+  it('carries the account name over as the first learner', async () => {
+    expect(await store.listLearners(db)).toMatchObject([{ id: 1, name: 'Teo' }]);
+  }, 30_000);
+
+  it('can still add somebody else afterwards', async () => {
+    // The assertion that would have failed: an id of its own, not a clash.
+    const papa = await store.createLearner(db, 'Papa');
+    expect(papa.id).toBeGreaterThan(1);
+
+    // And the two of them keep their progress apart, which is the whole point
+    // of the migration that nearly broke here.
+    await store.recordMastery({ db, userId: papa.id }, 'pre-a1-u1-l1', 0, 0.67);
+    expect((await store.getLessonProgress({ db, userId: papa.id }, 'pre-a1-u1-l1')).mastery.passed).toBe(false);
+    expect((await store.getLessonProgress(scopeOf(db), 'pre-a1-u1-l1')).mastery.passed).toBe(true);
+  }, 30_000);
+});
