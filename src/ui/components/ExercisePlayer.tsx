@@ -505,10 +505,20 @@ export function ExercisePlayer({
     advance();
   }, [current, busy, context, lessonId, say, submitAttempt, hintsShown, revealed, advance]);
 
+  /*
+   * Show the answer — and leave the typing to the learner.
+   *
+   * This used to put the answer straight into the box, so one press of Enter
+   * passed the step without a single German letter typed. The whole app is
+   * built on the opposite: recall, then *type*, then type again when it was
+   * wrong. Seeing the answer is fine and often necessary; not having to
+   * produce it is what made it pointless. So it is shown above the box, the
+   * box is left as it was, and the step still costs its credit and comes
+   * back soon, as the warning says.
+   */
   const revealAnswer = useCallback(() => {
     if (!current) return;
     setRevealed(true);
-    setValue(current.step.answer.accepted[0] ?? '');
     setHintsShown(current.step.hints.length);
     inputRef.current?.focus();
   }, [current]);
@@ -794,7 +804,7 @@ export function ExercisePlayer({
           </div>
         ) : null}
 
-        {hintsShown > 0 && phase !== 'feedback' ? (
+        {(hintsShown > 0 || revealed) && phase !== 'feedback' ? (
           <ul className="hints">
             {step.hints.slice(0, hintsShown).map((hint, index) => (
               <li key={index}>
@@ -802,7 +812,15 @@ export function ExercisePlayer({
                 {say(hint)}
               </li>
             ))}
-            {revealed ? <li className="hints__revealed">{t('exerciseRevealWarning')}</li> : null}
+            {revealed ? (
+              <li className="hints__revealed">
+                <span className="hints__answer" lang="de">
+                  {step.answer.accepted[0]}
+                </span>
+                <span>{t('exerciseRevealType')}</span>
+                <span className="hints__warning">{t('exerciseRevealWarning')}</span>
+              </li>
+            ) : null}
           </ul>
         ) : null}
       </div>
@@ -821,7 +839,7 @@ export function ExercisePlayer({
 
           {result && result.verdict !== 'correct' && result.verdict !== 'empty' ? (
             <dl className="feedback__compare">
-              <dt>{t('feedbackYourAnswer')}</dt>
+              <dt>{t(isChoice ? 'feedbackYourChoice' : 'feedbackYourAnswer')}</dt>
               <dd lang="de" className="feedback__given">
                 {result.diff.length > 0 ? <TokenDiff result={result} /> : value}
               </dd>

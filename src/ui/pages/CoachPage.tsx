@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { CATEGORY_LABELS } from '../../i18n.ts';
+import { CATEGORY_LABELS, type UiKey } from '../../i18n.ts';
 import { api, type WritingEvaluation } from '../../services/api/client.ts';
-import { SPEECH_ROADMAP } from '../../services/speech/index.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AnswerInput } from '../components/AnswerInput.tsx';
 import { Card } from '../components/bits.tsx';
@@ -11,11 +10,11 @@ import { Card } from '../components/bits.tsx';
  *
  * What runs here is the deterministic rule-based reviewer on the server. The
  * page states that plainly, lists the checks that were actually applied, and
- * names the words the checker did not understand. The model-backed features are
- * listed as planned, not shown as broken buttons.
+ * names the words the checker did not understand. What the coach cannot do is
+ * listed in plain words, not shown as broken buttons.
  */
 export function CoachPage() {
-  const { t, say, lang, coach } = useApp();
+  const { t, say, lang, coach, recogniser } = useApp();
   const [text, setText] = useState('');
   const [result, setResult] = useState<WritingEvaluation | null>(null);
   const [busy, setBusy] = useState(false);
@@ -118,19 +117,62 @@ export function CoachPage() {
         </>
       ) : null}
 
-      <Card title={t('coachPlannedTitle')}>
-        <p>{t('coachPlannedBody')}</p>
+      <Card title={t('coachAbilitiesTitle')}>
         <ul className="planned-features">
-          {Object.entries<string>({ ...(coach?.features ?? {}), ...SPEECH_ROADMAP }).map(([name, status]) => (
-            <li key={name}>
-              <code>{name}</code>
-              <span className={`badge badge--${status === 'rule-based' || status === 'ai' ? 'available' : 'planned'}`}>
-                {status}
+          {coachAbilities(coach?.features ?? {}, recogniser.available).map(({ ability, state }) => (
+            <li key={ability}>
+              <span>{t(ABILITY_LABELS[ability])}</span>
+              <span className={`badge badge--${state === 'yes' || state === 'yesAi' ? 'available' : 'planned'}`}>
+                {t(STATE_LABELS[state])}
               </span>
             </li>
           ))}
         </ul>
+        <p className="muted">{t('coachAbilitiesBody')}</p>
       </Card>
     </div>
   );
+}
+
+export type Ability = 'writing' | 'explain' | 'speaking' | 'pronunciation' | 'practice' | 'conversation';
+export type AbilityState = 'yes' | 'yesAi' | 'notYet' | 'notHere' | 'never';
+
+const ABILITY_LABELS = {
+  writing: 'coachAbilityWriting',
+  explain: 'coachAbilityExplain',
+  speaking: 'coachAbilitySpeaking',
+  pronunciation: 'coachAbilityPronunciation',
+  practice: 'coachAbilityPractice',
+  conversation: 'coachAbilityConversation',
+} as const satisfies Record<Ability, UiKey>;
+
+const STATE_LABELS = {
+  yes: 'coachCanYes',
+  yesAi: 'coachCanYesAi',
+  notYet: 'coachCanNotYet',
+  notHere: 'coachCanNotHere',
+  never: 'coachCanNever',
+} as const satisfies Record<AbilityState, UiKey>;
+
+/**
+ * What the coach can do on this device, in the learner's terms.
+ *
+ * The server reports its own features; speaking depends on this browser, so
+ * the page decides that one. Anything the server does not mention falls back to
+ * the honest answer: rule checks always exist, the rest is not there yet.
+ */
+export function coachAbilities(
+  features: Record<string, string>,
+  speechAvailable: boolean,
+): { ability: Ability; state: AbilityState }[] {
+  const decided = (value: string | undefined): AbilityState =>
+    value === 'not-generated' ? 'never' : value === 'ai' ? 'yes' : 'notYet';
+  return [
+    { ability: 'writing', state: features.writingReview?.includes('ai') ? 'yesAi' : 'yes' },
+    { ability: 'explain', state: decided(features.explainMistake) },
+    { ability: 'speaking', state: speechAvailable ? 'yes' : 'notHere' },
+    { ability: 'pronunciation', state: 'notYet' },
+    { ability: 'practice', state: decided(features.generatePractice) },
+    { ability: 'conversation', state: decided(features.conversation) },
+  ];
 }

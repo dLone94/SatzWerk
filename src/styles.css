@@ -1628,6 +1628,20 @@ textarea.answer-field {
 .hints__revealed {
   background: var(--warn-soft);
   color: var(--warn);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* The revealed answer is there to be read and then typed, so it reads first. */
+.hints__answer {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.hints__warning {
+  font-size: 0.85rem;
 }
 
 /* Feedback: never colour alone - each tone has a leading word and a border. */
@@ -3489,6 +3503,11 @@ body {
     padding-left: 0;
     padding-right: 0;
   }
+
+  /* The row no longer wraps here, so the hint would push the page sideways. */
+  .answer__hintkeys {
+    display: none;
+  }
 }
 
 /* No Alt key on a phone, so the shortcut hint is only noise there. */
@@ -4135,4 +4154,89 @@ body {
 
 .learners__add .btn {
   justify-self: start;
+}
+
+/* ---------------- More ---------------- */
+
+/*
+ * A phone gets four tabs and More; everything else fits on a wide screen.
+ * Nine tabs in one sideways-scrolling bar left four of them off every iPhone
+ * screen, with nothing to say they were there.
+ */
+.nav__item--more {
+  display: none;
+}
+
+@media (max-width: 46rem) {
+  .nav {
+    overflow-x: visible;
+    justify-content: space-around;
+  }
+
+  .nav__item--secondary {
+    display: none;
+  }
+
+  .nav__item--more {
+    display: inline-flex;
+  }
+}
+
+.more {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.more__link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+  min-height: 44px;
+}
+
+.more__link:hover,
+.more__link:focus-visible {
+  border-color: var(--accent, var(--ink-soft));
+}
+
+.more__label {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.more__note {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+/*
+ * Scrolling that knows the tab bar is there.
+ *
+ * The verdict is scrolled into view when it opens, and Continue takes focus —
+ * both of which bring an element to the bottom edge of the screen when that is
+ * the nearest place. On a phone the bottom edge is behind the fixed tab bar,
+ * so Continue arrived under it: measured on a 390 by 844 screen, 31 of its 44
+ * points were covered, and a tap on its middle landed on the bar instead —
+ * which is a tap on Course or Review, and a lesson left half-way. Padding the
+ * scroll area by the bar's height makes every one of those scrolls stop above
+ * it, whichever element asked.
+ */
+@media (max-width: 46rem) {
+  html {
+    scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+
+  .feedback {
+    scroll-margin-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
 }

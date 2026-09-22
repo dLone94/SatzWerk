@@ -24,6 +24,13 @@ export const UI = {
   navRealLife: s('Real life', 'Реален живот'),
   navCoach: s('Coach', 'Наставник'),
   navSettings: s('Settings', 'Настройки'),
+  navMore: s('More', 'Още'),
+  moreTitle: s('Everything else', 'Всичко останало'),
+  moreVocabulary: s('Every word you have met, and how well you know it', 'Всяка дума, която си срещал, и колко добре я знаеш'),
+  moreMistakes: s('What keeps going wrong, and practice aimed at it', 'Какво все се обърква, и упражнения точно за него'),
+  moreRealLife: s('Conversations at the bakery, the doctor, the Bürgeramt', 'Разговори в пекарната, при лекаря, в Bürgeramt'),
+  moreCoach: s('Check a piece of your own writing', 'Провери нещо, което си написал сам'),
+  moreSettings: s('Teaching path, daily target, who is studying', 'Път на обучение, дневна цел, кой учи'),
 
   // Login, shown only when the app is hosted behind a password
   loginIntro: s(
@@ -208,6 +215,13 @@ export const UI = {
   lessonStart: s('Start', 'Започни'),
   lessonContinue: s('Continue', 'Продължи'),
   lessonReplay: s('Practise again', 'Упражнявай отново'),
+  lessonMasteryRetry: s('Try the check again', 'Опитай проверката отново'),
+  checkpointPassed: s('Checkpoint passed', 'Контролната точка е взета'),
+  checkpointFailed: s(
+    'Not passed yet. Nothing is lost — go over the unit again, or try it once more.',
+    'Още не е взета. Нищо не е загубено — прегледай раздела отново или опитай пак.',
+  ),
+  checkpointAgain: s('Try it again', 'Опитай отново'),
   lessonRequirements: s('To complete this lesson', 'За да завършиш урока'),
   lessonCompleted: s('Lesson completed', 'Урокът е завършен'),
   lessonSections: s('Teaching sections', 'Учебни раздели'),
@@ -310,6 +324,10 @@ export const UI = {
   notSavedReviews: s('The review items were not created.', 'Повторенията не бяха създадени.'),
 
   exerciseReveal: s('Show the answer', 'Покажи отговора'),
+  exerciseRevealType: s(
+    'Now type it yourself — typing it is what makes it stay.',
+    'Сега го напиши сам — писането е това, което го запомня.',
+  ),
   exerciseRevealWarning: s(
     'Showing the answer means no credit for this item, and it will come back soon.',
     'Показването на отговора значи нула точки за тази задача и тя ще се върне скоро.',
@@ -440,6 +458,8 @@ export const UI = {
 
   // Feedback
   feedbackYourAnswer: s('You wrote', 'Ти написа'),
+  // A tapped card was chosen, not written.
+  feedbackYourChoice: s('You chose', 'Ти избра'),
   feedbackExpected: s('Expected', 'Очаквано'),
   feedbackWordByWord: s('Word by word', 'Дума по дума'),
 
@@ -620,6 +640,9 @@ export const UI = {
   ),
   scenarioAgain: s('Play it again', 'Изиграй го пак'),
   scenarioBackToList: s('Back to Real life', 'Обратно към Реален живот'),
+  lessonMissing: s('That lesson is not in the course. The link may be from an older version.', 'Този урок не е в курса. Връзката може да е от по-стара версия.'),
+  checkpointMissing: s('That check is not in the course. The link may be from an older version.', 'Тази проверка не е в курса. Връзката може да е от по-стара версия.'),
+  wordMissing: s('That word is not in the vocabulary. The link may be from an older version.', 'Тази дума не е в речника. Връзката може да е от по-стара версия.'),
   scenarioMissing: s('That conversation is not written yet.', 'Този разговор още не е написан.'),
 
   // Coach
@@ -640,10 +663,21 @@ export const UI = {
   ),
   coachUnknownWords: s('Words I do not know and did not judge', 'Думи, които не познавам и не съдя'),
   coachSuggestion: s('Suggested', 'Предложено'),
-  coachPlannedTitle: s('Planned, not built', 'Планирано, но не направено'),
-  coachPlannedBody: s(
-    'Free conversation, model-written explanations, generated practice and pronunciation scoring all have interfaces in the codebase and no implementation. They are honestly marked as planned rather than shown as broken buttons.',
-    'Свободният разговор, обясненията от модел, генерираните упражнения и оценяването на изговора имат интерфейси в кода, но няма реализация. Отбелязани са честно като планирани, а не показани като неработещи бутони.',
+  coachAbilitiesTitle: s('What the coach can do', 'Какво може наставникът'),
+  coachAbilityWriting: s('Check sentences you write', 'Проверява изречения, които пишеш'),
+  coachAbilityExplain: s('Explain a mistake in more depth', 'Обяснява грешка по-подробно'),
+  coachAbilitySpeaking: s('Hear you say a sentence', 'Чува те, когато кажеш изречение'),
+  coachAbilityPronunciation: s('Score your accent', 'Оценява акцента ти'),
+  coachAbilityPractice: s('Make up new practice sentences', 'Измисля нови изречения за упражнение'),
+  coachAbilityConversation: s('Hold a free conversation', 'Води свободен разговор'),
+  coachCanYes: s('Yes', 'Да'),
+  coachCanYesAi: s('Yes, with AI', 'Да, с ИИ'),
+  coachCanNotYet: s('Not yet', 'Още не'),
+  coachCanNotHere: s('Not in this browser', 'Не в този браузър'),
+  coachCanNever: s('No, on purpose', 'Не, нарочно'),
+  coachAbilitiesBody: s(
+    'Every German sentence in this app has been read by a person. Invented sentences could teach you a mistake without you noticing, so the coach does not make them up.',
+    'Всяко немско изречение в приложението е прочетено от човек. Измислените изречения могат да те научат на грешка, без да забележиш, затова наставникът не ги измисля.',
   ),
 
   // Settings

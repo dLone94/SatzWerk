@@ -184,7 +184,11 @@ describe('the typing and correction flow', () => {
     // The authored explanation, not a bare "wrong".
     expect(await screen.findByText(/For a country of origin German uses/)).toBeInTheDocument();
     expect(screen.getByText('Not quite.')).toBeInTheDocument();
-    expect(screen.getByText(/The correct answer is: Ich komme aus Bulgarien\./)).toBeInTheDocument();
+    // The answer sits beside what was typed; it is not repeated as a sentence
+    // under the explanation as well.
+    expect(document.querySelector('.feedback__expected')?.textContent).toBe('Ich komme aus Bulgarien.');
+    expect(document.querySelector('.feedback__lines')?.textContent).not.toContain('Ich komme aus Bulgarien.');
+    expect(screen.queryByText(/The correct answer is/)).not.toBeInTheDocument();
 
     // A retype is demanded; there is no Continue button to escape with.
     expect(screen.getByText('Now type the correct German')).toBeInTheDocument();
@@ -278,16 +282,34 @@ describe('the typing and correction flow', () => {
     expect(screen.getByRole('button', { name: 'No more hints' })).toBeDisabled();
   });
 
-  it('records zero credit when the answer was revealed', async () => {
+  /*
+   * Showing the answer used to type it in as well, so one press of Enter
+   * passed the step without a German letter produced. The answer is shown now
+   * and the typing stays the learner's.
+   */
+  it('shows the answer but leaves the typing to the learner', async () => {
     const user = userEvent.setup();
     mount(<ExercisePlayer exercises={[originExercise]} context="lesson" level="pre-a1" onFinish={() => {}} />);
 
     await user.click(screen.getByRole('button', { name: 'Show the answer' }));
-    expect(field()).toHaveValue('Ich komme aus Bulgarien.');
+    expect(screen.getByText('Ich komme aus Bulgarien.')).toBeInTheDocument();
+    expect(field()).toHaveValue('');
+
+    // Enter on an empty box passes nothing.
+    await user.keyboard('{Enter}');
+    expect(attempts).toHaveLength(0);
+  });
+
+  it('records zero credit when the answer was revealed, even once typed', async () => {
+    const user = userEvent.setup();
+    mount(<ExercisePlayer exercises={[originExercise]} context="lesson" level="pre-a1" onFinish={() => {}} />);
+
+    await user.click(screen.getByRole('button', { name: 'Show the answer' }));
+    await user.type(field(), 'Ich komme aus Bulgarien.');
     await user.keyboard('{Enter}');
 
     await waitFor(() => expect(attempts).toHaveLength(1));
-    expect(attempts[0]).toMatchObject({ revealed: true, credit: 0 });
+    expect(attempts[0]).toMatchObject({ revealed: true, credit: 0, given: 'Ich komme aus Bulgarien.' });
   });
 
   it('hides hints entirely in a mastery check', () => {

@@ -67,20 +67,23 @@ export function ScenarioPage() {
   }
 
   if (stage === 'done' && summary) {
+    const clean = summary.total > 0 && summary.firstTryCorrect === summary.total;
     return (
       <div className="page page--player">
         <h1 className="page__title">{t('scenarioFinishedTitle')}</h1>
         <Card title={say(scenario.title)} subtitle={`${levelLabel} · ${say(script.partner)}`}>
           <ScoreRing
             value={summary.accuracy}
-            passed={summary.total > 0 && summary.firstTryCorrect === summary.total}
+            passed={clean}
             caption={t('scenarioScore', { correct: summary.firstTryCorrect, total: summary.total })}
           />
           <p className="scenario__outro">{say(script.outro)}</p>
+          {/* A clean run is finished: the way on is out. A run with slips is
+              not, so another go is the obvious next step. */}
           <div className="section-nav">
             <button
               type="button"
-              className="btn btn--primary"
+              className={`btn ${clean ? 'btn--ghost' : 'btn--primary'}`}
               onClick={() => {
                 setSummary(null);
                 setRunId((id) => id + 1);
@@ -89,7 +92,11 @@ export function ScenarioPage() {
             >
               {t('scenarioAgain')}
             </button>
-            <button type="button" className="btn btn--ghost" onClick={() => navigate('/real-life')}>
+            <button
+              type="button"
+              className={`btn ${clean ? 'btn--primary' : 'btn--ghost'}`}
+              onClick={() => navigate('/real-life')}
+            >
               {t('scenarioBackToList')}
             </button>
           </div>

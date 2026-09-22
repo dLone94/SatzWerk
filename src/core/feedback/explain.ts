@@ -280,10 +280,6 @@ function explainCategory(
   }
 }
 
-function correctionLine(target: string): Bilingual {
-  return bi(`The correct answer is: ${target}`, `Правилният отговор е: ${target}`);
-}
-
 function dedupeLines(lines: Bilingual[]): Bilingual[] {
   const seen = new Set<string>();
   return lines.filter((line) => {
@@ -339,7 +335,7 @@ export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): F
     return {
       tone: 'error',
       headline: HEADLINES.error,
-      lines: [result.trapFeedback, correctionLine(result.target)],
+      lines: [result.trapFeedback],
       correction: result.target,
       askRetype: result.requireRetype,
     };
@@ -358,9 +354,10 @@ export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): F
       ? bi('Meaning is correct.', 'Смисълът е правилен.')
       : HEADLINES[tone];
 
-  if (result.verdict !== 'accepted-with-note') {
-    lines.push(correctionLine(result.target));
-  } else {
+  // The answer itself is not repeated here: the feedback panel already shows
+  // it beside what was typed, and saying it twice only pushed Continue further
+  // down the screen.
+  if (result.verdict === 'accepted-with-note') {
     lines.push(
       bi(`Standard spelling: ${result.target}`, `Стандартен правопис: ${result.target}`),
     );
@@ -369,7 +366,7 @@ export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): F
   return {
     tone,
     headline,
-    lines: lines.length > 0 ? lines : [correctionLine(result.target)],
+    lines,
     correction: result.target,
     askRetype: result.requireRetype,
   };
