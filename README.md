@@ -59,8 +59,10 @@ Nothing, and that is a requirement rather than a happy accident.
 
 Everything the app needs has a free tier that a household of three comfortably
 fits inside: the bundle is static files, the API is one small serverless
-function, the database is a few megabytes of Postgres, and the German voice,
-the speech recogniser and the push notifications are all the browser's own.
+function, the database is a few megabytes of Postgres, the German voice is
+recorded ahead of time by an open-source voice on GitHub's free runners and
+served as static files, and the speech recogniser and the push notifications
+are the browser's own.
 Locally it is a SQLite file and costs nothing at all.
 
 There is exactly **one** part of SatzWerk that can ever put a number on a bill,
@@ -599,10 +601,22 @@ A subscription that the push service rejects as gone (404/410) is deleted; any
 other failure is kept and retried tomorrow, because a network blip is not an
 unsubscribe.
 
-**Audio** through a replaceable `TtsProvider`, with a `de-DE` browser
-SpeechSynthesis implementation and a null provider that hides the buttons when
-the browser has no German voice. Nothing in the app calls
-`window.speechSynthesis` directly.
+**Audio** through a replaceable `TtsProvider`. Nothing in the app calls
+`window.speechSynthesis` directly. Three layers, best first:
+
+1. **Recorded phrases.** Every German phrase the app can read out is recorded
+   with Piper's open-source German voice ("Thorsten") by the *Voice* workflow
+   (`.github/workflows/voice.yml`), which runs when course content changes,
+   records only what is new, deletes what is gone and commits the clips to
+   `public/audio/de/`. `scripts/audio/phrases.ts` lists the phrases;
+   `scripts/audio/generate.py` records them. A clip is named by a hash of its
+   text (`src/services/tts/phraseKey.ts`), so the app finds it without a list
+   of its own, and the service worker keeps each clip once played.
+2. **The best voice on the device**, for anything without a recording. The
+   voices are ranked by name: premium, enhanced and natural voices first,
+   Apple's novelty voices (Eddy, Grandma, Rocko…) never. Settings lists them,
+   and a choice made there is kept on that device.
+3. A null provider that hides the buttons when there is no voice at all.
 
 **Who is studying.** A German mother, a Bulgarian-speaking father and a son do
 not share a streak. Each person on a copy of SatzWerk has their own progress,

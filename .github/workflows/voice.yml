@@ -1,0 +1,91 @@
+# Records every German phrase in the course, so the app can play a natural
+# voice instead of whatever voice a phone happens to have.
+#
+# The voice is Piper's German "Thorsten" (https://github.com/OHF-Voice/piper1-gpl),
+# free and open source, run here on GitHub's machines. It runs when the course
+# content changes, records only phrases that have no recording yet, deletes
+# recordings of phrases that are gone, and commits the result to the same
+# branch. The first run records everything and takes a while; later runs take
+# seconds.
+#
+# Its own commits do not start it again: a push made with GITHUB_TOKEN does not
+# trigger workflows, which is also why that commit shows no CI run of its own.
+
+name: Voice
+
+on:
+  push:
+    paths:
+      - 'src/content/**'
+      - 'scripts/audio/**'
+      - 'src/services/tts/phraseKey.ts'
+      - '.github/workflows/voice.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: voice-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  VOICE: de_DE-thorsten-high
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: List the phrases
+        run: node scripts/audio/phrases.ts > "$RUNNER_TEMP/phrases.json"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Piper and ffmpeg
+        run: |
+          pip install piper-tts==1.8.0
+          sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+
+      - name: Cache the voice
+        id: voice-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/voice
+          key: piper-${{ env.VOICE }}-v1
+
+      - name: Download the voice
+        if: steps.voice-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/voice"
+          base="https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/high"
+          curl -fsSL -o "$RUNNER_TEMP/voice/$VOICE.onnx" "$base/$VOICE.onnx?download=true"
+          curl -fsSL -o "$RUNNER_TEMP/voice/$VOICE.onnx.json" "$base/$VOICE.onnx.json?download=true"
+
+      - name: Record what is missing
+        run: python scripts/audio/generate.py "$RUNNER_TEMP/phrases.json" "$RUNNER_TEMP/voice/$VOICE.onnx" public/audio/de
+
+      - name: Commit the recordings
+        run: |
+          git add public/audio/de
+          if git diff --cached --quiet; then
+            echo "Nothing new to record."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "Record the German phrases"
+          # Someone may have pushed while this ran; the recordings sit on top.
+          git pull -q --rebase origin "${GITHUB_REF_NAME}"
+          git push -q origin "HEAD:${GITHUB_REF_NAME}"

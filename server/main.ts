@@ -43,6 +43,7 @@ const MIME: Record<string, string> = {
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+  '.mp3': 'audio/mpeg',
   '.map': 'application/json; charset=utf-8',
 };
 

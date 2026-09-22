@@ -95,9 +95,14 @@ function isApi(url) {
   return url.pathname === '/api' || url.pathname.startsWith('/api/');
 }
 
-/** A built asset: its name contains its content hash, so it never changes. */
+/**
+ * A built asset: its name contains its content hash, so it never changes. A
+ * recorded phrase is the same: its name is a hash of the German it says, so
+ * once heard it is kept and plays offline. (The recordings' manifest is not
+ * one of these; it changes when phrases are added, so it is fetched fresh.)
+ */
 function isImmutable(url) {
-  return url.pathname.startsWith('/assets/');
+  return url.pathname.startsWith('/assets/') || (url.pathname.startsWith('/audio/') && url.pathname.endsWith('.mp3'));
 }
 
 self.addEventListener('fetch', (event) => {
