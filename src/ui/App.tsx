@@ -19,6 +19,7 @@ import { VocabularyPage } from './pages/VocabularyPage.tsx';
 import { WordPage } from './pages/WordPage.tsx';
 import { MorePage, MORE_ROUTES } from './pages/MorePage.tsx';
 import { SyncBanner } from './components/SyncBanner.tsx';
+import { Icon } from './components/icons.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
 
 export function App() {
@@ -124,10 +125,10 @@ export function App() {
       </header>
 
       <nav className="nav" aria-label={t('navCourse')}>
-        <NavItem to="/" label={t('navToday')} />
-        <NavItem to="/session" label={t('navSession')} />
-        <NavItem to="/course" label={t('navCourse')} />
-        <NavItem to="/review" label={t('navReview')} badge={dueCount > 0 ? dueCount : undefined} />
+        <NavItem to="/" label={t('navToday')} icon="today" />
+        <NavItem to="/session" label={t('navSession')} icon="round" />
+        <NavItem to="/course" label={t('navCourse')} icon="course" />
+        <NavItem to="/review" label={t('navReview')} icon="review" badge={dueCount > 0 ? dueCount : undefined} />
         {/* Wide screens: all of them. A phone hides these and shows More. */}
         <NavItem to="/vocabulary" label={t('navVocabulary')} secondary />
         <NavItem to="/mistakes" label={t('navMistakes')} secondary />
@@ -144,7 +145,10 @@ export function App() {
             }`
           }
         >
-          {t('navMore')}
+          <span className="nav__icon">
+            <Icon name="more" size={20} />
+          </span>
+          <span className="nav__label">{t('navMore')}</span>
         </NavLink>
       </nav>
 
@@ -185,11 +189,14 @@ function NavItem({
   to,
   label,
   badge,
+  icon,
   secondary = false,
 }: {
   to: string;
   label: string;
   badge?: number;
+  /** Shown on a phone, where the tabs sit under the thumb. */
+  icon?: 'today' | 'round' | 'course' | 'review';
   /** Folded into More on a phone. */
   secondary?: boolean;
 }) {
@@ -201,8 +208,14 @@ function NavItem({
         `nav__item${secondary ? ' nav__item--secondary' : ''}${isActive ? ' is-active' : ''}`
       }
     >
-      {label}
-      {badge ? <span className="nav__badge">{badge}</span> : null}
+      {icon ? (
+        <span className="nav__icon">
+          <Icon name={icon} size={20} />
+          {badge ? <span className="nav__badge">{badge}</span> : null}
+        </span>
+      ) : null}
+      <span className="nav__label">{label}</span>
+      {badge && !icon ? <span className="nav__badge">{badge}</span> : null}
     </NavLink>
   );
 }

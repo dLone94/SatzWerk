@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './ui/App.tsx';
 import { AppStateProvider } from './state/AppState.tsx';
 import { registerServiceWorker } from './services/offline/register.ts';
+import './fonts.css';
 import './styles.css';
 
 const container = document.getElementById('root');
