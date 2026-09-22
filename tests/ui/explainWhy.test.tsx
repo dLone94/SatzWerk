@@ -77,6 +77,7 @@ function stubState(aiAvailable: boolean, lang: TeachingLanguage = 'en'): AppStat
     studyAs: async () => 'switched' as const,
     addLearner: async () => {},
     renameLearner: async () => {},
+    offline: false,
     notice: null,
     dismissNotice: () => {},
     sync: { pending: 0, other: 0, refused: 0, atRisk: false, lost: 0 },

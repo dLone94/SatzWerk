@@ -593,11 +593,11 @@ that looks like a broken app.
 
 Delivery is `web-push` with VAPID and RFC 8291 payload encryption; the private
 key never leaves the server. `public/sw.js` handles `push` and
-`notificationclick` **and caches nothing** — a stale cached copy of your own
-progress would be worse than no offline mode. What survives a lost connection
-is answers, held in the outbox described above, not pages. A subscription that the push
-service rejects as gone (404/410) is deleted; any other failure is kept and
-retried tomorrow, because a network blip is not an unsubscribe.
+`notificationclick`, and it caches the app so it can be opened without a
+signal — see **The app opens in a tunnel** below for where that line is drawn.
+A subscription that the push service rejects as gone (404/410) is deleted; any
+other failure is kept and retried tomorrow, because a network blip is not an
+unsubscribe.
 
 **Audio** through a replaceable `TtsProvider`, with a `de-DE` browser
 SpeechSynthesis implementation and a null provider that hides the buttons when
@@ -664,15 +664,41 @@ Two decisions make that honest rather than convenient:
 The recogniser stays behind the same interface as before, so a browser without
 one shows no microphone at all: not a disabled button, not a promise.
 
+**The app opens in a tunnel.** The outbox below holds an answer typed without
+a signal — but only if the app is already open. Opened fresh with no signal,
+SatzWerk did not appear at all: the browser showed its own "No internet" page.
+Every one of the places this app was built for was a place it could not be
+started, which was measured in a browser rather than assumed.
+
+So the service worker caches, and the line is drawn between the app and the
+learner's data rather than between caching and not caching. **The app is
+cached** — the document, the JavaScript, the stylesheet, the icons. They are
+the same for everybody and change only on a deploy, so serving them from a
+cache is not staleness, it is the app. **`/api` is never cached**, not the
+state, not the profile, not one answer; offline those requests fail exactly as
+they did before. There is a test that runs the worker's own rules and fails if
+an API response is ever stored or served from a cache, and another that fails
+if the app stops opening offline.
+
+The built filenames carry a content hash, so the worker cannot know them: the
+build writes an `asset-manifest.json` and the worker precaches what is in it.
+Without that the offline open worked only by the grace of the browser's HTTP
+cache, which a phone evicts whenever it likes — which is exactly the moment
+somebody is on a train.
+
+What a learner sees with no connection is the app and an honest sentence: no
+streak, no counts, nothing invented to fill the screen. It used to say
+"Something went wrong" above a developer's question about a server the learner
+has never thought about. Nothing goes wrong when a train goes underground.
+
 **Answers survive a lost connection.** The app is used on a phone, and a phone
 loses signal — in the U-Bahn, in a lift, in the corner of a flat the router
 does not reach. Until now every answer went straight to the database and the
 app gave up if it could not: you typed a sentence, pressed enter, and nothing
 happened at all. The answer was gone and the screen was dead.
 
-This is not an offline mode, and the difference is the point. Nothing is
-cached, no progress is guessed at, and no number anywhere moves until the
-database says it moved. What changed is only where an answer waits. The
+No progress is guessed at, and no number anywhere moves until the database says
+it moved. What changed is only where an answer waits. The
 validator that marks it runs in the browser, so the verdict, the correction and
 the mandatory retype never needed the server in the first place; an answer that
 cannot be sent goes into an **outbox** in `localStorage`, the lesson carries on

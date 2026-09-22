@@ -337,6 +337,22 @@ a {
   text-align: center;
 }
 
+/*
+ * The no-signal screen. Calmer than the error one on purpose: nothing has
+ * failed, and it should not look like it has.
+ */
+.boot--offline h1 {
+  color: var(--ink);
+}
+
+.boot__waiting {
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  color: var(--ink-soft, var(--ink));
+  font-size: 0.9rem;
+}
+
 .boot__detail {
   text-align: left;
   background: var(--surface-alt);

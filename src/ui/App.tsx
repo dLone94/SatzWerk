@@ -21,7 +21,8 @@ import { SyncBanner } from './components/SyncBanner.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
 
 export function App() {
-  const { ready, error, session, profile, reload, t, reviewItems, learners, studyingAs } = useApp();
+  const { ready, error, offline, sync, session, profile, reload, t, reviewItems, learners, studyingAs } =
+    useApp();
   const location = useLocation();
 
   if (!ready) {
@@ -49,6 +50,29 @@ export function App() {
   }
   if (session.required && !session.signedIn) {
     return <LoginPage />;
+  }
+
+  /*
+   * No signal, which is not a fault.
+   *
+   * The app itself is here — the service worker keeps it, so a train going
+   * underground no longer replaces SatzWerk with the browser's error page.
+   * What is missing is the progress, which lives in the database and is not
+   * guessed at: no streak, no counts, nothing invented to fill the screen.
+   * Only what is true, and what is waiting.
+   */
+  if (error && offline) {
+    const waiting = sync.pending + sync.other;
+    return (
+      <div className="boot boot--offline">
+        <h1>{t('offlineTitle')}</h1>
+        <p>{t('offlineBody')}</p>
+        {waiting > 0 ? <p className="boot__waiting">{t('offlineWaiting', { n: waiting })}</p> : null}
+        <button type="button" className="btn btn--primary" onClick={() => void reload()}>
+          {t('retry')}
+        </button>
+      </div>
+    );
   }
 
   if (error) {

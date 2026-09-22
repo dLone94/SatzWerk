@@ -703,6 +703,28 @@ export const UI = {
     'Could not reach the SatzWerk server. Is it running?',
     'Не може да се стигне до сървъра на SatzWerk. Работи ли?',
   ),
+  /*
+   * No signal is not a fault.
+   *
+   * Opened in a tunnel, the app used to show "Something went wrong" over a
+   * developer's question — "Is it running?" — about a server the learner has
+   * never thought about. Nothing has gone wrong when a train goes underground,
+   * and the app now says the true thing instead: it is here, it cannot reach
+   * the progress, and nothing typed will be lost.
+   */
+  offlineTitle: s('No connection', 'Няма връзка'),
+  offlineBody: s(
+    'SatzWerk is here, but it cannot reach your progress right now. It will load by itself as soon as there is a connection again.',
+    'SatzWerk е тук, но в момента не може да стигне до напредъка ти. Ще се зареди сам, щом има връзка.',
+  ),
+  offlineWaiting: s(
+    '{n} answers are waiting to be saved. They are kept and will be sent when there is a connection.',
+    '{n} отговора чакат да бъдат запазени. Пазят се и ще бъдат изпратени, щом има връзка.',
+  ),
+  offlineWaitingOne: s(
+    '{n} answer is waiting to be saved. It is kept and will be sent when there is a connection.',
+    '{n} отговор чака да бъде запазен. Пази се и ще бъде изпратен, щом има връзка.',
+  ),
   retry: s('Try again', 'Опитай пак'),
   cancel: s('Cancel', 'Отказ'),
   close: s('Close', 'Затвори'),
