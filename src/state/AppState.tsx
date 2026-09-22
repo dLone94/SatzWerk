@@ -48,6 +48,12 @@ import { createSpeechRecogniser, type SpeechRecogniser } from '../services/speec
 export interface AppStateValue {
   ready: boolean;
   error: string | null;
+  /**
+   * True when the load failed because the server could not be reached at all,
+   * rather than because it answered with a problem. A tunnel is not a fault,
+   * and the two deserve different screens.
+   */
+  offline: boolean;
   /** Whether this deployment needs a password, and whether we have one. */
   session: SessionState;
   signIn: (password: string) => Promise<void>;
@@ -205,6 +211,7 @@ const SYNC_RETRY_MS = 30_000;
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
   const [session, setSession] = useState<SessionState>({ required: false, signedIn: true });
   const [snapshot, setSnapshot] = useState<AppStateSnapshot | null>(null);
   const [coach, setCoach] = useState<CoachStatus | null>(null);
@@ -256,8 +263,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setLearners(household.learners);
       setStudyingAs(household.studyingAs);
       setError(null);
+      setOffline(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
+      // The same question the outbox asks about a write: was the server not
+      // there, or did it say no? Only the first is a tunnel.
+      setOffline(outbox.isUnreachable(cause));
     } finally {
       setReady(true);
     }
@@ -561,6 +572,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return {
       ready,
       error,
+      offline,
       session,
       signIn,
       choosePassword,
@@ -920,7 +932,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         });
       },
     };
-  }, [ready, error, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, sync, readSync, flushAnswers, refuse, learners, studyingAs, notice]);
+  }, [ready, error, offline, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, sync, readSync, flushAnswers, refuse, learners, studyingAs, notice]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }
