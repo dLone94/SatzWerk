@@ -511,6 +511,8 @@ export const UI = {
 
   // Vocabulary
   vocabTitle: s('Vocabulary', 'Речник'),
+  vocabFilters: s('Filters', 'Филтри'),
+  vocabShowMore: s('Show {n} more', 'Покажи още {n}'),
   vocabSearch: s('Search German, English or Bulgarian', 'Търси на немски, английски или български'),
   vocabAll: s('All words', 'Всички думи'),
   vocabLearning: s('Learning', 'Учи се'),

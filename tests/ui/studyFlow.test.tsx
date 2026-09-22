@@ -523,3 +523,75 @@ describe('the redesign', () => {
     }
   });
 });
+
+describe('no trace of the old design', () => {
+  it('shows the vocabulary fifty words at a time', async () => {
+    // All 654 words at once made a page 160,000 pixels tall on a phone.
+    const { VocabularyPage } = await import('../../src/ui/pages/VocabularyPage.tsx');
+    const user = userEvent.setup();
+    render(
+      <AppStateContext.Provider value={state()}>
+        <MemoryRouter>
+          <VocabularyPage />
+        </MemoryRouter>
+      </AppStateContext.Provider>,
+    );
+    expect(document.querySelectorAll('.word-row')).toHaveLength(50);
+    await user.click(screen.getByRole('button', { name: tr('vocabShowMore', 'en', { n: 50 }) }));
+    expect(document.querySelectorAll('.word-row')).toHaveLength(100);
+  });
+
+  it('sets the German in a teaching table as German, whichever column it is in', async () => {
+    const { Blocks } = await import('../../src/ui/components/bits.tsx');
+    render(
+      <AppStateContext.Provider value={state()}>
+        <Blocks
+          blocks={[
+            {
+              t: 'table',
+              headers: [
+                { en: 'When', bg: 'Кога' },
+                { en: 'Greeting', bg: 'Поздрав' },
+              ],
+              rows: [[{ en: 'until about 10', bg: 'до около 10' }, 'Guten Morgen']],
+            },
+          ]}
+        />
+      </AppStateContext.Provider>,
+    );
+    expect(screen.getByText('Guten Morgen').closest('td')).toHaveAttribute('lang', 'de');
+    expect(screen.getByText('until about 10').closest('td')).not.toHaveAttribute('lang');
+  });
+
+  it('draws the play buttons instead of using emoji', async () => {
+    const { AudioButton } = await import('../../src/ui/components/bits.tsx');
+    const tts = { ...nullTtsProvider, available: true };
+    render(
+      <AppStateContext.Provider value={state({ tts })}>
+        <AudioButton text="Guten Tag" />
+        <AudioButton text="Guten Tag" slow />
+      </AppStateContext.Provider>,
+    );
+    for (const button of screen.getAllByRole('button')) {
+      expect(button.querySelector('svg')).not.toBeNull();
+      expect(button.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
+    }
+  });
+
+  it('keeps the first-run question free of the tab bar', async () => {
+    const { App } = await import('../../src/ui/App.tsx');
+    render(
+      <AppStateContext.Provider
+        value={state({
+          profile: { teachingLanguage: 'en', dailyTargetMinutes: 20, displayName: null, onboarded: false, createdAt: '' },
+        })}
+      >
+        <MemoryRouter initialEntries={['/welcome']}>
+          <App />
+        </MemoryRouter>
+      </AppStateContext.Provider>,
+    );
+    expect(document.querySelector('nav.nav')).toHaveAttribute('hidden');
+    expect(document.querySelector('footer')).toBeNull();
+  });
+});

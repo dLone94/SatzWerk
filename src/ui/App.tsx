@@ -33,6 +33,9 @@ export function App() {
     // visibly working reads as working rather than as stuck.
     return (
       <div className="boot">
+        <span className="boot__mark" aria-hidden="true">
+          SW
+        </span>
         <p>{t('loading')}</p>
         <div className="boot__skeleton" aria-hidden="true">
           <span />
@@ -67,6 +70,9 @@ export function App() {
     const waiting = sync.pending + sync.other;
     return (
       <div className="boot boot--offline">
+        <span className="boot__icon" aria-hidden="true">
+          <Icon name="offline" size={30} />
+        </span>
         <h1>{t('offlineTitle')}</h1>
         <p>{t('offlineBody')}</p>
         {waiting > 0 ? <p className="boot__waiting">{t('offlineWaiting', { n: waiting })}</p> : null}
@@ -80,6 +86,9 @@ export function App() {
   if (error) {
     return (
       <div className="boot boot--error">
+        <span className="boot__icon boot__icon--bad" aria-hidden="true">
+          <Icon name="alert" size={30} />
+        </span>
         <h1>{t('errorTitle')}</h1>
         <p>{t('errorOffline')}</p>
         <pre className="boot__detail">{error}</pre>
@@ -124,7 +133,9 @@ export function App() {
         </div>
       </header>
 
-      <nav className="nav" aria-label={t('navCourse')}>
+      {/* The first-run question has the screen to itself: no tabs to wander
+          off into before the app knows which language to explain in. */}
+      <nav className="nav" aria-label={t('navCourse')} hidden={location.pathname === '/welcome'}>
         <NavItem to="/" label={t('navToday')} icon="today" />
         <NavItem to="/session" label={t('navSession')} icon="round" />
         <NavItem to="/course" label={t('navCourse')} icon="course" />
@@ -176,11 +187,6 @@ export function App() {
         </Routes>
       </main>
 
-      <footer className="footer">
-        <p>
-          SatzWerk {'·'} {t('tagline')}
-        </p>
-      </footer>
     </div>
   );
 }

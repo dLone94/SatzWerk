@@ -4,6 +4,7 @@ import type { TeachingLanguage } from '../../content/types.ts';
 import { contentStats, unauthoredLevels } from '../../content/index.ts';
 import { UI, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
+import { Icon } from '../components/icons.tsx';
 
 const TARGETS = [10, 20, 30];
 
@@ -84,7 +85,9 @@ export function OnboardingPage() {
             <span className="path-card__label">
               {code === 'en' ? UI.onboardingPathEn[code] : UI.onboardingPathBg[code]}
             </span>
-            <span className="path-card__german">{'→'} Deutsch</span>
+            <span className="path-card__german">
+              <Icon name="arrow" size={16} /> Deutsch
+            </span>
           </button>
         ))}
       </div>

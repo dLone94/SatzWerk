@@ -1187,7 +1187,7 @@ a {
   color: var(--ink-faint);
 }
 
-.data-table td:first-child {
+.data-table__de {
   font-family: var(--font-de);
 }
 
@@ -5599,4 +5599,1035 @@ a.trail-stop__link:active .trail-stop__dot {
 
 .voice-tip__title {
   font-weight: 700;
+}
+
+/* ==================================================================== *
+ * The redesign, everywhere else
+ *
+ * The screens not rebuilt one by one are brought onto the same look here:
+ * no stripes down the left of a box, no gradient washes, no bordered beige
+ * panels, no emoji for icons, no underlined links. Rows are soft rounded
+ * tiles, state is a dot or a pill, German is always the serif.
+ * ==================================================================== */
+
+/* ---------------- Shell ---------------- */
+
+.footer {
+  display: none;
+}
+
+.nav[hidden] {
+  display: none;
+}
+
+a {
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.btn:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.page__lede {
+  margin-top: -0.4rem;
+  color: var(--ink-soft);
+  font-size: 1.02rem;
+}
+
+.muted {
+  color: var(--ink-soft);
+}
+
+.mini-head {
+  margin: 0.6rem 0 0.45rem;
+  color: var(--ink-faint);
+  font-family: var(--font);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* "Course › Unit": a single way back, as a pill. */
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  color: var(--ink-faint);
+}
+
+.crumbs > * + *::before {
+  content: none;
+}
+
+.crumbs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 36px;
+  padding: 0 0.85rem 0 0.6rem;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.crumbs a::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  margin: 0 0.2rem 0 0.25rem;
+}
+
+/* ---------------- Surfaces ---------------- */
+
+.card--accent {
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+
+.card__subtitle {
+  color: var(--ink-soft);
+}
+
+.card__foot {
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+}
+
+/* Rows inside a card: soft tiles, no border, no stripe. */
+.queue__row,
+.session-parts__row,
+.mistake-list li,
+.mistake-list--full li,
+.requirements li,
+.concepts__row,
+.bands li,
+.collocations li,
+.learners li,
+.findings li,
+.speak__result {
+  border: 0;
+  border-left: 0;
+  border-radius: 16px;
+  background: var(--paper);
+}
+
+.queue__row,
+.session-parts__row {
+  position: relative;
+  padding: 0.75rem 0.9rem 0.75rem 1.9rem;
+}
+
+/* The state that used to be a coloured stripe is a dot. */
+.queue__row::before,
+.session-parts__row::before {
+  content: '';
+  position: absolute;
+  left: 0.85rem;
+  top: 1.15rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+.queue__row--lapsed::before,
+.session-parts__row--mistakes::before {
+  background: var(--bad);
+}
+
+.queue__row--learning::before {
+  background: var(--warn);
+}
+
+.queue__row--new::before,
+.session-parts__row--review::before {
+  background: var(--accent);
+}
+
+.queue__row--known::before,
+.session-parts__row--lesson::before {
+  background: var(--good);
+}
+
+.mistake-list li {
+  padding: 0.85rem 1rem;
+}
+
+.requirements li {
+  padding: 0.7rem 0.9rem;
+  font-size: 0.95rem;
+}
+
+.requirements li.is-done {
+  background: var(--good-soft);
+}
+
+.requirements__mark {
+  display: grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: transparent;
+  font-size: 0.75rem;
+}
+
+.requirements li.is-done .requirements__mark {
+  background: var(--good);
+  box-shadow: none;
+  color: #ffffff;
+}
+
+/* ---------------- Badges, pills, meters, stats ---------------- */
+
+.badge {
+  border: 0;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.pill-list li {
+  border: 0;
+  border-radius: 999px;
+  background: var(--paper);
+}
+
+.meter {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+}
+
+.meter__fill {
+  border-radius: 999px;
+}
+
+.stat {
+  border: 0;
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: none;
+}
+
+.stat__label {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.stat__value {
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+/* ---------------- Controls ---------------- */
+
+.btn--sm {
+  min-height: 40px;
+  border-radius: 12px;
+}
+
+.btn--ghost {
+  border: 0;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--paper);
+}
+
+.btn--quiet {
+  box-shadow: none;
+  background: transparent;
+}
+
+.btn--danger {
+  border: 0;
+  box-shadow: inset 0 0 0 1.5px var(--bad);
+}
+
+.audio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0 1rem 0 0.8rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+}
+
+.audio-btn--compact {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  justify-content: center;
+}
+
+.audio-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  color: var(--accent-ink);
+}
+
+.fav {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+
+.fav.is-on {
+  color: #e9a23b;
+}
+
+.chip,
+.chips button {
+  border: 0;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  background: var(--surface);
+  border-radius: 999px;
+}
+
+.chip.is-active,
+.chips .is-active {
+  background: var(--hero);
+  color: var(--on-hero);
+  box-shadow: none;
+}
+
+.main input[type='text'],
+.main input[type='password'],
+.main input[type='search'],
+.main input[type='number'],
+.main select,
+.main textarea,
+.login input,
+.onboarding input {
+  min-height: 48px;
+  padding: 0.6rem 0.9rem;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+
+.main input:focus,
+.main select:focus,
+.main textarea:focus,
+.login input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.main input.answer-field,
+.main textarea.answer-field {
+  min-height: 60px;
+  border-radius: 18px;
+  font-family: var(--font-de);
+}
+
+.section-nav .btn {
+  min-height: 52px;
+  border-radius: 16px;
+}
+
+@media (max-width: 46rem) {
+  /* On a phone the choices stack, full width, the main one first. */
+  .section-nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .section-nav .btn {
+    width: 100%;
+  }
+
+  .section-nav .btn--primary {
+    order: -1;
+  }
+}
+
+/* ---------------- Empty, boot, sign-in ---------------- */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 2rem 1.25rem;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.empty__icon {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 18px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.empty__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.empty__body {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.boot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 18vh auto 0;
+}
+
+.boot h1 {
+  font-size: 1.7rem;
+  font-weight: 800;
+}
+
+.boot p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.boot__mark,
+.login__logo {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 18px;
+  background: var(--hero);
+  color: var(--on-hero);
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.boot__icon {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink-soft);
+}
+
+.boot__icon--bad {
+  color: var(--bad);
+}
+
+.boot .btn {
+  margin-top: 0.6rem;
+  min-width: 12rem;
+  min-height: 52px;
+}
+
+.boot--login {
+  margin-top: 10vh;
+}
+
+.login {
+  border: 0;
+  border-radius: 28px;
+  box-shadow: var(--shadow-lift);
+}
+
+.login__title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.6rem;
+}
+
+.login__submit {
+  min-height: 52px;
+  border-radius: 16px;
+}
+
+/* ---------------- Lesson overview and teaching ---------------- */
+
+.player-header {
+  align-items: center;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.player-header__lesson {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+}
+
+.player-header__phase {
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.objective {
+  font-size: 1.15rem;
+  line-height: 1.5;
+}
+
+.outcomes__list li::marker {
+  color: var(--accent);
+}
+
+.callout {
+  border: 0;
+  border-radius: 18px;
+  padding: 1rem 1.1rem;
+  background: var(--paper);
+  font-size: 0.97rem;
+}
+
+.callout h4 {
+  font-family: var(--font);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.callout--tip {
+  background: var(--accent-soft);
+}
+
+.callout--warn {
+  background: var(--warn-soft);
+}
+
+.callout--compare {
+  background: var(--good-soft);
+}
+
+.data-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.97rem;
+}
+
+.data-table th,
+.data-table td {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 0.7rem 0.6rem;
+}
+
+.data-table th {
+  background: transparent;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.data-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.data-table__de {
+  font-size: 1.05rem;
+}
+
+.example,
+.contrast {
+  border: 0;
+  border-left: 0;
+  border-radius: 18px;
+  padding: 0.9rem 1rem;
+  background: var(--paper);
+}
+
+.example__de,
+.contrast__de,
+.breakdown__sentence {
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.breakdown {
+  border: 2px dashed var(--line);
+  border-radius: 18px;
+  opacity: 1;
+}
+
+.vocab-row {
+  border: 0;
+  border-radius: 16px;
+  background: var(--paper);
+}
+
+.vocab-row__de {
+  font-family: var(--font-de);
+  font-size: 1.1rem;
+}
+
+/* ---------------- Review, round, mistakes ---------------- */
+
+.queue__label,
+.mistake-list__main,
+.mistake-list__right,
+.concepts__title {
+  font-family: var(--font-de);
+}
+
+.grade-buttons .btn {
+  min-height: 56px;
+  border-radius: 16px;
+}
+
+.cat-bars li {
+  border: 0;
+}
+
+.cat-bars__label {
+  border: 0;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ---------------- Real life and the conversation ---------------- */
+
+.stages li {
+  padding: 0.75rem 0.9rem;
+  border-radius: 16px;
+  background: var(--paper);
+  align-items: center;
+}
+
+.stages__level {
+  display: inline-grid;
+  place-items: center;
+  min-height: 28px;
+  padding: 0 0.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--hero);
+  color: var(--on-hero);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.chat__bubble {
+  border: 0;
+  border-radius: 20px 20px 20px 6px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 0.8rem 1rem;
+}
+
+.chat__bubble--you {
+  border-radius: 20px 20px 6px 20px;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+
+.chat__de {
+  font-family: var(--font-de);
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.chat__note {
+  border-left: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.facts dt {
+  color: var(--ink-faint);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---------------- Coach and settings ---------------- */
+
+.findings li {
+  padding: 0.8rem 1rem;
+}
+
+.content-stats li {
+  border: 0;
+}
+
+.learners li {
+  padding: 0.6rem 0.8rem;
+}
+
+/* ---------------- Word page ---------------- */
+
+.word-head__de {
+  font-family: var(--font-de);
+  font-size: clamp(2.2rem, 1.8rem + 2vw, 3rem);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.word-head__gloss {
+  color: var(--ink-soft);
+  font-size: 1.1rem;
+}
+
+/* ---------------- Vocabulary ---------------- */
+
+.searchbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 56px;
+  padding: 0 1rem;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink-faint);
+}
+
+.searchbar:focus-within {
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.main .searchbar input {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 1.05rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  margin: 0 -1rem;
+  padding: 0.1rem 1rem;
+  border: 0;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs__tab {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 40px;
+  padding: 0 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.tabs__tab.is-active {
+  background: var(--hero);
+  box-shadow: none;
+  color: var(--on-hero);
+}
+
+.tabs__count {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.filters-panel {
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.filters-panel > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.filters-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.filters-panel__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.75rem;
+}
+
+.filters-panel .filters {
+  padding: 0 1rem 1rem;
+}
+
+.vocab__count {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+}
+
+.word-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.word-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.6rem 0.7rem 1rem;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.word-row__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.word-row__main:hover {
+  text-decoration: none;
+}
+
+.word-row__de {
+  font-family: var(--font-de);
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+
+.word-row__gloss {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.word-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  margin-top: 0.2rem;
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+}
+
+.word-row__plural {
+  font-family: var(--font-de);
+}
+
+.word-row__mistakes {
+  color: var(--bad);
+}
+
+.word-row__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.vocab__more {
+  align-self: center;
+}
+
+/* ---------------- More ---------------- */
+
+.more__link {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.9rem 1rem;
+  border: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  text-decoration: none;
+}
+
+.more__link:hover {
+  text-decoration: none;
+}
+
+.more__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.more__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.more__chevron {
+  flex: none;
+  color: var(--ink-faint);
+}
+
+/* ---------------- Onboarding ---------------- */
+
+.path-card {
+  border: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.path-card[aria-pressed='true'],
+.path-card.is-active {
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+  background: var(--accent-soft);
+}
+
+.path-card__german {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-de);
+  color: var(--accent-ink);
+}
+
+/* ---------------- The sync note ---------------- */
+
+.sync {
+  border: 0;
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+/* The logo is a paragraph inside the boot screen; keep its own colour. */
+.boot .login__logo {
+  align-self: flex-start;
+  color: var(--on-hero);
+}
+
+.onboarding__target {
+  border: 0;
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.1rem 1.1rem;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+/* Floated, the legend sits inside the box instead of on its edge; what
+   follows clears it. */
+.onboarding__target legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 0.7rem;
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.btn--sm {
+  white-space: nowrap;
+}
+
+/* A focused primary button keeps one quiet ring, not two thick ones. */
+.btn--primary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 3px;
+}
+
+.onboarding__target > legend + * {
+  clear: both;
+}
+
+.linklike {
+  color: var(--accent-ink);
+  font-weight: 600;
+  text-decoration: none;
 }

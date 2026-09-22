@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { UiKey } from '../../i18n.ts';
+import { Icon, type IconName } from '../components/icons.tsx';
 import { useApp } from '../../state/AppState.tsx';
 
 /**
@@ -11,12 +12,12 @@ import { useApp } from '../../state/AppState.tsx';
  * 430 points: the last four were never visible. A phone now gets four tabs and
  * this page; a wide screen still gets every tab, because there they fit.
  */
-const ENTRIES: Array<{ to: string; label: UiKey; note: UiKey }> = [
-  { to: '/vocabulary', label: 'navVocabulary', note: 'moreVocabulary' },
-  { to: '/mistakes', label: 'navMistakes', note: 'moreMistakes' },
-  { to: '/real-life', label: 'navRealLife', note: 'moreRealLife' },
-  { to: '/coach', label: 'navCoach', note: 'moreCoach' },
-  { to: '/settings', label: 'navSettings', note: 'moreSettings' },
+const ENTRIES: Array<{ to: string; label: UiKey; note: UiKey; icon: IconName }> = [
+  { to: '/vocabulary', icon: 'book', label: 'navVocabulary', note: 'moreVocabulary' },
+  { to: '/mistakes', icon: 'target', label: 'navMistakes', note: 'moreMistakes' },
+  { to: '/real-life', icon: 'chat', label: 'navRealLife', note: 'moreRealLife' },
+  { to: '/coach', icon: 'pen', label: 'navCoach', note: 'moreCoach' },
+  { to: '/settings', icon: 'gear', label: 'navSettings', note: 'moreSettings' },
 ];
 
 /** The routes the More tab stands for, so it can show as the current one. */
@@ -31,8 +32,14 @@ export function MorePage() {
         {ENTRIES.map((entry) => (
           <li key={entry.to}>
             <Link className="more__link" to={entry.to}>
-              <span className="more__label">{t(entry.label)}</span>
-              <span className="more__note">{t(entry.note)}</span>
+              <span className="more__icon">
+                <Icon name={entry.icon} />
+              </span>
+              <span className="more__text">
+                <span className="more__label">{t(entry.label)}</span>
+                <span className="more__note">{t(entry.note)}</span>
+              </span>
+              <Icon name="chevron" size={20} className="more__chevron" />
             </Link>
           </li>
         ))}

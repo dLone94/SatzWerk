@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CURRICULUM, VOCABULARY, allUnits } from '../../content/index.ts';
 import type { Gender, WordType } from '../../content/types.ts';
 import { UI, WORD_TYPE_LABELS } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { AudioButton, Card, EmptyState } from '../components/bits.tsx';
+import { Icon } from '../components/icons.tsx';
+import { AudioButton, EmptyState } from '../components/bits.tsx';
 import { buildVocabViews, type VocabView } from '../selectors.ts';
 
 type Tab = 'all' | 'learning' | 'known' | 'due' | 'favorites' | 'mistakes' | 'new';
@@ -69,9 +70,28 @@ export function VocabularyPage() {
     });
   }, [views, tab, query, level, unit, topic, wordType, gender]);
 
+  // All 654 words at once made a page 160,000 pixels tall on a phone. They
+  // come in pages now, and any change of search or filter starts again at the
+  // top of the new list.
+  const [shown, setShown] = useState(PAGE);
+  useEffect(() => setShown(PAGE), [tab, query, level, unit, topic, wordType, gender]);
+  const visible = filtered.slice(0, shown);
+  const activeFilters = [level, unit, topic, wordType, gender].filter(Boolean).length;
+
   return (
-    <div className="page">
+    <div className="page vocab">
       <h1 className="page__title">{t('vocabTitle')}</h1>
+
+      <label className="searchbar">
+        <Icon name="search" size={20} />
+        <span className="visually-hidden">{t('vocabSearch')}</span>
+        <input
+          type="search"
+          value={query}
+          placeholder={t('vocabSearch')}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </label>
 
       <div className="tabs" role="tablist">
         {TABS.map((entry) => (
@@ -89,18 +109,12 @@ export function VocabularyPage() {
         ))}
       </div>
 
-      <Card>
+      <details className="filters-panel">
+        <summary>
+          {t('vocabFilters')}
+          {activeFilters > 0 ? <span className="filters-panel__count">{activeFilters}</span> : null}
+        </summary>
         <div className="filters">
-          <label className="filters__search">
-            <span className="visually-hidden">{t('vocabSearch')}</span>
-            <input
-              type="search"
-              value={query}
-              placeholder={t('vocabSearch')}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
-
           <Select label={t('vocabFilterLevel')} value={level} onChange={setLevel}>
             {CURRICULUM.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
@@ -141,19 +155,38 @@ export function VocabularyPage() {
             ))}
           </Select>
         </div>
+      </details>
 
-        <p className="card__foot">{t('vocabCount', { n: filtered.length })}</p>
+      <p className="vocab__count">{t('vocabCount', { n: filtered.length })}</p>
 
-        {filtered.length === 0 ? (
-          <EmptyState title={t('vocabEmpty')} />
-        ) : (
-          <ul className="vocab-grid">
-            {filtered.map((view) => (
-              <li key={view.entry.id} className={`vocab-card vocab-card--${view.state}`}>
-                <div className="vocab-card__top">
-                  <Link to={`/vocabulary/${view.entry.id}`} className="vocab-card__de" lang="de">
+      {filtered.length === 0 ? (
+        <EmptyState title={t('vocabEmpty')} />
+      ) : (
+        <>
+          <ul className="word-list">
+            {visible.map((view) => (
+              <li key={view.entry.id} className={`word-row word-row--${view.state}`}>
+                <Link to={`/vocabulary/${view.entry.id}`} className="word-row__main">
+                  <span className="word-row__de" lang="de">
                     {view.entry.display}
-                  </Link>
+                  </span>
+                  <span className="word-row__gloss">{say(view.entry.translation)}</span>
+                  <span className="word-row__meta">
+                    <span className={`state-dot state-dot--${view.state}`} aria-hidden="true" />
+                    <span>{stateLabel(view.state, lang)}</span>
+                    {view.entry.plural ? (
+                      <span lang="de" className="word-row__plural">
+                        {view.entry.plural}
+                      </span>
+                    ) : null}
+                    {view.mistakes > 0 ? (
+                      <span className="word-row__mistakes">
+                        {UI.mistakesOccurrences[lang].replace('{n}', String(view.mistakes))}
+                      </span>
+                    ) : null}
+                  </span>
+                </Link>
+                <div className="word-row__actions">
                   <AudioButton text={view.entry.display} compact />
                   <button
                     type="button"
@@ -162,32 +195,25 @@ export function VocabularyPage() {
                     aria-pressed={view.favorite}
                     onClick={() => void toggleFavorite(view.entry.id)}
                   >
-                    {view.favorite ? '★' : '☆'}
+                    <Icon name={view.favorite ? 'starFilled' : 'star'} />
                   </button>
-                </div>
-                <p className="vocab-card__gloss">{say(view.entry.translation)}</p>
-                <div className="vocab-card__tags">
-                  <span className={`state-dot state-dot--${view.state}`} aria-hidden="true" />
-                  <span>{stateLabel(view.state, lang)}</span>
-                  {view.entry.plural ? (
-                    <span lang="de" className="vocab-card__plural">
-                      {view.entry.plural}
-                    </span>
-                  ) : null}
-                  {view.mistakes > 0 ? (
-                    <span className="vocab-card__mistakes">
-                      {UI.mistakesOccurrences[lang].replace('{n}', String(view.mistakes))}
-                    </span>
-                  ) : null}
                 </div>
               </li>
             ))}
           </ul>
-        )}
-      </Card>
+          {filtered.length > shown ? (
+            <button type="button" className="btn btn--ghost btn--lg vocab__more" onClick={() => setShown((n) => n + PAGE)}>
+              {t('vocabShowMore', { n: Math.min(PAGE, filtered.length - shown) })}
+            </button>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
+
+/** How many words a page shows before "show more". */
+const PAGE = 50;
 
 function Select({
   label,
