@@ -185,6 +185,10 @@ export function ExercisePlayer({
   const total = playables.length;
   const presentation = presentationFor(support.support);
 
+  // While a question is on screen the phone's tab bar steps aside, so the
+  // question has the whole height and a stray tap cannot leave the lesson.
+  useEffect(() => focusMode(), []);
+
   // Pre-open the hints the adaptive support level unlocks, and seed the input
   // with a partial-recall cue ("Ich w___ in Hamburg." starts the learner at "w").
   useEffect(() => {
@@ -570,9 +574,22 @@ export function ExercisePlayer({
         ) : (
           <div className="player__progress">
             <span className="player__count">{t('exerciseProgress', { done: cursor + 1, total })}</span>
-            <div className="player__bar">
-              <span style={{ width: `${(cursor / total) * 100}%` }} />
-            </div>
+            {total <= MAX_SEGMENTS ? (
+              // One segment per question: how far you are, and how far to go,
+              // without reading a number.
+              <div className="player__segments" aria-hidden="true">
+                {Array.from({ length: total }, (_, index) => (
+                  <span
+                    key={index}
+                    className={index < cursor ? 'is-done' : index === cursor ? 'is-current' : undefined}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="player__bar">
+                <span style={{ width: `${(cursor / total) * 100}%` }} />
+              </div>
+            )}
           </div>
         )}
         {onExit ? (
@@ -970,6 +987,25 @@ export function ExercisePlayer({
     setFeedback(message);
     setPhase('feedback');
   }
+}
+
+/** Beyond this many questions a segment is too thin to read; a bar takes over. */
+const MAX_SEGMENTS = 24;
+
+/*
+ * How many players are on screen. A scenario swaps one for the next between
+ * turns, and counting rather than toggling keeps the tab bar from flashing
+ * back for the frame in between.
+ */
+let playersOnScreen = 0;
+
+function focusMode(): () => void {
+  playersOnScreen += 1;
+  document.documentElement.classList.add('is-playing');
+  return () => {
+    playersOnScreen -= 1;
+    if (playersOnScreen === 0) document.documentElement.classList.remove('is-playing');
+  };
 }
 
 /**

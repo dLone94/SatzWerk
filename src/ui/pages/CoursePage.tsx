@@ -1,21 +1,32 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { CURRICULUM, LEVEL_OUTLINES } from '../../content/index.ts';
 import type { CefrLevel, Level, Unit } from '../../content/types.ts';
-import { isLessonComplete, lessonRequirements } from '../../core/progress/lesson.ts';
+import { isLessonComplete } from '../../core/progress/lesson.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { Card, Meter, StatusBadge } from '../components/bits.tsx';
+import { Meter, StatusBadge } from '../components/bits.tsx';
+import { Icon } from '../components/icons.tsx';
+import { buildLessonViews } from '../selectors.ts';
 
 /**
- * The level map.
+ * The course, as a path.
  *
- * The important property here is honesty: an authored lesson is a link, and a
- * planned one is plainly labelled as an outline with nothing to click.
+ * One level at a time: all five levels on one page came to 35,000 pixels of
+ * scrolling on a phone. Each unit is a winding line of stops, the one you are
+ * on is the one that stands out, and a planned lesson is plainly an outline
+ * with nothing to click, as it always was.
  */
 export function CoursePage() {
-  const { t } = useApp();
+  const { t, lessons } = useApp();
+  const [params, setParams] = useSearchParams();
+
+  // Where you are: the first lesson not finished. Its level opens by default.
+  const views = buildLessonViews(lessons);
+  const current = views.find((view) => !view.complete)?.lesson;
+  const chosen = CURRICULUM.find((level) => level.id === params.get('level'));
+  const level = chosen ?? CURRICULUM.find((entry) => entry.id === current?.level) ?? CURRICULUM[0]!;
 
   return (
-    <div className="page">
+    <div className="page course">
       <h1 className="page__title">{t('courseTitle')}</h1>
       <p className="page__lede">
         {t('courseSubtitle')}{' '}
@@ -24,30 +35,42 @@ export function CoursePage() {
         </Link>
       </p>
 
-      {CURRICULUM.map((level) => (
-        <LevelCard key={level.id} level={level} />
-      ))}
+      <nav className="levels" aria-label={t('courseTitle')}>
+        {CURRICULUM.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            className={`levels__item${entry.id === level.id ? ' is-active' : ''}`}
+            aria-pressed={entry.id === level.id}
+            onClick={() => setParams({ level: entry.id }, { replace: true })}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </nav>
+
+      <LevelPath level={level} currentLessonId={current?.id} />
     </div>
   );
 }
 
-function LevelCard({ level }: { level: Level }) {
+function LevelPath({ level, currentLessonId }: { level: Level; currentLessonId?: string }) {
   const { t, say, lessons } = useApp();
   const authored = level.units.flatMap((unit) => unit.lessons).filter((lesson) => lesson.status === 'available');
   const complete = authored.filter((lesson) => isLessonComplete(lesson, lessons[lesson.id] ?? empty(lesson.id)));
   const outline = LEVEL_OUTLINES[level.id as Exclude<CefrLevel, 'c1' | 'c2'>];
 
   return (
-    <Card
-      title={
-        <span className="level-title">
-          <span className="level-title__label">{level.label}</span>
+    <section className="level" aria-labelledby={`level-${level.id}`}>
+      <header className="level__head">
+        <h2 className="level__title" id={`level-${level.id}`}>
+          <span className="level__label">{level.label}</span>
           <span>{say(level.title)}</span>
-        </span>
-      }
-      subtitle={say(level.description)}
-      actions={<StatusBadge status={level.status} />}
-    >
+        </h2>
+        {level.status !== 'available' ? <StatusBadge status={level.status} /> : null}
+      </header>
+      <p className="level__desc">{say(level.description)}</p>
+
       {authored.length > 0 ? (
         <div className="level-progress">
           <Meter value={complete.length} max={authored.length} label={level.label} />
@@ -67,23 +90,24 @@ function LevelCard({ level }: { level: Level }) {
       </details>
 
       {level.units.map((unit) => (
-        <UnitBlock key={unit.id} unit={unit} />
+        <UnitPath key={unit.id} unit={unit} currentLessonId={currentLessonId} />
       ))}
 
       {level.checkpoint ? (
-        <div className="checkpoint-row checkpoint-row--level">
-          <div>
-            <p className="checkpoint-row__title">{say(level.checkpoint.title)}</p>
-            <p className="checkpoint-row__desc">{say(level.checkpoint.description)}</p>
-          </div>
-          <Link className="btn btn--primary" to={`/checkpoint/${level.checkpoint.id}`}>
-            {t('levelCheckpoint')}
-          </Link>
-        </div>
+        <Link className="level-gate" to={`/checkpoint/${level.checkpoint.id}`}>
+          <span className="level-gate__icon">
+            <Icon name="check" />
+          </span>
+          <span className="level-gate__text">
+            <span className="level-gate__title">{t('levelCheckpoint')}</span>
+            <span className="level-gate__desc">{say(level.checkpoint.description)}</span>
+          </span>
+          <Icon name="arrow" size={20} />
+        </Link>
       ) : null}
 
       {level.units.length === 0 ? (
-        <>
+        <div className="card">
           <p className="planned-notice">{t('plannedNotice')}</p>
           <div className="grid grid--2">
             <div>
@@ -113,15 +137,13 @@ function LevelCard({ level }: { level: Level }) {
               </ol>
             </>
           ) : null}
-        </>
+        </div>
       ) : null}
 
       {/*
         A level that is partly authored still owes the learner the rest of the
-        picture. Before this, a level showed what is planned only while it was
-        completely empty — so the moment its first unit landed, the five units
-        that do not exist yet silently disappeared from the page, which reads as
-        a finished level.
+        picture: the units that do not exist yet stay listed, so a partly
+        written level never reads as a finished one.
       */}
       {level.units.length > 0 && (outline?.plannedUnits.length ?? 0) > 0 ? (
         <div className="planned-rest">
@@ -133,72 +155,150 @@ function LevelCard({ level }: { level: Level }) {
           </ol>
         </div>
       ) : null}
-    </Card>
+    </section>
   );
 }
 
-function UnitBlock({ unit }: { unit: Unit }) {
+/** How far each stop leans right, in turn: the line winds instead of dropping. */
+const SWAY = [0, 40, 80, 40];
+const ROW = 92;
+const NODE_X = 30;
+
+type Stop =
+  | { kind: 'lesson'; id: string; state: 'done' | 'now' | 'started' | 'todo' | 'planned' }
+  | { kind: 'checkpoint'; id: string };
+
+function UnitPath({ unit, currentLessonId }: { unit: Unit; currentLessonId?: string }) {
   const { t, say, lessons } = useApp();
 
+  const stops: Stop[] = unit.lessons.map((lesson) => {
+    if (lesson.status !== 'available') return { kind: 'lesson', id: lesson.id, state: 'planned' };
+    const progress = lessons[lesson.id] ?? empty(lesson.id);
+    const started = progress.sectionsSeen.length > 0 || Object.keys(progress.practice).length > 0;
+    const state = isLessonComplete(lesson, progress)
+      ? 'done'
+      : lesson.id === currentLessonId
+        ? 'now'
+        : started
+          ? 'started'
+          : 'todo';
+    return { kind: 'lesson', id: lesson.id, state };
+  });
+  if (unit.checkpoint) stops.push({ kind: 'checkpoint', id: unit.checkpoint.id });
+
+  const done = stops.filter((stop) => stop.kind === 'lesson' && stop.state === 'done').length;
+  const lessonCount = unit.lessons.length;
+  const points = stops.map((_, index) => ({ x: NODE_X + SWAY[index % SWAY.length]!, y: index * ROW + ROW / 2 }));
+  const line = points
+    .map((point, index) => {
+      if (index === 0) return `M ${point.x} ${point.y}`;
+      const prev = points[index - 1]!;
+      const mid = (prev.y + point.y) / 2;
+      return `C ${prev.x} ${mid}, ${point.x} ${mid}, ${point.x} ${point.y}`;
+    })
+    .join(' ');
+
   return (
-    <div className="unit">
-      <header className="unit__head">
-        <h3 className="unit__title">
-          {unit.order}. {say(unit.title)}
+    <section className="unit-path" aria-labelledby={`unit-${unit.id}`}>
+      <header className="unit-path__banner">
+        <h3 className="unit-path__title" id={`unit-${unit.id}`}>
+          <span className="unit-path__n">{unit.order}</span>
+          {say(unit.title)}
         </h3>
-        <StatusBadge status={unit.status} />
+        {unit.status === 'available' ? (
+          <span className="unit-path__count">
+            {done} / {lessonCount}
+          </span>
+        ) : (
+          <StatusBadge status={unit.status} />
+        )}
       </header>
-      <p className="unit__summary">{say(unit.summary)}</p>
+      <p className="unit-path__summary">{say(unit.summary)}</p>
 
-      <ol className="lesson-list">
-        {unit.lessons.map((lesson) => {
-          const progress = lessons[lesson.id] ?? empty(lesson.id);
-          const requirements = lessonRequirements(lesson, progress);
-          const done = requirements.filter((requirement) => requirement.satisfied).length;
-          const complete = isLessonComplete(lesson, progress);
-          const started = progress.sectionsSeen.length > 0 || Object.keys(progress.practice).length > 0;
-
-          if (lesson.status !== 'available') {
+      <div className="unit-path__trail" style={{ height: stops.length * ROW }}>
+        <svg
+          className="unit-path__line"
+          width={NODE_X * 2 + Math.max(...SWAY)}
+          height={stops.length * ROW}
+          aria-hidden="true"
+        >
+          <path d={line} />
+        </svg>
+        <ol className="unit-path__stops">
+          {stops.map((stop, index) => {
+            const style = { top: points[index]!.y, left: points[index]!.x };
+            if (stop.kind === 'checkpoint') {
+              return (
+                <li key={stop.id} className="trail-stop trail-stop--gate" style={style}>
+                  <Link to={`/checkpoint/${stop.id}`} className="trail-stop__link">
+                    <span className="trail-stop__dot">
+                      <Icon name="check" size={20} />
+                    </span>
+                    <span className="trail-stop__label">
+                      <span className="trail-stop__title">{say(unit.checkpoint!.title)}</span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            }
+            const lesson = unit.lessons[index]!;
+            // Named by its title alone; the time and state are its description,
+            // so a screen reader says "Introducing yourself" and then the rest.
+            const label = (
+              <span className="trail-stop__label">
+                <span className="trail-stop__title" id={`${lesson.id}-title`}>
+                  {say(lesson.title)}
+                </span>
+                <span className="trail-stop__meta" id={`${lesson.id}-meta`}>
+                  {stop.state === 'planned'
+                    ? t('statusPlanned')
+                    : `${t('lessonMinutes', { n: lesson.estimatedMinutes })}${
+                        stop.state === 'done'
+                          ? ` · ${t('lessonCompleted')}`
+                          : stop.state === 'started' || stop.state === 'now'
+                            ? ` · ${t('statusPartial')}`
+                            : ''
+                      }`}
+                </span>
+              </span>
+            );
+            const dot = (
+              <span className="trail-stop__dot">
+                {stop.state === 'done' ? (
+                  <Icon name="check" size={20} />
+                ) : stop.state === 'now' ? (
+                  <Icon name="play" size={20} />
+                ) : stop.state === 'planned' ? (
+                  <Icon name="lock" size={18} />
+                ) : (
+                  index + 1
+                )}
+              </span>
+            );
             return (
-              <li key={lesson.id} className="lesson-row lesson-row--planned">
-                <span className="lesson-row__title">{say(lesson.title)}</span>
-                <StatusBadge status={lesson.status} />
+              <li key={stop.id} className={`trail-stop trail-stop--${stop.state}`} style={style}>
+                {stop.state === 'planned' ? (
+                  <span className="trail-stop__link">
+                    {dot}
+                    {label}
+                  </span>
+                ) : (
+                  <Link
+                    to={`/lesson/${lesson.id}`}
+                    className="trail-stop__link"
+                    aria-labelledby={`${lesson.id}-title`}
+                    aria-describedby={`${lesson.id}-meta`}
+                    aria-current={stop.state === 'now' ? 'step' : undefined}
+                  >
+                    {dot}
+                    {label}
+                  </Link>
+                )}
               </li>
             );
-          }
-
-          return (
-            <li key={lesson.id} className={`lesson-row${complete ? ' is-complete' : ''}`}>
-              <Link to={`/lesson/${lesson.id}`} className="lesson-row__title">
-                {say(lesson.title)}
-              </Link>
-              <span className="lesson-row__meta">
-                <span className="lesson-row__time">{t('lessonMinutes', { n: lesson.estimatedMinutes })}</span>
-                <span className="lesson-row__req">
-                  {done} / {requirements.length}
-                </span>
-                {complete ? (
-                  <span className="badge badge--available">{t('lessonCompleted')}</span>
-                ) : started ? (
-                  <span className="badge badge--partial">{t('statusPartial')}</span>
-                ) : null}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-
-      {unit.checkpoint ? (
-        <div className="checkpoint-row">
-          <div>
-            <p className="checkpoint-row__title">{say(unit.checkpoint.title)}</p>
-            <p className="checkpoint-row__desc">{say(unit.checkpoint.description)}</p>
-          </div>
-          <Link className="btn btn--ghost" to={`/checkpoint/${unit.checkpoint.id}`}>
-            {t('unitCheckpoint')}
-          </Link>
-        </div>
-      ) : null}
+          })}
+        </ol>
+      </div>
 
       {unit.plannedLessons && unit.plannedLessons.length > 0 ? (
         <ul className="pill-list pill-list--muted">
@@ -207,7 +307,7 @@ function UnitBlock({ unit }: { unit: Unit }) {
           ))}
         </ul>
       ) : null}
-    </div>
+    </section>
   );
 }
 
