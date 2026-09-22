@@ -23,10 +23,14 @@ export function WordPage() {
   if (!entry || !view) {
     return (
       <div className="page">
-        <p>{t('errorTitle')}</p>
-        <Link className="btn btn--ghost" to="/vocabulary">
-          {t('navVocabulary')}
-        </Link>
+        <EmptyState
+          title={t('wordMissing')}
+          action={
+            <Link className="btn btn--primary" to="/vocabulary">
+              {t('navVocabulary')}
+            </Link>
+          }
+        />
       </div>
     );
   }

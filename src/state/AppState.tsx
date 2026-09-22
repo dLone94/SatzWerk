@@ -310,13 +310,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // measured rather than guessed.
   useEffect(() => {
     let last = Date.now();
-    const tick = window.setInterval(() => {
+    let visible = document.visibilityState === 'visible';
+    /** Credit the time since the last look, if the app was on screen for it. */
+    const accrue = () => {
       const now = Date.now();
-      if (document.visibilityState === 'visible') {
-        pendingSeconds.current += Math.min(STUDY_FLUSH_MS, now - last) / 1000;
-      }
+      if (visible) pendingSeconds.current += Math.min(STUDY_FLUSH_MS, now - last) / 1000;
       last = now;
-    }, 5_000);
+      visible = document.visibilityState === 'visible';
+    };
+    const tick = window.setInterval(accrue, 5_000);
 
     const flush = window.setInterval(() => {
       const seconds = Math.round(pendingSeconds.current);
@@ -339,9 +341,36 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         });
     }, STUDY_FLUSH_MS);
 
+    // Closing the app, or switching away from it, used to throw away whatever
+    // had not been flushed yet: up to a minute a visit. It goes into the
+    // outbox instead, which sends it with everything else.
+    const keep = () => {
+      const seconds = Math.round(pendingSeconds.current);
+      if (seconds < 1) return;
+      pendingSeconds.current = 0;
+      outbox.enqueue({
+        kind: 'studyTime',
+        seconds,
+        at: new Date().toISOString(),
+        tzOffsetMinutes: -new Date().getTimezoneOffset(),
+      });
+    };
+    const onVisibility = () => {
+      accrue();
+      if (!visible) keep();
+    };
+    const onPageHide = () => {
+      accrue();
+      keep();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', onPageHide);
+
     return () => {
       window.clearInterval(tick);
       window.clearInterval(flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', onPageHide);
     };
   }, []);
 
@@ -456,12 +485,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
     const onOnline = () => void flushAnswers();
     window.addEventListener('online', onOnline);
+    // Coming back to the app sends what was kept when it was put away.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && outbox.queuedCount() > 0) void flushAnswers();
+    };
+    document.addEventListener('visibilitychange', onVisible);
     const timer = window.setInterval(() => {
       if (outbox.queuedCount() > 0) void flushAnswers();
     }, SYNC_RETRY_MS);
 
     return () => {
       window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisible);
       window.clearInterval(timer);
     };
   }, [loaded, flushAnswers, readSync]);

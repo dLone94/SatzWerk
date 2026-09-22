@@ -17,6 +17,7 @@ import { SettingsPage } from './pages/SettingsPage.tsx';
 import { SetupPage } from './pages/SetupPage.tsx';
 import { VocabularyPage } from './pages/VocabularyPage.tsx';
 import { WordPage } from './pages/WordPage.tsx';
+import { MorePage, MORE_ROUTES } from './pages/MorePage.tsx';
 import { SyncBanner } from './components/SyncBanner.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
 
@@ -127,11 +128,24 @@ export function App() {
         <NavItem to="/session" label={t('navSession')} />
         <NavItem to="/course" label={t('navCourse')} />
         <NavItem to="/review" label={t('navReview')} badge={dueCount > 0 ? dueCount : undefined} />
-        <NavItem to="/vocabulary" label={t('navVocabulary')} />
-        <NavItem to="/mistakes" label={t('navMistakes')} />
-        <NavItem to="/real-life" label={t('navRealLife')} />
-        <NavItem to="/coach" label={t('navCoach')} />
-        <NavItem to="/settings" label={t('navSettings')} />
+        {/* Wide screens: all of them. A phone hides these and shows More. */}
+        <NavItem to="/vocabulary" label={t('navVocabulary')} secondary />
+        <NavItem to="/mistakes" label={t('navMistakes')} secondary />
+        <NavItem to="/real-life" label={t('navRealLife')} secondary />
+        <NavItem to="/coach" label={t('navCoach')} secondary />
+        <NavItem to="/settings" label={t('navSettings')} secondary />
+        <NavLink
+          to="/more"
+          className={() =>
+            `nav__item nav__item--more${
+              MORE_ROUTES.some((route) => location.pathname === route || location.pathname.startsWith(`${route}/`))
+                ? ' is-active'
+                : ''
+            }`
+          }
+        >
+          {t('navMore')}
+        </NavLink>
       </nav>
 
       <SyncBanner />
@@ -153,6 +167,7 @@ export function App() {
           <Route path="/scenario/:scriptId" element={<ScenarioPage />} />
           <Route path="/coach" element={<CoachPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/more" element={<MorePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -166,9 +181,26 @@ export function App() {
   );
 }
 
-function NavItem({ to, label, badge }: { to: string; label: string; badge?: number }) {
+function NavItem({
+  to,
+  label,
+  badge,
+  secondary = false,
+}: {
+  to: string;
+  label: string;
+  badge?: number;
+  /** Folded into More on a phone. */
+  secondary?: boolean;
+}) {
   return (
-    <NavLink to={to} end={to === '/'} className={({ isActive }) => `nav__item${isActive ? ' is-active' : ''}`}>
+    <NavLink
+      to={to}
+      end={to === '/'}
+      className={({ isActive }) =>
+        `nav__item${secondary ? ' nav__item--secondary' : ''}${isActive ? ' is-active' : ''}`
+      }
+    >
       {label}
       {badge ? <span className="nav__badge">{badge}</span> : null}
     </NavLink>

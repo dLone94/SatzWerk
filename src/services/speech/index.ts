@@ -89,10 +89,3 @@ const unavailableScorer: PronunciationScorer = {
 export function createSpeechServices(): SpeechServices {
   return { recorder: unavailableRecorder, stt: unavailableStt, scorer: unavailableScorer };
 }
-
-export const SPEECH_ROADMAP = {
-  recording: 'planned',
-  speechToText: 'planned',
-  pronunciationScoring: 'planned',
-  conversation: 'planned',
-} as const;

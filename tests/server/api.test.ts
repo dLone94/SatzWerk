@@ -722,6 +722,16 @@ describe('numbers a client could plausibly get wrong', () => {
     expect((await store.getStats(scopeOf(db))).totalAnswers).toBe(1);
   });
 
+  it('does not count answer time on top of the time the app measured', async () => {
+    // The app sends time on screen to /api/study. Each answer also added its
+    // own duration, so a minute spent answering was counted as two.
+    await call('POST', '/api/study', { seconds: 60 });
+    await call('POST', '/api/attempts', { ...wrongAttempt, stepId: 'a', durationMs: 60_000 });
+    const stats = await store.getStats(scopeOf(db));
+    expect(stats.totalAnswers).toBe(1);
+    expect(stats.totalStudySeconds).toBe(60);
+  });
+
   it('never lets time studied run backwards', async () => {
     // A negative duration used to be passed straight through, and subtracted
     // from the minutes the learner had actually earned that day.

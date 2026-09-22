@@ -9,7 +9,7 @@ import {
   recoveryStepIds,
 } from '../../core/progress/lesson.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { Blocks, Card, Meter, ScoreRing, VocabRow } from '../components/bits.tsx';
+import { Blocks, Card, EmptyState, Meter, ScoreRing, VocabRow } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 
 type Stage = 'overview' | 'sections' | 'practice' | 'recovery' | 'mastery' | 'done';
@@ -80,10 +80,14 @@ export function LessonPage() {
   if (!lesson) {
     return (
       <div className="page">
-        <p>{t('errorTitle')}</p>
-        <Link className="btn btn--ghost" to="/course">
-          {t('navCourse')}
-        </Link>
+        <EmptyState
+          title={t('lessonMissing')}
+          action={
+            <Link className="btn btn--primary" to="/course">
+              {t('navCourse')}
+            </Link>
+          }
+        />
       </div>
     );
   }
@@ -209,11 +213,6 @@ export function LessonPage() {
         <Card
           title={masteryPassed ? t('lessonMasteryPassed') : t('lessonMastery')}
           tone="accent"
-          subtitle={
-            lastSummary
-              ? t('exerciseScore', { correct: lastSummary.firstTryCorrect, total: lastSummary.total })
-              : undefined
-          }
         >
           {lastSummary ? (
             <ScoreRing
@@ -246,9 +245,23 @@ export function LessonPage() {
                 {t('navToday')}
               </Link>
             ) : (
-              <button type="button" className="btn btn--primary" onClick={() => setStage('sections')}>
-                {t('lessonReplay')}
-              </button>
+              <>
+                {/*
+                  * Two ways back, not one. Going over the material is still
+                  * the suggestion, so it stays primary — but it used to be
+                  * the only door, and it led through every teaching section
+                  * and all the exercises again to reach a five-question
+                  * check. Somebody who scored three of five and knows which
+                  * two they fumbled can now simply try again; the overview
+                  * already offered this, the screen that needed it did not.
+                  */}
+                <button type="button" className="btn btn--ghost" onClick={() => setStage('mastery')}>
+                  {t('lessonMasteryRetry')}
+                </button>
+                <button type="button" className="btn btn--primary" onClick={() => setStage('sections')}>
+                  {t('lessonReplay')}
+                </button>
+              </>
             )}
           </div>
         </Card>

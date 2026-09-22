@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { checkpointById } from '../../content/index.ts';
+import { checkpointById, levelById, unitById } from '../../content/index.ts';
+import type { CefrLevel } from '../../content/types.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { Card, ScoreRing } from '../components/bits.tsx';
+import { Card, EmptyState, ScoreRing } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 
 /** A checkpoint, unit or level: mixed skills, no hints, result stored. */
@@ -16,13 +17,26 @@ export function CheckpointPage() {
   if (!checkpoint) {
     return (
       <div className="page">
-        <p>{t('errorTitle')}</p>
-        <Link className="btn btn--ghost" to="/course">
-          {t('navCourse')}
-        </Link>
+        <EmptyState
+          title={t('checkpointMissing')}
+          action={
+            <Link className="btn btn--primary" to="/course">
+              {t('navCourse')}
+            </Link>
+          }
+        />
       </div>
     );
   }
+
+  /*
+   * The level the checkpoint belongs to, rather than "pre-a1" for every one of
+   * them. It is what a review item falls back to and what an explanation of a
+   * mistake is pitched at — so a B2 checkpoint was explaining its mistakes as
+   * if to a beginner.
+   */
+  const level: CefrLevel =
+    unitById(checkpoint.targetId)?.level ?? levelById(checkpoint.targetId)?.id ?? 'pre-a1';
 
   const history = checkpointResults.filter((result) => result.checkpointId === checkpoint.id);
   const best = history.reduce((max, result) => Math.max(max, result.accuracy), 0);
@@ -50,7 +64,7 @@ export function CheckpointPage() {
         <ExercisePlayer
           exercises={checkpoint.exercises}
           context="checkpoint"
-          level="pre-a1"
+          level={level}
           allowHints={false}
           onFinish={(result) => void finish(result)}
           onExit={() => setRunning(false)}
@@ -89,9 +103,7 @@ export function CheckpointPage() {
               caption={t('exerciseScore', { correct: summary.firstTryCorrect, total: summary.total })}
             />
             <p className={`done-note${summary.accuracy >= checkpoint.passAccuracy ? '' : ' done-note--warn'}`}>
-              {summary.accuracy >= checkpoint.passAccuracy
-                ? t('lessonMasteryPassed')
-                : t('lessonMasteryFailed')}
+              {summary.accuracy >= checkpoint.passAccuracy ? t('checkpointPassed') : t('checkpointFailed')}
             </p>
           </>
         ) : null}
@@ -100,14 +112,44 @@ export function CheckpointPage() {
           <p className="card__foot">
             {history.length}
             {'×'} {'·'} {t('statAccuracy')}: {Math.round(best * 100)}%
-            {passed ? ` · ${t('lessonMasteryPassed')}` : ''}
+            {passed ? ` · ${t('checkpointPassed')}` : ''}
           </p>
         ) : null}
 
+        {/*
+          * A way on, not only a way round again.
+          *
+          * The only button here used to be "Practise again" — after a pass as
+          * much as after a fail — so a learner who had just passed a unit had
+          * a finished screen whose one action was to sit the same test again,
+          * and a small breadcrumb as the only way forward. A pass now leads to
+          * Today, which knows what comes next; a fail still offers the retry
+          * first, as the thing worth doing.
+          */}
         <div className="section-nav">
-          <button type="button" className="btn btn--primary btn--lg" onClick={() => setRunning(true)} autoFocus>
-            {summary ? t('lessonReplay') : t('lessonStart')}
-          </button>
+          {!summary ? (
+            <button type="button" className="btn btn--primary btn--lg" onClick={() => setRunning(true)} autoFocus>
+              {t('lessonStart')}
+            </button>
+          ) : summary.accuracy >= checkpoint.passAccuracy ? (
+            <>
+              <button type="button" className="btn btn--ghost" onClick={() => setRunning(true)}>
+                {t('checkpointAgain')}
+              </button>
+              <Link className="btn btn--primary btn--lg" to="/" autoFocus>
+                {t('navToday')}
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link className="btn btn--ghost" to="/course">
+                {t('navCourse')}
+              </Link>
+              <button type="button" className="btn btn--primary btn--lg" onClick={() => setRunning(true)} autoFocus>
+                {t('checkpointAgain')}
+              </button>
+            </>
+          )}
         </div>
       </Card>
     </div>

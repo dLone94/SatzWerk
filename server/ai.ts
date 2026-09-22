@@ -156,6 +156,88 @@ function splitSentences(text: string): string[] {
     .filter((sentence) => sentence.length > 0);
 }
 
+/**
+ * Which verb endings each subject pronoun can take.
+ *
+ * Lowercase "sie" is two words — "she" takes the er-form (sie arbeitet), "they"
+ * the plural (sie arbeiten) — and a capital "Sie" opening a sentence could be
+ * either of those as well as the polite form. Accepting both where German is
+ * genuinely ambiguous is the difference between a check and a false alarm.
+ */
+function allowedPersons(token: string, index: number): string[] {
+  const word = token.toLowerCase();
+  if (word === 'sie') return token === 'Sie' && index > 0 ? ['sie'] : ['er', 'sie'];
+  if (word === 'es' || word === 'man') return ['er'];
+  return [EXPECTED_PERSON[word] ?? word];
+}
+
+/**
+ * Does each subject agree with its verb?
+ *
+ * The check this replaces compared the first verb in a sentence with the first
+ * pronoun, and counted an infinitive as agreeing with anything. Together those
+ * meant it never fired: "Ich wohne in Berlin und ich arbeiten hier" was judged
+ * on "ich wohne" alone, and "Ich arbeiten." passed outright, because
+ * "arbeiten" is also an infinitive — which is precisely the form a beginner
+ * reaches for when they have not conjugated at all. The Coach listed this
+ * check as one it ran. Measured, it found nothing in eight sentences, four of
+ * them wrong.
+ *
+ * Now every subject pronoun is paired with its own verb. The verb right after
+ * it comes first (ich arbeite); a pronoun with none after it is paired with
+ * the verb right before it (Heute arbeite ich) — but only when no other
+ * subject has already claimed that verb, because a pronoun after a verb is as
+ * often its object: in "Ich kaufe es", "es" is not the one doing the buying.
+ * A pronoun joined by "und" or "oder" before any verb has appeared is half of
+ * a plural subject and is left alone. Where the lexicon does not know the
+ * verb, nothing is said.
+ */
+function agreementFindings(tokens: string[], lowered: string[]): CoachFinding[] {
+  const isVerb = (index: number) => index >= 0 && index < lowered.length && LEXICON.verbForms.has(lowered[index]!);
+  // "Du und ich arbeiten" is one plural subject; "Ich wohne hier und ich
+  // arbeite dort" is two clauses. What tells them apart is whether a verb has
+  // already appeared: a subject is not finished before its verb is.
+  const firstVerb = lowered.findIndex((_, index) => isVerb(index));
+  const joined = (index: number) =>
+    ['und', 'oder'].includes(lowered[index - 1] ?? '') && (firstVerb === -1 || firstVerb > index);
+  const isSubject = (index: number) => SUBJECT_PRONOUNS.has(lowered[index]!) && !joined(index);
+
+  const pairs: Array<{ subject: number; verb: number }> = [];
+  const claimed = new Set<number>();
+  // Subject, then verb.
+  lowered.forEach((_, index) => {
+    if (isSubject(index) && isVerb(index + 1) && !['und', 'oder'].includes(lowered[index + 1]!)) {
+      pairs.push({ subject: index, verb: index + 1 });
+      claimed.add(index + 1);
+    }
+  });
+  // Verb, then subject: only a verb nobody else has claimed.
+  lowered.forEach((_, index) => {
+    if (!isSubject(index) || isVerb(index + 1)) return;
+    if (isVerb(index - 1) && !claimed.has(index - 1)) {
+      pairs.push({ subject: index, verb: index - 1 });
+      claimed.add(index - 1);
+    }
+  });
+
+  const findings: CoachFinding[] = [];
+  for (const { subject, verb } of pairs) {
+    const analyses = LEXICON.verbForms.get(lowered[verb]!) ?? [];
+    const allowed = allowedPersons(tokens[subject]!, subject);
+    if (analyses.some((analysis) => allowed.includes(analysis.person))) continue;
+    const lemma = analyses[0]!.lemma;
+    findings.push({
+      category: 'verb-conjugation',
+      excerpt: tokens[verb]!,
+      message: bi(
+        `"${tokens[verb]}" does not match the subject "${tokens[subject]}". Check the ${lemma} forms.`,
+        `„${tokens[verb]}“ не съответства на подлога „${tokens[subject]}“. Провери формите на ${lemma}.`,
+      ),
+    });
+  }
+  return findings;
+}
+
 export function ruleBasedWritingReview(text: string): WritingEvaluation {
   const findings: CoachFinding[] = [];
   const unknownWords = new Set<string>();
@@ -237,28 +319,7 @@ export function ruleBasedWritingReview(text: string): WritingEvaluation {
     }
 
     // 6. Subject-verb agreement, for the verbs the lexicon knows.
-    if (verbIndex >= 0) {
-      const subjectIndex = lowered.findIndex((token) => SUBJECT_PRONOUNS.has(token));
-      const subject = subjectIndex >= 0 ? lowered[subjectIndex]! : undefined;
-      const analyses = LEXICON.verbForms.get(lowered[verbIndex]!) ?? [];
-      if (subject && analyses.length > 0) {
-        const wantedPerson = EXPECTED_PERSON[subject];
-        const isFormalSie = tokens[subjectIndex] === 'Sie';
-        const person = isFormalSie ? 'sie' : wantedPerson;
-        const agrees = analyses.some((analysis) => analysis.person === person || analysis.person === 'infinitive');
-        if (person && !agrees) {
-          const lemma = analyses[0]!.lemma;
-          findings.push({
-            category: 'verb-conjugation',
-            excerpt: tokens[verbIndex]!,
-            message: bi(
-              `"${tokens[verbIndex]}" does not match the subject "${tokens[subjectIndex]}". Check the ${lemma} forms.`,
-              `„${tokens[verbIndex]}“ не съответства на подлога „${tokens[subjectIndex]}“. Провери формите на ${lemma}.`,
-            ),
-          });
-        }
-      }
-    }
+    findings.push(...agreementFindings(tokens, lowered));
 
     // 7. Digraphs where a special letter is standard, plus unknown words.
     lowered.forEach((token, index) => {
