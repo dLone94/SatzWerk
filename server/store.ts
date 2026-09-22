@@ -473,14 +473,16 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
         input.durationMs ?? null,);
     const attemptId = Number(inserted!.id);
 
-    // Daily activity, from which the streak and study time are derived.
+    // Daily activity, from which the streak is derived. Time is not added
+    // here: the app measures time on task itself and sends it to /api/study,
+    // and adding each answer's duration as well counted the same minutes twice.
     const wasCorrect = CREDIT_VERDICTS.has(input.verdict) && !input.revealed;
     await db.run(`INSERT INTO study_days (day, user_id, seconds_active, answers, correct)
        VALUES (?, ?, ?, 1, ?)
        ON CONFLICT (day, user_id) DO UPDATE SET
          seconds_active = study_days.seconds_active + excluded.seconds_active,
          answers = study_days.answers + 1,
-         correct = study_days.correct + excluded.correct`, day, userId, Math.min(300, Math.round((input.durationMs ?? 0) / 1000)), wasCorrect ? 1 : 0);
+         correct = study_days.correct + excluded.correct`, day, userId, 0, wasCorrect ? 1 : 0);
 
     // Step outcome for the lesson mastery rules.
     let lessonProgress: LessonProgress | undefined;
