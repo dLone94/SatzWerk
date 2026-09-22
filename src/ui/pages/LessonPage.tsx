@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { lessonById, sectionBlocks, unitForLesson, vocabById } from '../../content/index.ts';
 import type { Lesson, TeachingSection } from '../../content/types.ts';
@@ -9,6 +9,7 @@ import {
   recoveryStepIds,
 } from '../../core/progress/lesson.ts';
 import { useApp } from '../../state/AppState.tsx';
+import { nextAction } from '../selectors.ts';
 import { Blocks, Card, EmptyState, Meter, ScoreRing, VocabRow } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 
@@ -23,7 +24,19 @@ type Stage = 'overview' | 'sections' | 'practice' | 'recovery' | 'mastery' | 'do
  */
 export function LessonPage() {
   const { lessonId = '' } = useParams();
-  const { t, say, lang, lessonProgress, markSectionSeen, recordMastery, recordRecovery, completeLesson } = useApp();
+  const {
+    t,
+    say,
+    lang,
+    lessons,
+    reviewItems,
+    mistakes,
+    lessonProgress,
+    markSectionSeen,
+    recordMastery,
+    recordRecovery,
+    completeLesson,
+  } = useApp();
 
   const lesson = lessonById(lessonId);
   const progress = lessonProgress(lessonId);
@@ -208,16 +221,68 @@ export function LessonPage() {
   }
 
   if (stage === 'done') {
+    if (masteryPassed && lastSummary) {
+      // Where to go from here: the same next step Today would offer, unless
+      // the app has not caught up with this lesson being finished yet (offline,
+      // say) and would send you straight back into it.
+      const next = nextAction(lessons, reviewItems, mistakes, true);
+      const onward = next.to !== `/lesson/${lesson.id}` && next.kind !== 'idle' ? next : null;
+      return (
+        <div className="page">
+          <section className="done-hero" aria-labelledby="done-hero-title">
+            <Confetti />
+            <ScoreRing
+              value={lastSummary.accuracy}
+              passed
+              caption={t('exerciseScore', { correct: lastSummary.firstTryCorrect, total: lastSummary.total })}
+            />
+            <p className="done-hero__de" lang="de">
+              {lastSummary.accuracy >= 0.8 ? 'Gut gemacht!' : 'Geschafft!'}
+            </p>
+            <h1 className="done-hero__title" id="done-hero-title">
+              {t('lessonDoneTitle')}
+              <span>{say(lesson.title)}</span>
+            </h1>
+            {lesson.vocabIds.length > 0 ? (
+              <p className="done-hero__fact">{t('lessonNewWords', { n: lesson.vocabIds.length })}</p>
+            ) : null}
+            <div className="done-hero__actions">
+              {onward ? (
+                <Link className="done-hero__next" to={onward.to}>
+                  <span className="done-hero__next-label">{t('lessonUpNext')}</span>
+                  <span className="done-hero__next-title">{say(onward.title)}</span>
+                </Link>
+              ) : null}
+              <div className="done-hero__more">
+                <Link className="btn btn--on-hero" to="/">
+                  {t('navToday')}
+                </Link>
+                <Link className="btn btn--on-hero" to="/course">
+                  {t('navCourse')}
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          {lesson.summary ? (
+            <Card title={t('lessonMasteryPassed')}>
+              <Blocks blocks={lesson.summary} />
+            </Card>
+          ) : null}
+          <Card>
+            <Requirements lesson={lesson} />
+          </Card>
+        </div>
+      );
+    }
+
     return (
       <div className="page">
-        <Card
-          title={masteryPassed ? t('lessonMasteryPassed') : t('lessonMastery')}
-          tone="accent"
-        >
+        <Card title={t('lessonMastery')} tone="accent">
           {lastSummary ? (
             <ScoreRing
               value={lastSummary.accuracy}
-              passed={masteryPassed === true}
+              passed={false}
               caption={t('exerciseScore', {
                 correct: lastSummary.firstTryCorrect,
                 total: lastSummary.total,
@@ -226,10 +291,9 @@ export function LessonPage() {
           ) : null}
 
           {masteryPassed ? (
-            <>
-              {complete ? <p className="done-note">{t('lessonCompleted')}</p> : null}
-              {lesson.summary ? <Blocks blocks={lesson.summary} /> : null}
-            </>
+            complete ? (
+              <p className="done-note">{t('lessonCompleted')}</p>
+            ) : null
           ) : (
             <p className="done-note">{t('lessonMasteryFailed')}</p>
           )}
@@ -349,5 +413,20 @@ function Requirements({ lesson }: { lesson: Lesson }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * A handful of paper scraps that fall once when a lesson is finished. Pure
+ * CSS, over in about a second, and gone entirely under reduced motion: the
+ * score and the words already say it, this only makes it land.
+ */
+function Confetti() {
+  return (
+    <div className="confetti" aria-hidden="true">
+      {Array.from({ length: 18 }, (_, index) => (
+        <span key={index} style={{ '--i': index } as CSSProperties} />
+      ))}
+    </div>
   );
 }

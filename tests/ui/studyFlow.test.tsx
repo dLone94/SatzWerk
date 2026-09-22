@@ -17,7 +17,11 @@ import { CoachPage } from '../../src/ui/pages/CoachPage.tsx';
 import { ScenarioPage } from '../../src/ui/pages/ScenarioPage.tsx';
 import { CheckpointPage } from '../../src/ui/pages/CheckpointPage.tsx';
 import { WordPage } from '../../src/ui/pages/WordPage.tsx';
-import type { PlayerSummary } from '../../src/ui/components/ExercisePlayer.tsx';
+import { CoursePage } from '../../src/ui/pages/CoursePage.tsx';
+import { DashboardPage } from '../../src/ui/pages/DashboardPage.tsx';
+import { CURRICULUM } from '../../src/content/index.ts';
+import { todayHere } from '../../src/core/progress/days.ts';
+import { ExercisePlayer, type PlayerSummary } from '../../src/ui/components/ExercisePlayer.tsx';
 
 // The scenario test only needs the end screen, so the conversation itself
 // finishes at once with whatever result the test sets.
@@ -240,7 +244,6 @@ describe('feedback on a tapped choice', () => {
    * and exactly the kind of thing that makes an app feel as if nobody used it.
    */
   it('says what was chosen, not what was written', async () => {
-    const { ExercisePlayer } = await import('../../src/ui/components/ExercisePlayer.tsx');
     const lesson = lessonById('pre-a1-u2-l1')!;
     const choiceExercise = lesson.exercises.find(
       (exercise) => exercise.kind === 'listenChoose' || exercise.kind === 'multipleChoice',
@@ -411,5 +414,112 @@ describe('a link to something that is not there says so', () => {
     expect(screen.getByText(tr(key, 'en'))).toBeInTheDocument();
     expect(screen.queryByText(tr('errorTitle', 'en'))).not.toBeInTheDocument();
     expect(screen.getByRole('link').getAttribute('href')).toBe(back);
+  });
+});
+
+/** Answer every step of whatever player is on screen correctly. */
+async function passEveryStep(user: ReturnType<typeof userEvent.setup>, lessonId: string) {
+  const steps = lessonById(lessonId)!.mastery.exercises.flatMap((e) => e.steps);
+  for (let i = 0; i < 60; i++) {
+    if (document.querySelector('.done-hero')) return;
+    const cont = screen.queryByRole('button', { name: tr('exerciseContinue', 'en') });
+    if (cont) {
+      await user.click(cont);
+      continue;
+    }
+    const stepId = document.querySelector('[data-step-id]')?.getAttribute('data-step-id');
+    if (!stepId) return;
+    const step = steps.find((candidate) => candidate.id === stepId)!;
+    const box = screen.queryByRole('textbox');
+    if (box) {
+      await user.clear(box);
+      await user.type(box, step.answer.accepted[0]!);
+      await user.keyboard('{Enter}');
+    } else {
+      const right = step.choices!.find((choice) => choice.id === step.correctChoiceId)!;
+      await user.click(screen.getByText(right.de));
+    }
+  }
+}
+
+describe('the redesign', () => {
+  it('celebrates a passed lesson and points at the next step', async () => {
+    const user = userEvent.setup();
+    const recordMastery = vi.fn(async () => progress({ mastery: { attempts: 1, bestAccuracy: 1, passed: true } }));
+    render(
+      <AppStateContext.Provider value={state({ recordMastery })}>
+        <MemoryRouter initialEntries={[`/lesson/${LESSON}`]}>
+          <Routes>
+            <Route path="/lesson/:lessonId" element={<LessonPage />} />
+          </Routes>
+        </MemoryRouter>
+      </AppStateContext.Provider>,
+    );
+    await user.click(screen.getByRole('button', { name: tr('lessonMastery', 'en') }));
+    await passEveryStep(user, LESSON);
+
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(tr('lessonDoneTitle', 'en'));
+    expect(screen.getByText('Gut gemacht!')).toBeInTheDocument();
+    const next = screen.getByText(tr('lessonUpNext', 'en')).closest('a')!;
+    expect(next.getAttribute('href')).toMatch(/^\/(lesson|review|checkpoint|mistakes)/);
+    // Never straight back into the lesson that was just finished.
+    expect(next.getAttribute('href')).not.toBe(`/lesson/${LESSON}`);
+  });
+
+  it('clears the tab bar away while a question is on screen, and only then', () => {
+    const lesson = lessonById(LESSON)!;
+    const view = render(
+      <AppStateContext.Provider value={state()}>
+        <MemoryRouter>
+          <ExercisePlayer exercises={lesson.mastery.exercises} context="lesson" level="pre-a1" onFinish={() => {}} />
+        </MemoryRouter>
+      </AppStateContext.Provider>,
+    );
+    expect(document.documentElement.classList.contains('is-playing')).toBe(true);
+    view.unmount();
+    expect(document.documentElement.classList.contains('is-playing')).toBe(false);
+  });
+
+  it('shows the course one level at a time, opening where you are', async () => {
+    const user = userEvent.setup();
+    render(
+      <AppStateContext.Provider value={state()}>
+        <MemoryRouter>
+          <CoursePage />
+        </MemoryRouter>
+      </AppStateContext.Provider>,
+    );
+    const [preA1, a1] = [CURRICULUM[0]!, CURRICULUM[1]!];
+    // Nothing done yet, so the first level is open and the next is not.
+    expect(screen.getByText(preA1.units[0]!.title.en)).toBeInTheDocument();
+    expect(screen.queryByText(a1.units[0]!.title.en)).toBeNull();
+    await user.click(screen.getByRole('button', { name: a1.label }));
+    expect(screen.getByText(a1.units[0]!.title.en)).toBeInTheDocument();
+    expect(screen.queryByText(preA1.units[0]!.title.en)).toBeNull();
+  });
+
+  it('counts today\'s minutes against the daily target', () => {
+    render(
+      <AppStateContext.Provider
+        value={state({ studyDays: [{ day: todayHere(), secondsActive: 600, answers: 12, correct: 10 }] })}
+      >
+        <MemoryRouter>
+          <DashboardPage />
+        </MemoryRouter>
+      </AppStateContext.Provider>,
+    );
+    expect(document.querySelector('.goal-ring__num')).toHaveTextContent('10');
+    expect(screen.getByText(tr('todayGoalLeft', 'en', { n: 10 }))).toBeInTheDocument();
+  });
+
+  it('ships its fonts with the app, Cyrillic included', () => {
+    // A font fetched from a font service is a font that is missing offline, and
+    // the whole interface can be Bulgarian.
+    const css = readFileSync('src/fonts.css', 'utf8');
+    expect(css).not.toMatch(/https?:/);
+    for (const family of ['Onest', 'Geologica']) {
+      const faces = [...css.matchAll(/@font-face \{[^}]*\}/g)].map((m) => m[0]).filter((f) => f.includes(`'${family}'`));
+      expect(faces.some((face) => face.includes('U+0400-045F')), family).toBe(true);
+    }
   });
 });

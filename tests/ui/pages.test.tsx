@@ -398,33 +398,34 @@ describe('settings tells the truth about what is written', () => {
 });
 
 describe('the dashboard never invents progress', () => {
-  it('shows a dash instead of a percentage before anything is answered', () => {
+  const active = {
+    totalAnswers: 20,
+    correctAnswers: 15,
+    accuracy: 0.75,
+    totalStudySeconds: 900,
+    studyDays: 3,
+    streak: 3,
+    categoryCounts: [{ category: 'article' as const, count: 2 }],
+    retypedCorrections: 4,
+  };
+
+  it('shows no percentage and no statistics before anything is answered', () => {
+    // It used to show nine tiles of zeros and dashes on the first day. Now the
+    // statistics wait until there is something in them.
     mount(<DashboardPage />, 'en');
-    const accuracy = screen.getByText('First-try accuracy').closest('.stat');
-    expect(accuracy).toHaveTextContent('—');
-    expect(accuracy).toHaveTextContent('No data yet');
+    expect(screen.queryByText('First-try accuracy')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/\d+\s?%/);
   });
 
   it('shows no streak before any study day exists', () => {
     mount(<DashboardPage />, 'en');
-    expect(screen.getByText('Study streak').closest('.stat')).toHaveTextContent('—');
+    expect(screen.queryByLabelText(/Study streak/)).toBeNull();
   });
 
   it('reports real figures once there is activity', () => {
-    mount(<DashboardPage />, 'en', {
-      stats: {
-        totalAnswers: 20,
-        correctAnswers: 15,
-        accuracy: 0.75,
-        totalStudySeconds: 900,
-        studyDays: 3,
-        streak: 3,
-        categoryCounts: [{ category: 'article', count: 2 }],
-        retypedCorrections: 4,
-      },
-    });
+    mount(<DashboardPage />, 'en', { stats: active });
     expect(screen.getByText('First-try accuracy').closest('.stat')).toHaveTextContent('75%');
-    expect(screen.getByText('Study streak').closest('.stat')).toHaveTextContent('3 days');
+    expect(screen.getByLabelText('Study streak: 3 days')).toHaveTextContent('3');
     expect(screen.getByText('Time studied').closest('.stat')).toHaveTextContent('15 min');
   });
 
@@ -435,7 +436,7 @@ describe('the dashboard never invents progress', () => {
    * invented.
    */
   it('shows no number for speaking, because nothing counts it', () => {
-    mount(<DashboardPage />, 'en');
+    mount(<DashboardPage />, 'en', { stats: active });
     expect(screen.getByText(tr('skillSpeakingUncounted', 'en'))).toBeInTheDocument();
     const row = screen.getByText(tr('skillSpeaking', 'en')).closest('.skills__row');
     expect(row).not.toBeNull();
@@ -458,46 +459,54 @@ describe('the dashboard never invents progress', () => {
 });
 
 describe('the course map is honest about what is finished', () => {
-  it('labels unauthored levels as planned with an outline', () => {
+  /*
+   * The course shows one level at a time (all of them at once was 35,000
+   * pixels on a phone), so these walk the level switcher and ask each level in
+   * turn what it says about itself.
+   */
+  async function eachLevel(check: (level: (typeof CURRICULUM)[number]) => void) {
+    const user = userEvent.setup();
     mount(<CoursePage />, 'en');
+    for (const level of CURRICULUM) {
+      await user.click(screen.getByRole('button', { name: level.label }));
+      check(level);
+    }
+  }
+
+  it('labels unauthored levels as planned with an outline', async () => {
     // Derived, not pinned: a level is advertised as planned wholesale only
     // while nothing in it is authored, and which levels those are moves as the
     // course grows.
-    const empty = CURRICULUM.filter((level) => level.units.length === 0);
-    // Not pinned to a count: once every level has a unit in it, the right
-    // number of wholesale "planned" notices is zero.
-    expect(screen.queryAllByText(tr('plannedNotice', 'en')).length).toBe(empty.length);
+    await eachLevel((level) => {
+      expect(screen.queryAllByText(tr('plannedNotice', 'en')).length, level.label).toBe(
+        level.units.length === 0 ? 1 : 0,
+      );
+    });
   });
 
-  it('still lists what is missing from every level that has units to come', () => {
-    mount(<CoursePage />, 'en');
+  it('still lists what is missing from every level that has units to come', async () => {
     // Derived rather than pinned to a number. The heading belongs to any level
     // with units still to come, whether or not some are already authored —
     // losing it the moment a level's first unit landed would read as a finished
-    // level, and that is the regression this guards. It was pinned to four
-    // while A1 had one unit left; A1 is finished now, so a fixed number would
-    // only be testing how far the course happens to have got.
+    // level, and that is the regression this guards.
     const outlineFor = (level: (typeof CURRICULUM)[number]) =>
       LEVEL_OUTLINES[level.id as keyof typeof LEVEL_OUTLINES];
-    const withPlanned = CURRICULUM.filter((level) => outlineFor(level).plannedUnits.length > 0);
-    // Not pinned to a count. Once every planned unit has been written, the
-    // right number of "planned units" headings is zero — and the heading must
-    // then be gone rather than standing empty over nothing.
-    expect(screen.queryAllByText(tr('plannedUnits', 'en')).length).toBe(withPlanned.length);
-    for (const level of withPlanned) {
-      for (const unit of outlineFor(level).plannedUnits) {
+    await eachLevel((level) => {
+      const plannedUnits = outlineFor(level)?.plannedUnits ?? [];
+      // Once every planned unit has been written, the heading must be gone
+      // rather than standing empty over nothing.
+      expect(screen.queryAllByText(tr('plannedUnits', 'en')).length, level.label).toBe(
+        plannedUnits.length > 0 ? 1 : 0,
+      );
+      for (const unit of plannedUnits) {
         expect(screen.getByText(unit.en), unit.en).toBeInTheDocument();
       }
-    }
-    // And an authored unit is never repeated in that list. Scoped to the
-    // planned lists themselves: an authored title appearing elsewhere on the
-    // page is the page doing its job.
-    const planned = new Set(
-      [...document.querySelectorAll('.planned-units li')].map((li) => li.textContent),
-    );
-    for (const authored of CURRICULUM.flatMap((level) => level.units)) {
-      expect(planned.has(authored.title.en), authored.title.en).toBe(false);
-    }
+      // And an authored unit is never repeated in that list.
+      const planned = new Set([...document.querySelectorAll('.planned-units li')].map((li) => li.textContent));
+      for (const authored of level.units) {
+        expect(planned.has(authored.title.en), authored.title.en).toBe(false);
+      }
+    });
   });
 
   it('links to the authored lessons', () => {
