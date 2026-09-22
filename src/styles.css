@@ -5549,3 +5549,54 @@ a.trail-stop__link:active .trail-stop__dot {
     max-width: 44rem;
   }
 }
+
+/* ---------------- The voice ---------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.8rem;
+}
+
+.field__label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.field__input {
+  min-height: 48px;
+  padding: 0 0.85rem;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+
+.field__input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.voice-tip {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius);
+  background: var(--warn-soft);
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.voice-tip p {
+  margin: 0 0 0.5rem;
+}
+
+.voice-tip p:last-child {
+  margin-bottom: 0;
+}
+
+.voice-tip__title {
+  font-weight: 700;
+}

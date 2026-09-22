@@ -8,13 +8,14 @@ import {
   readPushStatus,
   type PushStatus,
 } from '../../services/push/index.ts';
+import { SAMPLE_PHRASE } from '../../services/tts/phraseKey.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Card } from '../components/bits.tsx';
 
 const TARGETS = [10, 20, 30];
 
 export function SettingsPage() {
-  const { t, lang, profile, updateProfile, setTeachingLanguage, tts, resetAll, session, signOut, changePassword } =
+  const { t, lang, profile, updateProfile, setTeachingLanguage, resetAll, session, signOut, changePassword } =
     useApp();
   const [custom, setCustom] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -91,25 +92,7 @@ export function SettingsPage() {
         </p>
       </Card>
 
-      <Card title={t('settingsAudio')}>
-        <p>
-          {t('settingsVoice')}: <strong>{tts.available ? tts.describe() : t('exerciseAudioUnavailable')}</strong>
-        </p>
-        {tts.available ? (
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={() => tts.speak('Guten Tag! Ich heiße SatzWerk.')}
-          >
-            {t('exercisePlayAudio')}
-          </button>
-        ) : null}
-        <p className="card__foot">
-          {lang === 'bg'
-            ? 'Говорът минава през сменяем TTSProvider. Браузърният глас de-DE е резервният вариант.'
-            : 'Speech goes through a replaceable TTSProvider. The de-DE browser voice is the fallback.'}
-        </p>
-      </Card>
+      <VoiceCard />
 
       <RemindersCard />
 
@@ -437,6 +420,71 @@ function Learners() {
       </form>
 
       <p className="card__foot">{t('learnersNotAWall')}</p>
+    </Card>
+  );
+}
+
+/**
+ * Which German voice reads to you.
+ *
+ * The app picks the best one this device has, and the list lets you overrule
+ * it. The choice is kept on this device only: a voice installed on your phone
+ * does not exist on your laptop.
+ */
+function VoiceCard() {
+  const { t, tts } = useApp();
+  // Voices turn up after the page loads; re-render when they do.
+  const [, setTick] = useState(0);
+  useEffect(() => tts.subscribe?.(() => setTick((tick) => tick + 1)), [tts]);
+
+  const voices = tts.voices?.() ?? [];
+  const chosen = tts.chosenVoice?.() ?? null;
+  const best = voices[0];
+  const quality = (option: { quality: string }) =>
+    option.quality === 'premium' ? t('voiceQualityPremium') : option.quality === 'good' ? t('voiceQualityGood') : t('voiceQualityBasic');
+
+  if (!tts.available) {
+    return (
+      <Card title={t('settingsAudio')}>
+        <p>{t('exerciseAudioUnavailable')}</p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card title={t('settingsAudio')}>
+      {voices.length > 0 ? (
+        <label className="field">
+          <span className="field__label">{t('settingsVoice')}</span>
+          <select
+            className="field__input"
+            value={chosen && voices.some((voice) => voice.id === chosen) ? chosen : ''}
+            onChange={(event) => tts.chooseVoice?.(event.target.value || null)}
+          >
+            <option value="">{t('voiceAutomatic', { name: best ? best.name : '—' })}</option>
+            {voices.map((voice) => (
+              <option key={voice.id} value={voice.id}>
+                {voice.name} · {quality(voice)}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <p>
+          {t('settingsVoice')}: <strong>{tts.describe()}</strong>
+        </p>
+      )}
+      <button type="button" className="btn btn--ghost" onClick={() => tts.speak(SAMPLE_PHRASE)}>
+        {t('voiceSample')}
+      </button>
+      {/* Only worth saying when the best voice here is not a good one. */}
+      {best?.quality !== 'premium' ? (
+        <div className="voice-tip">
+          <p className="voice-tip__title">{t('voiceTipTitle')}</p>
+          <p>{t('voiceTipIphone')}</p>
+          <p>{t('voiceTipAndroid')}</p>
+        </div>
+      ) : null}
     </Card>
   );
 }
