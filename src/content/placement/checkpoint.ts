@@ -130,7 +130,9 @@ const A2 = [
         id: 'pl-a2-3',
         prompt: bi('We went to Berlin.', 'Отидохме до Берлин.'),
         answer: 'Wir sind nach Berlin gefahren.',
-        alternatives: ['Wir sind nach Berlin gefahren.', 'Wir fuhren nach Berlin.'],
+        // The answer itself was in this list too, which made it both the form
+        // being taught and an alternative to it.
+        alternatives: ['Wir fuhren nach Berlin.'],
         shape: 'sentence',
         hints: [],
       },

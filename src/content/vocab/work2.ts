@@ -42,7 +42,7 @@ const WORK: VocabEntry[] = [
     unitId: U,
     lessonId: L1,
     difficulty: 3,
-    related: ['v-beruf'],
+    related: ['v-der-beruf'],
     notes: {
       en: 'Three words that all translate as "job" and are not interchangeable: der Beruf is your profession, die Stelle is the post you hold, die Arbeit is the work itself.',
       bg: 'Три думи, които се превеждат като „работа“ и не се заменят: der Beruf е професията, die Stelle е позицията, die Arbeit е самата работа.',

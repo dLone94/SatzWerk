@@ -146,6 +146,42 @@ describe('curriculum structure', () => {
     }
     expect(problems).toEqual([]);
   });
+
+  /**
+   * The links between words, which the Word page renders as "see also".
+   *
+   * It resolves each id and quietly drops the ones it cannot find, so a typo
+   * here does not break anything — it just silently removes the link. Two were
+   * wrong: `der Junge` carried a note telling the learner to compare it with
+   * `das Mädchen`, pointing at `v-maedchen` when the entry is `v-das-maedchen`,
+   * so the comparison the note asks for had nothing to click.
+   */
+  it('resolves every word a word points at', () => {
+    const problems: string[] = [];
+    for (const entry of VOCABULARY) {
+      for (const id of entry.related ?? []) {
+        if (!vocabById(id)) problems.push(`${entry.id} related -> ${id}`);
+      }
+      if ((entry.related ?? []).includes(entry.id)) problems.push(`${entry.id} is related to itself`);
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('never lists the taught answer as an alternative to itself', () => {
+    // An alternative means "also correct, but not the form being taught". The
+    // taught form appearing in that list makes the distinction meaningless.
+    const problems: string[] = [];
+    for (const { exercise } of allExercises()) {
+      for (const step of exercise.steps) {
+        for (const alternative of step.answer.alternatives ?? []) {
+          if (step.answer.accepted.includes(alternative)) {
+            problems.push(`${step.id}: "${alternative}" is both accepted and an alternative`);
+          }
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
 });
 
 describe('authored answers are consistent with the validator', () => {

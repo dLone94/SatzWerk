@@ -76,6 +76,37 @@ export type ErrorCategory =
   | 'umlaut'
   | 'unknown';
 
+/**
+ * The same list as a value, because the server has to check it.
+ *
+ * A category arrives over HTTP with every answer, and the type above cannot
+ * check anything at runtime: an invented one used to be stored and then shown
+ * as a row in the learner's own mistake statistics. `satisfies` ties the two
+ * together, so a category added to the union and not to this list is a
+ * compile error rather than a category the API quietly refuses.
+ */
+export const ERROR_CATEGORIES = [
+  'spelling',
+  'capitalization',
+  'article',
+  'gender',
+  'case',
+  'verb-conjugation',
+  'verb-tense',
+  'auxiliary-verb',
+  'word-order',
+  'preposition',
+  'vocabulary',
+  'plural',
+  'adjective-ending',
+  'pronoun',
+  'punctuation',
+  'missing-word',
+  'extra-word',
+  'umlaut',
+  'unknown',
+] as const satisfies readonly ErrorCategory[];
+
 /* ------------------------------------------------------------------ *
  * Vocabulary
  * ------------------------------------------------------------------ */

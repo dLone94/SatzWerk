@@ -1,4 +1,4 @@
-import type { ErrorCategory, TeachingLanguage } from '../src/content/types.ts';
+import { ERROR_CATEGORIES, type ErrorCategory, type TeachingLanguage } from '../src/content/types.ts';
 import type { RecallGrade } from '../src/core/srs/scheduler.ts';
 import { createProvider, type AiProvider } from './ai.ts';
 import {
@@ -16,6 +16,7 @@ import {
   verifyPassword,
   type AuthConfig,
 } from './auth.ts';
+import { plausibleOffset } from '../src/core/progress/days.ts';
 import { findDatabaseUrl, type Db } from './db.ts';
 import * as store from './store.ts';
 import {
@@ -143,15 +144,21 @@ export async function fullState(scope: store.Scope) {
     checkpointResults,
     scenarioRuns,
   ] = await Promise.all([
-    await store.getProfile(scope),
-    await store.getAllLessonProgress(scope),
-    await store.listReviewItems(scope),
-    await store.listMistakes(scope),
-    await store.listFavorites(scope),
-    await store.getStats(scope),
-    await store.listStudyDays(scope, 60),
-    await store.listCheckpointResults(scope),
-    await store.listScenarioRuns(scope),
+    // No `await` inside this list, and that is the whole point of the list.
+    // With one on each line the array elements are evaluated one at a time —
+    // each query waits for the one above it to come back before it is even
+    // sent — so `Promise.all` received nine promises that had already been
+    // resolved in series. Nine sequential round trips to a hosted database on
+    // every page load, under a comment claiming they went out together.
+    store.getProfile(scope),
+    store.getAllLessonProgress(scope),
+    store.listReviewItems(scope),
+    store.listMistakes(scope),
+    store.listFavorites(scope),
+    store.getStats(scope),
+    store.listStudyDays(scope, 60),
+    store.listCheckpointResults(scope),
+    store.listScenarioRuns(scope),
   ]);
   return {
     profile,
@@ -550,11 +557,17 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   if (route.length === 1 && route[0] === 'checkpoints' && method === 'POST') {
     const body = asRecord(request.body);
     if (!body.checkpointId) return badRequest('checkpointId is required');
+    const accuracy = Number(body.accuracy ?? 0);
+    // Checked rather than passed through. An accuracy of NaN reached a NOT NULL
+    // column, the insert failed with a 500, and a 500 is what the client reads
+    // as "refused" — so a finished checkpoint was thrown away over a number
+    // nobody looked at. Its neighbours all clamp; this one did not.
+    if (!Number.isFinite(accuracy)) return badRequest('accuracy must be a number');
     await store.recordCheckpointResult(scope, {
       checkpointId: String(body.checkpointId),
       scope: String(body.scope ?? 'unit'),
       targetId: String(body.targetId ?? ''),
-      accuracy: Number(body.accuracy ?? 0),
+      accuracy: Math.min(1, Math.max(0, accuracy)),
       passed: Boolean(body.passed),
       detail: body.detail,
     });
@@ -578,8 +591,14 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     const seconds = Number(body.seconds ?? 0);
     if (!Number.isFinite(seconds)) return badRequest('seconds must be a number');
     // Minutes studied in a tunnel belong to the day they were spent, under the
-    // same plausibility rule as an answer's own timestamp.
-    await store.addStudyTime(scope, seconds, attemptTime(body.at, new Date()));
+    // same plausibility rule as an answer's own timestamp — and to the day it
+    // was where the learner was standing, not to a UTC one.
+    await store.addStudyTime(
+      scope,
+      seconds,
+      attemptTime(body.at, new Date()),
+      plausibleOffset(body.tzOffsetMinutes),
+    );
     return ok({ stats: await store.getStats(scope), studyDays: await store.listStudyDays(scope, 60) });
   }
 
@@ -728,6 +747,16 @@ export function attemptTime(raw: unknown, now: Date): Date {
   return stamped;
 }
 
+/** A step nobody spent two hours on, and nobody finished in negative time. */
+const MAX_STEP_MS = 2 * 60 * 60 * 1000;
+
+function plausibleDuration(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  const millis = Number(raw);
+  if (!Number.isFinite(millis) || millis < 0) return undefined;
+  return Math.min(MAX_STEP_MS, Math.round(millis));
+}
+
 const CONTEXTS = new Set(['lesson', 'mastery', 'review', 'checkpoint', 'practice', 'scenario']);
 const VERDICTS = new Set([
   'correct',
@@ -751,7 +780,19 @@ function validateAttempt(body: Record<string, unknown>): AttemptValidation {
     return { error: 'credit must be between 0 and 1' };
   }
 
-  const categories = Array.isArray(body.categories) ? body.categories.map(String) : [];
+  /*
+   * Only categories this app has a name for.
+   *
+   * `verdict` and `context` were checked against their sets and this was not,
+   * so anything at all could be stored — and it was then counted and shown as
+   * a row in the learner's own mistake statistics, under whatever string
+   * arrived. Unknown ones are dropped rather than refused: the answer and its
+   * verdict are the learner's work and are worth more than a label.
+   */
+  const known = new Set<string>(ERROR_CATEGORIES);
+  const categories = (Array.isArray(body.categories) ? body.categories.map(String) : []).filter(
+    (category) => known.has(category),
+  );
   const targets = Array.isArray(body.reviewTargets) ? body.reviewTargets : [];
 
   return {
@@ -773,7 +814,12 @@ function validateAttempt(body: Record<string, unknown>): AttemptValidation {
       revealed: Boolean(body.revealed),
       isRetype: Boolean(body.isRetype),
       resolved: Boolean(body.resolved),
-      durationMs: body.durationMs === undefined ? undefined : Number(body.durationMs),
+      // A duration that is not a number is no duration. It used to become NaN,
+      // reach `study_days.seconds_active` through the arithmetic below it, fail
+      // the NOT NULL constraint, and take the whole answer down with a 500.
+      durationMs: plausibleDuration(body.durationMs),
+      // Where the answer was typed, so it lands on the learner's own day.
+      tzOffsetMinutes: plausibleOffset(body.tzOffsetMinutes),
       reviewTargets: targets.map((target) => {
         const record = asRecord(target);
         return {

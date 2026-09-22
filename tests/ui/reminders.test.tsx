@@ -85,6 +85,8 @@ function stubState(): AppStateValue {
     studyAs: async () => 'switched' as const,
     addLearner: async () => {},
     renameLearner: async () => {},
+    notice: null,
+    dismissNotice: () => {},
     sync: { pending: 0, other: 0, refused: 0, atRisk: false, lost: 0 },
     syncAnswers: async () => {},
     dismissRefusedAnswers: () => {},

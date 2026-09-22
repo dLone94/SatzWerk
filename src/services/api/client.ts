@@ -108,6 +108,12 @@ export interface AttemptPayload {
    * only if it is plausible.
    */
   at?: string;
+  /**
+   * Minutes from UTC where it was typed. Sent for the same reason as `at`: a
+   * round finished at half past midnight in Berlin belongs to that Tuesday,
+   * and to a UTC clock it is still Monday.
+   */
+  tzOffsetMinutes?: number;
 }
 
 export interface CheckpointPayload {
@@ -333,8 +339,8 @@ export const api = {
    * `at` is when the time was spent, which is not when it was sent if it
    * waited for a connection — minutes belong to the day they were studied.
    */
-  addStudyTime: (seconds: number, at?: string) =>
-    post<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds, at }),
+  addStudyTime: (seconds: number, at?: string, tzOffsetMinutes?: number) =>
+    post<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds, at, tzOffsetMinutes }),
 
   coachStatus: () => request<CoachStatus>('/coach/status'),
 
