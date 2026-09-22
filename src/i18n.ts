@@ -735,6 +735,20 @@ export const UI = {
   settingsMinutes: s('{n} minutes', '{n} минути'),
   settingsMinutesOne: s('{n} minute', '{n} минута'),
   settingsAudio: s('Audio', 'Звук'),
+  voiceAutomatic: s('Automatic: {name}', 'Автоматично: {name}'),
+  voiceQualityPremium: s('natural', 'естествен'),
+  voiceQualityGood: s('good', 'добър'),
+  voiceQualityBasic: s('basic', 'основен'),
+  voiceSample: s('Play a sample', 'Пусни пример'),
+  voiceTipTitle: s('A better German voice, free', 'По-добър немски глас, безплатно'),
+  voiceTipIphone: s(
+    'iPhone: Settings → Accessibility → Spoken Content (Read & Speak) → Voices → German → download “Anna (Premium)” or “Helena (Premium)”. Then reopen the app.',
+    'iPhone: Настройки → Достъпност → Изговорено съдържание (Четене и говорене) → Гласове → Немски → изтегли „Anna (Premium)“ или „Helena (Premium)“. След това отвори приложението отново.',
+  ),
+  voiceTipAndroid: s(
+    'Android: Settings → System → Languages → Text-to-speech → Speech Services by Google → Install voice data → German.',
+    'Android: Настройки → Система → Езици → Синтезиран говор → Услуги за говор от Google → Инсталиране на гласови данни → Немски.',
+  ),
   settingsVoice: s('Voice in use', 'Използван глас'),
   settingsData: s('Your data', 'Твоите данни'),
   settingsDataNote: s(
