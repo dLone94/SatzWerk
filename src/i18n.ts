@@ -741,7 +741,6 @@ export const UI = {
   voiceAutomatic: s('Automatic: {name}', 'Автоматично: {name}'),
   voiceQualityPremium: s('natural', 'естествен'),
   voiceQualityGood: s('good', 'добър'),
-  voiceQualityBasic: s('basic', 'основен'),
   voiceSample: s('Play a sample', 'Пусни пример'),
   voiceTipTitle: s('A better German voice, free', 'По-добър немски глас, безплатно'),
   voiceTipIphone: s(

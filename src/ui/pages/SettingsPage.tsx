@@ -440,8 +440,26 @@ function VoiceCard() {
   const voices = tts.voices?.() ?? [];
   const chosen = tts.chosenVoice?.() ?? null;
   const best = voices[0];
-  const quality = (option: { quality: string }) =>
-    option.quality === 'premium' ? t('voiceQualityPremium') : option.quality === 'good' ? t('voiceQualityGood') : t('voiceQualityBasic');
+  /*
+   * What a voice is called in the list. The quality is said only when the
+   * device gave it away: an iPhone can list the downloaded Anna as a second
+   * plain "Anna" with nothing to tell them apart, and calling both "basic"
+   * was a guess dressed as a fact. Two voices with one name are numbered
+   * instead, so each can be chosen and heard with "Play a sample".
+   */
+  const sameName = new Map<string, number>();
+  for (const voice of voices) sameName.set(voice.name, (sameName.get(voice.name) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  const labels = new Map(
+    voices.map((voice) => {
+      const index = (seen.get(voice.name) ?? 0) + 1;
+      seen.set(voice.name, index);
+      const name = (sameName.get(voice.name) ?? 0) > 1 ? `${voice.name} ${index}` : voice.name;
+      const quality =
+        voice.quality === 'premium' ? t('voiceQualityPremium') : voice.quality === 'good' ? t('voiceQualityGood') : null;
+      return [voice.id, quality ? `${name} · ${quality}` : name];
+    }),
+  );
 
   if (!tts.available) {
     return (
@@ -461,10 +479,10 @@ function VoiceCard() {
             value={chosen && voices.some((voice) => voice.id === chosen) ? chosen : ''}
             onChange={(event) => tts.chooseVoice?.(event.target.value || null)}
           >
-            <option value="">{t('voiceAutomatic', { name: best ? `${best.name} · ${quality(best)}` : '—' })}</option>
+            <option value="">{t('voiceAutomatic', { name: best ? labels.get(best.id)! : '—' })}</option>
             {voices.map((voice) => (
               <option key={voice.id} value={voice.id}>
-                {voice.name} · {quality(voice)}
+                {labels.get(voice.id)}
               </option>
             ))}
           </select>
