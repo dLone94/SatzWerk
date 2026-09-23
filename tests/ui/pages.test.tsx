@@ -397,6 +397,44 @@ describe('settings tells the truth about what is written', () => {
   });
 });
 
+/*
+ * An iPhone with the premium Anna downloaded listed it as a second "Anna",
+ * and nothing it gave the page said which was which. Both were labelled
+ * "basic", which was a guess presented as a fact, and they could not be told
+ * apart in the list at all.
+ */
+describe('the voice list on a device that says little', () => {
+  const tts = {
+    id: 'test',
+    available: true,
+    describe: () => 'test',
+    speak: () => {},
+    cancel: () => {},
+    voices: () => [
+      { id: 'recorded', name: 'Thorsten (Piper)', lang: 'de-DE', quality: 'premium' as const },
+      { id: 'anna-1', name: 'Anna', lang: 'de-DE', quality: 'basic' as const },
+      { id: 'anna-2', name: 'Anna', lang: 'de-DE', quality: 'basic' as const },
+    ],
+    chosenVoice: () => null,
+    chooseVoice: () => {},
+  };
+
+  it('numbers two voices with the same name so each can be picked and heard', () => {
+    mount(<SettingsPage />, 'en', { tts });
+    const labels = [...document.querySelectorAll('option')].map((option) => option.textContent);
+    expect(labels).toContain('Anna 1');
+    expect(labels).toContain('Anna 2');
+  });
+
+  it('does not call a voice basic when nothing says it is', () => {
+    mount(<SettingsPage />, 'en', { tts });
+    const labels = [...document.querySelectorAll('option')].map((option) => option.textContent ?? '');
+    expect(labels.some((label) => /basic/.test(label))).toBe(false);
+    // What is known is still said.
+    expect(labels.some((label) => label.includes('Thorsten (Piper) · natural'))).toBe(true);
+  });
+});
+
 describe('the dashboard never invents progress', () => {
   const active = {
     totalAnswers: 20,
