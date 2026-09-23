@@ -10,6 +10,12 @@ import {
 } from '../authoring.ts';
 import type { Checkpoint, Lesson, Unit } from '../types.ts';
 
+/** The first exercise a learner ever sees has to say what to do. */
+const LISTEN_AND_CHOOSE = bi(
+  'Listen to the word (press Play to hear it again), then tap the one you heard.',
+  'Слушай думата (натисни „Пусни“, за да я чуеш отново), после избери тази, която чу.',
+);
+
 /* ================================================================== *
  * Lesson 1 - German sounds and the four extra letters
  * ================================================================== */
@@ -20,7 +26,7 @@ const lesson1: Lesson = {
   level: 'pre-a1',
   order: 1,
   status: 'available',
-  estimatedMinutes: 12,
+  estimatedMinutes: 15,
   title: bi('Sounds and four extra letters', 'Звуковете и четирите допълнителни букви'),
   objective: bi(
     'After this lesson you will be able to read German words aloud with the right sounds and type ä, ö, ü and ß correctly.',
@@ -29,6 +35,7 @@ const lesson1: Lesson = {
   outcomes: [
     bi('I can pronounce ä, ö, ü and ß.', 'Мога да изговарям ä, ö, ü и ß.'),
     bi('I know that w sounds like v and s can sound like z.', 'Знам, че w се чете като в, а s може да звучи като з.'),
+    bi('I can read ch, sch, st, sp, au, eu and j aloud.', 'Мога да чета на глас ch, sch, st, sp, au, eu и j.'),
     bi('I can type the German special letters.', 'Мога да пиша немските специални букви.'),
   ],
   vocabIds: ['v-das-alphabet', 'v-der-buchstabe'],
@@ -74,18 +81,18 @@ const lesson1: Lesson = {
     {
       id: 'u1l1-traps',
       kind: 'pronunciation',
-      title: bi('Three letters that surprise everyone', 'Три букви, които изненадват всички'),
+      title: bi('Letters that surprise everyone', 'Букви, които изненадват всички'),
       blocks: [
         {
           t: 'table',
           headers: [bi('Letter', 'Буква'), bi('Sounds like', 'Звучи като'), bi('Example', 'Пример')],
           rows: [
-            ['w', bi('English v', 'българско в'), 'wohnen — VOH-nen'],
-            ['v', bi('English f', 'българско ф'), 'vier — FEER'],
-            ['z', bi('ts', 'ц'), 'zwei — TSVY'],
-            ['s', bi('z before a vowel', 'з пред гласна'), 'lesen — LAY-zen, sieben — ZEE-ben'],
-            ['ei', bi('like "eye"', 'ай'), 'heißen — HY-sen'],
-            ['ie', bi('like "ee"', 'и'), 'vier — FEER'],
+            ['w', bi('English v', 'българско в'), bi('wohnen — VOH-nen', 'wohnen — „ВО-нен“')],
+            ['v', bi('English f', 'българско ф'), bi('vier — FEER', 'vier — „ФИР“')],
+            ['z', bi('ts', 'ц'), bi('zwei — TSVY', 'zwei — „ЦВАЙ“')],
+            ['s', bi('z before a vowel', 'з пред гласна'), bi('lesen — LAY-zen, sieben — ZEE-ben', 'lesen — „ЛЕ-зен“, sieben — „ЗИ-бен“')],
+            ['ei', bi('like "eye"', 'ай'), bi('heißen — HY-sen', 'heißen — „ХАЙ-сен“')],
+            ['ie', bi('like "ee"', 'и'), bi('vier — FEER', 'vier — „ФИР“')],
           ],
         },
         {
@@ -130,10 +137,43 @@ const lesson1: Lesson = {
           t: 'callout',
           tone: 'warn',
           text: bi(
-            'That last row is a typing shortcut, not a spelling rule. German uses ss and ß for different sounds: ß after a long vowel (heißen, Maße) and ss after a short one (Masse). So "ss" is how you reach ß on a keyboard that has none — it does not mean the two are interchangeable.',
-            'Последният ред е пряк път при писане, а не правописно правило. Немският използва ss и ß за различни звукове: ß след дълга гласна (heißen, Maße) и ss след кратка (Masse). Значи „ss“ е начин да стигнеш до ß на клавиатура без нея — не означава, че двете са взаимозаменяеми.',
+            'That last row is a typing shortcut, not a spelling rule. German writes ß after a vowel you stretch out or after ei, au, eu (heißen, Maße) and ss after a short, clipped vowel (Masse, Tschüss). So "ss" is how you reach ß on a keyboard that has none — it does not mean the two are interchangeable.',
+            'Последният ред е пряк път при писане, а не правописно правило. Немският пише ß след проточена (дълга) гласна или след ei, au, eu (heißen, Maße), а ss след кратка, отсечена гласна (Masse, Tschüss). Значи „ss“ е начин да стигнеш до ß на клавиатура без нея — не означава, че двете са взаимозаменяеми.',
           ),
         },
+      ],
+    },
+    {
+      id: 'u1l1-more-sounds',
+      kind: 'pronunciation',
+      title: bi('More letter groups you will meet at once', 'Още буквени групи, които ще срещнеш веднага'),
+      blocks: [
+        {
+          t: 'table',
+          headers: [bi('Letters', 'Букви'), bi('Sounds like', 'Звучи като'), bi('Example', 'Пример')],
+          rows: [
+            ['ch', bi('after a, o, u: the rough "ch" in Scottish "loch"', 'след a, o, u: като българското „х“'), bi('acht — AKHT', 'acht — „АХТ“')],
+            ['ch', bi('after e, i, ä, ö, ü, ei, eu: a soft hiss, like the "h" in "huge"', 'след e, i, ä, ö, ü, ei, eu: меко „х“, като в „химия“'), bi('ich — IKH (soft)', 'ich — „ИХ“ (меко)')],
+            ['sch', bi('English "sh" (tsch = "ch" in "church")', '„ш“ (tsch = „ч“)'), bi('Entschuldigung — ent-SHOOL-di-goong', 'Entschuldigung — „ент-ШУЛ-ди-гунг“')],
+            ['st, sp', bi('"sht", "shp" at the start of a word', '„щ“, „шп“ в началото на думата'), bi('die Stadt — SHTAHT, die Sprache — SHPRAH-khuh', 'die Stadt — „ЩАТ“, die Sprache — „ШПРА-хе“')],
+            ['au', bi('"ow" in "how"', '„ау“'), bi('das Haus — HOWS', 'das Haus — „ХАУС“')],
+            ['eu, äu', bi('"oy" in "boy"', '„ой“'), bi('neu — NOY, die Häuser — HOY-zer', 'neu — „НОЙ“, die Häuser — „ХОЙ-зер“')],
+            ['j', bi('"y" in "yes"', '„й“'), bi('ja — YAH', 'ja — „Я“')],
+            ['-b, -d, -g', bi('p, t, k at the end of a word', 'п, т, к в края на думата'), bi('der Hund — HOONT, der Tag — TAHK', 'der Hund — „ХУНТ“, der Tag — „ТАК“')],
+            ['h', bi('silent after a vowel: it only makes the vowel longer. At the start of a word it is a normal h (Haus).', 'не се чува след гласна, само я прави по-дълга. В началото на думата е нормално „х“ (Haus).'), bi('wohnen — VOH-nen', 'wohnen — „ВО-нен“')],
+          ],
+        },
+        {
+          t: 'p',
+          text: bi(
+            'Play each line and listen for the sounds from the table.',
+            'Изслушай всеки ред и се вслушай в звуковете от таблицата.',
+          ),
+        },
+        { t: 'de', de: 'Ich spreche Deutsch.', gloss: bi('I speak German.', 'Говоря немски.'), audio: true },
+        { t: 'de', de: 'Das Haus ist neu.', gloss: bi('The house is new.', 'Къщата е нова.'), audio: true },
+        { t: 'de', de: 'Ja, die Stadt ist schön.', gloss: bi('Yes, the city is beautiful.', 'Да, градът е красив.'), audio: true },
+        { t: 'de', de: 'Der Hund ist acht Jahre alt.', gloss: bi('The dog is eight years old.', 'Кучето е на осем години.'), audio: true },
       ],
     },
     {
@@ -147,6 +187,9 @@ const lesson1: Lesson = {
             bi('ä ö ü ß are separate letters with their own sounds.', 'ä ö ü ß са отделни букви със свои звукове.'),
             bi('w = v, v = f, z = ts, s between vowels = z.', 'w = в, v = ф, z = ц, s между гласни = з.'),
             bi('ei = "eye", ie = "ee".', 'ei = „ай“, ie = „и“.'),
+            bi('ch = the "ch" in "loch" (softer after e and i), sch = sh, st/sp at the start = sht/shp.', 'ch = „х“ (по-меко след e и i), sch = ш, st/sp в началото = щ/шп.'),
+            bi('au = "ow", eu/äu = "oy", j = "y".', 'au = „ау“, eu/äu = „ой“, j = „й“.'),
+            bi('At the end of a word b, d, g sound like p, t, k; h after a vowel is silent.', 'В края на думата b, d, g звучат като п, т, к; h след гласна не се чува.'),
             bi('You may type ae/oe/ue/ss, but standard spelling is the goal.', 'Можеш да пишеш ae/oe/ue/ss, но целта е стандартният правопис.'),
           ],
         },
@@ -161,6 +204,7 @@ const lesson1: Lesson = {
         {
           id: 'u1l1-ex1-s1',
           prompt: bi('Listen. Which word did you hear?', 'Слушай. Коя дума чу?'),
+          instruction: LISTEN_AND_CHOOSE,
           audio: { text: 'die Töchter', hideText: true },
           choices: [
             { id: 'a', de: 'die Tochter', gloss: bi('the daughter', 'дъщерята') },
@@ -176,6 +220,7 @@ const lesson1: Lesson = {
         {
           id: 'u1l1-ex1-s2',
           prompt: bi('Listen. Which word did you hear?', 'Слушай. Коя дума чу?'),
+          instruction: LISTEN_AND_CHOOSE,
           audio: { text: 'vier', hideText: true },
           choices: [
             { id: 'a', de: 'wir', gloss: bi('we', 'ние') },
@@ -209,6 +254,9 @@ const lesson1: Lesson = {
         {
           prompt: bi('Rewrite with the proper German letter: Tschuess', 'Напиши с правилната немска буква: Tschuess'),
           answer: 'Tschüss',
+          // Both are real spellings: Tschüs is in the dictionary, and Tschüß is
+          // what a learner gets by applying "ss becomes ß" from this very lesson.
+          alternatives: ['Tschüs', 'Tschüß'],
           shape: 'word',
           hints: [
             bi('ue becomes one letter, ss stays ss here.', 'ue става една буква, а ss тук остава ss.'),
@@ -234,21 +282,24 @@ const lesson1: Lesson = {
     dictation('u1l1-ex3', bi('Listen and type', 'Слушай и напиши'), [
       {
         instruction: bi('Type the word you hear.', 'Напиши думата, която чуваш.'),
-        answer: 'das Haus',
-        shape: 'phrase',
-        reviewTargets: ['v-das-haus'],
-        hints: [bi('It starts with "das".', 'Започва с „das“.')],
+        answer: 'wohnen',
+        shape: 'word',
+        hints: [
+          bi('It means "to live". Remember: the German letter for the English v sound is w.', 'Означава „живея“. Помни: звукът „в“ се пише с w.'),
+          bi('The h is silent; it only makes the o long.', 'h не се чува, само удължава o.'),
+        ],
       },
       {
         instruction: bi('Type the word you hear.', 'Напиши думата, която чуваш.'),
-        answer: 'die Städte',
+        answer: 'die Töchter',
         shape: 'phrase',
-        reviewTargets: ['v-die-stadt'],
-        hints: [bi('Plural of "die Stadt".', 'Множествено число на „die Stadt“.')],
+        reviewTargets: ['v-die-tochter'],
+        hints: [bi('"the daughters" — listen for the rounded ö.', '„дъщерите“ — слушай за закръгленото ö.')],
       },
       {
         instruction: bi('Type the word you hear.', 'Напиши думата, която чуваш.'),
         answer: 'Tschüss',
+        alternatives: ['Tschüs', 'Tschüß'],
         shape: 'word',
         reviewTargets: ['v-tschuess'],
         hints: [bi('An informal goodbye.', 'Неофициално сбогуване.')],
@@ -258,7 +309,7 @@ const lesson1: Lesson = {
   mastery: {
     passAccuracy: 0.67,
     exercises: [
-      typeIt('u1l1-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u1l1-m1', bi('Final check', 'Финална проверка'), [
         {
           prompt: bi('Write in standard German spelling: Staedte', 'Напиши в стандартен немски правопис: Staedte'),
           answer: 'Städte',
@@ -272,11 +323,11 @@ const lesson1: Lesson = {
           hints: [],
         },
       ]),
-      dictation('u1l1-m2', bi('Mastery check: listening', 'Проверка за усвояване: слушане'), [
+      dictation('u1l1-m2', bi('Final check: listening', 'Финална проверка: слушане'), [
         {
           instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
-          answer: 'das Buch',
-          shape: 'phrase',
+          answer: 'zwei',
+          shape: 'word',
           hints: [],
         },
       ]),
@@ -386,6 +437,17 @@ const lesson2: Lesson = {
             'Виж колко често родът не съвпада с българския: das Haus (къща — ж.р.), der Tisch (маса — ж.р.), das Buch (книга — ж.р.), der Hund (куче — ср.р.). Съвпадат: die Tochter, der Sohn, das Kind, die Katze.',
           ),
         },
+        {
+          t: 'p',
+          text: bi(
+            'Three describing words for your first sentences. They never change here: after "ist" they stay exactly as they are.',
+            'Три описателни думи за първите ти изречения. Тук не се променят: след „ist“ остават точно такива.',
+          ),
+        },
+        { t: 'de', de: 'groß', gloss: bi('big', 'голям'), audio: true },
+        { t: 'de', de: 'klein', gloss: bi('small', 'малък'), audio: true },
+        { t: 'de', de: 'neu', gloss: bi('new', 'нов'), audio: true },
+        { t: 'de', de: 'Das Haus ist klein.', gloss: bi('The house is small.', 'Къщата е малка.'), audio: true },
       ],
       vocabIds: [
         'v-das-haus',
@@ -429,7 +491,7 @@ const lesson2: Lesson = {
   exercises: [
     multipleChoice(
       'u1l2-ex1',
-      bi('First exposure: which article?', 'Първо запознаване: кой член?'),
+      bi('Which article? A first try', 'Кой член? Първи опит'),
       [
         {
           prompt: bi('Which article goes with "Haus"?', 'Кой член отива с „Haus“?'),
@@ -502,10 +564,13 @@ const lesson2: Lesson = {
 
     fillBlank('u1l2-ex4', bi('Complete the sentence', 'Довърши изречението'), [
       {
-        prompt: bi('The child is three years old.', 'Детето е на три години.'),
-        scaffold: '___ Kind ist drei Jahre alt.',
+        prompt: bi('The child is small.', 'Детето е малко.'),
+        scaffold: '___ Kind ist klein.',
         answer: 'Das',
         shape: 'word',
+        // Every other article drill here wants lowercase; this one only starts
+        // the sentence. "das" is right, with a note about the capital.
+        enforceCapitalization: false,
         reviewTargets: ['v-das-kind'],
         hints: [bi('Kind is neuter.', 'Kind е от среден род.')],
       },
@@ -516,7 +581,7 @@ const lesson2: Lesson = {
         shape: 'word',
         reviewTargets: ['v-die-tochter'],
         hints: [
-          bi('Tochter is feminine, so the indefinite article takes an -e.', 'Tochter е от женски род, затова неопределителният член взима -e.'),
+          bi('Tochter is a die word, so "a" is eine, with -e.', 'Tochter е с die, затова „една“ е eine, с -e.'),
         ],
       },
     ]),
@@ -581,7 +646,7 @@ const lesson2: Lesson = {
   mastery: {
     passAccuracy: 0.7,
     exercises: [
-      articleRecall('u1l2-m1', bi('Mastery check: articles', 'Проверка: членове'), [
+      articleRecall('u1l2-m1', bi('Final check: articles', 'Проверка: членове'), [
         { noun: 'Frau', article: 'die', vocabId: 'v-die-frau', gloss: bi('the woman', 'жената') },
         { noun: 'Sohn', article: 'der', vocabId: 'v-der-sohn', gloss: bi('the son', 'синът') },
         { noun: 'Wasser', article: 'das', vocabId: 'v-das-wasser', gloss: bi('the water', 'водата') },
@@ -589,10 +654,10 @@ const lesson2: Lesson = {
       exercise({
         id: 'u1l2-m2',
         kind: 'type',
-        objective: bi('Mastery check: full noun', 'Проверка: цяло съществително'),
+        objective: bi('Final check: full noun', 'Проверка: цяло съществително'),
         steps: [
           {
-            prompt: bi('the cat', 'котка'),
+            prompt: bi('the cat', 'котката'),
             instruction: bi('Write the noun with its article.', 'Напиши съществителното с члена.'),
             answer: 'die Katze',
             shape: 'phrase',
@@ -601,7 +666,7 @@ const lesson2: Lesson = {
           },
         ],
       }),
-      typeIt('u1l2-m3', bi('Mastery check: a full sentence', 'Проверка: цяло изречение'), [
+      typeIt('u1l2-m3', bi('Final check: a full sentence', 'Проверка: цяло изречение'), [
         {
           prompt: bi('The book is new.', 'Книгата е нова.'),
           answer: 'Das Buch ist neu.',
@@ -666,14 +731,14 @@ const checkpoint: Checkpoint = {
     ]),
     typeIt('cp-u1-3', bi('Nouns with their article', 'Съществителни с члена'), [
       {
-        prompt: bi('the daughter', 'дъщеря'),
+        prompt: bi('the daughter', 'дъщерята'),
         instruction: bi('With the article.', 'С члена.'),
         answer: 'die Tochter',
         shape: 'phrase',
         hints: [],
       },
       {
-        prompt: bi('the dog', 'куче'),
+        prompt: bi('the dog', 'кучето'),
         instruction: bi('With the article.', 'С члена.'),
         answer: 'der Hund',
         shape: 'phrase',
@@ -701,7 +766,7 @@ const checkpoint: Checkpoint = {
       },
       {
         instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
-        answer: 'die H\u00e4user',
+        answer: 'der Sohn',
         shape: 'phrase',
         hints: [],
       },

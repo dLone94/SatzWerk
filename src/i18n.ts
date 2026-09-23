@@ -77,14 +77,14 @@ export const UI = {
   // Onboarding
   onboardingTitle: s('Welcome to SatzWerk', 'Добре дошъл в SatzWerk'),
   onboardingIntro: s(
-    'SatzWerk teaches German by making you produce it: you read, you listen, and then you type German yourself. Choose the language you would like the explanations in.',
-    'SatzWerk учи немски, като те кара да го произвеждаш: четеш, слушаш и после сам пишеш на немски. Избери на кой език искаш обясненията.',
+    'SatzWerk teaches German step by step, from the very first letters — no German needed to start. You read a little, listen, and then type German yourself. Choose the language for the explanations.',
+    'SatzWerk учи немски стъпка по стъпка, от първите букви — не ти трябва немски, за да започнеш. Четеш малко, слушаш и после сам пишеш на немски. Избери езика на обясненията.',
   ),
   onboardingPathEn: s('Explain German to me in English', 'Обяснявай ми немския на английски'),
   onboardingPathBg: s('Explain German to me in Bulgarian', 'Обяснявай ми немския на български'),
   onboardingPathNote: s(
-    'The two paths are written separately. The Bulgarian path explains German from a Bulgarian speaker’s point of view — grammatical gender, the position of the article, cases — rather than translating the English one.',
-    'Двата пътя са написани отделно. Българският път обяснява немския от гледна точка на българския говорещ — род, място на члена, падежи — а не превежда английския.',
+    'The two paths are written separately: the Bulgarian one compares German with Bulgarian wherever that helps, rather than translating the English.',
+    'Двата пътя са написани отделно: българският сравнява немския с българския, където това помага, а не превежда английския.',
   ),
   onboardingTarget: s('How much do you want to study each day?', 'Колко искаш да учиш всеки ден?'),
   onboardingStart: s('Start learning', 'Започни да учиш'),
@@ -160,8 +160,8 @@ export const UI = {
     'Нищо не е за повторение, нито една грешка не се е повторила, и няма недовършен урок. Започни урок или упражнявай предварително.',
   ),
   sessionMasteryLeft: s(
-    'Your lesson has only its mastery check left. That is taken in one sitting on the lesson page, so it is not in the round.',
-    'От урока ти е останала само проверката за усвояване. Тя се прави наведнъж на страницата на урока, затова не е в кръга.',
+    'Your lesson has only its final check left. That is taken in one sitting on the lesson page, so it is not in the round.',
+    'От урока ти е останала само финалната проверка. Тя се прави наведнъж на страницата на урока, затова не е в кръга.',
   ),
   sessionFinished: s('Round finished', 'Кръгът е завършен'),
   sessionTook: s('It took {time}.', 'Отне ти {time}.'),
@@ -245,28 +245,28 @@ export const UI = {
   lessonSectionRead: s('Read', 'Прочетено'),
   lessonWordList: s('Words in this section', 'Думи в този раздел'),
   lessonSummary: s('Summary', 'Резюме'),
-  lessonMastery: s('Mastery check', 'Проверка за усвояване'),
+  lessonMastery: s('Final check', 'Финална проверка'),
   lessonMasteryIntro: s(
-    'No hints are offered here. Type the German from memory.',
-    'Тук няма подсказки. Напиши немския по памет.',
+    'A few questions from this lesson, without hints. One slip is allowed.',
+    'Няколко въпроса от урока, без подсказки. Една грешка е позволена.',
   ),
   lessonDoneTitle: s('Lesson complete', 'Урокът е завършен'),
   lessonNewWords: s('{n} new words', '{n} нови думи'),
   lessonNewWordsOne: s('{n} new word', '{n} нова дума'),
   lessonFirstTry: s('right first time', 'верни от първи опит'),
   lessonUpNext: s('Next', 'Следва'),
-  lessonMasteryPassed: s('Mastery check passed', 'Проверката е издържана'),
+  lessonMasteryPassed: s('Final check passed', 'Финалната проверка е издържана'),
   lessonMasteryFailed: s(
     'Not passed yet. Have another look at the material and try again — nothing is lost.',
     'Още не е издържана. Прегледай материала и опитай пак — нищо не е загубено.',
   ),
-  lessonRecovery: s('Quick recovery round', 'Кратък възстановителен кръг'),
+  lessonRecovery: s('Quick redo', 'Бързо повторение'),
   lessonRecoveryIntro: s(
-    'A few of these went wrong the first time. Let us go through just those before the mastery check.',
-    'Няколко от тези не се получиха от първия път. Да минем само през тях преди проверката.',
+    'These were tricky the first time. One more go at just these, then the final check.',
+    'Тези бяха трудни от първия път. Още веднъж само тях, после финалната проверка.',
   ),
   lessonPhasePractice: s('Practice', 'Упражнения'),
-  lessonPhaseMastery: s('Mastery', 'Усвояване'),
+  lessonPhaseMastery: s('Final check', 'Финална проверка'),
   lessonBackToLesson: s('Back to the lesson', 'Обратно към урока'),
 
   // Exercise player
@@ -483,9 +483,10 @@ export const UI = {
   feedbackWordByWord: s('Word by word', 'Дума по дума'),
 
   // Review
-  reviewTitle: s('Review queue', 'Опашка за повторение'),
+  reviewTitle: s('Review', 'Преговор'),
   reviewDueCount: s('{n} due now', '{n} за сега'),
   reviewNothingDue: s('Nothing is due', 'Нищо не е дължимо'),
+  reviewRoundSize: s('{n} in this round', '{n} в този кръг'),
   reviewNothingDueBody: s(
     'Your queue is empty. You can still practise early, or carry on with the course.',
     'Опашката ти е празна. Можеш да упражняваш предварително или да продължиш с курса.',
@@ -507,7 +508,7 @@ export const UI = {
   reviewStateNew: s('New', 'Ново'),
   reviewStateLearning: s('Learning', 'Учи се'),
   reviewStateKnown: s('Known', 'Научено'),
-  reviewStateLapsed: s('Lapsed', 'Забравено'),
+  reviewStateLapsed: s('Forgotten', 'Забравено'),
 
   // Vocabulary
   vocabTitle: s('Vocabulary', 'Речник'),

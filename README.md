@@ -288,7 +288,7 @@ level checkpoint.**
 | 5. Time and calendar | Days of the week · Months and birthdays · Telling the time | all seven days (all masculine), am Montag and the verb back in second place; months, im Mai, Wann hast du Geburtstag?; Wie viel Uhr ist es?, and why *halb acht* is 7:30 |
 | 6. First grammar consolidation | All the pronouns, sein and haben · Plurals and saying no · Asking questions | all nine pronouns in one table with sein and haben, and why er/sie/es follow the article; plurals and their die, nicht versus kein/keine/keinen; W-questions versus yes/no inversion |
 | | **Six unit checkpoints** | each mixes vocabulary, grammar, listening and writing from its own unit |
-| | **Pre-A1 level checkpoint** | draws on all six units, 80% to pass, and offers no hints at all |
+| | **Pre-A1 level checkpoint** | draws on all six units, 75% to pass — the same as a unit checkpoint, because this is the first test a complete beginner meets — and offers no hints at all |
 
 **A1 is finished too: six units, eighteen lessons, six unit checkpoints and a
 level checkpoint.**
@@ -351,10 +351,10 @@ than about grammar.
 | 5. Natural spoken German | Did you get my message? · Got a second? · Didn’t see it | the unit that admits what the previous eighty lessons could not: a learner who has done all of them can read a rental contract and still lose the thread at a lunch table. Not because the grammar changes — it does not — but because speech swaps words (bekommen → *kriegen*, sehen → *gucken*, funktionieren → *klappen*), deletes sounds (*Haste mal kurz?* is four words said as two, *’ne Frage* is eine) and rearranges sentences (*Hab ich nicht gesehen* deletes the first slot; *Der ist echt gut, der Film* adds an afterthought; *ne?* asks for agreement without agreeing with anything). All three lessons are taught **for listening**, and every exercise asks for the full form from the spoken one rather than the other way round: nobody has ever been thought rude for saying *bekommen*, while failing to understand *Haste mal kurz?* stops a conversation dead. Here English transfers on one of the three — it drops subjects the same casual way — but builds its tag questions by rule where German has one invariant *ne?*; Bulgarian has the invariant tag already („нали?“) and moves constituents freely, so what it lacks is the verb-second frame the deletions happen inside |
 | | **B2 level checkpoint** | all five units with no hints, 80% to pass, and built around the question B2 is actually about: *can you tell which room you are in?* Every level below had one right answer per prompt; here the same fact has two correct forms and only one belongs where you are standing, so the checkpoint asks for the same content twice — *Hast du meine Nachricht gekriegt?* to a colleague and *Haben Sie meine Nachricht erhalten?* in an email — and marks the pair rather than the sentence |
 
-Across those 84 lessons that is 654 vocabulary entries, 83 grammar concepts, 683 exercises and **2006
-answer tasks** (including all thirty-three checkpoints and the placement check), across 426 teaching sections,
+Across those 84 lessons that is 654 vocabulary entries, 83 grammar concepts, 683 exercises and **2013
+answer tasks** (including all thirty-three checkpoints and the placement check), across 427 teaching sections,
 all authored in both paths. Only 1.0% of those tasks are multiple choice; the
-rest require typing German. 148 of them carry an authored trap answer — a
+rest require typing German. 165 of them carry an authored trap answer — a
 specific wrong form the learner is likely to produce, with an explanation
 written for it. Every unit in the curriculum is now written: there is nothing
 left labelled planned, because there is nothing left planned.
@@ -437,9 +437,17 @@ two clean answers take it away again, so the learner returns to full recall.
 **Lesson completion is earned.** `lessonRequirements()` returns the live state of
 every condition, and the UI shows it as a checklist: read all sections, resolve
 every exercise, recall the key words, type the key sentences, reach 60% first-try
-accuracy, pass the mastery check. Scrolling through completes nothing. If
-practice accuracy falls below 70%, a short recovery round on just the missed
-steps is inserted automatically before the mastery check.
+accuracy or pass the final check, and pass the final check. Scrolling through
+completes nothing. If practice accuracy falls below 70%, a short redo of just the
+missed steps is inserted automatically before the final check.
+
+A first try cannot be taken again, so the accuracy condition is also met by
+passing the final check: otherwise a beginner whose first attempt went badly
+could never finish that lesson, however well they learned it afterwards. The
+final check allows one slip on any check of three or more questions
+(`masteryPassMark()`), and an answer that only lacks its full stop, or starts a
+sentence with a small letter, counts as right there — a noun's capital and
+*Sie* for *sie* still do not.
 
 **A real review queue.** A documented SM-2 derivative (see the header comment in
 `src/core/srs/scheduler.ts`): learning steps of 10 minutes and one day, then

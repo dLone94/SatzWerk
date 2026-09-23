@@ -131,6 +131,10 @@ const lesson1: Lesson = {
             ['Heute', 'lerne', 'ich Deutsch.'],
             ['Am Wochenende', 'bin', 'ich zu Hause.'],
           ],
+          caption: bi(
+            'zu Hause = at home (also written as one word: zuhause). das Wochenende = the weekend.',
+            'zu Hause = вкъщи (пише се и слято: zuhause). das Wochenende = уикендът.',
+          ),
         },
         {
           t: 'callout',
@@ -233,7 +237,7 @@ const lesson1: Lesson = {
 
     typeIt(
       'u5l1-ex4',
-      bi('Full production', 'Пълно производство'),
+      bi('Write the whole sentence', 'Напиши цялото изречение'),
       [
         {
           prompt: bi('On Monday I work.', 'В понеделник работя.'),
@@ -265,9 +269,13 @@ const lesson1: Lesson = {
         {
           prompt: bi('At the weekend I am at home.', 'През уикенда съм вкъщи.'),
           answer: 'Am Wochenende bin ich zu Hause.',
-          alternatives: ['Ich bin am Wochenende zu Hause.'],
+          alternatives: [
+            'Ich bin am Wochenende zu Hause.',
+            'Am Wochenende bin ich zuhause.',
+            'Ich bin am Wochenende zuhause.',
+          ],
           reviewTargets: ['v-das-wochenende'],
-          hints: [bi('The verb is sein.', 'Глаголът е sein.')],
+          hints: [bi('The verb is sein. "at home" is zu Hause.', 'Глаголът е sein. „вкъщи“ е zu Hause.')],
         },
         {
           prompt: bi('Tomorrow I am working in Hamburg.', 'Утре работя в Хамбург.'),
@@ -305,7 +313,7 @@ const lesson1: Lesson = {
       },
       {
         instruction: bi('Type the sentence you hear.', 'Напиши изречението, което чуваш.'),
-        answer: 'Am Freitag arbeite ich nicht.',
+        answer: 'Am Freitag lerne ich Deutsch.',
         shape: 'sentence',
         reviewTargets: ['v-freitag'],
         hints: [],
@@ -315,7 +323,7 @@ const lesson1: Lesson = {
   mastery: {
     passAccuracy: 0.7,
     exercises: [
-      typeIt('u5l1-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u5l1-m1', bi('Final check', 'Финална проверка'), [
         { prompt: bi('Wednesday', 'сряда'), answer: 'Mittwoch', shape: 'word', hints: [] },
         {
           prompt: bi('On Tuesday I work.', 'Във вторник работя.'),
@@ -327,6 +335,12 @@ const lesson1: Lesson = {
           prompt: bi('Today I am learning German.', 'Днес уча немски.'),
           answer: 'Heute lerne ich Deutsch.',
           alternatives: ['Ich lerne heute Deutsch.'],
+          hints: [],
+        },
+        {
+          prompt: bi('Tomorrow I am working in Hamburg.', 'Утре работя в Хамбург.'),
+          answer: 'Morgen arbeite ich in Hamburg.',
+          alternatives: ['Ich arbeite morgen in Hamburg.'],
           hints: [],
         },
       ]),
@@ -462,7 +476,7 @@ const lesson2: Lesson = {
 
     fillBlank('u5l2-ex2', bi('am or im?', 'am или im?'), [
       {
-        prompt: bi('In May I have holiday.', 'През май съм в отпуск.'),
+        prompt: bi('In May I am on holiday. (der Urlaub = holiday)', 'През май съм в отпуск. (der Urlaub = отпуск)'),
         scaffold: '___ Mai habe ich Urlaub.',
         answer: 'Im',
         shape: 'word',
@@ -481,7 +495,7 @@ const lesson2: Lesson = {
 
     typeIt(
       'u5l2-ex3',
-      bi('Full production', 'Пълно производство'),
+      bi('Write the whole sentence', 'Напиши цялото изречение'),
       [
         {
           prompt: bi('My birthday is in May.', 'През май имам рожден ден.'),
@@ -528,7 +542,7 @@ const lesson2: Lesson = {
       ['g-time-prepositions'],
     ),
 
-    partialRecall('u5l2-ex4', bi('Partial recall', 'Частично припомняне'), [
+    partialRecall('u5l2-ex4', bi('Complete the word', 'Довърши думата'), [
       {
         prompt: bi('February', 'февруари'),
         scaffold: 'F___',
@@ -564,7 +578,7 @@ const lesson2: Lesson = {
       },
     ]),
 
-    freeWriting('u5l2-ex6', bi('Free production', 'Свободно производство'), [
+    freeWriting('u5l2-ex6', bi('Write about your birthday', 'Напиши за рождения си ден'), [
       {
         prompt: bi(
           'Write one sentence saying when your birthday is.',
@@ -581,7 +595,7 @@ const lesson2: Lesson = {
   mastery: {
     passAccuracy: 0.7,
     exercises: [
-      typeIt('u5l2-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u5l2-m1', bi('Final check', 'Финална проверка'), [
         { prompt: bi('March', 'март'), answer: 'März', shape: 'word', hints: [] },
         {
           prompt: bi('My birthday is in September.', 'През септември имам рожден ден.'),
@@ -592,6 +606,12 @@ const lesson2: Lesson = {
         {
           prompt: bi('When is your birthday? (informal)', 'Кога имаш рожден ден?'),
           answer: 'Wann hast du Geburtstag?',
+          hints: [],
+        },
+        {
+          prompt: bi('In December I am in Bulgaria.', 'През декември съм в България.'),
+          answer: 'Im Dezember bin ich in Bulgarien.',
+          alternatives: ['Ich bin im Dezember in Bulgarien.'],
           hints: [],
         },
       ]),
@@ -762,7 +782,7 @@ const lesson3: Lesson = {
 
     typeIt(
       'u5l3-ex3',
-      bi('Full production', 'Пълно производство'),
+      bi('Write the whole sentence', 'Напиши цялото изречение'),
       [
         {
           prompt: bi('What time is it?', 'Колко е часът?'),
@@ -790,6 +810,7 @@ const lesson3: Lesson = {
         {
           prompt: bi('It is 7:30.', 'Часът е седем и половина.'),
           answer: 'Es ist halb acht.',
+          alternatives: ['Es ist sieben Uhr dreißig.'],
           reviewTargets: ['v-halb'],
           traps: [
             {
@@ -809,6 +830,7 @@ const lesson3: Lesson = {
         {
           prompt: bi('I work at eight o’clock.', 'Работя в осем часа.'),
           answer: 'Ich arbeite um acht Uhr.',
+          alternatives: ['Ich arbeite um acht.', 'Um acht Uhr arbeite ich.'],
           reviewTargets: ['v-um'],
           traps: [
             {
@@ -858,7 +880,7 @@ const lesson3: Lesson = {
   mastery: {
     passAccuracy: 0.75,
     exercises: [
-      typeIt('u5l3-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u5l3-m1', bi('Final check', 'Финална проверка'), [
         {
           prompt: bi('What time is it?', 'Колко е часът?'),
           answer: 'Wie viel Uhr ist es?',
@@ -873,11 +895,13 @@ const lesson3: Lesson = {
         {
           prompt: bi('It is 8:30.', 'Часът е осем и половина.'),
           answer: 'Es ist halb neun.',
+          alternatives: ['Es ist acht Uhr dreißig.'],
           hints: [],
         },
         {
           prompt: bi('I work at nine o’clock.', 'Работя в девет часа.'),
           answer: 'Ich arbeite um neun Uhr.',
+          alternatives: ['Ich arbeite um neun.', 'Um neun Uhr arbeite ich.'],
           hints: [],
         },
       ]),
@@ -959,11 +983,13 @@ const checkpoint: Checkpoint = {
       {
         prompt: bi('It is 7:30.', 'Часът е седем и половина.'),
         answer: 'Es ist halb acht.',
+        alternatives: ['Es ist sieben Uhr dreißig.'],
         hints: [],
       },
       {
         prompt: bi('I work at eight o’clock.', 'Работя в осем часа.'),
         answer: 'Ich arbeite um acht Uhr.',
+        alternatives: ['Ich arbeite um acht.', 'Um acht Uhr arbeite ich.'],
         hints: [],
       },
     ]),
@@ -971,6 +997,7 @@ const checkpoint: Checkpoint = {
       {
         instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
         answer: 'Am Wochenende bin ich zu Hause.',
+        alternatives: ['Am Wochenende bin ich zuhause.'],
         shape: 'sentence',
         hints: [],
       },

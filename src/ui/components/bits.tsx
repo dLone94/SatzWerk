@@ -49,6 +49,20 @@ function withLineBreaks(text: string, keyPrefix: string): ReactNode[] {
   );
 }
 
+/**
+ * The part of a German table cell worth saying aloud: the word before any
+ * respelling ("wohnen — VOH-nen"), and nothing for an ending ("-st") or a
+ * single letter, which a voice would read out as the letter's name.
+ */
+export function speakable(cell: string): string | null {
+  const said = cell.split(/\s+[—–]\s+/)[0]!.replace(/[*_`]/g, '').trim();
+  if (said.startsWith('-') || said.startsWith('…')) return null;
+  if ((said.match(/\p{L}/gu) ?? []).length < 2) return null;
+  // A letter group ("sch", "st, sp") is not a word a voice can say.
+  if (said.split(/[\s,/]+/).some((part) => part && !/[aeiouyäöü]/i.test(part))) return null;
+  return said;
+}
+
 export function RichText({ text }: { text: string }) {
   const paragraphs = text.split(/\n{2,}/).filter((paragraph) => paragraph.trim().length > 0);
   if (paragraphs.length <= 1) return <>{withLineBreaks(text, 'rt')}</>;
@@ -294,6 +308,7 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
                           typeof cell === 'string' ? (
                             <td key={c} lang="de" className="data-table__de">
                               <RichText text={cell} />
+                              {speakable(cell) ? <AudioButton compact text={speakable(cell)!} /> : null}
                             </td>
                           ) : (
                             <td key={c}>

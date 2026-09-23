@@ -341,7 +341,7 @@ const lesson1: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u2l1-m1', bi('Mastery: your home', 'Проверка: твоят дом'), [
+        typeIt('a1u2l1-m1', bi('Final check: your home', 'Проверка: твоят дом'), [
           {
             prompt: bi('There is no garden.', 'Няма градина.'),
             answer: 'Es gibt keinen Garten.',
@@ -660,7 +660,7 @@ const lesson2: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u2l2-m1', bi('Mastery: the bracket', 'Проверка: рамката'), [
+        typeIt('a1u2l2-m1', bi('Final check: the bracket', 'Проверка: рамката'), [
           {
             prompt: bi('I get up at six o’clock.', 'Ставам в шест часа.'),
             answer: 'Ich stehe um sechs Uhr auf.',
@@ -921,7 +921,7 @@ const lesson3: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u2l3-m1', bi('Mastery: modal verbs', 'Проверка: модални глаголи'), [
+        typeIt('a1u2l3-m1', bi('Final check: modal verbs', 'Проверка: модални глаголи'), [
           {
             prompt: bi('I have to get up early.', 'Трябва да ставам рано.'),
             answer: 'Ich muss früh aufstehen.',

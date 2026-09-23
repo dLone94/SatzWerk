@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { lessonById, sectionBlocks, unitForLesson, vocabById } from '../../content/index.ts';
 import type { Lesson, TeachingSection } from '../../content/types.ts';
 import {
+  allStepIds,
   isLessonComplete,
+  masteryPassMark,
   lessonRequirements,
   needsRecovery,
   recoveryStepIds,
@@ -41,9 +43,13 @@ export function LessonPage() {
   const lesson = lessonById(lessonId);
   const progress = lessonProgress(lessonId);
   const [stage, setStage] = useState<Stage>('overview');
+  /** The steps this practice run covers: the unfinished ones when resuming. */
+  const [resumeSteps, setResumeSteps] = useState<string[] | undefined>(undefined);
   const [sectionIndex, setSectionIndex] = useState(0);
   const [lastSummary, setLastSummary] = useState<PlayerSummary | null>(null);
   const [masteryPassed, setMasteryPassed] = useState<boolean | null>(null);
+  /** Passed and every other requirement met: the lesson is really done. */
+  const [finished, setFinished] = useState(false);
 
   const sections = useMemo<TeachingSection[]>(
     () => (lesson ? lesson.sections.filter((section) => !section.only || section.only.includes(lang)) : []),
@@ -79,10 +85,16 @@ export function LessonPage() {
     async (summary: PlayerSummary) => {
       if (!lesson) return;
       setLastSummary(summary);
-      const updated = await recordMastery(lesson.id, summary.accuracy, lesson.mastery.passAccuracy);
+      const updated = await recordMastery(
+        lesson.id,
+        summary.accuracy,
+        masteryPassMark(lesson.mastery.passAccuracy, summary.total),
+      );
       const passed = updated.mastery.passed;
+      const done = passed && isLessonComplete(lesson, updated);
       setMasteryPassed(passed);
-      if (passed && isLessonComplete(lesson, updated)) {
+      setFinished(done);
+      if (done) {
         await completeLesson(lesson.id);
       }
       setStage('done');
@@ -110,12 +122,28 @@ export function LessonPage() {
   const satisfied = requirements.filter((requirement) => requirement.satisfied).length;
   const complete = isLessonComplete(lesson, progress);
 
+  /*
+   * A lesson on a phone is done in pieces. Coming back to one half-finished
+   * picks up at the first unfinished question instead of question one; a
+   * finished or untouched practice runs whole. Fixed when the run starts, so
+   * the list does not shrink under the learner as they answer.
+   */
+  const startPractice = () => {
+    const all = allStepIds(lesson);
+    const open = all.filter((id) => !progress.practice[id]?.resolved);
+    setResumeSteps(open.length > 0 && open.length < all.length ? open : undefined);
+    setStage('practice');
+  };
+  const allSectionsSeen = lesson.sections.every((item) => progress.sectionsSeen.includes(item.id));
+  const practiceUnderway = Object.keys(progress.practice).length > 0;
+
   if (stage === 'practice') {
     return (
       <div className="page page--player">
         <PlayerHeader lesson={lesson} phase={t('lessonPhasePractice')} />
         <ExercisePlayer
           exercises={lesson.exercises}
+          onlyStepIds={resumeSteps}
           context="lesson"
           level={lesson.level}
           lessonId={lesson.id}
@@ -211,7 +239,7 @@ export function LessonPage() {
               {t('lessonNextSection')}
             </button>
           ) : (
-            <button type="button" className="btn btn--primary" onClick={() => setStage('practice')} autoFocus>
+            <button type="button" className="btn btn--primary" onClick={startPractice} autoFocus>
               {t('lessonToExercises')}
             </button>
           )}
@@ -221,7 +249,9 @@ export function LessonPage() {
   }
 
   if (stage === 'done') {
-    if (masteryPassed && lastSummary) {
+    // The celebration is for a finished lesson, not only a passed check: the
+    // two can differ, and confetti over "not finished yet" contradicts itself.
+    if (masteryPassed && finished && lastSummary) {
       // Where to go from here: the same next step Today would offer, unless
       // the app has not caught up with this lesson being finished yet (offline,
       // say) and would send you straight back into it.
@@ -361,7 +391,14 @@ export function LessonPage() {
             type="button"
             className="btn btn--primary btn--lg"
             onClick={() => {
-              setSectionIndex(0);
+              // Back where the learner stopped: in the exercises if the reading
+              // is done, otherwise at the first section not yet read.
+              if (allSectionsSeen && practiceUnderway && !complete) {
+                startPractice();
+                return;
+              }
+              const unread = lesson.sections.findIndex((item) => !progress.sectionsSeen.includes(item.id));
+              setSectionIndex(unread > 0 && !complete ? unread : 0);
               setStage('sections');
             }}
             autoFocus
@@ -369,7 +406,7 @@ export function LessonPage() {
             {satisfied > 0 ? t('lessonContinue') : t('lessonStart')}
           </button>
           {Object.keys(progress.practice).length > 0 ? (
-            <button type="button" className="btn btn--ghost" onClick={() => setStage('practice')}>
+            <button type="button" className="btn btn--ghost" onClick={startPractice}>
               {t('lessonToExercises')}
             </button>
           ) : null}
@@ -405,7 +442,11 @@ function Requirements({ lesson }: { lesson: Lesson }) {
             {requirement.satisfied ? '✓' : '○'}
           </span>
           <span className="requirements__label">{say(requirement.label)}</span>
-          {requirement.total !== undefined ? (
+          {/* A share reads as a share ("40%", not "40 / 100"), and not at all
+              before there is anything to measure. */}
+          {requirement.id === 'accuracy' ? (
+            requirement.done ? <span className="requirements__count">{requirement.done}%</span> : null
+          ) : requirement.total !== undefined ? (
             <span className="requirements__count">
               {requirement.done} / {requirement.total}
             </span>

@@ -445,7 +445,19 @@ async function passEveryStep(user: ReturnType<typeof userEvent.setup>, lessonId:
 describe('the redesign', () => {
   it('celebrates a passed lesson and points at the next step', async () => {
     const user = userEvent.setup();
-    const recordMastery = vi.fn(async () => progress({ mastery: { attempts: 1, bestAccuracy: 1, passed: true } }));
+    const lesson = lessonById(LESSON)!;
+    // Everything else about the lesson is already done; the check was the last thing.
+    const finishedProgress = progress({
+      sectionsSeen: lesson.sections.map((section) => section.id),
+      practice: Object.fromEntries(
+        lesson.exercises.flatMap((exercise) => exercise.steps).map((step) => [
+          step.id,
+          { stepId: step.id, attempts: 1, firstTryCorrect: true, bestCredit: 1, resolved: true, hintsUsed: 0, revealed: false },
+        ]),
+      ),
+      mastery: { attempts: 1, bestAccuracy: 1, passed: true },
+    });
+    const recordMastery = vi.fn(async () => finishedProgress);
     render(
       <AppStateContext.Provider value={state({ recordMastery })}>
         <MemoryRouter initialEntries={[`/lesson/${LESSON}`]}>
@@ -464,6 +476,58 @@ describe('the redesign', () => {
     expect(next.getAttribute('href')).toMatch(/^\/(lesson|review|checkpoint|mistakes)/);
     // Never straight back into the lesson that was just finished.
     expect(next.getAttribute('href')).not.toBe(`/lesson/${LESSON}`);
+  });
+
+  /*
+   * The check can be taken straight from the lesson page. Passing it without
+   * the rest showed confetti and "Lesson complete" over a lesson that was not.
+   */
+  it('does not call a lesson complete when only its check was passed', async () => {
+    const user = userEvent.setup();
+    const recordMastery = vi.fn(async () => progress({ mastery: { attempts: 1, bestAccuracy: 1, passed: true } }));
+    render(
+      <AppStateContext.Provider value={state({ recordMastery })}>
+        <MemoryRouter initialEntries={[`/lesson/${LESSON}`]}>
+          <Routes>
+            <Route path="/lesson/:lessonId" element={<LessonPage />} />
+          </Routes>
+        </MemoryRouter>
+      </AppStateContext.Provider>,
+    );
+    await user.click(screen.getByRole('button', { name: tr('lessonMastery', 'en') }));
+    await passEveryStep(user, LESSON);
+    await waitFor(() => expect(recordMastery).toHaveBeenCalled());
+    expect(screen.queryByText(tr('lessonDoneTitle', 'en'))).toBeNull();
+    expect(screen.queryByText('Gut gemacht!')).toBeNull();
+  });
+
+  /*
+   * On a phone a lesson is done in pieces: a few questions on the bus, the
+   * rest later. Coming back used to start the exercises from question one.
+   */
+  it('picks the exercises up where the learner left off', async () => {
+    const user = userEvent.setup();
+    const lesson = lessonById(LESSON)!;
+    const stepIds = lesson.exercises.flatMap((exercise) => exercise.steps).map((step) => step.id);
+    const done = stepIds.slice(0, 3);
+    const halfway = progress({
+      sectionsSeen: lesson.sections.map((section) => section.id),
+      practice: Object.fromEntries(
+        done.map((id) => [id, { stepId: id, attempts: 1, firstTryCorrect: true, bestCredit: 1, resolved: true, hintsUsed: 0, revealed: false }]),
+      ),
+      mastery: { attempts: 0, bestAccuracy: 0, passed: false },
+    });
+    render(
+      <AppStateContext.Provider value={state({ lessons: { [LESSON]: halfway }, lessonProgress: () => halfway })}>
+        <MemoryRouter initialEntries={[`/lesson/${LESSON}`]}>
+          <Routes>
+            <Route path="/lesson/:lessonId" element={<LessonPage />} />
+          </Routes>
+        </MemoryRouter>
+      </AppStateContext.Provider>,
+    );
+    await user.click(screen.getByRole('button', { name: tr('lessonContinue', 'en') }));
+    expect(document.querySelector('[data-step-id]')?.getAttribute('data-step-id')).toBe(stepIds[3]);
   });
 
   it('clears the tab bar away while a question is on screen, and only then', () => {
@@ -561,6 +625,45 @@ describe('no trace of the old design', () => {
     );
     expect(screen.getByText('Guten Morgen').closest('td')).toHaveAttribute('lang', 'de');
     expect(screen.getByText('until about 10').closest('td')).not.toHaveAttribute('lang');
+  });
+
+  /*
+   * Lesson 1 shows the sounds of German in tables — ä, ö, ü, "wohnen", "vier"
+   * — and none of them could be heard: a table cell had no play button. A
+   * beginner reading "round your lips and say e" needs to hear it.
+   */
+  it('lets every German word in a teaching table be heard', async () => {
+    const { Blocks } = await import('../../src/ui/components/bits.tsx');
+    const spoken: string[] = [];
+    const tts = { ...nullTtsProvider, available: true, speak: (text: string) => void spoken.push(text) };
+    const user = userEvent.setup();
+    render(
+      <AppStateContext.Provider value={state({ tts })}>
+        <Blocks
+          blocks={[
+            {
+              t: 'table',
+              headers: [
+                { en: 'Letter', bg: 'Буква' },
+                { en: 'Example', bg: 'Пример' },
+              ],
+              rows: [
+                ['w', 'wohnen — VOH-nen'],
+                ['-st', { en: 'ending', bg: 'окончание' }],
+                ['st, sp', { en: 'sht, shp', bg: 'щ, шп' }],
+              ],
+            },
+          ]}
+        />
+      </AppStateContext.Provider>,
+    );
+    await user.click(screen.getByRole('button', { name: /wohnen$/ }));
+    // The respelling after the dash is for reading, not for the voice.
+    expect(spoken).toEqual(['wohnen']);
+    // An ending on its own is not a word to say.
+    expect(screen.queryByRole('button', { name: /-st/ })).toBeNull();
+    // Nor is a group of letters.
+    expect(screen.queryByRole('button', { name: /st, sp/ })).toBeNull();
   });
 
   it('draws the play buttons instead of using emoji', async () => {

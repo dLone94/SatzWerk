@@ -264,7 +264,10 @@ export interface AnswerSpec {
   trapAnswers?: Array<{ answer: string; category: ErrorCategory; feedback: Bilingual }>;
   /** Require noun/sentence-initial capitals. Defaults to true for phrases/sentences. */
   enforceCapitalization?: boolean;
-  /** Words that must appear (used by freeWriting). */
+  /**
+   * Words that must appear (used by freeWriting). "a|b|c" means any one of
+   * them; ae/oe/ue/ss spellings count as the umlaut forms.
+   */
   requiredTokens?: string[];
 }
 

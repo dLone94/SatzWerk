@@ -6,6 +6,7 @@ import {
   completeLesson,
   emptyLessonProgress,
   isLessonComplete,
+  masteryPassMark,
   lessonRequirements,
   markSectionSeen,
   needsRecovery,
@@ -230,3 +231,58 @@ describe('difficulty adaptation', () => {
     });
   });
 });
+
+/*
+ * A beginner who struggled the first time through could never finish the
+ * lesson: first-try accuracy is fixed once every step has been tried, so no
+ * amount of practice lifted it back over 60%, and Today asked them to continue
+ * that lesson forever. Passing the final check is the proof that counts.
+ */
+describe('a lesson that went badly the first time', () => {
+  it('can still be finished by passing the final check', () => {
+    let progress = readAllSections(emptyLessonProgress(lesson.id));
+    progress = answerAll(progress, (index) => index % 3 === 0);
+    expect(practiceAccuracy(progress)).toBeLessThan(PRACTICE_MIN_ACCURACY);
+    expect(isLessonComplete(lesson, progress)).toBe(false);
+
+    progress = recordMasteryAttempt(progress, 1, lesson.mastery.passAccuracy);
+    expect(lessonRequirements(lesson, progress).find((r) => r.id === 'accuracy')?.satisfied).toBe(true);
+    expect(isLessonComplete(lesson, progress)).toBe(true);
+  });
+});
+
+/*
+ * 64 of the 84 final checks allowed no slip at all: three questions at 70% or
+ * 75% need three out of three, and lesson 1's "0.67" turned two out of three
+ * (66.7%) into a fail. One slip is allowed on any check of three or more.
+ */
+describe('the pass mark of a final check', () => {
+  it('lets two out of three pass', () => {
+    for (const pass of [0.67, 0.7, 0.75, 0.8]) {
+      expect(2 / 3).toBeGreaterThanOrEqual(masteryPassMark(pass, 3));
+    }
+  });
+
+  it('allows one slip, not two, on a longer check', () => {
+    expect(3 / 4).toBeGreaterThanOrEqual(masteryPassMark(0.75, 4));
+    expect(4 / 5).toBeGreaterThanOrEqual(masteryPassMark(0.75, 5));
+    expect(3 / 5).toBeLessThan(masteryPassMark(0.75, 5));
+  });
+
+  it('keeps a lower authored mark on a long check', () => {
+    expect(masteryPassMark(0.75, 20)).toBe(0.75);
+  });
+
+  it('still wants both answers on a two-question check', () => {
+    expect(1 / 2).toBeLessThan(masteryPassMark(0.75, 2));
+  });
+
+  it('passes the first lesson on two out of three', () => {
+    const first = lessonById('pre-a1-u1-l1')!;
+    const items = first.mastery.exercises.reduce((n, exercise) => n + exercise.steps.length, 0);
+    let progress = emptyLessonProgress(first.id);
+    progress = recordMasteryAttempt(progress, (items - 1) / items, masteryPassMark(first.mastery.passAccuracy, items));
+    expect(progress.mastery.passed).toBe(true);
+  });
+});
+

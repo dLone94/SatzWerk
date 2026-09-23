@@ -175,14 +175,14 @@ const UNIT_1_2_CONCEPTS: GrammarConcept[] = [
     title: bi('ein and eine', 'ein и eine'),
     level: 'pre-a1',
     summary: bi(
-      'The indefinite article follows the same gender: ein for der/das words, eine for die words.',
-      'Неопределителният член следва същия род: ein за думите с der/das, eine за думите с die.',
+      'The word for "a" follows the same gender: ein for der/das words, eine for die words.',
+      'Думата за „един / една“ следва същия род: ein за думите с der/das, eine за думите с die.',
     ),
     tags: ['articles', 'gender'],
     blocks: [
       {
         t: 'table',
-        headers: [bi('Definite', 'Определен'), bi('Indefinite', 'Неопределен')],
+        headers: [bi('"the"', 'определено: „масата“'), bi('"a / an"', 'неопределено: „една маса“')],
         rows: [
           ['der Tisch', 'ein Tisch'],
           ['das Haus', 'ein Haus'],
@@ -192,20 +192,12 @@ const UNIT_1_2_CONCEPTS: GrammarConcept[] = [
       {
         t: 'p',
         text: bi(
-          'So there are only two forms to choose from in the nominative: eine for feminine nouns, ein for masculine and neuter ones.',
-          'Значи в именителен падеж избираш само между две форми: eine за женски род и ein за мъжки и среден род.',
+          'So there are only two forms to choose from: eine for die words, ein for der and das words.',
+          'Значи избираш само между две форми: eine за думите с die и ein за думите с der и das.',
         ),
       },
       { t: 'de', de: 'Ich habe eine Tochter.', gloss: bi('I have a daughter.', 'Имам една дъщеря.'), audio: true },
-      { t: 'de', de: 'Ich habe einen Sohn.', gloss: bi('I have a son.', 'Имам един син.'), audio: true },
-      {
-        t: 'callout',
-        tone: 'tip',
-        text: bi(
-          'You may have spotted "einen" in the second sentence. That is the accusative form of ein for masculine nouns. Unit 4 comes back to it properly — for now just notice that masculine words change more than the others.',
-          'Забеляза ли „einen“ във второто изречение? Това е винителната форма на ein при мъжки род. Раздел 4 се връща към нея подробно — засега само забележи, че думите от мъжки род се менят повече от останалите.',
-        ),
-      },
+      { t: 'de', de: 'Das ist ein Hund.', gloss: bi('That is a dog.', 'Това е куче.'), audio: true },
       {
         t: 'callout',
         tone: 'compare',
@@ -230,8 +222,8 @@ const UNIT_1_2_CONCEPTS: GrammarConcept[] = [
       {
         t: 'p',
         text: bi(
-          'Take the verb, remove -en, and add the ending for the person. Here is wohnen (to live):',
-          'Взимаш глагола, махаш -en и добавяш окончанието за лицето. Ето wohnen (живея):',
+          'Take the verb, remove -en, and add the ending for the person (ich, du ...). Here is wohnen (to live): wohn- plus the ending.',
+          'Взимаш глагола, махаш -en и добавяш окончанието за лицето (ich, du ...). Ето wohnen (живея): wohn- плюс окончанието.',
         ),
       },
       {
@@ -268,8 +260,16 @@ const UNIT_1_2_CONCEPTS: GrammarConcept[] = [
         t: 'callout',
         tone: 'warn',
         text: bi(
-          'Verbs whose stem ends in -t or -d add an extra e before the ending, so that the word stays pronounceable: du arbeitest, er arbeitet.',
-          'Глаголите, чиято основа завършва на -t или -d, добавят допълнително e преди окончанието, за да остане думата изговорима: du arbeitest, er arbeitet.',
+          'If what is left after removing -en ends in t or d (arbeit-en), add an extra e before the ending so the word stays pronounceable: du arbeitest, er arbeitet.',
+          'Ако това, което остава след махането на -en, завършва на t или d (arbeit-en), добави още едно e преди окончанието, за да може думата да се изговори: du arbeitest, er arbeitet.',
+        ),
+      },
+      {
+        t: 'callout',
+        tone: 'warn',
+        text: bi(
+          'And if it ends in s, ß or z (heiß-en), du adds only -t, because the s sound is already there: du heißt, not "du heißst".',
+          'А ако завършва на s, ß или z (heiß-en), при du се добавя само -t, защото звукът „с“ вече е там: du heißt, а не „du heißst“.',
         ),
       },
     ],
@@ -279,16 +279,16 @@ const UNIT_1_2_CONCEPTS: GrammarConcept[] = [
     title: bi('The verb comes second', 'Глаголът е на второ място'),
     level: 'pre-a1',
     summary: bi(
-      'In a German statement the conjugated verb is always the second element.',
-      'В немското съобщително изречение спрегнатият глагол винаги е вторият елемент.',
+      'In a German statement the verb with its ending (wohne, wohnst ...) is always the second element.',
+      'В немското съобщително изречение глаголът с окончанието си (wohne, wohnst ...) винаги е вторият елемент.',
     ),
     tags: ['word-order'],
     blocks: [
       {
         t: 'p',
         text: bi(
-          'This is the single most important structural rule in German. In a normal statement, the conjugated verb sits in position two — not necessarily as the second word, but as the second building block.',
-          'Това е най-важното структурно правило в немския. В нормално съобщително изречение спрегнатият глагол стои на позиция две — не непременно втората дума, а вторият градивен блок.',
+          'This is the single most important structural rule in German. In a normal statement, the verb with its person ending (wohne, wohnst, wohnt ...) sits in position two — not necessarily as the second word, but as the second building block ("In Hamburg" counts as one block).',
+          'Това е най-важното структурно правило в немския. В нормално съобщително изречение глаголът с окончанието за лицето (wohne, wohnst, wohnt ...) стои на позиция две — не непременно втората дума, а вторият градивен блок („In Hamburg“ е един блок).',
         ),
       },
       {
@@ -303,8 +303,8 @@ const UNIT_1_2_CONCEPTS: GrammarConcept[] = [
       {
         t: 'p',
         text: bi(
-          'Look at the second row carefully. Because "Heute" took position one, the subject "ich" had to move behind the verb. German does not allow "Heute ich arbeite".',
-          'Погледни внимателно втория ред. Тъй като „Heute“ зае позиция едно, подлогът „ich“ трябваше да мине след глагола. Немският не допуска „Heute ich arbeite“.',
+          'Look at the second row carefully ("Heute arbeite ich zu Hause" = today I work at home). Because "Heute" took position one, "ich" (the person doing it) had to move behind the verb. German does not allow "Heute ich arbeite".',
+          'Погледни внимателно втория ред („Heute arbeite ich zu Hause“ = днес работя вкъщи). Тъй като „Heute“ зае позиция едно, „ich“ (който върши действието) трябваше да мине след глагола. Немският не допуска „Heute ich arbeite“.',
         ),
       },
       {

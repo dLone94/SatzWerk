@@ -187,7 +187,7 @@ const UNIT_1_2_VOCAB: VocabEntry[] = [
     display: 'Tschüss',
     wordType: 'interjection',
     translation: { en: 'bye (informal)', bg: 'чао (неофициално)' },
-    pronunciation: { en: 'CHUESS (like "ch" in church + "ue")', bg: 'ЧЮС' },
+    pronunciation: { en: 'CHÜSS (ch as in "church"; ü = "ee" with rounded lips)', bg: 'ЧЮС' },
     example: { de: 'Tschüss, bis morgen!', gloss: { en: 'Bye, see you tomorrow!', bg: 'Чао, до утре!' } },
     tags: ['farewell'],
     level: 'pre-a1',
@@ -287,8 +287,8 @@ const UNIT_1_2_VOCAB: VocabEntry[] = [
     lessonId: 'pre-a1-u2-l2',
     difficulty: 3,
     notes: {
-      en: 'Long word, but you will use it constantly — to apologise and to get someone’s attention.',
-      bg: 'Дълга дума, но ще я използваш постоянно — и за извинение, и за да привлечеш внимание.',
+      en: 'Long word, but you will use it constantly — to apologise and to get someone’s attention. Said on its own like that, it has no article: "Entschuldigung!"',
+      bg: 'Дълга дума, но ще я използваш постоянно — и за извинение, и за да привлечеш внимание. Когато се казва самостоятелно така, е без член: „Entschuldigung!“',
     },
   },
   {
@@ -319,7 +319,8 @@ const UNIT_1_2_VOCAB: VocabEntry[] = [
     lessonId: 'pre-a1-u2-l2',
     difficulty: 1,
     notes: {
-      bg: 'Пази се от смесване: немското „nein“ (не) звучи като българското „найн“, а не като „не“.',
+      bg: 'Чете се „найн“, защото ei винаги звучи като „ай“. „Nein“ е само отговорът „не“ („Nein, danke.“); отрицанието в изречение („не живея“) е друга дума — nicht, която идва по-късно.',
+      en: 'It is only the answer "no" ("Nein, danke."). "not" inside a sentence is a different word, nicht, which comes later.',
     },
   },
   {

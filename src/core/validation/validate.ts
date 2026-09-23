@@ -8,6 +8,7 @@ import {
   shapeKey,
   stripPunctuation,
   tidy,
+  toDigraphs,
   tokenize,
 } from './text.ts';
 
@@ -236,6 +237,15 @@ function compareAgainst(
 
   // Case only.
   if (lower(gNoP) === lower(eNoP)) {
+    if (onlySentenceStartLowered(gNoP, eNoP, eTokens, lexicon)) {
+      return {
+        ...base,
+        verdict: isVariant ? 'accepted-variant' : 'accepted-with-note',
+        credit: isVariant ? 1 : SOFT_CREDIT.punctuation!,
+        notes: ['capitalization'],
+        requireRetype: false,
+      };
+    }
     const cased = classifyCase(gTokens, eTokens, lexicon, spec);
     if (cased.some((c) => HARD_CATEGORIES.has(c))) {
       return { ...base, verdict: 'incorrect', credit: 0, categories: cased, requireRetype: true };
@@ -260,11 +270,42 @@ function compareAgainst(
 
   // German special letters written as digraphs.
   if (acceptDigraphs && compareUmlauts(gNoP, eNoP) === 'digraph-for-umlaut') {
+    // The comparison ignores case, so a lowercase noun or "sie" for "Sie"
+    // would slip through with it ("der tisch ist gross"). Look again.
+    const gDigraphs = toDigraphs(gNoP);
+    const eDigraphs = toDigraphs(eNoP);
+    if (gDigraphs !== eDigraphs && !onlySentenceStartLowered(gDigraphs, eDigraphs, eTokens, lexicon)) {
+      const cased = classifyCase(tokenize(gDigraphs), tokenize(eDigraphs), lexicon, spec);
+      if (cased.some((c) => HARD_CATEGORIES.has(c))) {
+        return { ...base, verdict: 'incorrect', credit: 0, categories: cased, notes: ['umlaut'], requireRetype: true };
+      }
+      return {
+        ...base,
+        verdict: 'almost',
+        credit: SOFT_CREDIT.capitalization!,
+        categories: cased,
+        notes: ['umlaut'],
+        requireRetype: true,
+      };
+    }
     return {
       ...base,
       verdict: 'accepted-with-note',
       credit: SOFT_CREDIT.umlaut!,
       notes: ['umlaut'],
+      requireRetype: true,
+    };
+  }
+
+  // The dots left off altogether ("Tschuss"): name the letter rather than
+  // calling it a vague spelling slip. Not when the plain form is a word of
+  // its own, as "Tochter" is beside "Töchter".
+  if (acceptDigraphs && dropsUmlauts(gTokens, eTokens, lexicon)) {
+    return {
+      ...base,
+      verdict: 'almost',
+      credit: SOFT_CREDIT.spelling!,
+      categories: ['umlaut'],
       requireRetype: true,
     };
   }
@@ -317,6 +358,45 @@ function compareAgainst(
     categories,
     requireRetype: true,
   };
+}
+
+/**
+ * True when the only difference is a lowercase first letter of a sentence that
+ * does not start with a noun or with "Sie" — the capital a phone keyboard did
+ * not add, rather than a German rule the learner has not learned.
+ */
+function onlySentenceStartLowered(
+  given: string,
+  expected: string,
+  eTokens: string[],
+  lexicon: GermanLexicon,
+): boolean {
+  if (eTokens.length < 2 || given === expected) return false;
+  if (given.slice(1) !== expected.slice(1)) return false;
+  if (given[0]!.toUpperCase() !== expected[0] || given[0] === expected[0]) return false;
+  const first = lower(eTokens[0]!);
+  return first !== 'sie' && !lexicon.nounGender.has(first);
+}
+
+const PLAIN_VOWEL: Record<string, string> = { 'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 's' };
+
+/**
+ * True when the learner wrote a, o, u or s where the answer has ä, ö, ü or ß,
+ * and nothing else is different — and the plain word is not a word of its own.
+ */
+function dropsUmlauts(gTokens: string[], eTokens: string[], lexicon: GermanLexicon): boolean {
+  if (gTokens.length !== eTokens.length) return false;
+  let dropped = false;
+  for (let i = 0; i < eTokens.length; i += 1) {
+    const g = lower(gTokens[i]!);
+    const e = lower(eTokens[i]!);
+    if (g === e) continue;
+    const plain = e.replace(/[äöüß]/g, (letter) => PLAIN_VOWEL[letter]!);
+    if (plain === e || g !== plain) return false;
+    if (lexicon.nounGender.has(g)) return false;
+    dropped = true;
+  }
+  return dropped;
 }
 
 function classifyCase(
@@ -552,9 +632,20 @@ export interface FreeWritingResult {
  */
 export function checkFreeWriting(given: string, spec: AnswerSpec, minWords = 3): FreeWritingResult {
   const tokens = tokenize(given);
-  const lowered = tokens.map(lower);
+  // Special letters folded away on both sides: this only checks that the
+  // word was used, and "heisse" or "heise" for "heiße" is a spelling matter
+  // for the answer's feedback, not a reason to refuse the writing.
+  const fold = (word: string) =>
+    toDigraphs(lower(word)).replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u').replace(/ss/g, 's');
+  const folded = tokens.map(fold);
+  // "heiße|Name|bin": any one of them will do, for tasks with more than one
+  // right way to say it ("Ich heiße Teo", "Mein Name ist Teo", "Ich bin Teo").
   const missingRequired = (spec.requiredTokens ?? []).filter(
-    (req) => !lowered.some((tok) => tok === lower(req) || tok.startsWith(lower(req))),
+    (req) =>
+      !req
+        .split('|')
+        .map(fold)
+        .some((option) => folded.some((tok) => tok === option || tok.startsWith(option))),
   );
   return {
     wordCount: tokens.length,

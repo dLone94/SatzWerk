@@ -200,6 +200,18 @@ const hisHerBlocks: Block[] = [
     ],
   },
   {
+    t: 'p',
+    text: bi(
+      'As an object, the masculine adds -en, exactly like mein → meinen: Ich kenne seinen Vater. Ich kenne ihren Bruder.',
+      'Като допълнение мъжкият род добавя -en, точно както mein → meinen: Ich kenne seinen Vater. Ich kenne ihren Bruder.',
+    ),
+  },
+  {
+    t: 'de',
+    de: 'Ich kenne ihren Bruder.',
+    gloss: bi('I know her brother.', 'Познавам брат ѝ.'),
+  },
+  {
     t: 'callout',
     tone: 'warn',
     title: bi('The trap worth naming', 'Капанът, който си заслужава да назовем'),

@@ -657,3 +657,35 @@ describe('a duration is never rounded into a lie', () => {
     expect(formatDuration(5400, 'bg')).toBe('1 ч 30 мин');
   });
 });
+
+/*
+ * A beginner who gets a lot wrong in their first lessons builds up a pile of
+ * due words within the hour, and "Start review" played every one of them in a
+ * single sitting. A round is capped; the rest wait for the next one.
+ */
+describe('a big review pile', () => {
+  it('is taken twenty at a time', async () => {
+    const { VOCABULARY } = await import('../../src/content/index.ts');
+    const due = VOCABULARY.slice(0, 30).map((entry, index) => ({
+      id: `r${index}`,
+      kind: 'vocab' as const,
+      refId: entry.id,
+      level: 'pre-a1' as const,
+      state: 'learning' as const,
+      ease: 2.5,
+      intervalDays: 0,
+      dueAt: new Date(Date.now() - 60_000).toISOString(),
+      successCount: 1,
+      failureCount: 0,
+      lapses: 0,
+      learningStep: 1,
+      createdAt: new Date().toISOString(),
+    }));
+    const user = userEvent.setup();
+    mount(<ReviewPage />, 'en', { reviewItems: due });
+    expect(screen.getByText(tr('reviewDueCount', 'en', { n: 30 }))).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: tr('reviewStart', 'en') }));
+    expect(screen.getByText(tr('reviewRoundSize', 'en', { n: 20 }))).toBeInTheDocument();
+  });
+});
+

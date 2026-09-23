@@ -141,7 +141,10 @@ describe('the level checkpoint', () => {
         .filter((cp) => cp.scope === 'unit' && cp.targetId.startsWith('pre-a1'))
         .map((cp) => cp.passAccuracy),
     );
-    expect(checkpoint!.passAccuracy).toBeGreaterThan(unitPass);
+    // Never easier than a unit checkpoint. It is harder by design — every unit,
+    // no hints, connected writing — so it does not also need a higher bar,
+    // which made the first level unfair for a true beginner.
+    expect(checkpoint!.passAccuracy).toBeGreaterThanOrEqual(unitPass);
   });
 
   it('draws on every unit and every skill', () => {

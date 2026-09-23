@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AnswerSpec } from '../../src/content/types.ts';
 import { createBaseLexicon, extendLexicon } from '../../src/core/validation/lexicon.ts';
-import { validateAnswer } from '../../src/core/validation/validate.ts';
+import { checkFreeWriting, validateAnswer } from '../../src/core/validation/validate.ts';
 import { compareUmlauts, splitScaffold } from '../../src/core/validation/text.ts';
 
 const lexicon = extendLexicon(createBaseLexicon(), [
@@ -94,6 +94,78 @@ describe('orthography is forgiven softly, never silently', () => {
     expect(r.verdict).toBe('almost');
     expect(r.categories).toEqual(['spelling']);
     expect(r.requireRetype).toBe(true);
+  });
+});
+
+/*
+ * On an iPhone the answer field does not capitalise by itself, so a beginner's
+ * "ich wohne in Hamburg." was marked almost-wrong, cost half the credit, asked
+ * for a retype and went into the mistake bank as a capitalisation mistake.
+ * The first letter of a sentence is a small thing; a noun's capital is German.
+ */
+describe('capital letters typed on a phone', () => {
+  it('lets a lowercase first word of a sentence through with a note', () => {
+    const r = validateAnswer('ich wohne in Hamburg.', sentence(['Ich wohne in Hamburg.']), opts);
+    expect(r.verdict).toBe('accepted-with-note');
+    expect(r.notes).toContain('capitalization');
+    expect(r.requireRetype).toBe(false);
+    expect(r.credit).toBeGreaterThanOrEqual(0.9);
+  });
+
+  it('still also forgives the missing full stop', () => {
+    const r = validateAnswer('ich wohne in Hamburg', sentence(['Ich wohne in Hamburg.']), opts);
+    expect(r.verdict).toBe('accepted-with-note');
+    expect(r.requireRetype).toBe(false);
+  });
+
+  it('still wants the capital on a noun', () => {
+    const r = validateAnswer('ich wohne in hamburg.', sentence(['Ich wohne in Hamburg.']), opts);
+    expect(r.verdict).toBe('almost');
+    expect(r.requireRetype).toBe(true);
+  });
+
+  it('still wants the capital on a sentence that starts with a noun', () => {
+    const r = validateAnswer('tochter, komm!', sentence(['Tochter, komm!']), opts);
+    expect(r.verdict).not.toBe('accepted-with-note');
+  });
+
+  it('still tells Sie from sie', () => {
+    const r = validateAnswer('Wie heißen sie?', sentence(['Wie heißen Sie?']), opts);
+    expect(r.verdict).not.toBe('accepted-with-note');
+  });
+
+  it('does not let ss for ß hide a lowercase noun', () => {
+    const r = validateAnswer('der tisch ist gross.', sentence(['Der Tisch ist groß.']), opts);
+    expect(r.verdict).not.toBe('accepted-with-note');
+    expect(r.categories).toContain('capitalization');
+  });
+
+  it('does not let ss for ß hide a lowercase Sie', () => {
+    const r = validateAnswer('Wie heissen sie?', sentence(['Wie heißen Sie?']), opts);
+    expect(r.verdict).not.toBe('accepted-with-note');
+  });
+});
+
+/*
+ * A beginner who leaves the dots off ("Tschuss") was told only that the word
+ * "is spelled slightly differently". The letter they missed is the lesson.
+ */
+describe('an umlaut left out', () => {
+  it('is named as the umlaut, not as a vague spelling slip', () => {
+    const r = validateAnswer('Tschuss', word(['Tschüss']), opts);
+    expect(r.verdict).toBe('almost');
+    expect(r.categories).toContain('umlaut');
+    expect(r.requireRetype).toBe(true);
+  });
+
+  it('leaves a real word alone: Tochter is not a misspelt Töchter', () => {
+    const r = validateAnswer('die Tochter', word(['die Töchter']), opts);
+    expect(r.categories).not.toContain('umlaut');
+  });
+
+  it('is found inside a sentence too', () => {
+    const r = validateAnswer('Ich bin mude.', sentence(['Ich bin müde.']), opts);
+    expect(r.categories).toContain('umlaut');
   });
 });
 
@@ -216,3 +288,28 @@ describe('text helpers', () => {
     expect(splitScaffold('Ich w___ in Hamburg.').seed).toBe('w');
   });
 });
+
+/*
+ * "Introduce yourself" required the word "heiße", so "Mein Name ist Teo." —
+ * which the same lesson teaches — could not be handed in, and nor could
+ * "Ich heisse Teo", although lesson 1 says ss is accepted.
+ */
+describe('open writing that asks for particular words', () => {
+  const intro = { accepted: [''], shape: 'sentence' as const, requiredTokens: ['heiße|Name|bin'] };
+
+  it('takes any one of the ways the lesson taught', () => {
+    for (const answer of ['Ich heiße Teo.', 'Mein Name ist Teo.', 'Hallo, ich bin Teo.']) {
+      expect(checkFreeWriting(answer, intro).satisfied, answer).toBe(true);
+    }
+  });
+
+  it('accepts ss for ß in a required word, or a plain s', () => {
+    expect(checkFreeWriting('Ich heisse Teo.', intro).satisfied).toBe(true);
+    expect(checkFreeWriting('guten tag! ich heise teo', intro).satisfied).toBe(true);
+  });
+
+  it('still notices when none of them is there', () => {
+    expect(checkFreeWriting('Hallo und tschüss Teo.', intro).missingRequired).toEqual(['heiße|Name|bin']);
+  });
+});
+

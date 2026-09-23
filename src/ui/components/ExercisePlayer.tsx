@@ -108,6 +108,8 @@ type Phase = 'answer' | 'feedback' | 'retype';
  * unrecoverable; more and the learner stops listening and starts sampling.
  */
 export const DEFAULT_REPLAYS = 2;
+/** In the first level the words are new to the ear as well as the eye. */
+export const BEGINNER_REPLAYS = 4;
 
 /** Deterministic shuffle so a word bank does not reorder on every render. */
 function shuffle<T>(items: T[], seed: string): T[] {
@@ -289,6 +291,9 @@ export function ExercisePlayer({
       });
       return;
     }
+    // Focused inside the tap on Continue as well as after the render: iOS only
+    // opens the keyboard for focus given during the tap itself.
+    inputRef.current?.focus();
     setCursor((index) => index + 1);
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [cursor, total, firstTryCorrect, onFinish, onStepDone, current]);
@@ -370,8 +375,12 @@ export function ExercisePlayer({
     const message = buildFeedback(validation, { lexicon, describeNoun });
     const credit = validation.credit * hintPenalty(hintsShown, revealed);
     const mustRetype = exercise.mandatoryRetype !== false && validation.requireRetype;
+    // A note that asks for nothing (a forgotten full stop) is still a right
+    // answer; one that asks for a retype (ae for ä) is not.
     const clean =
-      (validation.verdict === 'correct' || validation.verdict === 'accepted-variant') &&
+      (validation.verdict === 'correct' ||
+        validation.verdict === 'accepted-variant' ||
+        (validation.verdict === 'accepted-with-note' && !validation.requireRetype)) &&
       hintsShown === 0 &&
       !revealed;
     const resolved = !validation.requireRetype && validation.credit > 0;
@@ -551,7 +560,7 @@ export function ExercisePlayer({
   const budgeted = hideText && exercise.kind === 'dictation';
   // Two replays unless the step says otherwise: enough to catch a word you
   // half-heard, not enough to transcribe by repetition.
-  const replayBudget = step.audio?.replays ?? DEFAULT_REPLAYS;
+  const replayBudget = step.audio?.replays ?? (level === 'pre-a1' ? BEGINNER_REPLAYS : DEFAULT_REPLAYS);
   const replaysLeft = budgeted ? Math.max(0, replayBudget - replaysUsed) : Number.POSITIVE_INFINITY;
   const isChoice = exercise.kind === 'multipleChoice' || exercise.kind === 'listenChoose';
   const isFree = exercise.kind === 'freeWriting';
@@ -758,6 +767,7 @@ export function ExercisePlayer({
               disabled={phase === 'feedback' || busy}
               multiline={isFree}
               compact={step.answer.shape === 'word' && !isFree}
+              capitalizeSentences={(step.answer.shape === 'sentence' || isFree) && !scaffold?.before}
               tone={tone}
               focusKey={`${step.id}-${phase}`}
               describedBy="player-keyhint"
@@ -769,7 +779,7 @@ export function ExercisePlayer({
 
         {freeNote && !freeNote.ok ? (
           <p className="task__warn" role="status">
-            {t('exerciseFreeWritingMissing', { words: freeNote.missing.join(', ') })}
+            {t('exerciseFreeWritingMissing', { words: freeNote.missing.map((word) => word.split('|').join(' / ')).join(', ') })}
           </p>
         ) : null}
 

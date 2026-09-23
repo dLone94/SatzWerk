@@ -10,6 +10,25 @@ import {
 } from '../authoring.ts';
 import type { Checkpoint, Lesson, SentencePattern, Unit } from '../types.ts';
 
+/** Said wherever a number has to be typed in letters, so digits are never a surprise. */
+const AS_WORD = bi('Write the number as a word.', 'Напиши числото с думи.');
+const HEAR_AS_WORD = bi('Write the number you hear as a word.', 'Напиши числото, което чуваш, с думи.');
+
+/** Digits where the task asked for a word: right number, so say so. */
+const digitsTrap = (digits: string, word: string) => ({
+  answer: digits,
+  category: 'spelling' as const,
+  feedback: bi(
+    `Right number! Here, though, write it as a word: ${word}.`,
+    `Числото е вярно! Тук обаче го напиши с думи: ${word}.`,
+  ),
+});
+
+const LISTEN_AND_CHOOSE = bi(
+  'Listen (press Play to hear it again), then tap the number you heard.',
+  'Слушай (натисни „Пусни“, за да го чуеш отново), после избери числото, което чу.',
+);
+
 const PATTERNS: SentencePattern[] = [
   {
     id: 'p-ich-bin-jahre-alt',
@@ -145,6 +164,7 @@ const lesson1: Lesson = {
       [
         {
           prompt: bi('Listen. Which number did you hear?', 'Слушай. Кое число чу?'),
+          instruction: LISTEN_AND_CHOOSE,
           audio: { text: 'vier', hideText: true },
           choices: [
             { id: 'a', de: 'vier', gloss: bi('four', 'четири') },
@@ -158,6 +178,7 @@ const lesson1: Lesson = {
         },
         {
           prompt: bi('Listen. Which number did you hear?', 'Слушай. Кое число чу?'),
+          instruction: LISTEN_AND_CHOOSE,
           audio: { text: 'zwei', hideText: true },
           choices: [
             { id: 'a', de: 'drei', gloss: bi('three', 'три') },
@@ -278,23 +299,26 @@ const lesson1: Lesson = {
 
     dictation('u3l1-ex5', bi('Listen and write the number', 'Слушай и напиши числото'), [
       {
-        instruction: bi('Write the number you hear as a word.', 'Напиши числото, което чуваш, с думи.'),
+        instruction: HEAR_AS_WORD,
         answer: 'sechs',
         shape: 'word',
+        traps: [digitsTrap('6', 'sechs')],
         reviewTargets: ['v-sechs'],
         hints: [],
       },
       {
-        instruction: bi('Write the number you hear as a word.', 'Напиши числото, което чуваш, с думи.'),
+        instruction: HEAR_AS_WORD,
         answer: 'dreizehn',
         shape: 'word',
+        traps: [digitsTrap('13', 'dreizehn')],
         reviewTargets: ['v-dreizehn'],
         hints: [],
       },
       {
-        instruction: bi('Write the number you hear as a word.', 'Напиши числото, което чуваш, с думи.'),
+        instruction: HEAR_AS_WORD,
         answer: 'zwölf',
         shape: 'word',
+        traps: [digitsTrap('12', 'zwölf')],
         reviewTargets: ['v-zwoelf'],
         hints: [],
       },
@@ -303,16 +327,17 @@ const lesson1: Lesson = {
   mastery: {
     passAccuracy: 0.7,
     exercises: [
-      typeIt('u3l1-m1', bi('Mastery check: numbers', 'Проверка: числа'), [
+      typeIt('u3l1-m1', bi('Final check: numbers', 'Проверка: числа'), [
         { prompt: bi('9', '9'), answer: 'neun', shape: 'word', hints: [] },
         { prompt: bi('16', '16'), answer: 'sechzehn', shape: 'word', hints: [] },
         { prompt: bi('12', '12'), answer: 'zwölf', shape: 'word', hints: [] },
       ]),
-      dictation('u3l1-m2', bi('Mastery check: listening', 'Проверка: слушане'), [
+      dictation('u3l1-m2', bi('Final check: listening', 'Проверка: слушане'), [
         {
-          instruction: bi('Write what you hear.', 'Напиши каквото чуваш.'),
+          instruction: HEAR_AS_WORD,
           answer: 'siebzehn',
           shape: 'word',
+          traps: [digitsTrap('17', 'siebzehn')],
           hints: [],
         },
       ]),
@@ -415,7 +440,7 @@ const lesson2: Lesson = {
   exercises: [
     typeIt(
       'u3l2-ex1',
-      bi('The tens', 'Десетиците'),
+      bi('The tens, written as words', 'Десетиците, написани с думи'),
       [
         {
           prompt: bi('30', '30'),
@@ -437,7 +462,7 @@ const lesson2: Lesson = {
         { prompt: bi('40', '40'), answer: 'vierzig', shape: 'word', reviewTargets: ['v-vierzig'], hints: [] },
         { prompt: bi('60', '60'), answer: 'sechzig', shape: 'word', reviewTargets: ['v-sechzig'], hints: [bi('Shortens like sechzehn.', 'Съкращава се като sechzehn.')] },
         { prompt: bi('70', '70'), answer: 'siebzig', shape: 'word', reviewTargets: ['v-siebzig'], hints: [bi('Shortens like siebzehn.', 'Съкращава се като siebzehn.')] },
-        { prompt: bi('100', '100'), answer: 'hundert', shape: 'word', reviewTargets: ['v-hundert'], hints: [] },
+        { prompt: bi('100', '100'), answer: 'hundert', alternatives: ['einhundert'], shape: 'word', reviewTargets: ['v-hundert'], hints: [] },
       ],
       ['g-numbers'],
     ),
@@ -467,7 +492,7 @@ const lesson2: Lesson = {
 
     typeIt(
       'u3l2-ex3',
-      bi('Full production: two-digit numbers', 'Пълно производство: двуцифрени числа'),
+      bi('Two-digit numbers as words', 'Двуцифрени числа с думи'),
       [
         {
           prompt: bi('21', '21'),
@@ -519,25 +544,28 @@ const lesson2: Lesson = {
       ['g-numbers'],
     ),
 
-    dictation('u3l2-ex4', bi('Listen and write the digits', 'Слушай и напиши цифрите'), [
+    dictation('u3l2-ex4', bi('Listen and write the number as a word', 'Слушай и напиши числото с думи'), [
       {
-        instruction: bi('Write the number you hear as a word.', 'Напиши числото, което чуваш, с думи.'),
+        instruction: HEAR_AS_WORD,
         answer: 'einundzwanzig',
         shape: 'word',
+        traps: [digitsTrap('21', 'einundzwanzig')],
         reviewTargets: ['v-einundzwanzig'],
         hints: [],
       },
       {
-        instruction: bi('Write the number you hear as a word.', 'Напиши числото, което чуваш, с думи.'),
+        instruction: HEAR_AS_WORD,
         answer: 'siebzig',
         shape: 'word',
+        traps: [digitsTrap('70', 'siebzig')],
         reviewTargets: ['v-siebzig'],
         hints: [],
       },
       {
-        instruction: bi('Write the number you hear as a word.', 'Напиши числото, което чуваш, с думи.'),
+        instruction: HEAR_AS_WORD,
         answer: 'zweiunddreißig',
         shape: 'word',
+        traps: [digitsTrap('32', 'zweiunddreißig')],
         reviewTargets: ['v-zweiunddreissig'],
         hints: [],
       },
@@ -546,16 +574,17 @@ const lesson2: Lesson = {
   mastery: {
     passAccuracy: 0.7,
     exercises: [
-      typeIt('u3l2-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u3l2-m1', bi('Final check', 'Финална проверка'), [
         { prompt: bi('30', '30'), answer: 'dreißig', shape: 'word', hints: [] },
         { prompt: bi('21', '21'), answer: 'einundzwanzig', shape: 'word', hints: [] },
         { prompt: bi('76', '76'), answer: 'sechsundsiebzig', shape: 'word', hints: [] },
       ]),
-      dictation('u3l2-m2', bi('Mastery check: listening', 'Проверка: слушане'), [
+      dictation('u3l2-m2', bi('Final check: listening', 'Проверка: слушане'), [
         {
-          instruction: bi('Write what you hear.', 'Напиши каквото чуваш.'),
+          instruction: HEAR_AS_WORD,
           answer: 'fünfundvierzig',
           shape: 'word',
+          traps: [digitsTrap('45', 'fünfundvierzig')],
           hints: [],
         },
       ]),
@@ -615,7 +644,16 @@ const lesson3: Lesson = {
       id: 'u3l3-grammar',
       kind: 'grammar',
       title: bi('How to say it', 'Как се казва'),
-      blocks: [],
+      blocks: [
+        {
+          t: 'callout',
+          tone: 'tip',
+          text: bi(
+            'Why "deine Telefonnummer"? dein (your) works like ein: with a die word it adds -e. die Telefonnummer, so deine Telefonnummer; der Name, so dein Name.',
+            'Защо „deine Telefonnummer“? dein (твой) се държи като ein: пред дума с die получава -e. die Telefonnummer, значи deine Telefonnummer; der Name, значи dein Name.',
+          ),
+        },
+      ],
       grammarId: 'g-age-and-prices',
     },
     {
@@ -660,7 +698,7 @@ const lesson3: Lesson = {
     },
   ],
   exercises: [
-    fillBlank('u3l3-ex1', bi('Guided typing', 'Насочено писане'), [
+    fillBlank('u3l3-ex1', bi('Fill in the missing word', 'Попълни липсващата дума'), [
       {
         prompt: bi('I am thirty years old.', 'Аз съм на трийсет години.'),
         scaffold: 'Ich bin dreißig ___ alt.',
@@ -681,7 +719,7 @@ const lesson3: Lesson = {
 
     typeIt(
       'u3l3-ex2',
-      bi('Full production', 'Пълно производство'),
+      bi('Write the whole sentence', 'Напиши цялото изречение'),
       [
         {
           prompt: bi('How old are you? (informal)', 'На колко години си?'),
@@ -701,9 +739,11 @@ const lesson3: Lesson = {
         },
         {
           prompt: bi('I am thirty years old.', 'Аз съм на трийсет години.'),
+          instruction: AS_WORD,
           answer: 'Ich bin dreißig Jahre alt.',
           reviewTargets: ['p-ich-bin-jahre-alt'],
           traps: [
+            digitsTrap('Ich bin 30 Jahre alt.', 'dreißig'),
             {
               answer: 'Ich bin dreißig Jahr alt.',
               category: 'plural',
@@ -724,8 +764,10 @@ const lesson3: Lesson = {
         },
         {
           prompt: bi('That costs twenty-one euros.', 'Това струва двайсет и едно евро.'),
+          instruction: AS_WORD,
           answer: 'Das kostet einundzwanzig Euro.',
           reviewTargets: ['p-das-kostet', 'v-der-euro'],
+          traps: [digitsTrap('Das kostet 21 Euro.', 'einundzwanzig')],
           hints: [bi('Remember the back-to-front number.', 'Помни обърнатото число.')],
         },
         {
@@ -745,21 +787,21 @@ const lesson3: Lesson = {
               answer: 'Wie ist dein Telefonnummer?',
               category: 'gender',
               feedback: bi(
-                '"Telefonnummer" is feminine (die Telefonnummer), so the possessive takes an -e: deine Telefonnummer.',
-                '„Telefonnummer“ е от женски род (die Telefonnummer), затова притежателното взима -e: deine Telefonnummer.',
+                '"Telefonnummer" is a die word (die Telefonnummer), so the word for "your" takes an -e, just like eine: deine Telefonnummer.',
+                '„Telefonnummer“ е с die (die Telefonnummer), затова думата за „твой“ получава -e, точно като eine: deine Telefonnummer.',
               ),
             },
           ],
           hints: [
             bi('The question word is not "Was".', 'Въпросителната дума не е „Was“.'),
-            bi('Telefonnummer is feminine.', 'Telefonnummer е от женски род.'),
+            bi('Telefonnummer is a die word, so dein needs an -e.', 'Telefonnummer е с die, затова dein иска -e.'),
           ],
         },
       ],
       ['g-age-and-prices'],
     ),
 
-    partialRecall('u3l3-ex3', bi('Partial recall', 'Частично припомняне'), [
+    partialRecall('u3l3-ex3', bi('Finish the word', 'Допиши думата'), [
       {
         prompt: bi('How old are you? (formal)', 'На колко години сте? (учтиво)'),
         scaffold: 'Wie alt s___ Sie?',
@@ -773,6 +815,8 @@ const lesson3: Lesson = {
       {
         instruction: bi('Type the sentence you hear.', 'Напиши изречението, което чуваш.'),
         answer: 'Ich bin vierzig Jahre alt.',
+        // Digits prove the learner heard the number; that is what dictation checks.
+        alternatives: ['Ich bin 40 Jahre alt.'],
         shape: 'sentence',
         reviewTargets: ['p-ich-bin-jahre-alt'],
         hints: [],
@@ -780,13 +824,14 @@ const lesson3: Lesson = {
       {
         instruction: bi('Type the price you hear.', 'Напиши цената, която чуваш.'),
         answer: 'Das kostet drei Euro.',
+        alternatives: ['Das kostet 3 Euro.'],
         shape: 'sentence',
         reviewTargets: ['p-das-kostet'],
         hints: [],
       },
     ]),
 
-    freeWriting('u3l3-ex5', bi('Free production', 'Свободно производство'), [
+    freeWriting('u3l3-ex5', bi('Write about yourself', 'Напиши за себе си'), [
       {
         prompt: bi(
           'Write one sentence saying how old you are.',
@@ -795,7 +840,8 @@ const lesson3: Lesson = {
         instruction: bi('Use your real age.', 'Използвай истинската си възраст.'),
         answer: 'Ich bin dreißig Jahre alt.',
         shape: 'sentence',
-        requiredTokens: ['Jahre', 'alt'],
+        // "Ich bin dreißig." is fine everyday German too, so only the verb is required.
+        requiredTokens: ['bin'],
         hints: [bi('Ich bin ... Jahre alt.', 'Ich bin ... Jahre alt.')],
       },
     ]),
@@ -803,7 +849,7 @@ const lesson3: Lesson = {
   mastery: {
     passAccuracy: 0.75,
     exercises: [
-      typeIt('u3l3-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u3l3-m1', bi('Final check', 'Финална проверка'), [
         {
           prompt: bi('How old are you? (informal)', 'На колко години си?'),
           answer: 'Wie alt bist du?',
@@ -811,7 +857,9 @@ const lesson3: Lesson = {
         },
         {
           prompt: bi('I am twenty-one years old.', 'Аз съм на двайсет и една години.'),
+          instruction: AS_WORD,
           answer: 'Ich bin einundzwanzig Jahre alt.',
+          traps: [digitsTrap('Ich bin 21 Jahre alt.', 'einundzwanzig')],
           hints: [],
         },
         {
@@ -821,10 +869,11 @@ const lesson3: Lesson = {
           hints: [],
         },
       ]),
-      dictation('u3l3-m2', bi('Mastery check: listening', 'Проверка: слушане'), [
+      dictation('u3l3-m2', bi('Final check: listening', 'Проверка: слушане'), [
         {
           instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
           answer: 'Das kostet fünf Euro.',
+          alternatives: ['Das kostet 5 Euro.'],
           shape: 'sentence',
           hints: [],
         },
@@ -867,7 +916,9 @@ const checkpoint: Checkpoint = {
     typeIt('cp-u3-2', bi('Age and prices', 'Възраст и цени'), [
       {
         prompt: bi('I am thirty-five years old.', 'Аз съм на трийсет и пет години.'),
+        instruction: AS_WORD,
         answer: 'Ich bin fünfunddreißig Jahre alt.',
+        traps: [digitsTrap('Ich bin 35 Jahre alt.', 'fünfunddreißig')],
         hints: [],
       },
       {
@@ -878,20 +929,24 @@ const checkpoint: Checkpoint = {
       },
       {
         prompt: bi('That costs twelve euros.', 'Това струва дванайсет евро.'),
+        instruction: AS_WORD,
         answer: 'Das kostet zwölf Euro.',
+        traps: [digitsTrap('Das kostet 12 Euro.', 'zwölf')],
         hints: [],
       },
     ]),
     dictation('cp-u3-3', bi('Listening', 'Слушане'), [
       {
-        instruction: bi('Write the number you hear.', 'Напиши числото, което чуваш.'),
+        instruction: HEAR_AS_WORD,
         answer: 'achtundsechzig',
         shape: 'word',
+        traps: [digitsTrap('68', 'achtundsechzig')],
         hints: [],
       },
       {
         instruction: bi('Type the sentence you hear.', 'Напиши изречението, което чуваш.'),
         answer: 'Ich bin zwanzig Jahre alt.',
+        alternatives: ['Ich bin 20 Jahre alt.'],
         shape: 'sentence',
         hints: [],
       },
@@ -904,6 +959,7 @@ const checkpoint: Checkpoint = {
       steps: [
         {
           prompt: bi('Listen. Which number is it?', 'Слушай. Кое число е?'),
+          instruction: LISTEN_AND_CHOOSE,
           audio: { text: 'siebenundvierzig', hideText: true },
           choices: [
             { id: 'a', de: '74', gloss: bi('seventy-four', 'седемдесет и четири') },
