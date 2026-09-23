@@ -53,6 +53,24 @@ describe('picking a German voice', () => {
     ]);
   });
 
+  /*
+   * Safari on an iPhone names the compact and the downloaded Anna both just
+   * "Anna"; only the voice's id says which is which. Ranked on the name, the
+   * premium Anna was labelled basic and could lose to the compact one.
+   */
+  it('reads the quality from the voice id when the name does not give it', () => {
+    const ranked = rankVoices([
+      { voiceURI: 'com.apple.voice.compact.de-DE.Anna', name: 'Anna', lang: 'de-DE' },
+      { voiceURI: 'com.apple.voice.premium.de-DE.Anna', name: 'Anna', lang: 'de-DE' },
+      { voiceURI: 'com.apple.voice.enhanced.de-DE.Helena', name: 'Helena', lang: 'de-DE' },
+    ]);
+    expect(ranked.map((option) => [option.id, option.quality])).toEqual([
+      ['com.apple.voice.premium.de-DE.Anna', 'premium'],
+      ['com.apple.voice.enhanced.de-DE.Helena', 'premium'],
+      ['com.apple.voice.compact.de-DE.Anna', 'basic'],
+    ]);
+  });
+
   it('still speaks German when only a basic voice is there', () => {
     const ranked = rankVoices([voice('Eddy (German (Germany))'), voice('Anna')]);
     expect(ranked.map((option) => option.name)).toEqual(['Anna']);

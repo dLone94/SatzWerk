@@ -461,7 +461,7 @@ function VoiceCard() {
             value={chosen && voices.some((voice) => voice.id === chosen) ? chosen : ''}
             onChange={(event) => tts.chooseVoice?.(event.target.value || null)}
           >
-            <option value="">{t('voiceAutomatic', { name: best ? best.name : '—' })}</option>
+            <option value="">{t('voiceAutomatic', { name: best ? `${best.name} · ${quality(best)}` : '—' })}</option>
             {voices.map((voice) => (
               <option key={voice.id} value={voice.id}>
                 {voice.name} · {quality(voice)}
