@@ -117,8 +117,8 @@ const lesson1: Lesson = {
         {
           t: 'p',
           text: bi(
-            'The good news arrives immediately: mein takes exactly the endings of ein, which you have been using since Unit 2. Nothing new has to be memorised.',
-            'Добрата новина идва веднага: mein взима точно окончанията на ein, които използваш от раздел 2. Нищо ново за наизустяване.',
+            'The good news arrives immediately: mein takes exactly the endings of ein, which you have been using since Unit 1 of Pre-A1. Nothing new has to be memorised.',
+            'Добрата новина идва веднага: mein взима точно окончанията на ein, които използваш от раздел 1 на Pre-A1. Нищо ново за наизустяване.',
           ),
         },
       ],
@@ -412,7 +412,7 @@ const lesson1: Lesson = {
       dictation('a1u1l1-ex6', bi('Listening', 'Слушане'), [
         {
           instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
-          answer: 'Mein Opa ist sehr alt.',
+          answer: 'Mein Opa heißt Karl.',
           shape: 'sentence',
           hints: [],
         },
@@ -429,11 +429,15 @@ const lesson1: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u1l1-m1', bi('Mastery: possessives', 'Проверка: притежателни'), [
+        typeIt('a1u1l1-m1', bi('Final check: possessives', 'Проверка: притежателни'), [
           {
             prompt: bi('My grandmother is 70 years old.', 'Баба ми е на 70 години.'),
             answer: 'Meine Großmutter ist 70 Jahre alt.',
-            alternatives: ['Meine Oma ist 70 Jahre alt.'],
+            alternatives: [
+              'Meine Oma ist 70 Jahre alt.',
+              'Meine Großmutter ist siebzig Jahre alt.',
+              'Meine Oma ist siebzig Jahre alt.',
+            ],
             hints: [],
           },
           {
@@ -449,7 +453,7 @@ const lesson1: Lesson = {
         ]),
       ),
       a1(
-        fillBlank('a1u1l1-m2', bi('Mastery: the right ending', 'Проверка: правилното окончание'), [
+        fillBlank('a1u1l1-m2', bi('Final check: the right ending', 'Проверка: правилното окончание'), [
           {
             prompt: bi('My baby is sleeping.', 'Бебето ми спи.'),
             scaffold: '___ Baby schläft.',
@@ -570,6 +574,17 @@ const lesson2: Lesson = {
             'Две от новите съществителни добавят -n като допълнение: den Kollegen, den Nachbarn. Засега само ги разпознавай — целият модел идва по-късно.',
           ),
         },
+        {
+          t: 'callout',
+          tone: 'tip',
+          title: bi('mögen is irregular', 'mögen е неправилен'),
+          text: bi(
+            'mögen (to like) changes in the singular: ich mag, du magst, er/sie mag — then wir mögen, ihr mögt, sie mögen. Note "ich mag", with no -e. finden is regular: ich finde, du findest.',
+            'mögen (харесвам) се мени в единствено число: ich mag, du magst, er/sie mag — после wir mögen, ihr mögt, sie mögen. Забележи „ich mag“, без -e. finden е правилен: ich finde, du findest.',
+          ),
+        },
+        { t: 'de', de: 'Ich mag deinen Bruder.', gloss: bi('I like your brother.', 'Харесвам брат ти.') },
+        { t: 'de', de: 'Ich finde den Tisch schön.', gloss: bi('I think the table is nice.', 'Намирам масата за хубава.') },
       ],
     },
     {
@@ -735,6 +750,25 @@ const lesson2: Lesson = {
             reviewTargets: ['v-kollegin'],
             hints: [bi('After sein, nothing changes.', 'След sein нищо не се мени.')],
           },
+          {
+            prompt: bi('I like your brother.', 'Харесвам брат ти.'),
+            answer: 'Ich mag deinen Bruder.',
+            reviewTargets: ['v-moegen', 'g-accusative'],
+            hints: [
+              bi('mögen is irregular: ich mag.', 'mögen е неправилен: ich mag.'),
+              bi('Bruder is masculine and the object.', 'Bruder е мъжки род и е допълнение.'),
+            ],
+            traps: [
+              {
+                answer: 'Ich möge deinen Bruder.',
+                category: 'verb-conjugation',
+                feedback: bi(
+                  'mögen is irregular: the ich form is "mag", with no -e. Ich mag deinen Bruder.',
+                  'mögen е неправилен: формата за ich е „mag“, без -e. Ich mag deinen Bruder.',
+                ),
+              },
+            ],
+          },
         ],
         ['g-accusative'],
       ),
@@ -806,7 +840,7 @@ const lesson2: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u1l2-m1', bi('Mastery: the accusative', 'Проверка: винителен падеж'), [
+        typeIt('a1u1l2-m1', bi('Final check: the accusative', 'Проверка: винителен падеж'), [
           {
             prompt: bi('I know your uncle.', 'Познавам чичо ти.'),
             answer: 'Ich kenne deinen Onkel.',
@@ -830,10 +864,10 @@ const lesson2: Lesson = {
         ]),
       ),
       a1(
-        fillBlank('a1u1l2-m2', bi('Mastery: subject or object?', 'Проверка: подлог или допълнение?'), [
+        fillBlank('a1u1l2-m2', bi('Final check: subject or object?', 'Проверка: подлог или допълнение?'), [
           {
-            prompt: bi('The boy is looking for his father.', 'Момчето търси баща си.'),
-            scaffold: '___ Junge sucht seinen Vater.',
+            prompt: bi('The boy is looking for the neighbour.', 'Момчето търси съседа.'),
+            scaffold: '___ Junge sucht den Nachbarn.',
             answer: 'Der',
             shape: 'word',
             hints: [],
@@ -1139,7 +1173,7 @@ const lesson3: Lesson = {
             'Напиши две изречения за някого от семейството ти: кой е и какъв е.',
           ),
           answer: 'Mein Bruder heißt Tom. Er ist sehr nett.',
-          requiredTokens: ['ist'],
+          requiredTokens: ['ist|sind'],
           shape: 'sentence',
           hints: [
             bi('Start with mein or meine plus a family word.', 'Започни с mein или meine плюс дума за семейство.'),
@@ -1153,7 +1187,7 @@ const lesson3: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u1l3-m1', bi('Mastery: his and her', 'Проверка: негов и неин'), [
+        typeIt('a1u1l3-m1', bi('Final check: his and her', 'Проверка: негов и неин'), [
           {
             prompt: bi('His sister is married.', 'Сестра му е омъжена.'),
             answer: 'Seine Schwester ist verheiratet.',
@@ -1170,6 +1204,11 @@ const lesson3: Lesson = {
             hints: [
               bi('Object plus masculine — the ending comes back.', 'Допълнение плюс мъжки род — окончанието се връща.'),
             ],
+          },
+          {
+            prompt: bi('Her parents live in Sofia.', 'Родителите ѝ живеят в София.'),
+            answer: 'Ihre Eltern wohnen in Sofia.',
+            hints: [],
           },
         ]),
       ),
@@ -1198,6 +1237,11 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('My grandad comes from Austria.', 'Дядо ми е от Австрия.'),
           answer: 'Mein Opa kommt aus Österreich.',
+          alternatives: [
+            'Mein Opa ist aus Österreich.',
+            'Mein Großvater kommt aus Österreich.',
+            'Mein Großvater ist aus Österreich.',
+          ],
           hints: [],
         },
         {
@@ -1222,6 +1266,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('We are visiting my grandma.', 'Гостуваме на баба.'),
           answer: 'Wir besuchen meine Oma.',
+          alternatives: ['Wir besuchen meine Großmutter.'],
           hints: [],
         },
         {

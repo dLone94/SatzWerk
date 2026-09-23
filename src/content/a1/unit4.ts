@@ -293,7 +293,7 @@ const lesson1: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u4l1-m1', bi('Mastery: work and study', 'Проверка: работа и учене'), [
+        typeIt('a1u4l1-m1', bi('Final check: work and study', 'Проверка: работа и учене'), [
           {
             prompt: bi('He works as a teacher.', 'Той работи като учител.'),
             answer: 'Er arbeitet als Lehrer.',
@@ -545,7 +545,7 @@ const lesson2: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u4l2-m1', bi('Mastery: free time', 'Проверка: свободно време'), [
+        typeIt('a1u4l2-m1', bi('Final check: free time', 'Проверка: свободно време'), [
           {
             prompt: bi('I like playing football.', 'Обичам да играя футбол.'),
             answer: 'Ich spiele gern Fußball.',
@@ -768,7 +768,7 @@ const lesson3: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u4l3-m1', bi('Mastery: joining', 'Проверка: свързване'), [
+        typeIt('a1u4l3-m1', bi('Final check: joining', 'Проверка: свързване'), [
           {
             prompt: bi('I am tired, because I work a lot.', 'Уморен съм, защото работя много.'),
             answer: 'Ich bin müde, denn ich arbeite viel.',

@@ -47,6 +47,11 @@ export interface AnswerInputProps {
   tone?: 'neutral' | 'success' | 'warning' | 'error';
   /** Re-focus whenever this value changes. */
   focusKey?: string;
+  /**
+   * Let a phone keyboard capitalise the first letter. Only for whole
+   * sentences: on a single word it would capitalise "das" into a mistake.
+   */
+  capitalizeSentences?: boolean;
   describedBy?: string;
 }
 
@@ -65,6 +70,7 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
     tone = 'neutral',
     focusKey,
     describedBy,
+    capitalizeSentences = false,
   },
   ref,
 ) {
@@ -73,7 +79,7 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
 
   const focus = useCallback(() => {
     const element = inputRef.current;
-    if (!element || disabled) return;
+    if (!element) return;
     element.focus();
     // Put the caret at the end so continuing to type just works.
     const end = element.value.length;
@@ -82,7 +88,7 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
     } catch {
       // Some mobile keyboards refuse selection changes; focus alone is enough.
     }
-  }, [disabled]);
+  }, []);
 
   const insert = useCallback(
     (text: string) => {
@@ -127,6 +133,7 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
       const character = map[event.key.toLowerCase()];
       if (character) {
         event.preventDefault();
+        if (disabled) return;
         insert(event.shiftKey ? character.toUpperCase() : character);
         return;
       }
@@ -141,7 +148,11 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
   const commonProps = {
     ref: inputRef as never,
     value,
-    disabled,
+    // Read-only rather than disabled while an answer is judged: a disabled
+    // field loses focus, and on an iPhone that shuts the keyboard, so every
+    // question needed another tap on the field before you could type.
+    readOnly: disabled,
+    'aria-disabled': disabled || undefined,
     placeholder: placeholder ?? '',
     onChange: (event: { target: { value: string } }) => onChange(event.target.value),
     onKeyDown: handleKeyDown,
@@ -149,7 +160,7 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
     'aria-describedby': describedBy,
     // German text, so the browser should not autocorrect it as English.
     autoComplete: 'off',
-    autoCapitalize: 'off',
+    autoCapitalize: capitalizeSentences ? 'sentences' : 'off',
     autoCorrect: 'off',
     spellCheck: false,
     lang: 'de',

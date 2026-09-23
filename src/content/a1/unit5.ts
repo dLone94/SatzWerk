@@ -282,7 +282,7 @@ const lesson1: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u5l1-m1', bi('Mastery: places', 'Проверка: места'), [
+        typeIt('a1u5l1-m1', bi('Final check: places', 'Проверка: места'), [
           {
             prompt: bi('Where is the cinema?', 'Къде е киното?'),
             answer: 'Wo ist das Kino?',
@@ -574,7 +574,7 @@ const lesson2: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u5l2-m1', bi('Mastery: mit and zu', 'Проверка: mit и zu'), [
+        typeIt('a1u5l2-m1', bi('Final check: mit and zu', 'Проверка: mit и zu'), [
           {
             prompt: bi('I go by car.', 'Пътувам с колата.'),
             answer: 'Ich fahre mit dem Auto.',
@@ -593,7 +593,7 @@ const lesson2: Lesson = {
         ]),
       ),
       a1(
-        fillBlank('a1u5l2-m2', bi('Mastery: the form', 'Проверка: формата'), [
+        fillBlank('a1u5l2-m2', bi('Final check: the form', 'Проверка: формата'), [
           {
             prompt: bi('by train', 'с влака'),
             scaffold: 'mit ___ Zug',
@@ -823,7 +823,7 @@ const lesson3: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u5l3-m1', bi('Mastery: directions', 'Проверка: посоки'), [
+        typeIt('a1u5l3-m1', bi('Final check: directions', 'Проверка: посоки'), [
           {
             prompt: bi('Excuse me, where is the pharmacy?', 'Извинете, къде е аптеката?'),
             answer: 'Entschuldigen Sie, wo ist die Apotheke?',

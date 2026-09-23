@@ -342,6 +342,56 @@ describe('the typing and correction flow', () => {
   });
 });
 
+/*
+ * A forgotten full stop is "a small thing" everywhere else in the app, but in
+ * a final check it counted as a wrong answer, and with three questions that
+ * was the whole check failed.
+ */
+describe('a small slip in a final check', () => {
+  it('counts an answer without its full stop as right', async () => {
+    const user = userEvent.setup();
+    const onFinish = vi.fn();
+    mount(<ExercisePlayer exercises={[originExercise]} context="mastery" allowHints={false} level="pre-a1" onFinish={onFinish} />);
+
+    await user.type(field(), 'Ich komme aus Bulgarien{Enter}');
+    await user.keyboard('{Enter}');
+    await user.type(field(), 'Ich wohne in Hamburg{Enter}');
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(onFinish).toHaveBeenCalled());
+    expect(onFinish).toHaveBeenCalledWith({ total: 2, firstTryCorrect: 2, accuracy: 1 });
+  });
+});
+
+describe('the keyboard on a phone', () => {
+  it('capitalises the first letter of a sentence answer', () => {
+    mount(<ExercisePlayer exercises={[originExercise]} context="lesson" level="pre-a1" onFinish={() => {}} />);
+    expect(field().getAttribute('autocapitalize')).toBe('sentences');
+  });
+
+  // A disabled field drops focus, and on an iPhone that shuts the keyboard:
+  // every question needed another tap on the field before typing.
+  it('keeps the field focusable while an answer is judged, and focuses it in the Continue tap', async () => {
+    const user = userEvent.setup();
+    mount(<ExercisePlayer exercises={[originExercise]} context="lesson" level="pre-a1" onFinish={() => {}} />);
+    await user.type(field(), 'Ich komme aus Bulgarien.{Enter}');
+    const continueButton = await screen.findByRole('button', { name: tr('exerciseContinue', 'en') });
+    expect(field()).not.toBeDisabled();
+    expect(field()).toHaveAttribute('readonly');
+    await user.click(continueButton);
+    expect(document.activeElement).toBe(field());
+    expect(field()).not.toHaveAttribute('readonly');
+  });
+
+  it('leaves a single word alone, so "das" is not turned into "Das"', () => {
+    const single = typeIt('t-word', bi('Word', 'Дума'), [
+      { id: 't-word-s1', prompt: bi('the (neuter)', 'членът (среден род)'), answer: 'das', shape: 'word' },
+    ]);
+    mount(<ExercisePlayer exercises={[single]} context="lesson" level="pre-a1" onFinish={() => {}} />);
+    expect(field().getAttribute('autocapitalize')).toBe('off');
+  });
+});
+
 describe('German special characters', () => {
   it('inserts a special letter at the caret, not at the end', async () => {
     const user = userEvent.setup();
@@ -576,7 +626,7 @@ describe('dictation has a replay budget', () => {
     const user = userEvent.setup();
     const { spoken, provider } = countingTts();
     mountWithTts(
-      <ExercisePlayer exercises={[heard]} context="lesson" level="pre-a1" onFinish={() => {}} />,
+      <ExercisePlayer exercises={[heard]} context="lesson" level="a1" onFinish={() => {}} />,
       provider,
     );
 
@@ -600,12 +650,26 @@ describe('dictation has a replay budget', () => {
     expect(spoken).toHaveLength(3);
   });
 
+  /*
+   * Someone in their first week has never heard most of these words; two
+   * replays is a budget for a learner who knows what to listen for.
+   */
+  it('gives a beginner twice the replays', async () => {
+    const { spoken, provider } = countingTts();
+    mountWithTts(
+      <ExercisePlayer exercises={[heard]} context="lesson" level="pre-a1" onFinish={() => {}} />,
+      provider,
+    );
+    await waitFor(() => expect(spoken).toHaveLength(1));
+    expect(screen.getByText(tr('exerciseReplaysLeft', 'en', { n: 4 }))).toBeInTheDocument();
+  });
+
   it('is never a dead end: the answer still goes through with the budget spent', async () => {
     const user = userEvent.setup();
     const { provider } = countingTts();
     const finished = vi.fn();
     mountWithTts(
-      <ExercisePlayer exercises={[heard]} context="lesson" level="pre-a1" onFinish={finished} />,
+      <ExercisePlayer exercises={[heard]} context="lesson" level="a1" onFinish={finished} />,
       provider,
     );
 
@@ -624,7 +688,7 @@ describe('dictation has a replay budget', () => {
     const user = userEvent.setup();
     const { provider } = countingTts();
     mountWithTts(
-      <ExercisePlayer exercises={[heard]} context="lesson" level="pre-a1" onFinish={() => {}} />,
+      <ExercisePlayer exercises={[heard]} context="lesson" level="a1" onFinish={() => {}} />,
       provider,
     );
 

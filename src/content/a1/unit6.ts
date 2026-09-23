@@ -238,7 +238,7 @@ const lesson1: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u6l1-m1', bi('Mastery: appointments', 'Проверка: записване на час'), [
+        typeIt('a1u6l1-m1', bi('Final check: appointments', 'Проверка: записване на час'), [
           {
             prompt: bi('I would like an appointment.', 'Бих искал час.'),
             answer: 'Ich möchte einen Termin.',
@@ -489,7 +489,7 @@ const lesson2: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u6l2-m1', bi('Mastery: health', 'Проверка: здраве'), [
+        typeIt('a1u6l2-m1', bi('Final check: health', 'Проверка: здраве'), [
           {
             prompt: bi('I am ill and I have a sore throat.', 'Болен съм и ме боли гърлото.'),
             answer: 'Ich bin krank und ich habe Halsschmerzen.',
@@ -739,7 +739,7 @@ const lesson3: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u6l3-m1', bi('Mastery: the weather', 'Проверка: времето'), [
+        typeIt('a1u6l3-m1', bi('Final check: the weather', 'Проверка: времето'), [
           {
             prompt: bi('It is snowing.', 'Вали сняг.'),
             answer: 'Es schneit.',

@@ -342,7 +342,7 @@ const lesson1: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u3l1-m1', bi('Mastery: ordering politely', 'Проверка: учтива поръчка'), [
+        typeIt('a1u3l1-m1', bi('Final check: ordering politely', 'Проверка: учтива поръчка'), [
           {
             prompt: bi('I would like a tea, please.', 'Бих искал един чай, моля.'),
             answer: 'Ich möchte einen Tee, bitte.',
@@ -592,7 +592,7 @@ const lesson2: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u3l2-m1', bi('Mastery: the whole visit', 'Проверка: цялото посещение'), [
+        typeIt('a1u3l2-m1', bi('Final check: the whole visit', 'Проверка: цялото посещение'), [
           {
             prompt: bi('I will have the cake.', 'Ще взема сладкиша.'),
             answer: 'Ich nehme den Kuchen.',
@@ -819,7 +819,7 @@ const lesson3: Lesson = {
     passAccuracy: 0.75,
     exercises: [
       a1(
-        typeIt('a1u3l3-m1', bi('Mastery: at the shop', 'Проверка: в магазина'), [
+        typeIt('a1u3l3-m1', bi('Final check: at the shop', 'Проверка: в магазина'), [
           {
             prompt: bi('A kilo of potatoes, please.', 'Един килограм картофи, моля.'),
             answer: 'Ein Kilo Kartoffeln, bitte.',

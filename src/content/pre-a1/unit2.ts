@@ -12,6 +12,23 @@ import {
 } from '../authoring.ts';
 import type { Checkpoint, Lesson, SentencePattern, Unit } from '../types.ts';
 
+/**
+ * "du heißst" is what the -st rule gives if you apply it blindly, so it gets
+ * its own explanation rather than a bare "wrong".
+ */
+const heisstTraps = (template: string) =>
+  ['heißst', 'heissst'].map((form) => ({
+    answer: template.replace('#', form),
+    category: 'verb-conjugation' as const,
+    feedback: bi(
+      'Good rule, but there is one exception: heiß- already ends in ß, so du only adds -t. It is du heißt, not "heißst".',
+      'Правилото е добро, но има изключение: heiß- вече завършва на ß, затова при du се добавя само -t. Правилно е du heißt, а не „heißst“.',
+    ),
+  }));
+
+/** Natural ways to order a water that a beginner may reach for first. */
+const WATER_PLEASE = ['Bitte ein Wasser.', 'Wasser, bitte.'];
+
 const PATTERNS: SentencePattern[] = [
   {
     id: 'p-ich-heisse',
@@ -209,6 +226,10 @@ const lesson1: Lesson = {
       [
         {
           prompt: bi('Listen. What did you hear?', 'Слушай. Какво чу?'),
+          instruction: bi(
+            'Listen (press Play to hear it again), then tap what you heard.',
+            'Слушай (натисни „Пусни“, за да го чуеш отново), после избери какво чу.',
+          ),
           audio: { text: 'Guten Abend', hideText: true },
           choices: [
             { id: 'a', de: 'Guten Morgen', gloss: bi('good morning', 'добро утро') },
@@ -266,8 +287,8 @@ const lesson1: Lesson = {
               answer: 'Guten Nacht',
               category: 'adjective-ending',
               feedback: bi(
-                'Careful with the ending: "Nacht" is feminine (die Nacht), so the adjective loses its -n. It is "Gute Nacht", but "Guten Morgen" and "Guten Tag" because Morgen and Tag are masculine.',
-                'Внимавай с окончанието: „Nacht“ е от женски род (die Nacht), затова прилагателното губи своето -n. Казва се „Gute Nacht“, но „Guten Morgen“ и „Guten Tag“, защото Morgen и Tag са от мъжки род.',
+                'Careful with the ending: "Nacht" is feminine (die Nacht), so "gut" (good) takes -e, not -en. It is "Gute Nacht", but "Guten Morgen" and "Guten Tag" because Morgen and Tag are masculine.',
+                'Внимавай с окончанието: „Nacht“ е от женски род (die Nacht), затова „gut“ (добър) получава -e, а не -en. Казва се „Gute Nacht“, но „Guten Morgen“ и „Guten Tag“, защото Morgen и Tag са от мъжки род.',
               ),
             },
           ],
@@ -283,6 +304,7 @@ const lesson1: Lesson = {
         {
           prompt: bi('You say bye to a friend.', 'Сбогуваш се с приятел.'),
           answer: 'Tschüss',
+          alternatives: ['Tschüs', 'Tschüß', 'Bis bald'],
           reviewTargets: ['v-tschuess'],
           shape: 'word',
           hints: [bi('One word, with ü.', 'Една дума, с ü.')],
@@ -350,7 +372,7 @@ const lesson1: Lesson = {
   mastery: {
     passAccuracy: 0.7,
     exercises: [
-      typeIt('u2l1-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u2l1-m1', bi('Final check', 'Финална проверка'), [
         {
           prompt: bi('It is 09:00. Greet the baker.', '09:00 е. Поздрави хлебаря.'),
           answer: 'Guten Morgen',
@@ -370,7 +392,7 @@ const lesson1: Lesson = {
           hints: [],
         },
       ]),
-      dictation('u2l1-m2', bi('Mastery check: listening', 'Проверка: слушане'), [
+      dictation('u2l1-m2', bi('Final check: listening', 'Проверка: слушане'), [
         {
           instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
           answer: 'Guten Tag!',
@@ -511,7 +533,7 @@ const lesson2: Lesson = {
         {
           prompt: bi('Someone holds the door for you.', 'Някой ти задържа вратата.'),
           answer: 'Danke',
-          alternatives: ['Danke schön', 'Vielen Dank'],
+          alternatives: ['Danke schön', 'Dankeschön', 'Danke sehr', 'Vielen Dank'],
           shape: 'word',
           reviewTargets: ['v-danke'],
           hints: [bi('One word is enough.', 'Една дума е достатъчна.')],
@@ -519,14 +541,15 @@ const lesson2: Lesson = {
         {
           prompt: bi('Order a water politely.', 'Поръчай една вода учтиво.'),
           answer: 'Ein Wasser, bitte.',
+          alternatives: WATER_PLEASE,
           reviewTargets: ['v-bitte', 'v-das-wasser'],
           traps: [
             {
               answer: 'Eine Wasser, bitte.',
               category: 'gender',
               feedback: bi(
-                '"Wasser" is neuter (das Wasser), so the indefinite article is "ein", not "eine".',
-                '„Wasser“ е от среден род (das Wasser), затова неопределителният член е „ein“, а не „eine“.',
+                '"Wasser" is neuter (das Wasser), so "a" is "ein", not "eine".',
+                '„Wasser“ е от среден род (das Wasser), затова „една“ е „ein“, а не „eine“.',
               ),
             },
           ],
@@ -538,6 +561,7 @@ const lesson2: Lesson = {
         {
           prompt: bi('You need to ask a stranger something. What comes first?', 'Трябва да попиташ непознат нещо. Какво идва първо?'),
           answer: 'Entschuldigung',
+          alternatives: ['die Entschuldigung'],
           shape: 'word',
           reviewTargets: ['v-entschuldigung'],
           hints: [
@@ -558,6 +582,7 @@ const lesson2: Lesson = {
         {
           prompt: bi('Answer: fine, thanks.', 'Отговори: добре, благодаря.'),
           answer: 'Gut, danke.',
+          alternatives: ['Danke, gut.'],
           reviewTargets: ['v-gut-danke'],
           hints: [],
         },
@@ -628,16 +653,18 @@ const lesson2: Lesson = {
   mastery: {
     passAccuracy: 0.7,
     exercises: [
-      typeIt('u2l2-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u2l2-m1', bi('Final check', 'Финална проверка'), [
         {
           prompt: bi('Get a stranger’s attention.', 'Привлечи вниманието на непознат.'),
           answer: 'Entschuldigung',
+          alternatives: ['die Entschuldigung'],
           shape: 'word',
           hints: [],
         },
         {
           prompt: bi('Order a water politely.', 'Поръчай една вода учтиво.'),
           answer: 'Ein Wasser, bitte.',
+          alternatives: WATER_PLEASE,
           hints: [],
         },
         {
@@ -669,7 +696,7 @@ const lesson3: Lesson = {
   outcomes: [
     bi('I can say my name in three different ways.', 'Мога да кажа името си по три различни начина.'),
     bi('I can ask someone’s name informally and formally.', 'Мога да попитам за име неофициално и учтиво.'),
-    bi('I can conjugate heißen and the forms of sein I need.', 'Мога да спрегна heißen и нужните форми на sein.'),
+    bi('I can use every form of heißen and the forms of sein I need.', 'Мога да използвам всички форми на heißen и нужните форми на sein.'),
   ],
   vocabIds: ['v-heissen', 'v-der-name', 'v-sein-verb', 'v-wie-heisst-du', 'v-wie-heissen-sie'],
   grammarIds: ['g-present-endings', 'g-sein', 'g-du-sie'],
@@ -699,6 +726,24 @@ const lesson3: Lesson = {
             { de: 'Teo', gloss: bi('Teo', 'Тео') },
           ],
         },
+        {
+          t: 'callout',
+          tone: 'tip',
+          title: bi('mein and dein work like ein', 'mein и dein се държат като ein'),
+          text: bi(
+            'mein (my) and dein (your, to a friend) follow ein and eine: with a die word they add -e.',
+            'mein (мой) и dein (твой) следват ein и eine: пред дума с die получават -e.',
+          ),
+        },
+        {
+          t: 'table',
+          headers: [bi('der / das word', 'дума с der / das'), bi('die word', 'дума с die')],
+          rows: [
+            ['ein Name', 'eine Tochter'],
+            ['mein Name', 'meine Tochter'],
+            ['dein Name', 'deine Tochter'],
+          ],
+        },
       ],
     },
     {
@@ -722,8 +767,8 @@ const lesson3: Lesson = {
           t: 'callout',
           tone: 'tip',
           text: bi(
-            'Only three different forms to remember: heiße, heißt, heißen.',
-            'Само три различни форми за запомняне: heiße, heißt, heißen.',
+            'Only three different forms to remember: heiße, heißt, heißen. Note du heißt, not "heißst": heiß- already ends in ß, so du only adds -t.',
+            'Само три различни форми за запомняне: heiße, heißt, heißen. Забележи: du heißt, а не „heißst“ — heiß- вече завършва на ß, затова при du се добавя само -t.',
           ),
         },
       ],
@@ -787,12 +832,12 @@ const lesson3: Lesson = {
     conjugate(
       'u2l3-ex1',
       'heißen',
-      bi('Conjugate heißen', 'Спрегни heißen'),
+      bi('All six forms of heißen', 'Всички шест форми на heißen'),
       ['heiße', 'heißt', 'heißt', 'heißen', 'heißt', 'heißen'],
       ['v-heissen'],
     ),
 
-    fillBlank('u2l3-ex2', bi('Guided typing', 'Насочено писане'), [
+    fillBlank('u2l3-ex2', bi('Fill in the missing word', 'Попълни липсващата дума'), [
       {
         prompt: bi('My name is Teo.', 'Казвам се Тео.'),
         scaffold: 'Ich ___ Teo.',
@@ -807,6 +852,7 @@ const lesson3: Lesson = {
         answer: 'heißt',
         shape: 'word',
         reviewTargets: ['v-wie-heisst-du'],
+        traps: heisstTraps('#'),
         hints: [bi('The du form.', 'Формата за du.')],
       },
       {
@@ -819,7 +865,7 @@ const lesson3: Lesson = {
       },
     ]),
 
-    partialRecall('u2l3-ex3', bi('Partial recall', 'Частично припомняне'), [
+    partialRecall('u2l3-ex3', bi('Finish the word', 'Допиши думата'), [
       {
         prompt: bi('What is your name? (formal)', 'Как се казвате? (учтиво)'),
         scaffold: 'Wie h___ Sie?',
@@ -840,7 +886,7 @@ const lesson3: Lesson = {
 
     typeIt(
       'u2l3-ex4',
-      bi('Full production', 'Пълно производство'),
+      bi('Write the whole sentence', 'Напиши цялото изречение'),
       [
         {
           prompt: bi('What is your name? (to a child)', 'Как се казваш? (на дете)'),
@@ -851,10 +897,11 @@ const lesson3: Lesson = {
               answer: 'Wie heißen du?',
               category: 'verb-conjugation',
               feedback: bi(
-                'With "du" the verb takes -st: du heißt. "heißen" is the form for wir, sie and formal Sie.',
-                'С „du“ глаголът взима -st: du heißt. „heißen“ е формата за wir, sie и учтивото Sie.',
+                'With "du" the verb needs its du ending: du heißt (normally -st, but heiß- already ends in ß, so just -t). "heißen" is the form for wir, sie and formal Sie.',
+                'С „du“ глаголът иска окончанието за du: du heißt (обикновено -st, но heiß- вече завършва на ß, затова само -t). „heißen“ е формата за wir, sie и учтивото Sie.',
               ),
             },
+            ...heisstTraps('Wie # du?'),
           ],
           hints: [
             bi('Three words, starting with the question word for "how".', 'Три думи, започвайки с въпросителната дума за „как“.'),
@@ -889,7 +936,7 @@ const lesson3: Lesson = {
           answer: 'Mein Name ist Teo.',
           reviewTargets: ['v-der-name'],
           hints: [
-            bi('Four words. Name is masculine, so the possessive is "Mein".', 'Четири думи. Name е от мъжки род, затова притежателното е „Mein“.'),
+            bi('Four words. Name is a der word, so "my" is "Mein", like ein.', 'Четири думи. Name е с der, затова думата за „моето“ е „Mein“ — без окончание, като ein.'),
           ],
         },
         {
@@ -907,13 +954,13 @@ const lesson3: Lesson = {
               answer: 'Das ist mein Tochter.',
               category: 'gender',
               feedback: bi(
-                '"Tochter" is feminine (die Tochter), so the possessive takes an -e: meine Tochter.',
-                '„Tochter“ е от женски род (die Tochter), затова притежателното взима -e: meine Tochter.',
+                '"Tochter" is a die word (die Tochter), so the word for "my" takes an -e, just like eine: meine Tochter.',
+                '„Tochter“ е с die (die Tochter), затова думата за „моя“ получава -e, точно като eine: meine Tochter.',
               ),
             },
           ],
           hints: [
-            bi('Tochter is feminine, so "mein" needs an ending.', 'Tochter е от женски род, затова „mein“ иска окончание.'),
+            bi('Tochter is a die word, so "mein" needs an -e, like eine.', 'Tochter е с die, затова „mein“ иска -e, като eine.'),
           ],
         },
       ],
@@ -937,7 +984,7 @@ const lesson3: Lesson = {
       },
     ]),
 
-    freeWriting('u2l3-ex6', bi('Free production', 'Свободно производство'), [
+    freeWriting('u2l3-ex6', bi('Write about yourself', 'Напиши за себе си'), [
       {
         prompt: bi(
           'Introduce yourself in two sentences: greet, then say your name.',
@@ -949,7 +996,8 @@ const lesson3: Lesson = {
         ),
         answer: 'Guten Tag! Ich heiße Teo.',
         shape: 'sentence',
-        requiredTokens: ['heiße'],
+        // Any of the three ways the lesson teaches: Ich heiße / Mein Name ist / Ich bin.
+        requiredTokens: ['heiße|Name|bin'],
         hints: [
           bi('A greeting, then "Ich heiße ...".', 'Поздрав, после „Ich heiße ...“.'),
         ],
@@ -959,7 +1007,7 @@ const lesson3: Lesson = {
   mastery: {
     passAccuracy: 0.75,
     exercises: [
-      typeIt('u2l3-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u2l3-m1', bi('Final check', 'Финална проверка'), [
         {
           prompt: bi('Ask a new colleague their name, politely.', 'Попитай нов колега за името му, учтиво.'),
           answer: 'Wie heißen Sie?',
@@ -973,13 +1021,14 @@ const lesson3: Lesson = {
         {
           prompt: bi('Ask a child their name.', 'Попитай дете за името му.'),
           answer: 'Wie heißt du?',
+          traps: heisstTraps('Wie # du?'),
           hints: [],
         },
       ]),
       exercise({
         id: 'u2l3-m2',
         kind: 'conjugation',
-        objective: bi('Mastery check: verb forms', 'Проверка: глаголни форми'),
+        objective: bi('Final check: verb forms', 'Проверка: глаголни форми'),
         mandatoryRetype: false,
         steps: [
           {
@@ -987,6 +1036,7 @@ const lesson3: Lesson = {
             scaffold: 'du ___',
             answer: 'heißt',
             shape: 'word',
+            traps: heisstTraps('#'),
             hints: [],
           },
           {
@@ -1021,8 +1071,8 @@ const lesson4: Lesson = {
   outcomes: [
     bi('I can say where I come from and where I live.', 'Мога да кажа откъде идвам и къде живея.'),
     bi('I can ask "Woher kommst du?" and "Wo wohnst du?".', 'Мога да попитам „Woher kommst du?“ и „Wo wohnst du?“.'),
-    bi('I can put the conjugated verb in second position.', 'Мога да поставя спрегнатия глагол на второ място.'),
-    bi('I can conjugate a regular verb in the present tense.', 'Мога да спрегна правилен глагол в сегашно време.'),
+    bi('I can put the verb in second position.', 'Мога да поставя глагола на второ място.'),
+    bi('I can give a regular verb the right ending for each person (ich wohne, du wohnst ...).', 'Мога да сложа на правилен глагол вярното окончание за всяко лице (ich wohne, du wohnst ...).'),
   ],
   vocabIds: [
     'v-kommen',
@@ -1097,6 +1147,14 @@ const lesson4: Lesson = {
             'За държави и градове на произход немският използва „aus“, не „von“. „Ich komme von Bulgarien“ е грешка, която почти всеки учащ прави поне веднъж.',
           ),
         },
+        {
+          t: 'callout',
+          tone: 'tip',
+          text: bi(
+            '"Ich bin aus Bulgarien." (I am from Bulgaria) is just as correct and very common. This lesson practises "Ich komme aus ...", but both count.',
+            '„Ich bin aus Bulgarien.“ (Аз съм от България) е също толкова правилно и много често. Урокът упражнява „Ich komme aus ...“, но и двете се приемат.',
+          ),
+        },
       ],
     },
     {
@@ -1141,7 +1199,7 @@ const lesson4: Lesson = {
             bi('Ich komme aus ... for origin, Ich wohne in ... for where you live.', 'Ich komme aus ... за произход, Ich wohne in ... за къде живееш.'),
             bi('wo = where, woher = where from.', 'wo = къде, woher = откъде.'),
             bi('Regular endings: -e, -st, -t, -en, -t, -en.', 'Правилни окончания: -e, -st, -t, -en, -t, -en.'),
-            bi('The conjugated verb stands in position two.', 'Спрегнатият глагол стои на позиция две.'),
+            bi('The verb with its ending stands in position two.', 'Глаголът с окончанието си стои на позиция две.'),
           ],
         },
       ],
@@ -1151,13 +1209,14 @@ const lesson4: Lesson = {
     conjugate(
       'u2l4-ex1',
       'wohnen',
-      bi('Conjugate wohnen', 'Спрегни wohnen'),
+      bi('All six forms of wohnen', 'Всички шест форми на wohnen'),
       ['wohne', 'wohnst', 'wohnt', 'wohnen', 'wohnt', 'wohnen'],
       ['v-wohnen'],
     ),
 
-    // The scaffolding ladder from the product brief, stage by stage.
-    fillBlank('u2l4-ex2', bi('Stage 2: guided typing', 'Етап 2: насочено писане'), [
+    // The scaffolding ladder from the product brief, stage by stage
+    // (stage 2: gap, stage 3: first letters, stage 4: the whole sentence).
+    fillBlank('u2l4-ex2', bi('Fill in the missing word', 'Попълни липсващата дума'), [
       {
         prompt: bi('I live in Hamburg.', 'Аз живея в Хамбург.'),
         scaffold: 'Ich ___ in Hamburg.',
@@ -1176,7 +1235,7 @@ const lesson4: Lesson = {
       },
     ]),
 
-    partialRecall('u2l4-ex3', bi('Stage 3: partial recall', 'Етап 3: частично припомняне'), [
+    partialRecall('u2l4-ex3', bi('Finish the word', 'Допиши думата'), [
       {
         prompt: bi('I live in Hamburg.', 'Аз живея в Хамбург.'),
         scaffold: 'Ich w___ in Hamburg.',
@@ -1197,7 +1256,7 @@ const lesson4: Lesson = {
 
     typeIt(
       'u2l4-ex4',
-      bi('Stage 4: full production', 'Етап 4: пълно производство'),
+      bi('Write the whole sentence', 'Напиши цялото изречение'),
       [
         {
           prompt: bi('I live in Hamburg.', 'Аз живея в Хамбург.'),
@@ -1213,6 +1272,7 @@ const lesson4: Lesson = {
         {
           prompt: bi('I come from Bulgaria.', 'Аз съм от България.'),
           answer: 'Ich komme aus Bulgarien.',
+          alternatives: ['Ich bin aus Bulgarien.'],
           reviewTargets: ['p-ich-komme-aus', 'v-kommen'],
           traps: [
             {
@@ -1315,7 +1375,7 @@ const lesson4: Lesson = {
       },
     ]),
 
-    freeWriting('u2l4-ex7', bi('Free production', 'Свободно производство'), [
+    freeWriting('u2l4-ex7', bi('Write about yourself', 'Напиши за себе си'), [
       {
         prompt: bi(
           'Write two sentences about yourself: where you come from and where you live.',
@@ -1327,7 +1387,8 @@ const lesson4: Lesson = {
         ),
         answer: 'Ich komme aus Bulgarien. Ich wohne in Hamburg.',
         shape: 'sentence',
-        requiredTokens: ['komme', 'wohne'],
+        // "Ich komme aus" and "Ich bin aus" are both right; so are wohne and lebe.
+        requiredTokens: ['komme|aus', 'wohne|lebe'],
         hints: [
           bi('Ich komme aus ... Ich wohne in ...', 'Ich komme aus ... Ich wohne in ...'),
         ],
@@ -1337,10 +1398,11 @@ const lesson4: Lesson = {
   mastery: {
     passAccuracy: 0.75,
     exercises: [
-      typeIt('u2l4-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u2l4-m1', bi('Final check', 'Финална проверка'), [
         {
           prompt: bi('I come from Bulgaria.', 'Аз съм от България.'),
           answer: 'Ich komme aus Bulgarien.',
+          alternatives: ['Ich bin aus Bulgarien.'],
           hints: [],
         },
         {
@@ -1360,7 +1422,7 @@ const lesson4: Lesson = {
           hints: [],
         },
       ]),
-      dictation('u2l4-m2', bi('Mastery check: listening', 'Проверка: слушане'), [
+      dictation('u2l4-m2', bi('Final check: listening', 'Проверка: слушане'), [
         {
           instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
           answer: 'Ich wohne in Deutschland.',
@@ -1398,12 +1460,14 @@ const checkpoint: Checkpoint = {
       {
         prompt: bi('Get a stranger’s attention.', 'Привлечи вниманието на непознат.'),
         answer: 'Entschuldigung',
+        alternatives: ['die Entschuldigung'],
         shape: 'word',
         hints: [],
       },
       {
         prompt: bi('Order a water politely.', 'Поръчай една вода учтиво.'),
         answer: 'Ein Wasser, bitte.',
+        alternatives: WATER_PLEASE,
         hints: [],
       },
     ]),
@@ -1423,6 +1487,7 @@ const checkpoint: Checkpoint = {
       {
         prompt: bi('I come from Bulgaria.', 'Аз съм от България.'),
         answer: 'Ich komme aus Bulgarien.',
+        alternatives: ['Ich bin aus Bulgarien.'],
         hints: [],
       },
       {
@@ -1482,7 +1547,7 @@ const checkpoint: Checkpoint = {
         ),
         answer: 'Guten Tag! Ich heiße Teo. Ich wohne in Hamburg.',
         shape: 'sentence',
-        requiredTokens: ['heiße', 'wohne'],
+        requiredTokens: ['heiße|Name|bin', 'wohne|lebe'],
         hints: [],
       },
     ]),

@@ -75,7 +75,15 @@ const lesson1: Lesson = {
       id: 'u6l1-table',
       kind: 'grammar',
       title: bi('The full table', 'Пълната таблица'),
-      blocks: [],
+      blocks: [
+        {
+          t: 'p',
+          text: bi(
+            'One word you will see below: the "infinitive" is simply the dictionary form of a verb, the one ending in -en — kommen, wohnen, haben.',
+            'Една дума, която ще видиш по-долу: „инфинитив“ е просто речниковата форма на глагола, тази, която завършва на -en — kommen, wohnen, haben.',
+          ),
+        },
+      ],
       grammarId: 'g-pronoun-table',
     },
     {
@@ -98,6 +106,10 @@ const lesson1: Lesson = {
             ['die Stadt', 'sie', 'Sie ist schön.'],
             ['das Haus', 'es', 'Es ist alt.'],
           ],
+          caption: bi(
+            'groß = big, schön = beautiful, alt = old, neu = new.',
+            'groß = голям, schön = красив, alt = стар, neu = нов.',
+          ),
         },
         {
           t: 'callout',
@@ -164,6 +176,7 @@ const lesson1: Lesson = {
       {
         prompt: bi('The table is new. It is big.', 'Масата е нова. Тя е голяма.'),
         scaffold: 'Der Tisch ist neu. ___ ist groß.',
+        instruction: bi('neu = new, groß = big.', 'neu = нов, groß = голям.'),
         answer: 'Er',
         shape: 'word',
         reviewTargets: ['v-er', 'v-der-tisch'],
@@ -172,6 +185,7 @@ const lesson1: Lesson = {
       {
         prompt: bi('The house is old. It is big.', 'Къщата е стара. Тя е голяма.'),
         scaffold: 'Das Haus ist alt. ___ ist groß.',
+        instruction: bi('alt = old, groß = big.', 'alt = стар, groß = голям.'),
         answer: 'Es',
         shape: 'word',
         reviewTargets: ['v-es', 'v-das-haus'],
@@ -197,19 +211,20 @@ const lesson1: Lesson = {
 
     typeIt(
       'u6l1-ex4',
-      bi('Full production', 'Пълно производство'),
+      bi('Write the whole sentence', 'Напиши цялото изречение'),
       [
         {
           prompt: bi('We are from Bulgaria.', 'Ние сме от България.'),
           answer: 'Wir kommen aus Bulgarien.',
+          alternatives: ['Wir sind aus Bulgarien.'],
           reviewTargets: ['v-wir'],
           traps: [
             {
               answer: 'Wir kommt aus Bulgarien.',
               category: 'verb-conjugation',
               feedback: bi(
-                'With "wir" the verb keeps the infinitive form: wir kommen. "kommt" is for er/sie/es and ihr.',
-                'С „wir“ глаголът запазва формата на инфинитива: wir kommen. „kommt“ е за er/sie/es и ihr.',
+                'With "wir" the verb looks just like its dictionary form: wir kommen. "kommt" is for er/sie/es and ihr.',
+                'С „wir“ глаголът изглежда точно като речниковата си форма: wir kommen. „kommt“ е за er/sie/es и ihr.',
               ),
             },
           ],
@@ -276,8 +291,8 @@ const lesson1: Lesson = {
       },
       {
         prompt: bi(
-          'You are at the Bürgeramt talking to an official. Which form?',
-          'В Bürgeramt говориш със служител. Коя форма?',
+          'You are at the Bürgeramt (the local town-hall office) talking to an official. Which form?',
+          'В Bürgeramt (общинската служба за граждани) говориш със служител. Коя форма?',
         ),
         choices: [
           { id: 'a', de: 'du', gloss: bi('informal', 'неофициално') },
@@ -313,7 +328,7 @@ const lesson1: Lesson = {
       exercise({
         id: 'u6l1-m1',
         kind: 'conjugation',
-        objective: bi('Mastery check: verb forms', 'Проверка: глаголни форми'),
+        objective: bi('Final check: verb forms', 'Проверка: глаголни форми'),
         mandatoryRetype: false,
         steps: [
           { prompt: bi('ihr — sein', 'ihr — sein'), scaffold: 'ihr ___', answer: 'seid', shape: 'word', hints: [] },
@@ -321,10 +336,11 @@ const lesson1: Lesson = {
           { prompt: bi('er — sein', 'er — sein'), scaffold: 'er ___', answer: 'ist', shape: 'word', hints: [] },
         ],
       }),
-      typeIt('u6l1-m2', bi('Mastery check: sentences', 'Проверка: изречения'), [
+      typeIt('u6l1-m2', bi('Final check: sentences', 'Проверка: изречения'), [
         {
           prompt: bi('We are from Bulgaria.', 'Ние сме от България.'),
           answer: 'Wir kommen aus Bulgarien.',
+          alternatives: ['Wir sind aus Bulgarien.'],
           hints: [],
         },
         {
@@ -530,7 +546,7 @@ const lesson2: Lesson = {
 
     typeIt(
       'u6l2-ex4',
-      bi('Full production: saying no', 'Пълно производство: отрицание'),
+      bi('Saying no: write the whole sentence', 'Отрицание: напиши цялото изречение'),
       [
         {
           prompt: bi('I do not have a sister.', 'Нямам сестра.'),
@@ -610,7 +626,7 @@ const lesson2: Lesson = {
       ['g-negation', 'g-plurals'],
     ),
 
-    partialRecall('u6l2-ex5', bi('Partial recall', 'Частично припомняне'), [
+    partialRecall('u6l2-ex5', bi('Complete the plural', 'Довърши множественото число'), [
       {
         prompt: bi('brothers', 'братя'),
         scaffold: 'die Br___',
@@ -649,7 +665,7 @@ const lesson2: Lesson = {
   mastery: {
     passAccuracy: 0.75,
     exercises: [
-      typeIt('u6l2-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u6l2-m1', bi('Final check', 'Финална проверка'), [
         {
           prompt: bi('I do not have a brother.', 'Нямам брат.'),
           answer: 'Ich habe keinen Bruder.',
@@ -663,6 +679,11 @@ const lesson2: Lesson = {
         {
           prompt: bi('I have two daughters.', 'Имам две дъщери.'),
           answer: 'Ich habe zwei Töchter.',
+          hints: [],
+        },
+        {
+          prompt: bi('I do not have children.', 'Нямам деца.'),
+          answer: 'Ich habe keine Kinder.',
           hints: [],
         },
       ]),
@@ -834,7 +855,7 @@ const lesson3: Lesson = {
 
     typeIt(
       'u6l3-ex4',
-      bi('Full production', 'Пълно производство'),
+      bi('Write the whole question', 'Напиши целия въпрос'),
       [
         {
           prompt: bi('Who is that?', 'Кой е това?'),
@@ -902,19 +923,19 @@ const lesson3: Lesson = {
       },
     ]),
 
-    freeWriting('u6l3-ex6', bi('Free production: interview someone', 'Свободно производство: интервюирай някого'), [
+    freeWriting('u6l3-ex6', bi('Write your own: interview someone', 'Напиши сам: интервюирай някого'), [
       {
         prompt: bi(
           'Write three questions you would ask a person you have just met.',
           'Напиши три въпроса, които би задал на човек, когото току-що си срещнал.',
         ),
         instruction: bi(
-          'Use three different question words. There is no single right answer.',
-          'Използвай три различни въпросителни думи. Няма един правилен отговор.',
+          'Try to use three different question words (wer, was, wo, woher, wann, wie, warum). There is no single right answer.',
+          'Опитай да използваш три различни въпросителни думи (wer, was, wo, woher, wann, wie, warum). Няма един правилен отговор.',
         ),
         answer: 'Wie heißt du? Woher kommst du? Was machst du beruflich?',
         shape: 'sentence',
-        requiredTokens: ['Wie', 'Woher'],
+        requiredTokens: ['wer|was|wo|woher|wohin|wann|wie|warum'],
         hints: [bi('Wie ...? Woher ...? Was ...?', 'Wie ...? Woher ...? Was ...?')],
       },
     ]),
@@ -922,7 +943,7 @@ const lesson3: Lesson = {
   mastery: {
     passAccuracy: 0.75,
     exercises: [
-      typeIt('u6l3-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u6l3-m1', bi('Final check', 'Финална проверка'), [
         {
           prompt: bi('Who is that?', 'Кой е това?'),
           answer: 'Wer ist das?',
@@ -1010,6 +1031,7 @@ const checkpoint: Checkpoint = {
       {
         prompt: bi('Where do you come from? (formal)', 'Откъде сте? (учтиво)'),
         answer: 'Woher kommen Sie?',
+        alternatives: ['Woher sind Sie?'],
         hints: [],
       },
     ]),

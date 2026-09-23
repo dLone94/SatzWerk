@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { lessonById, vocabById } from '../../content/index.ts';
 import { UI, WORD_TYPE_LABELS, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
+import { Icon } from '../components/icons.tsx';
 import { AudioButton, Card, EmptyState, formatRelativeDate } from '../components/bits.tsx';
 import { SpeakCheck } from '../components/Speaking.tsx';
 import { buildVocabViews, type VocabView } from '../selectors.ts';
@@ -76,7 +77,7 @@ export function WordPage() {
             aria-label={view.favorite ? t('vocabUnfavorite') : t('vocabFavorite')}
             onClick={() => void toggleFavorite(entry.id)}
           >
-            {view.favorite ? '★' : '☆'}
+            <Icon name={view.favorite ? 'starFilled' : 'star'} />
           </button>
         </div>
       </div>

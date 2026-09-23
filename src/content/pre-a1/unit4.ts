@@ -115,6 +115,19 @@ const lesson1: Lesson = {
         { t: 'de', de: 'Ich spreche Bulgarisch.', gloss: bi('I speak Bulgarian.', 'Говоря български.'), audio: true },
         { t: 'de', de: 'Ich lerne Deutsch.', gloss: bi('I am learning German.', 'Уча немски.'), audio: true },
         {
+          t: 'de',
+          de: 'Welche Sprachen sprichst du?',
+          gloss: bi('Which languages do you speak?', 'Какви езици говориш?'),
+          audio: true,
+        },
+        {
+          t: 'p',
+          text: bi(
+            'welche = which. die Sprache = the language; more than one is die Sprachen (just add -n).',
+            'welche = кои, какви. die Sprache = езикът; когато са повече от един, е die Sprachen (просто добавяш -n).',
+          ),
+        },
+        {
           t: 'callout',
           tone: 'compare',
           only: ['bg'],
@@ -141,7 +154,7 @@ const lesson1: Lesson = {
           ),
         },
       ],
-      vocabIds: ['v-deutsch', 'v-bulgarisch', 'v-englisch'],
+      vocabIds: ['v-deutsch', 'v-bulgarisch', 'v-englisch', 'v-welche-sprachen-sprichst-du'],
     },
     {
       id: 'u4l1-sprechen',
@@ -151,8 +164,8 @@ const lesson1: Lesson = {
         {
           t: 'p',
           text: bi(
-            'sprechen is the first verb you meet that changes its stem vowel. It only happens in the du and er/sie/es forms.',
-            'sprechen е първият глагол, който мени гласната в основата си. Това става само при du и er/sie/es.',
+            'sprechen is the first verb you meet that changes its vowel: the e in the middle becomes i (du sprichst). It only happens in the du and er/sie/es forms.',
+            'sprechen е първият глагол, който мени гласната си: e в средата става i (du sprichst). Това става само при du и er/sie/es.',
           ),
         },
         {
@@ -217,7 +230,7 @@ const lesson1: Lesson = {
       ['v-sprechen'],
     ),
 
-    fillBlank('u4l1-ex2', bi('Guided typing', 'Насочено писане'), [
+    fillBlank('u4l1-ex2', bi('Fill the gap', 'Попълни празното място'), [
       {
         prompt: bi('I speak Bulgarian.', 'Говоря български.'),
         scaffold: 'Ich ___ Bulgarisch.',
@@ -246,7 +259,7 @@ const lesson1: Lesson = {
 
     typeIt(
       'u4l1-ex3',
-      bi('Full production', 'Пълно производство'),
+      bi('Write the whole sentence', 'Напиши цялото изречение'),
       [
         {
           prompt: bi('I speak Bulgarian and German.', 'Говоря български и немски.'),
@@ -276,6 +289,7 @@ const lesson1: Lesson = {
         {
           prompt: bi('He comes from Austria.', 'Той е от Австрия.'),
           answer: 'Er kommt aus Österreich.',
+          alternatives: ['Er ist aus Österreich.'],
           reviewTargets: ['v-oesterreich'],
           traps: [
             {
@@ -292,6 +306,7 @@ const lesson1: Lesson = {
         {
           prompt: bi('I come from Turkey.', 'Аз съм от Турция.'),
           answer: 'Ich komme aus der Türkei.',
+          alternatives: ['Ich bin aus der Türkei.'],
           reviewTargets: ['v-die-tuerkei'],
           traps: [
             {
@@ -315,7 +330,7 @@ const lesson1: Lesson = {
       ['g-present-endings', 'g-noun-capitals'],
     ),
 
-    partialRecall('u4l1-ex4', bi('Partial recall', 'Частично припомняне'), [
+    partialRecall('u4l1-ex4', bi('Complete the word', 'Довърши думата'), [
       {
         prompt: bi('Which languages do you speak?', 'Какви езици говориш?'),
         scaffold: 'Welche S___ sprichst du?',
@@ -345,7 +360,7 @@ const lesson1: Lesson = {
   mastery: {
     passAccuracy: 0.75,
     exercises: [
-      typeIt('u4l1-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u4l1-m1', bi('Final check', 'Финална проверка'), [
         {
           prompt: bi('I speak Bulgarian.', 'Говоря български.'),
           answer: 'Ich spreche Bulgarisch.',
@@ -359,6 +374,12 @@ const lesson1: Lesson = {
         {
           prompt: bi('I come from Switzerland.', 'Аз съм от Швейцария.'),
           answer: 'Ich komme aus der Schweiz.',
+          alternatives: ['Ich bin aus der Schweiz.'],
+          hints: [],
+        },
+        {
+          prompt: bi('I am learning German.', 'Уча немски.'),
+          answer: 'Ich lerne Deutsch.',
           hints: [],
         },
       ]),
@@ -424,7 +445,16 @@ const lesson2: Lesson = {
       id: 'u4l2-nationalities',
       kind: 'vocabulary',
       title: bi('Nationalities', 'Националности'),
-      blocks: [],
+      blocks: [
+        {
+          t: 'callout',
+          tone: 'tip',
+          text: bi(
+            'One oddity: the word list says "der Deutsche", but without an article a German man is "Deutscher": Er ist Deutscher. A woman stays "Deutsche": Sie ist Deutsche. Bulgare and Bulgarin do not do this.',
+            'Една особеност: в списъка пише „der Deutsche“, но без член германецът е „Deutscher“: Er ist Deutscher. Жената си остава „Deutsche“: Sie ist Deutsche. При Bulgare и Bulgarin това не става.',
+          ),
+        },
+      ],
       vocabIds: ['v-der-deutsche', 'v-die-deutsche', 'v-der-bulgare', 'v-die-bulgarin'],
     },
     {
@@ -454,6 +484,22 @@ const lesson2: Lesson = {
             'Две полезни малки неща: „Freut mich“ е стандартният отговор при запознанство, а „Und Sie?“ връща въпроса обратно.',
           ),
         },
+        {
+          t: 'de',
+          de: 'Was sind Sie von Beruf?',
+          gloss: bi(
+            'What is your job? (formal; literally "What are you by profession?")',
+            'Каква е професията Ви? (учтиво; буквално „Какво сте по професия?“)',
+          ),
+          audio: true,
+        },
+        {
+          t: 'p',
+          text: bi(
+            'This is the other common way to ask. With du it is "Was bist du von Beruf?" — the answer is the same: Ich bin Lehrer.',
+            'Това е другият често срещан начин да попиташ. С du е „Was bist du von Beruf?“ — отговорът е същият: Ich bin Lehrer.',
+          ),
+        },
       ],
     },
     {
@@ -473,7 +519,7 @@ const lesson2: Lesson = {
     },
   ],
   exercises: [
-    multipleChoice('u4l2-ex1', bi('First exposure: with or without an article?', 'Първо запознаване: със или без член?'), [
+    multipleChoice('u4l2-ex1', bi('With or without an article?', 'Със или без член?'), [
       {
         prompt: bi('Which sentence is correct German?', 'Кое изречение е правилен немски?'),
         choices: [
@@ -509,12 +555,12 @@ const lesson2: Lesson = {
           hints: [bi('Three words — fewer than you might expect.', 'Три думи — по-малко, отколкото очакваш.')],
         },
         {
-          prompt: bi('My mother is a teacher.', 'Майка ми е учителка.'),
-          answer: 'Meine Mutter ist Lehrerin.',
-          reviewTargets: ['v-die-lehrerin', 'v-die-mutter'],
+          prompt: bi('Anna is a teacher.', 'Ана е учителка.'),
+          answer: 'Anna ist Lehrerin.',
+          reviewTargets: ['v-die-lehrerin'],
           traps: [
             {
-              answer: 'Meine Mutter ist Lehrer.',
+              answer: 'Anna ist Lehrer.',
               category: 'gender',
               feedback: bi(
                 'For a woman German uses the -in form: Lehrerin. "Lehrer" would describe a man.',
@@ -522,15 +568,15 @@ const lesson2: Lesson = {
               ),
             },
             {
-              answer: 'Mein Mutter ist Lehrerin.',
-              category: 'gender',
+              answer: 'Anna ist eine Lehrerin.',
+              category: 'article',
               feedback: bi(
-                '"Mutter" is feminine (die Mutter), so the possessive takes an -e: meine Mutter.',
-                '„Mutter“ е от женски род (die Mutter), затова притежателното взима -e: meine Mutter.',
+                'German leaves the article out with a profession: "Anna ist Lehrerin", not "eine Lehrerin".',
+                'Немският изпуска члена при професия: „Anna ist Lehrerin“, а не „eine Lehrerin“.',
               ),
             },
           ],
-          hints: [bi('Four words. She is a woman, so watch the ending.', 'Четири думи. Тя е жена, внимавай с окончанието.')],
+          hints: [bi('Three words. Anna is a woman, so watch the ending.', 'Три думи. Ана е жена, внимавай с окончанието.')],
         },
         {
           prompt: bi('She is a doctor.', 'Тя е лекарка.'),
@@ -559,6 +605,7 @@ const lesson2: Lesson = {
         {
           prompt: bi('What do you do for work? (informal)', 'С какво се занимаваш?'),
           answer: 'Was machst du beruflich?',
+          alternatives: ['Was bist du von Beruf?'],
           reviewTargets: ['v-was-machst-du-beruflich'],
           hints: [
             bi('Four words. It starts with the question word for "what".', 'Четири думи. Започва с въпросителната дума за „какво“.'),
@@ -590,10 +637,10 @@ const lesson2: Lesson = {
 
     wordOrder('u4l2-ex4', bi('Build the sentence, then type it', 'Подреди изречението, после го напиши'), [
       {
-        prompt: bi('My father is a doctor.', 'Баща ми е лекар.'),
-        bank: ['ist', 'Mein', 'Arzt.', 'Vater'],
-        answer: 'Mein Vater ist Arzt.',
-        hints: [bi('Possessive, noun, verb, profession.', 'Притежателно, съществително, глагол, професия.')],
+        prompt: bi('Tom is a doctor in Berlin.', 'Том е лекар в Берлин.'),
+        bank: ['ist', 'Tom', 'Berlin.', 'Arzt', 'in'],
+        answer: 'Tom ist Arzt in Berlin.',
+        hints: [bi('Name, verb, profession, then the place.', 'Име, глагол, професия, после мястото.')],
       },
     ]),
 
@@ -616,7 +663,7 @@ const lesson2: Lesson = {
   mastery: {
     passAccuracy: 0.75,
     exercises: [
-      typeIt('u4l2-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u4l2-m1', bi('Final check', 'Финална проверка'), [
         {
           prompt: bi('I am a teacher. (a woman speaking)', 'Аз съм учителка. (говори жена)'),
           answer: 'Ich bin Lehrerin.',
@@ -630,6 +677,12 @@ const lesson2: Lesson = {
         {
           prompt: bi('What do you do for work? (informal)', 'С какво се занимаваш?'),
           answer: 'Was machst du beruflich?',
+          alternatives: ['Was bist du von Beruf?'],
+          hints: [],
+        },
+        {
+          prompt: bi('She is a doctor.', 'Тя е лекарка.'),
+          answer: 'Sie ist Ärztin.',
           hints: [],
         },
       ]),
@@ -650,8 +703,8 @@ const lesson3: Lesson = {
   estimatedMinutes: 22,
   title: bi('Family, and the verb haben', 'Семейство и глаголът haben'),
   objective: bi(
-    'After this lesson you will be able to talk about your family and use haben with the accusative — your first real case ending.',
-    'След този урок ще можеш да говориш за семейството си и да използваш haben с винителен падеж — първото ти истинско падежно окончание.',
+    'After this lesson you will be able to talk about your family and say who you have — including the small change after haben: einen Bruder, not ein Bruder.',
+    'След този урок ще можеш да говориш за семейството си и да кажеш кого имаш — включително малката промяна след haben: einen Bruder, а не ein Bruder.',
   ),
   outcomes: [
     bi('I can name the members of my family.', 'Мога да назова членовете на семейството си.'),
@@ -669,7 +722,7 @@ const lesson3: Lesson = {
     {
       id: 'u4l3-intro',
       kind: 'intro',
-      title: bi('Your first case ending', 'Първото ти падежно окончание'),
+      title: bi('ein becomes einen', 'ein става einen'),
       blocks: [
         {
           t: 'p',
@@ -711,7 +764,7 @@ const lesson3: Lesson = {
     {
       id: 'u4l3-grammar',
       kind: 'grammar',
-      title: bi('haben and the accusative', 'haben и винителният падеж'),
+      title: bi('After haben: einen for masculine', 'След haben: einen за мъжки род'),
       blocks: [],
       grammarId: 'g-haben-accusative',
     },
@@ -722,6 +775,16 @@ const lesson3: Lesson = {
       blocks: [
         { t: 'de', de: 'Ich habe eine Schwester und einen Bruder.', gloss: bi('I have a sister and a brother.', 'Имам една сестра и един брат.'), audio: true },
         { t: 'de', de: 'Meine Eltern wohnen in Bulgarien.', gloss: bi('My parents live in Bulgaria.', 'Родителите ми живеят в България.'), audio: true },
+        {
+          t: 'callout',
+          tone: 'tip',
+          title: bi('mein = my', 'mein = мой'),
+          text: bi(
+            'mein works exactly like ein: mein Vater, mein Bruder, mein Kind — but meine Mutter, meine Schwester, and meine Eltern (plural). The ending follows the person you name, not you.',
+            'mein се държи точно като ein: mein Vater, mein Bruder, mein Kind — но meine Mutter, meine Schwester и meine Eltern (множествено число). Окончанието следва човека, за когото говориш, а не теб.',
+          ),
+        },
+        { t: 'de', de: 'Mein Vater ist Arzt.', gloss: bi('My father is a doctor.', 'Баща ми е лекар.'), audio: true },
         { t: 'de', de: 'Hast du Geschwister?', gloss: bi('Do you have brothers or sisters?', 'Имаш ли братя и сестри?'), audio: true },
         { t: 'de', de: 'Wir haben zwei Kinder.', gloss: bi('We have two children.', 'Имаме две деца.'), audio: true },
         {
@@ -813,7 +876,7 @@ const lesson3: Lesson = {
 
     typeIt(
       'u4l3-ex4',
-      bi('Full production', 'Пълно производство'),
+      bi('Write the whole sentence', 'Напиши цялото изречение'),
       [
         {
           prompt: bi('I have a brother.', 'Имам един брат.'),
@@ -866,6 +929,7 @@ const lesson3: Lesson = {
         {
           prompt: bi('My parents live in Bulgaria.', 'Родителите ми живеят в България.'),
           answer: 'Meine Eltern wohnen in Bulgarien.',
+          alternatives: ['Meine Eltern leben in Bulgarien.'],
           reviewTargets: ['v-die-eltern'],
           traps: [
             {
@@ -883,7 +947,7 @@ const lesson3: Lesson = {
           prompt: bi('My father is a doctor.', 'Баща ми е лекар.'),
           answer: 'Mein Vater ist Arzt.',
           reviewTargets: ['v-der-vater', 'v-der-arzt'],
-          hints: [],
+          hints: [bi('Vater is masculine, so it is mein, like ein.', 'Vater е от мъжки род, затова е mein, както ein.')],
         },
       ],
       ['g-haben-accusative'],
@@ -906,7 +970,7 @@ const lesson3: Lesson = {
       },
     ]),
 
-    freeWriting('u4l3-ex6', bi('Free production', 'Свободно производство'), [
+    freeWriting('u4l3-ex6', bi('Write about your family', 'Напиши за семейството си'), [
       {
         prompt: bi(
           'Write two sentences about your family: who you have, and where they live.',
@@ -915,7 +979,7 @@ const lesson3: Lesson = {
         instruction: bi('Use your real family. There is no single right answer.', 'Използвай истинското си семейство. Няма един правилен отговор.'),
         answer: 'Ich habe eine Schwester. Meine Eltern wohnen in Sofia.',
         shape: 'sentence',
-        requiredTokens: ['habe'],
+        requiredTokens: ['habe|hat|haben'],
         hints: [bi('Ich habe ... / Meine Eltern wohnen in ...', 'Ich habe ... / Meine Eltern wohnen in ...')],
       },
     ]),
@@ -923,7 +987,7 @@ const lesson3: Lesson = {
   mastery: {
     passAccuracy: 0.75,
     exercises: [
-      typeIt('u4l3-m1', bi('Mastery check', 'Проверка за усвояване'), [
+      typeIt('u4l3-m1', bi('Final check', 'Финална проверка'), [
         {
           prompt: bi('I have a brother.', 'Имам един брат.'),
           answer: 'Ich habe einen Bruder.',
@@ -943,7 +1007,7 @@ const lesson3: Lesson = {
       exercise({
         id: 'u4l3-m2',
         kind: 'conjugation',
-        objective: bi('Mastery check: haben', 'Проверка: haben'),
+        objective: bi('Final check: haben', 'Проверка: haben'),
         mandatoryRetype: false,
         steps: [
           {
@@ -968,8 +1032,8 @@ const lesson3: Lesson = {
     {
       t: 'p',
       text: bi(
-        'You have met your first case ending. It comes back in every unit from here on, so it was worth the effort.',
-        'Срещна първото си падежно окончание. То се връща във всеки следващ раздел, така че усилието си заслужаваше.',
+        'You have met your first German ending that depends on the job a word does in the sentence: ein becomes einen. It comes back in every unit from here on, so it was worth the effort.',
+        'Срещна първото немско окончание, което зависи от ролята на думата в изречението: ein става einen. То се връща във всеки следващ раздел, така че усилието си заслужаваше.',
       ),
     },
   ],
@@ -1000,6 +1064,7 @@ const checkpoint: Checkpoint = {
       {
         prompt: bi('I come from Switzerland.', 'Аз съм от Швейцария.'),
         answer: 'Ich komme aus der Schweiz.',
+        alternatives: ['Ich bin aus der Schweiz.'],
         hints: [],
       },
     ]),
@@ -1017,6 +1082,7 @@ const checkpoint: Checkpoint = {
       {
         prompt: bi('What do you do for work? (informal)', 'С какво се занимаваш?'),
         answer: 'Was machst du beruflich?',
+        alternatives: ['Was bist du von Beruf?'],
         hints: [],
       },
     ]),
@@ -1034,6 +1100,7 @@ const checkpoint: Checkpoint = {
       {
         prompt: bi('My parents live in Bulgaria.', 'Родителите ми живеят в България.'),
         answer: 'Meine Eltern wohnen in Bulgarien.',
+        alternatives: ['Meine Eltern leben in Bulgarien.'],
         hints: [],
       },
     ]),
@@ -1080,7 +1147,7 @@ const checkpoint: Checkpoint = {
         ),
         answer: 'Ich komme aus Bulgarien. Ich bin Ingenieur. Ich habe eine Schwester.',
         shape: 'sentence',
-        requiredTokens: ['komme', 'bin', 'habe'],
+        requiredTokens: ['komme|bin', 'bin|arbeite', 'habe'],
         hints: [],
       },
     ]),
@@ -1094,8 +1161,8 @@ export const PRE_A1_UNIT_4: Unit = {
   status: 'available',
   title: bi('Personal information', 'Лична информация'),
   summary: bi(
-    'Countries, languages, nationality, what you do and who you have — plus the first case ending German asks of you.',
-    'Държави, езици, националност, с какво се занимаваш и кого имаш — плюс първото падежно окончание, което немският иска от теб.',
+    'Countries, languages, nationality, what you do and who you have — plus the first small ending German asks of you: einen Bruder.',
+    'Държави, езици, националност, с какво се занимаваш и кого имаш — плюс първото малко окончание, което немският иска от теб: einen Bruder.',
   ),
   lessons: [lesson1, lesson2, lesson3],
   checkpoint,

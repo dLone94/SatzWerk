@@ -216,7 +216,7 @@ export const GRAMMAR_CONCEPTS_2: GrammarConcept[] = [
 
   {
     id: 'g-haben-accusative',
-    title: bi('haben and the accusative', 'haben и винителният падеж'),
+    title: bi('haben: ein becomes einen', 'haben: ein става einen'),
     level: 'pre-a1',
     summary: bi(
       'After haben, a masculine "ein" becomes "einen".',
@@ -273,7 +273,7 @@ export const GRAMMAR_CONCEPTS_2: GrammarConcept[] = [
         tone: 'compare',
         only: ['en'],
         text: bi(
-          'English lost its case endings on nouns centuries ago, but you still have a trace of this: "he" becomes "him" when it is the object. German does the same thing to articles, and at Pre-A1 only the masculine "ein → einen" matters.',
+          'English does a little of this too: "he" becomes "him" when he is the one being had, seen or asked. German does it to the small word before a noun, and for now only the masculine "ein → einen" matters.',
           '',
         ),
       },
@@ -281,8 +281,8 @@ export const GRAMMAR_CONCEPTS_2: GrammarConcept[] = [
         t: 'callout',
         tone: 'tip',
         text: bi(
-          'A memory hook: the masculine is the only gender that ever adds -n. der → den, ein → einen, mein → meinen.',
-          'Опора за паметта: мъжкият род е единственият, който някога добавя -n. der → den, ein → einen, mein → meinen.',
+          'A memory hook: only masculine words add -n here. der → den, ein → einen.',
+          'Опора за паметта: само мъжкият род добавя -n тук. der → den, ein → einen.',
         ),
       },
     ],
@@ -564,8 +564,8 @@ export const GRAMMAR_CONCEPTS_2: GrammarConcept[] = [
         t: 'callout',
         tone: 'tip',
         text: bi(
-          'These three cover almost everything at this level. "am" and "im" are short forms of an dem and in dem — you do not need that yet, but it explains why they look odd.',
-          'Тези три покриват почти всичко на това ниво. „am“ и „im“ са кратки форми на an dem и in dem — засега не ти трябва, но обяснява защо изглеждат странно.',
+          'These three cover almost everything at this level. Learn am and im just as they are.',
+          'Тези три покриват почти всичко на това ниво. Научи am и im точно така, както са.',
         ),
       },
       {
@@ -708,8 +708,8 @@ export const GRAMMAR_CONCEPTS_2: GrammarConcept[] = [
         t: 'callout',
         tone: 'tip',
         text: bi(
-          'Notice the pattern: wir, sie and Sie always share one form. For a regular verb that form is the infinitive (wir wohnen), and even sein keeps the three identical (wir sind, sie sind, Sie sind). That is three of the nine forms you get for free.',
-          'Забележи модела: wir, sie и Sie винаги имат една и съща форма. При правилен глагол това е инфинитивът (wir wohnen), а дори sein пази трите еднакви (wir sind, sie sind, Sie sind). Това са три от деветте форми, които получаваш безплатно.',
+          'Notice the pattern: wir, sie and Sie always share one form. For a regular verb that form is the dictionary form, the one ending in -en (wir wohnen), and even sein keeps the three identical (wir sind, sie sind, Sie sind). That is three of the nine forms you get for free.',
+          'Забележи модела: wir, sie и Sie винаги имат една и съща форма. При правилен глагол това е речниковата форма, която завършва на -en (wir wohnen), а дори sein пази трите еднакви (wir sind, sie sind, Sie sind). Това са три от деветте форми, които получаваш безплатно.',
         ),
       },
     ],

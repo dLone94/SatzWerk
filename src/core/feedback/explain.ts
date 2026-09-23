@@ -198,7 +198,17 @@ function explainCategory(
     }
 
     case 'capitalization': {
-      const noun = result.diff.find((d) => d.status === 'case')?.expected;
+      if (result.verdict === 'accepted-with-note') {
+        return [
+          bi(
+            'Small thing: a German sentence starts with a capital letter.',
+            'Малка подробност: немското изречение започва с главна буква.',
+          ),
+        ];
+      }
+      // A lowercase noun is the lesson; the sentence's first word is not.
+      const cased = result.diff.filter((d) => d.status === 'case').map((d) => d.expected ?? '');
+      const noun = cased.find((word) => ctx.lexicon.nounGender.has(lower(word))) ?? cased[0];
       const isNoun = noun ? ctx.lexicon.nounGender.has(lower(noun)) : false;
       return [
         bi(
@@ -212,7 +222,22 @@ function explainCategory(
       ];
     }
 
-    case 'umlaut':
+    case 'umlaut': {
+      // The dots left off altogether: say which letter, since that letter is
+      // the whole lesson.
+      if (result.verdict === 'almost') {
+        const word =
+          result.diff.find((d) => d.expected && /[äöüß]/i.test(d.expected) && d.given !== d.expected)?.expected ??
+          result.target;
+        const letters = [...new Set(word.match(/[äöüß]/gi) ?? [])];
+        const dots = letters.some((letter) => letter.toLowerCase() !== 'ß');
+        return [
+          bi(
+            `"${word}" is written with ${letters.join(', ')}.${dots ? ' The dots change the sound, and sometimes the meaning.' : ''}`,
+            `„${word}“ се пише с ${letters.join(', ')}.${dots ? ' Точките променят звука, а понякога и смисъла.' : ''}`,
+          ),
+        ];
+      }
       // The headline already says the meaning is right, so this line only has
       // to explain the spelling.
       return [
@@ -221,6 +246,7 @@ function explainCategory(
           'В стандартния немски правопис тази дума се пише със специалната буква, така че я напиши така — бутоните под полето я вписват.',
         ),
       ];
+    }
 
     case 'punctuation':
       return [

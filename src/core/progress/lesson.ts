@@ -45,6 +45,19 @@ export const PRACTICE_MIN_ACCURACY = 0.6;
 /** Below this, a short recovery round is inserted before the mastery check. */
 export const RECOVERY_THRESHOLD = 0.7;
 
+/**
+ * The share a final check needs, given how many questions it has.
+ *
+ * Most checks are three or four questions long, and an authored 70% or 75% of
+ * three is three: one forgotten umlaut and a beginner failed a lesson they had
+ * learned. On any check of three or more questions, one slip is allowed; a
+ * long check keeps its authored mark if that is already more forgiving.
+ */
+export function masteryPassMark(passAccuracy: number, questions: number): number {
+  if (questions < 3) return passAccuracy;
+  return Math.min(passAccuracy, (questions - 1) / questions);
+}
+
 export function emptyLessonProgress(lessonId: string): LessonProgress {
   return {
     lessonId,
@@ -263,16 +276,19 @@ export function lessonRequirements(lesson: Lesson, progress: LessonProgress): Re
     {
       id: 'accuracy',
       label: bi(
-        `Reach ${Math.round(PRACTICE_MIN_ACCURACY * 100)}% first-try accuracy`,
-        `Постигни ${Math.round(PRACTICE_MIN_ACCURACY * 100)}% верни от първи опит`,
+        `Get ${Math.round(PRACTICE_MIN_ACCURACY * 100)}% right first time, or pass the final check`,
+        `${Math.round(PRACTICE_MIN_ACCURACY * 100)}% верни от първи опит или издържана финална проверка`,
       ),
-      satisfied: accuracy >= PRACTICE_MIN_ACCURACY,
+      // First tries cannot be taken again, so a lesson that went badly the
+      // first time could otherwise never be finished. Passing the final check
+      // later is proof enough.
+      satisfied: accuracy >= PRACTICE_MIN_ACCURACY || progress.mastery.passed,
       done: Math.round(accuracy * 100),
       total: 100,
     },
     {
       id: 'mastery',
-      label: bi('Pass the mastery check', 'Издържи проверката за усвояване'),
+      label: bi('Pass the final check', 'Издържи финалната проверка'),
       satisfied: progress.mastery.passed,
     },
   );

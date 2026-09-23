@@ -13,17 +13,17 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
   scope: 'level',
   targetId: 'pre-a1',
   status: 'available',
-  passAccuracy: 0.8,
+  passAccuracy: 0.75,
   title: bi('Level checkpoint: Pre-A1', 'Проверка на нивото: Pre-A1'),
   description: bi(
-    'Everything from the six units, with no hints: greetings, introductions, numbers, personal information, time, and the grammar that holds it together. 80% is needed to pass.',
-    'Всичко от шестте раздела, без подсказки: поздрави, представяне, числа, лична информация, време и граматиката, която ги свързва. За успех са нужни 80%.',
+    'Everything from the six units, with no hints: greetings, introductions, numbers, personal information, time, and the grammar that holds it together. 75% is needed to pass.',
+    'Всичко от шестте раздела, без подсказки: поздрави, представяне, числа, лична информация, време и граматиката, която ги свързва. За успех са нужни 75%.',
   ),
   exercises: [
     typeIt('lcp-1', bi('Greetings and politeness', 'Поздрави и учтивост'), [
       {
         prompt: bi('It is 09:00. Greet a stranger politely.', '09:00 е. Поздрави учтиво непознат.'),
-        answer: 'Guten Morgen',
+        answer: ['Guten Morgen', 'Guten Tag'],
         shape: 'phrase',
         hints: [],
       },
@@ -44,6 +44,7 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('Ask an official for their name.', 'Попитай служител за името му.'),
         answer: 'Wie heißen Sie?',
+        alternatives: ['Wie ist Ihr Name?'],
         hints: [],
       },
       {
@@ -71,6 +72,7 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('I am thirty-two years old.', 'Аз съм на трийсет и две години.'),
         answer: 'Ich bin zweiunddreißig Jahre alt.',
+        alternatives: ['Ich bin 32 Jahre alt.', 'Ich bin zweiunddreißig.'],
         hints: [],
       },
       {
@@ -95,6 +97,7 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('What do you do for work? (informal)', 'С какво се занимаваш?'),
         answer: 'Was machst du beruflich?',
+        alternatives: ['Was bist du von Beruf?'],
         hints: [],
       },
       {
@@ -190,8 +193,11 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
           hints: [],
         },
         {
-          prompt: bi('daughters', 'дъщери'),
-          instruction: bi('With the article.', 'С члена.'),
+          prompt: bi('daughters (more than one)', 'дъщери (повече от една)'),
+          instruction: bi(
+            'New task: now type the whole plural noun with its article, e.g. "die Kinder".',
+            'Нова задача: сега напиши цялото съществително в множествено число с члена, напр. „die Kinder“.',
+          ),
           answer: 'die Töchter',
           shape: 'phrase',
           hints: [],
@@ -238,7 +244,7 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
         ),
         answer: 'Guten Tag! Ich heiße Teo. Ich komme aus Bulgarien. Ich wohne in Hamburg. Ich bin Ingenieur.',
         shape: 'sentence',
-        requiredTokens: ['heiße', 'komme', 'wohne', 'bin'],
+        requiredTokens: ['heiße|Name|bin', 'komme|bin', 'wohne', 'bin|arbeite'],
         hints: [],
       },
     ]),

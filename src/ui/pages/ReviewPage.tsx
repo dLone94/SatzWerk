@@ -12,6 +12,9 @@ import { buildReviewExercises } from '../reviewBuilder.ts';
 const GRADES: RecallGrade[] = ['again', 'hard', 'good', 'easy'];
 
 /** The review queue: what is due, why, and typing it back. */
+/** How many due items one review round takes. */
+export const REVIEW_ROUND_SIZE = 20;
+
 export function ReviewPage() {
   const { t, say, lang, reviewItems, gradeReview } = useApp();
   const [running, setRunning] = useState(false);
@@ -31,7 +34,9 @@ export function ReviewPage() {
     [reviewItems],
   );
 
-  const activeItems = early ? earlyItems : queue.map((entry) => entry.item);
+  // One sitting at a time: a beginner's first bad day can make thirty words
+  // due at once, and the most overdue come first, so the rest can wait.
+  const activeItems = early ? earlyItems : queue.slice(0, REVIEW_ROUND_SIZE).map((entry) => entry.item);
   const build = useMemo(() => buildReviewExercises(activeItems), [activeItems]);
 
   if (running && build.exercises.length > 0) {
@@ -40,7 +45,7 @@ export function ReviewPage() {
         <header className="player-header">
           <p className="player-header__lesson">{t('reviewTitle')}</p>
           <p className="player-header__phase">
-            {early ? t('reviewPracticeEarly') : t('reviewDueCount', { n: activeItems.length })}
+            {early ? t('reviewPracticeEarly') : t('reviewRoundSize', { n: activeItems.length })}
           </p>
         </header>
         <ExercisePlayer

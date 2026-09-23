@@ -88,7 +88,9 @@ function baseName(name: string): string {
 }
 
 function score(voice: VoiceLike): { score: number; quality: VoiceQuality } {
-  const name = voice.name;
+  // Safari on an iPhone calls the compact and the downloaded Anna both just
+  // "Anna"; which is which is only in the id (com.apple.voice.premium.de-DE.Anna).
+  const name = `${voice.name} ${voice.voiceURI}`;
   let points = 0;
   let quality: VoiceQuality = 'basic';
   if (/premium/i.test(name)) {

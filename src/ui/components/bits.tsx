@@ -3,6 +3,7 @@ import type { Block, ContentStatus, VocabEntry } from '../../content/types.ts';
 import { NORMAL_RATE, SLOW_RATE } from '../../services/tts/index.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { WORD_TYPE_LABELS } from '../../i18n.ts';
+import { Icon, type IconName } from './icons.tsx';
 
 /** Small shared building blocks: buttons, badges, meters, block rendering. */
 
@@ -46,6 +47,20 @@ function withLineBreaks(text: string, keyPrefix: string): ReactNode[] {
       ? emphasise(line, `${keyPrefix}-l0`)
       : [<br key={`${keyPrefix}-br${index}`} />, ...emphasise(line, `${keyPrefix}-l${index}`)],
   );
+}
+
+/**
+ * The part of a German table cell worth saying aloud: the word before any
+ * respelling ("wohnen — VOH-nen"), and nothing for an ending ("-st") or a
+ * single letter, which a voice would read out as the letter's name.
+ */
+export function speakable(cell: string): string | null {
+  const said = cell.split(/\s+[—–]\s+/)[0]!.replace(/[*_`]/g, '').trim();
+  if (said.startsWith('-') || said.startsWith('…')) return null;
+  if ((said.match(/\p{L}/gu) ?? []).length < 2) return null;
+  // A letter group ("sch", "st, sp") is not a word a voice can say.
+  if (said.split(/[\s,/]+/).some((part) => part && !/[aeiouyäöü]/i.test(part))) return null;
+  return said;
 }
 
 export function RichText({ text }: { text: string }) {
@@ -218,7 +233,7 @@ export function AudioButton({
       aria-label={`${slow ? t('exercisePlaySlow') : t('exercisePlayAudio')}: ${text}`}
       title={slow ? t('exercisePlaySlow') : t('exercisePlayAudio')}
     >
-      <span aria-hidden="true">{slow ? '\u{1F40C}' : '\u{1F50A}'}</span>
+      <Icon name={slow ? 'slow' : 'speaker'} size={compact ? 18 : 20} />
       {compact ? null : <span>{slow ? t('exercisePlaySlow') : t('exercisePlayAudio')}</span>}
     </button>
   );
@@ -286,11 +301,21 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
                   <tbody>
                     {block.rows.map((row, r) => (
                       <tr key={r}>
-                        {row.map((cell, c) => (
-                          <td key={c}>
-                            <RichText text={typeof cell === 'string' ? cell : say(cell)} />
-                          </td>
-                        ))}
+                        {/* A plain string in a table is German; a bilingual
+                            cell is the explanation. The German gets the German
+                            face whichever column it sits in. */}
+                        {row.map((cell, c) =>
+                          typeof cell === 'string' ? (
+                            <td key={c} lang="de" className="data-table__de">
+                              <RichText text={cell} />
+                              {speakable(cell) ? <AudioButton compact text={speakable(cell)!} /> : null}
+                            </td>
+                          ) : (
+                            <td key={c}>
+                              <RichText text={say(cell)} />
+                            </td>
+                          ),
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -373,9 +398,22 @@ export function VocabRow({ entry, onOpen }: { entry: VocabEntry; onOpen?: () => 
   );
 }
 
-export function EmptyState({ title, body, action }: { title: string; body?: string; action?: ReactNode }) {
+export function EmptyState({
+  title,
+  body,
+  action,
+  icon = 'book',
+}: {
+  title: string;
+  body?: string;
+  action?: ReactNode;
+  icon?: IconName;
+}) {
   return (
     <div className="empty">
+      <span className="empty__icon">
+        <Icon name={icon} size={26} />
+      </span>
       <p className="empty__title">{title}</p>
       {body ? <p className="empty__body">{body}</p> : null}
       {action}
