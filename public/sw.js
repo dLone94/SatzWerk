@@ -136,6 +136,8 @@ self.addEventListener('fetch', (event) => {
  * round trip that can only return what is already held.
  */
 async function cacheFirst(request) {
+  const range = request.headers && request.headers.get('range');
+  if (range) return fromWholeFile(request.url, range);
   const cached = await caches.match(request);
   if (cached) return cached;
   const response = await fetch(request);
@@ -177,9 +179,64 @@ async function networkFirstPage(request) {
 
 /** Keep a good response. A redirect or an error page is not worth holding. */
 async function keep(request, response) {
-  if (!response || !response.ok || response.type !== 'basic') return;
-  const cache = await caches.open(CACHE);
-  await cache.put(request, response.clone());
+  // Only a whole, successful answer. A 206 cannot be stored at all, and
+  // trying used to throw and fail the very request it was answering.
+  if (!response || response.status !== 200 || response.type !== 'basic') return;
+  try {
+    const cache = await caches.open(CACHE);
+    await cache.put(request, response.clone());
+  } catch {
+    // Out of space, or anything else: keeping a copy is a bonus, not a reason
+    // to fail the request.
+  }
+}
+
+/*
+ * Audio asked for in pieces.
+ *
+ * Safari plays a clip by asking for byte ranges ("bytes=0-1", then the rest),
+ * and the server answers each with a 206. Those cannot be cached, and this
+ * worker used to fail the request trying, so on an iPhone every recording
+ * errored and the app fell back to the phone's own voice. Now the whole clip
+ * is fetched once and kept, and each piece is cut from it — which also means
+ * a clip heard once plays offline, as it always meant to.
+ */
+async function fromWholeFile(url, range) {
+  let whole = await caches.match(url);
+  if (!whole) {
+    whole = await fetch(url);
+    await keep(url, whole);
+  }
+  if (whole.status !== 200) return whole;
+  const bytes = await whole.clone().arrayBuffer();
+  return piece(bytes, range, whole.headers.get('Content-Type'));
+}
+
+function piece(bytes, range, type) {
+  const size = bytes.byteLength;
+  const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+  let start;
+  let end;
+  if (match && match[1] !== '') {
+    start = Number(match[1]);
+    end = match[2] !== '' ? Math.min(Number(match[2]), size - 1) : size - 1;
+  } else if (match && match[2] !== '') {
+    // "bytes=-500": the last 500.
+    start = Math.max(0, size - Number(match[2]));
+    end = size - 1;
+  }
+  if (start === undefined || start >= size || start > end) {
+    return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}` } });
+  }
+  return new Response(bytes.slice(start, end + 1), {
+    status: 206,
+    headers: {
+      'Content-Type': type || 'audio/mpeg',
+      'Content-Range': `bytes ${start}-${end}/${size}`,
+      'Content-Length': String(end - start + 1),
+      'Accept-Ranges': 'bytes',
+    },
+  });
 }
 
 self.addEventListener('push', (event) => {

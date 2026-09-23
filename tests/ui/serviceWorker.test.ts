@@ -20,7 +20,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const SOURCE = readFileSync(new URL('../../public/sw.js', import.meta.url), 'utf8');
 
 interface FetchEvent {
-  request: { method: string; url: string; mode?: string };
+  request: { method: string; url: string; mode?: string; headers: Headers };
   respondWith: (value: Promise<unknown>) => void;
   waitUntil: (value: Promise<unknown>) => void;
 }
@@ -37,6 +37,8 @@ function cacheStorage(network: (url: string) => Response | Promise<Response>) {
     return {
       match: async (request: { url: string } | string) => store.get(key(request)),
       put: async (request: { url: string } | string, response: Response) => {
+        // As a real browser does: a partial response cannot be stored.
+        if (response.status === 206) throw new TypeError('Partial response (status code 206) is unsupported');
         store.set(key(request), response);
       },
       add: async (url: string) => {
@@ -70,21 +72,27 @@ function cacheStorage(network: (url: string) => Response | Promise<Response>) {
 interface Harness {
   fire: (type: 'install' | 'activate') => Promise<void>;
   request: (
-    input: { method?: string; url: string; mode?: string },
+    input: { method?: string; url: string; mode?: string; headers?: Record<string, string> },
   ) => Promise<{ handled: boolean; response?: Response; error?: unknown }>;
   caches: ReturnType<typeof cacheStorage>;
   fetch: ReturnType<typeof vi.fn>;
   claimed: () => boolean;
 }
 
-function load(network: (url: string) => Response | Promise<Response> | Promise<never>): Harness {
+function load(
+  network: (url: string, headers?: Headers) => Response | Promise<Response> | Promise<never>,
+): Harness {
   const listeners = new Map<string, (event: unknown) => void>();
   const store = cacheStorage(network as (url: string) => Response | Promise<Response>);
   let claimed = false;
 
-  const fetchStub = vi.fn(async (input: string | { url: string }) => {
+  const fetchStub = vi.fn(async (input: string | { url: string; headers?: Headers }) => {
     const url = typeof input === 'string' ? new URL(input, 'https://satzwerk.test').toString() : input.url;
-    return network(url);
+    const response = await network(url, typeof input === 'string' ? undefined : input.headers);
+    // What a browser reports for a same-origin fetch; a bare Response says
+    // "default", and the worker would never keep anything at all.
+    Object.defineProperty(response, 'type', { value: 'basic' });
+    return response;
   });
 
   const self = {
@@ -119,10 +127,10 @@ function load(network: (url: string) => Response | Promise<Response> | Promise<n
       listeners.get(type)?.({ waitUntil: (value: Promise<unknown>) => waits.push(value) });
       await Promise.all(waits);
     },
-    async request({ method = 'GET', url, mode }) {
+    async request({ method = 'GET', url, mode, headers = {} }) {
       let answered: Promise<unknown> | undefined;
       const event: FetchEvent = {
-        request: { method, url: new URL(url, 'https://satzwerk.test').toString(), mode },
+        request: { method, url: new URL(url, 'https://satzwerk.test').toString(), mode, headers: new Headers(headers) },
         respondWith: (value) => {
           answered = value;
         },
@@ -264,3 +272,59 @@ describe('what the worker declines to keep', () => {
     expect(held).toEqual([]);
   });
 });
+
+/*
+ * Safari plays audio by asking for it in byte ranges, and the server answers
+ * 206 Partial Content. The worker tried to store that 206, which a browser
+ * refuses, so the whole request failed: every recording errored and the app
+ * quietly fell back to the phone's own voice. On an iPhone, "Thorsten" was
+ * never heard at all.
+ */
+describe('a recording asked for in pieces, as Safari does', () => {
+  const CLIP = 'ABCDEFGHIJ';
+  const byteServer = (url: string, headers?: Headers) => {
+    if (url.endsWith('/asset-manifest.json')) return ok(JSON.stringify({ files: [] }));
+    const range = headers?.get('range');
+    if (range) {
+      const [, from, to] = /bytes=(\d+)-(\d*)/.exec(range)!;
+      const end = to ? Number(to) : CLIP.length - 1;
+      return new Response(CLIP.slice(Number(from), end + 1), {
+        status: 206,
+        headers: { 'Content-Range': `bytes ${from}-${end}/${CLIP.length}`, 'Content-Type': 'audio/mpeg' },
+      });
+    }
+    return new Response(CLIP, { status: 200, headers: { 'Content-Type': 'audio/mpeg' } });
+  };
+
+  it('plays the piece that was asked for', async () => {
+    const worker = load(byteServer);
+    const result = await worker.request({ url: '/audio/de/abc.mp3', headers: { range: 'bytes=0-1' } });
+    expect(result.error).toBeUndefined();
+    expect(result.response!.status).toBe(206);
+    expect(result.response!.headers.get('Content-Range')).toBe('bytes 0-1/10');
+    expect(await result.response!.text()).toBe('AB');
+  });
+
+  it('keeps the whole clip, so the next piece comes from the phone even offline', async () => {
+    let online = true;
+    const worker = load((url, headers) => (online ? byteServer(url, headers) : offline()));
+    await worker.request({ url: '/audio/de/abc.mp3', headers: { range: 'bytes=0-1' } });
+    online = false;
+    const later = await worker.request({ url: '/audio/de/abc.mp3', headers: { range: 'bytes=2-' } });
+    expect(later.error).toBeUndefined();
+    expect(later.response!.status).toBe(206);
+    expect(await later.response!.text()).toBe('CDEFGHIJ');
+  });
+
+  it('never lets a partial answer break a request it cannot store', async () => {
+    const worker = load((url) =>
+      url.endsWith('/asset-manifest.json')
+        ? ok(JSON.stringify({ files: [] }))
+        : new Response('part', { status: 206, headers: { 'Content-Range': 'bytes 0-3/10' } }),
+    );
+    const result = await worker.request({ url: '/assets/app-abc123.js' });
+    expect(result.error).toBeUndefined();
+    expect(result.response!.status).toBe(206);
+  });
+});
+
