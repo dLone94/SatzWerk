@@ -526,8 +526,60 @@ describe('the redesign', () => {
         </MemoryRouter>
       </AppStateContext.Provider>,
     );
-    await user.click(screen.getByRole('button', { name: tr('lessonContinue', 'en') }));
+    await user.click(screen.getByRole('button', { name: tr('lessonContinueExercises', 'en') }));
     expect(document.querySelector('[data-step-id]')?.getAttribute('data-step-id')).toBe(stepIds[3]);
+  });
+
+  /*
+   * A learner halfway through lesson 1 saw "Start" and "Start the exercises"
+   * side by side and could not tell what either would do: "Start" when they
+   * had clearly started, and two ways in with no hint of where each led.
+   */
+  function openWith(value: ReturnType<typeof progress>) {
+    render(
+      <AppStateContext.Provider value={state({ lessons: { [LESSON]: value }, lessonProgress: () => value })}>
+        <MemoryRouter initialEntries={[`/lesson/${LESSON}`]}>
+          <Routes>
+            <Route path="/lesson/:lessonId" element={<LessonPage />} />
+          </Routes>
+        </MemoryRouter>
+      </AppStateContext.Provider>,
+    );
+    return [...document.querySelectorAll('.section-nav button')].map((button) => button.textContent);
+  }
+  const resolved = (ids: string[]) =>
+    Object.fromEntries(
+      ids.map((id) => [id, { stepId: id, attempts: 1, firstTryCorrect: true, bestCredit: 1, resolved: true, hintsUsed: 0, revealed: false }]),
+    );
+
+  it('says Start only before anything has been started', () => {
+    expect(openWith(progress({ mastery: { attempts: 0, bestAccuracy: 0, passed: false } }))).toEqual([tr('lessonStart', 'en')]);
+  });
+
+  it('says where each button goes once a lesson is under way', () => {
+    const lesson = lessonById(LESSON)!;
+    const stepIds = lesson.exercises.flatMap((exercise) => exercise.steps).map((step) => step.id);
+    const labels = openWith(
+      progress({
+        sectionsSeen: lesson.sections.slice(0, -1).map((section) => section.id),
+        practice: resolved(stepIds.slice(0, 3)),
+        mastery: { attempts: 0, bestAccuracy: 0, passed: false },
+      }),
+    );
+    expect(labels).toEqual([tr('lessonContinueReading', 'en'), tr('lessonContinueExercises', 'en')]);
+  });
+
+  it('offers one way on, not two, once the reading is done', () => {
+    const lesson = lessonById(LESSON)!;
+    const stepIds = lesson.exercises.flatMap((exercise) => exercise.steps).map((step) => step.id);
+    const labels = openWith(
+      progress({
+        sectionsSeen: lesson.sections.map((section) => section.id),
+        practice: resolved(stepIds.slice(0, 3)),
+        mastery: { attempts: 0, bestAccuracy: 0, passed: false },
+      }),
+    );
+    expect(labels).toEqual([tr('lessonContinueExercises', 'en')]);
   });
 
   it('clears the tab bar away while a question is on screen, and only then', () => {

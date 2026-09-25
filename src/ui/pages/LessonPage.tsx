@@ -118,8 +118,6 @@ export function LessonPage() {
   }
 
   const unit = unitForLesson(lesson.id);
-  const requirements = lessonRequirements(lesson, progress);
-  const satisfied = requirements.filter((requirement) => requirement.satisfied).length;
   const complete = isLessonComplete(lesson, progress);
 
   /*
@@ -136,6 +134,23 @@ export function LessonPage() {
   };
   const allSectionsSeen = lesson.sections.every((item) => progress.sectionsSeen.includes(item.id));
   const practiceUnderway = Object.keys(progress.practice).length > 0;
+  const started = progress.sectionsSeen.length > 0 || practiceUnderway;
+  const allResolved = allStepIds(lesson).every((id) => progress.practice[id]?.resolved);
+  // Each button says where it goes: "Start" and "Start the exercises" side by
+  // side, halfway through a lesson, told the learner neither.
+  const exercisesLabel = allResolved
+    ? t('lessonReplay')
+    : practiceUnderway
+      ? t('lessonContinueExercises')
+      : t('lessonToExercises');
+  const mainGoesToPractice = allSectionsSeen && practiceUnderway && !complete;
+  const mainLabel = complete
+    ? t('lessonReadAgain')
+    : !started
+      ? t('lessonStart')
+      : mainGoesToPractice
+        ? exercisesLabel
+        : t('lessonContinueReading');
 
   if (stage === 'practice') {
     return (
@@ -240,7 +255,7 @@ export function LessonPage() {
             </button>
           ) : (
             <button type="button" className="btn btn--primary" onClick={startPractice} autoFocus>
-              {t('lessonToExercises')}
+              {exercisesLabel}
             </button>
           )}
         </div>
@@ -393,7 +408,7 @@ export function LessonPage() {
             onClick={() => {
               // Back where the learner stopped: in the exercises if the reading
               // is done, otherwise at the first section not yet read.
-              if (allSectionsSeen && practiceUnderway && !complete) {
+              if (mainGoesToPractice) {
                 startPractice();
                 return;
               }
@@ -403,11 +418,11 @@ export function LessonPage() {
             }}
             autoFocus
           >
-            {satisfied > 0 ? t('lessonContinue') : t('lessonStart')}
+            {mainLabel}
           </button>
-          {Object.keys(progress.practice).length > 0 ? (
+          {practiceUnderway && !mainGoesToPractice ? (
             <button type="button" className="btn btn--ghost" onClick={startPractice}>
-              {t('lessonToExercises')}
+              {exercisesLabel}
             </button>
           ) : null}
           {progress.mastery.attempts > 0 || complete ? (
