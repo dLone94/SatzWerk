@@ -292,15 +292,19 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
      * subscriptions registered while they were the one studying.
      */
     const learners = await store.listLearners(db);
-    const reports = [];
-    for (const learner of learners) {
-      const theirs: store.Scope = { db, userId: learner.id };
-      const profile = await store.getProfile(theirs);
-      reports.push({
-        learner: learner.name,
-        ...(await sendDueReminder(theirs, { lang: profile.teachingLanguage })),
-      });
-    }
+    // All learners at once. Each may take up to the send deadline, and one
+    // after another, a handful of learners with a device that never answers
+    // would add up to the function's time limit before the rest were reached.
+    const reports = await Promise.all(
+      learners.map(async (learner) => {
+        const theirs: store.Scope = { db, userId: learner.id };
+        const profile = await store.getProfile(theirs);
+        return {
+          learner: learner.name,
+          ...(await sendDueReminder(theirs, { lang: profile.teachingLanguage })),
+        };
+      }),
+    );
     // The shape of a single report is kept at the top level for the one-learner
     // case, which is every household that has not added anybody: a smoke test
     // and a cron log should not have to learn a new shape to stay readable.
@@ -358,7 +362,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     }
     const password = String(asRecord(request.body).password ?? '');
     const verdict = await checkPassword(db, request.clientIp, password, auth.passwordHash!);
-    if (typeof verdict === 'number') return tooManyTries(verdict);
+    if (typeof verdict !== 'boolean') return tooManyTries(verdict);
     if (!verdict) {
       // Deliberately vague, and the same shape whether or not a password was
       // supplied, so this cannot be used to probe.
@@ -449,7 +453,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     const next = String(body.newPassword ?? '');
     if (state === 'required') {
       const verdict = await checkPassword(db, request.clientIp, current, auth.passwordHash!);
-      if (typeof verdict === 'number') return tooManyTries(verdict);
+      if (typeof verdict !== 'boolean') return tooManyTries(verdict);
       if (!verdict) return { status: 401, body: { error: 'That password is not right.' } };
     }
     const problem = passwordProblem(next);

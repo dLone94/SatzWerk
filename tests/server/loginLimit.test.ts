@@ -126,10 +126,46 @@ describe.each(databases)('signing in, on %s', (_name, open) => {
     }
     const refused = await login(PASSWORD, '198.51.100.99');
     expect(refused.status).toBe(429);
-    // A short wait, never a lockout: the real learner gets in a minute later.
+    // A short wait at a time: once it is over and nobody has guessed since,
+    // the real learner gets in.
     expect(Number(refused.headers?.['retry-after'])).toBeLessThanOrEqual(60);
     vi.setSystemTime(new Date(Date.now() + 61_000));
     expect((await login(PASSWORD, '198.51.100.99')).status).toBe(200);
+  });
+
+  it('says "1 second", not "1 seconds", when the wait is nearly over', async () => {
+    for (let i = 1; i <= 5; i += 1) await login(`guess-${i}`);
+    vi.setSystemTime(new Date('2026-09-30T12:00:29.500Z'));
+    const refused = await login(PASSWORD);
+    expect(refused.status).toBe(429);
+    expect(refused.body).toMatchObject({ error: 'Too many wrong passwords. Try again in 1 second.' });
+  });
+
+  it('does not call a right password wrong when it is only busy', async () => {
+    // With two checks already running, a third used to be answered "Too many
+    // wrong passwords. Try again in 1 seconds." — even when it was the right
+    // password, and from somebody who had not got one wrong.
+    const release: Array<() => void> = [];
+    for (let i = 0; i < 2; i += 1) {
+      vi.mocked(auth.verifyPassword).mockImplementationOnce(
+        () => new Promise<boolean>((resolve) => release.push(() => resolve(false))),
+      );
+    }
+    const running = [login('slow-guess-1', '192.0.2.1'), login('slow-guess-2', '192.0.2.2')];
+    // Let both reach the check.
+    while (release.length < 2) await new Promise((resolve) => setImmediate(resolve));
+
+    let busy;
+    try {
+      busy = await login(PASSWORD, '198.51.100.30');
+    } finally {
+      for (const done of release) done();
+      await Promise.all(running);
+    }
+    expect(busy.status).toBe(429);
+    expect(busy.body).toMatchObject({ error: 'Another sign-in is being checked. Try again in a second.' });
+    expect(busy.headers?.['retry-after']).toBe('1');
+    expect((await login(PASSWORD, '198.51.100.30')).status).toBe(200);
   });
 
   it('counts wrong current passwords when changing it, too', async () => {

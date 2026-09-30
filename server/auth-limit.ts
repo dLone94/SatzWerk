@@ -17,10 +17,12 @@ import type { Db } from './db.ts';
  *  - per client address: five free tries (typos happen), then a wait that
  *    doubles with each further miss, from 30 seconds up to 15 minutes;
  *  - for everybody together, because an attacker can change address. That one
- *    starts later and never waits longer than a minute, so somebody hammering
- *    the login cannot lock the real learner out for long — and a device that is
- *    already signed in is not affected at all, since its cookie never comes
- *    here.
+ *    starts later and each wait is at most a minute. It is not a promise that
+ *    the real learner gets in soon, though: one wrong password a minute keeps
+ *    it going for as long as the sender likes. That is the price of the limit
+ *    meaning anything against many addresses, and it is bearable because a
+ *    device that is already signed in is not affected at all — its cookie
+ *    never comes here.
  *
  * While a wait is in force the password is not even checked, so a blocked
  * guess costs no scrypt. A right password clears its address's count.
@@ -117,7 +119,8 @@ let checking = 0;
  * Check a password on behalf of a client, within the limits above.
  *
  * `true` or `false` is the verdict; a number is how many seconds to wait
- * before trying again, answered without looking at the password.
+ * before trying again, and `'busy'` means other checks were running — both
+ * answered without looking at the password.
  */
 export async function checkPassword(
   db: Db,
@@ -125,13 +128,13 @@ export async function checkPassword(
   password: string,
   stored: string,
   now = Date.now(),
-): Promise<boolean | number> {
+): Promise<boolean | number | 'busy'> {
   const wait = await loginWait(db, client, now);
   if (wait > 0) return Math.ceil(wait / 1000);
   // A flood of parallel guesses would otherwise queue 64MB allocations behind
   // one another. Nobody signs in twice at the same moment, so a busy answer
   // costs a real person nothing.
-  if (checking >= LOGIN_LIMITS.concurrent) return 1;
+  if (checking >= LOGIN_LIMITS.concurrent) return 'busy';
   checking += 1;
   let right: boolean;
   try {
@@ -145,18 +148,28 @@ export async function checkPassword(
 }
 
 /** The answer for a client that has to wait. */
-export function tooManyTries(seconds: number): {
+export function tooManyTries(wait: number | 'busy'): {
   status: number;
   body: { error: string; retryAfter: number };
   headers: Record<string, string>;
 } {
+  // Being busy says nothing about this client's password, so it must not be
+  // answered as if it had been wrong: it may well have been the right one.
+  if (wait === 'busy') {
+    return {
+      status: 429,
+      body: { error: 'Another sign-in is being checked. Try again in a second.', retryAfter: 1 },
+      headers: { 'retry-after': '1' },
+    };
+  }
+  const seconds = wait;
   const minutes = Math.ceil(seconds / 60);
   return {
     status: 429,
     body: {
       error:
         seconds < 60
-          ? `Too many wrong passwords. Try again in ${seconds} seconds.`
+          ? `Too many wrong passwords. Try again in ${seconds} second${seconds === 1 ? '' : 's'}.`
           : `Too many wrong passwords. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
       retryAfter: seconds,
     },
