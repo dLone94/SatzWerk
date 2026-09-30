@@ -1,7 +1,7 @@
 import type { Bilingual, ErrorCategory, Gender } from '../../content/types.ts';
 import type { GermanLexicon } from '../validation/lexicon.ts';
-import type { ValidationResult } from '../validation/validate.ts';
 import { lower } from '../validation/text.ts';
+import { categorizePair, type ValidationResult } from '../validation/validate.ts';
 
 /**
  * Turns a validation result into an explanation in the learner's language.
@@ -43,7 +43,6 @@ const GENDER_NAME: Record<Gender, Bilingual> = {
   n: bi('neuter', 'среден род'),
 };
 
-const INDEFINITE_FOR_GENDER: Record<Gender, string> = { m: 'ein', f: 'eine', n: 'ein' };
 const DEFINITE_FOR_GENDER: Record<Gender, string> = { m: 'der', f: 'die', n: 'das' };
 
 const HEADLINES: Record<FeedbackTone, Bilingual> = {
@@ -53,11 +52,41 @@ const HEADLINES: Record<FeedbackTone, Bilingual> = {
   error: bi('Not quite.', 'Не съвсем.'),
 };
 
-/** Find the substitution the learner made, if there is exactly one clear one. */
-function firstChange(result: ValidationResult): { expected: string; given: string } | undefined {
-  const entry = result.diff.find((d) => d.status === 'changed' || d.status === 'case');
-  if (entry?.expected && entry.given) return { expected: entry.expected, given: entry.given };
-  return undefined;
+interface Change {
+  expected: string;
+  given: string;
+  /** Where the change sits in the diff. */
+  index: number;
+}
+
+/**
+ * The substitution a category of mistake is about. Each line quotes the word
+ * its own mistake is in: taking the first changed word for every category
+ * told "Das Tisch sind groß." that the verb ending was "Der", not "Das".
+ */
+function changeFor(category: ErrorCategory, result: ValidationResult, ctx: FeedbackContext): Change | undefined {
+  const entries = result.diff
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => (entry.status === 'changed' || entry.status === 'case') && entry.expected && entry.given);
+  const toChange = ({ entry, index }: (typeof entries)[number]): Change => ({
+    expected: entry.expected!,
+    given: entry.given!,
+    index,
+  });
+  if (category === 'capitalization') {
+    const cased = entries.find(({ entry }) => entry.status === 'case');
+    return cased ? toChange(cased) : undefined;
+  }
+  const own = entries.find(({ entry, index }) => {
+    if (entry.status === 'case') return category === 'pronoun' && lower(entry.expected!) === 'sie';
+    const next = result.diff.slice(index + 1).find((later) => later.expected)?.expected;
+    return categorizePair(entry.expected!, entry.given!, ctx.lexicon, next).includes(category);
+  });
+  if (own) return toChange(own);
+  // A mistake the lexicon cannot place (an authored trap, say) still has its
+  // word when the answer changed only one.
+  const changed = entries.filter(({ entry }) => entry.status === 'changed');
+  return changed.length === 1 ? toChange(changed[0]!) : undefined;
 }
 
 function missingWord(result: ValidationResult): string | undefined {
@@ -68,10 +97,27 @@ function extraWord(result: ValidationResult): string | undefined {
   return result.diff.find((d) => d.status === 'extra')?.given;
 }
 
-/** The noun that follows the changed article, used for gender explanations. */
-function nounAfterChange(result: ValidationResult): string | undefined {
-  const index = result.diff.findIndex((d) => d.status === 'changed');
-  if (index < 0) return undefined;
+/**
+ * The nominative of the article or determiner `form` for a noun of `gender`:
+ * dem → das for a neuter noun, keinen → kein, meine stays meine. Undefined for
+ * a word that is not one.
+ */
+function nominativeOf(form: string, gender: Gender): string | undefined {
+  const word = lower(form);
+  if (/^(der|die|das|den|dem|des)$/.test(word)) return matchInitial(form, DEFINITE_FOR_GENDER[gender]);
+  const stem = /^(ein|kein|mein|dein|sein|ihr|unser|euer|eur)(e|en|em|er|es)?$/.exec(word)?.[1];
+  if (!stem) return undefined;
+  const base = stem === 'eur' ? 'euer' : stem;
+  return matchInitial(form, gender === 'f' ? `${stem === 'euer' ? 'eur' : stem}e` : base);
+}
+
+/** `word` with the first letter in the case of `model`'s. */
+function matchInitial(model: string, word: string): string {
+  return model[0] === model[0]!.toUpperCase() ? word[0]!.toUpperCase() + word.slice(1) : word;
+}
+
+/** The noun that follows an article, used for gender explanations. */
+function nounAfter(result: ValidationResult, index: number): string | undefined {
   for (let i = index + 1; i < result.diff.length; i += 1) {
     const expected = result.diff[i]?.expected;
     if (expected) return expected;
@@ -84,44 +130,85 @@ function explainCategory(
   result: ValidationResult,
   ctx: FeedbackContext,
 ): Bilingual[] {
-  const change = firstChange(result);
+  const change = changeFor(category, result, ctx);
   const expected = change?.expected ?? '';
   const given = change?.given ?? '';
 
   switch (category) {
     case 'gender':
     case 'article': {
-      const noun = nounAfterChange(result);
+      if (!change) {
+        return [bi('Check the article in front of the noun.', 'Провери члена пред съществителното.')];
+      }
+      const noun = nounAfter(result, change.index);
       const info = noun ? ctx.describeNoun?.(noun) : undefined;
       const gender = info?.gender ?? (noun ? ctx.lexicon.nounGender.get(lower(noun)) : undefined);
-      if (noun && gender) {
-        const genderName = GENDER_NAME[gender];
-        const definite = `${DEFINITE_FOR_GENDER[gender]} ${noun}`;
-        const indefinite = `${INDEFINITE_FOR_GENDER[gender]} ${noun}`;
-        const isIndefinite = /^(ein|eine|einen|einem|einer|kein|keine)$/i.test(expected);
-        const wanted = isIndefinite ? indefinite : definite;
+      if (!noun || !gender) {
         return [
           bi(
-            `"${noun}" is ${genderName.en}: ${definite}.`,
-            `„${noun}“ е от ${genderName.bg}: ${definite}.`,
-          ),
-          bi(
-            `So here German uses "${wanted}", not "${given} ${noun}".`,
-            `Затова тук на немски се използва „${wanted}“, а не „${given} ${noun}“.`,
+            `The article has to be "${expected}" here, not "${given}".`,
+            `Членът тук трябва да е „${expected}“, а не „${given}“.`,
           ),
         ];
       }
-      return [
-        bi(
-          `The article has to be "${expected}" here, not "${given}".`,
-          `Членът тук трябва да е „${expected}“, а не „${given}“.`,
-        ),
-      ];
+      // The form to use is the one in the answer ("dem Auto", "Meine Oma",
+      // "keinen Bruder"). Rebuilding it from the gender always gave the
+      // nominative, and "mit das Auto" was told to use "das Auto".
+      const lines: Bilingual[] = [];
+      // A noun used only in the plural (die Eltern) has no gender to learn.
+      const pluralOnly = info?.plural !== undefined && lower(info.plural) === lower(info.display);
+      const namesGender = result.categories.includes('gender') || category === 'gender';
+      if (namesGender) {
+        lines.push(
+          pluralOnly
+            ? bi(`"${noun}" is plural: ${info!.display}.`, `„${noun}“ е в множествено число: ${info!.display}.`)
+            : bi(
+                `"${noun}" is ${GENDER_NAME[gender].en}: ${DEFINITE_FOR_GENDER[gender]} ${noun}.`,
+                `„${noun}“ е от ${GENDER_NAME[gender].bg}: ${DEFINITE_FOR_GENDER[gender]} ${noun}.`,
+              ),
+        );
+      }
+      // "So" follows from the gender line; on its own the line starts plainly.
+      lines.push(
+        namesGender
+          ? bi(
+              `So here German uses "${expected} ${noun}", not "${given} ${noun}".`,
+              `Затова тук на немски се използва „${expected} ${noun}“, а не „${given} ${noun}“.`,
+            )
+          : bi(
+              `Here German uses "${expected} ${noun}", not "${given} ${noun}".`,
+              `Тук на немски се използва „${expected} ${noun}“, а не „${given} ${noun}“.`,
+            ),
+      );
+      // Right gender, wrong case: say that the article changes with the case.
+      const nominative = pluralOnly ? undefined : nominativeOf(expected, gender);
+      if (nominative && lower(nominative) !== lower(expected)) {
+        lines.push(
+          bi(
+            `"${nominative} ${noun}" changes its article with the case: here it is "${expected} ${noun}".`,
+            `„${nominative} ${noun}“ сменя члена си според падежа: тук е „${expected} ${noun}“.`,
+          ),
+        );
+      }
+      return lines;
     }
 
     case 'verb-conjugation': {
+      if (!change) {
+        return [
+          bi(
+            'Check the verb ending: it changes with the person.',
+            'Провери окончанието на глагола: то се сменя според лицето.',
+          ),
+        ];
+      }
       const analysis = ctx.lexicon.verbForms.get(lower(expected))?.[0];
-      const lemma = analysis?.lemma;
+      const lemma =
+        analysis?.lemma ??
+        ctx.lexicon.inflections
+          .get(lower(expected))
+          ?.find((word) => word.startsWith('verb:'))
+          ?.slice('verb:'.length);
       return [
         bi(
           lemma
@@ -134,7 +221,20 @@ function explainCategory(
       ];
     }
 
+    case 'adjective-ending':
+      return [
+        bi(
+          change
+            ? `The adjective ending is wrong: "${expected}", not "${given}". The ending follows the article, the gender and the case.`
+            : 'Check the adjective ending: it follows the article, the gender and the case.',
+          change
+            ? `Окончанието на прилагателното е грешно: „${expected}“, а не „${given}“. Окончанието зависи от члена, рода и падежа.`
+            : 'Провери окончанието на прилагателното: то зависи от члена, рода и падежа.',
+        ),
+      ];
+
     case 'verb-tense':
+      if (!change) return [bi('Right verb, wrong tense.', 'Правилен глагол, но грешно време.')];
       return [
         bi(
           `Right verb, wrong tense: use "${expected}" here.`,
@@ -143,6 +243,9 @@ function explainCategory(
       ];
 
     case 'auxiliary-verb':
+      if (!change) {
+        return [bi('Check the auxiliary verb: haben or sein.', 'Провери спомагателния глагол: haben или sein.')];
+      }
       return [
         bi(
           `This sentence needs the auxiliary "${expected}".`,
@@ -150,15 +253,44 @@ function explainCategory(
         ),
       ];
 
-    case 'word-order':
+    case 'word-order': {
+      // The verb-second rule is only the explanation when the learner broke
+      // it. "In Hamburg wohne ich." keeps the verb second; telling it
+      // otherwise taught the opposite of the rule it had just applied.
+      const order = result.wordOrder;
+      if (order?.verbSecond) {
+        return [
+          bi(
+            `All your words are right and the verb is in second place, but this sentence starts with "${order.opening}".`,
+            `Всички думи са верни и глаголът е на второ място, но това изречение започва с „${order.opening}“.`,
+          ),
+        ];
+      }
+      if (order) {
+        return [
+          bi(
+            'All your words are right, but German puts them in a different order. In a German main clause the conjugated verb stands in second position.',
+            'Всички думи са верни, но немският ги подрежда иначе. В немското главно изречение спрегнатият глагол стои на второ място.',
+          ),
+        ];
+      }
       return [
         bi(
-          'All your words are right, but German puts them in a different order. In a German main clause the conjugated verb stands in second position.',
-          'Всички думи са верни, но немският ги подрежда иначе. В немското главно изречение спрегнатият глагол стои на второ място.',
+          'All your words are right, but German puts them in a different order here.',
+          'Всички думи са верни, но тук немският ги подрежда иначе.',
         ),
       ];
+    }
 
     case 'preposition':
+      if (!change) {
+        return [
+          bi(
+            'Check the preposition. Prepositions rarely map one-to-one, so they are worth learning with the phrase.',
+            'Провери предлога. Предлозите почти никога не си съответстват едно към едно, затова се учат заедно с израза.',
+          ),
+        ];
+      }
       return [
         bi(
           `German uses "${expected}" here, not "${given}". Prepositions rarely map one-to-one, so they are worth learning with the phrase.`,
@@ -167,11 +299,24 @@ function explainCategory(
       ];
 
     case 'pronoun': {
-      if (lower(expected) === 'sie') {
+      // Only a Sie written as sie (or the other way round) is about the
+      // capital; "du" for "Sie" is the wrong kind of "you".
+      if (lower(expected) === 'sie' && lower(given) === 'sie') {
         return [
           bi(
             'Capitalisation matters here: "Sie" is the formal "you", while "sie" means "she" or "they".',
             'Главната буква тук е важна: „Sie“ е учтивото „Вие“, а „sie“ означава „тя“ или „те“.',
+          ),
+        ];
+      }
+      if (!change) return [bi('Check the pronoun.', 'Провери местоимението.')];
+      // Inside the sentence a capital Sie can only be the formal "you".
+      const opens = change.index === result.diff.findIndex((d) => d.expected !== undefined);
+      if (expected === 'Sie' && !opens) {
+        return [
+          bi(
+            `Here German needs the formal "Sie", not "${given}".`,
+            `Тук немският изисква учтивото „Sie“, а не „${given}“.`,
           ),
         ];
       }
@@ -184,6 +329,7 @@ function explainCategory(
     }
 
     case 'plural': {
+      if (!change) return [bi('Watch the number: singular or plural.', 'Внимавай с числото: единствено или множествено.')];
       const info = ctx.describeNoun?.(expected);
       return [
         bi(
@@ -199,6 +345,19 @@ function explainCategory(
 
     case 'capitalization': {
       if (result.verdict === 'accepted-with-note') {
+        // A capital added to a word that stands on its own ("Der Tisch") is
+        // fine German; the note only says how it is written inside a sentence.
+        const raised = result.diff.find(
+          (d) => d.status === 'case' && d.given && d.expected && d.given[0] !== d.expected[0] && d.expected[0] === lower(d.expected[0]!),
+        );
+        if (raised) {
+          return [
+            bi(
+              `Fine on its own. Inside a sentence it is written "${result.target}".`,
+              `Така е добре самостоятелно. В изречение се пише „${result.target}“.`,
+            ),
+          ];
+        }
         return [
           bi(
             'Small thing: a German sentence starts with a capital letter.',
@@ -254,6 +413,9 @@ function explainCategory(
       ];
 
     case 'spelling':
+      if (!change) {
+        return [bi('Close — check the spelling.', 'Почти — провери правописа.')];
+      }
       return [
         bi(
           `Close — "${expected}" is spelled slightly differently from what you typed.`,
@@ -294,6 +456,7 @@ function explainCategory(
       ];
 
     case 'case':
+      if (!change) return [bi('Check the case ending.', 'Провери падежното окончание.')];
       return [
         bi(
           `The case ending is wrong: "${expected}", not "${given}".`,
@@ -367,7 +530,10 @@ export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): F
     };
   }
 
-  const categories = result.verdict === 'accepted-with-note' ? result.notes : result.categories;
+  // An "almost" can carry notes as well (the dots left off beside a capital),
+  // and the learner should hear about both.
+  const categories =
+    result.verdict === 'accepted-with-note' ? result.notes : [...result.categories, ...result.notes];
   // Several categories can share one explanation (article and gender describe
   // the same slip), so the same paragraph must not be printed twice.
   const lines = dedupeLines(categories.flatMap((category) => explainCategory(category, result, ctx)));
