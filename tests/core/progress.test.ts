@@ -9,6 +9,7 @@ import {
   masteryPassMark,
   lessonRequirements,
   markSectionSeen,
+  masteryStepIds,
   needsRecovery,
   practiceAccuracy,
   recordMasteryAttempt,
@@ -198,6 +199,40 @@ describe('recovery round', () => {
   it('is not offered when the practice went well', () => {
     let progress = readAllSections(emptyLessonProgress(lesson.id));
     progress = answerAll(progress, () => true);
+    expect(needsRecovery(lesson, progress)).toBe(false);
+  });
+});
+
+/*
+ * The server used to file every final-check answer under the lesson's practice
+ * too, so a final check that went badly dragged down the first-try figure the
+ * lesson asks for, and sent the learner into a recovery round for steps they
+ * had got right. The server stopped storing them, but the rows already stored
+ * stay, so the figure has to count only the lesson's own practice steps.
+ */
+describe('final-check answers stored with the practice', () => {
+  it('neither lower the first-try figure nor call for a recovery round', () => {
+    let progress = readAllSections(emptyLessonProgress(lesson.id));
+    // Four in five right first time: above both the pass mark and the
+    // recovery threshold.
+    progress = answerAll(progress, (index) => index % 5 !== 0);
+    const own = practiceAccuracy(progress, lesson);
+    expect(own).toBeGreaterThan(0.7);
+    for (const stepId of masteryStepIds(lesson)) {
+      progress = recordStepOutcome(progress, {
+        stepId,
+        verdict: 'incorrect',
+        credit: 0,
+        hintsUsed: 0,
+        revealed: false,
+        resolved: false,
+      });
+    }
+    progress = recordMasteryAttempt(progress, 0.2, lesson.mastery.passAccuracy);
+
+    expect(practiceAccuracy(progress, lesson)).toBe(own);
+    const accuracy = lessonRequirements(lesson, progress).find((r) => r.id === 'accuracy');
+    expect(accuracy).toMatchObject({ satisfied: true, done: Math.round(own * 100) });
     expect(needsRecovery(lesson, progress)).toBe(false);
   });
 });

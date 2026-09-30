@@ -187,17 +187,33 @@ export function applyCompletion(progress: LessonProgress, now: string): LessonPr
   };
 }
 
+/**
+ * The stored outcomes that count as this lesson's practice.
+ *
+ * Given the lesson, only its own practice steps. The server once filed
+ * final-check answers here too, and those rows are still stored: counted, a
+ * final check that went badly lowered the first-try figure and called for a
+ * recovery round the practice never earned.
+ */
+function practiceOutcomes(progress: LessonProgress, lesson?: Lesson): StepOutcome[] {
+  if (!lesson) return Object.values(progress.practice);
+  return unique(allStepIds(lesson)).flatMap((id) => {
+    const outcome = progress.practice[id];
+    return outcome ? [outcome] : [];
+  });
+}
+
 /** First-try accuracy over every practice step the learner has attempted. */
-export function practiceAccuracy(progress: LessonProgress): number {
-  const outcomes = Object.values(progress.practice);
+export function practiceAccuracy(progress: LessonProgress, lesson?: Lesson): number {
+  const outcomes = practiceOutcomes(progress, lesson);
   if (outcomes.length === 0) return 0;
   const correct = outcomes.filter((o) => o.firstTryCorrect).length;
   return correct / outcomes.length;
 }
 
 /** Average credit earned, which is what feeds the dashboard accuracy figure. */
-export function practiceCredit(progress: LessonProgress): number {
-  const outcomes = Object.values(progress.practice);
+export function practiceCredit(progress: LessonProgress, lesson?: Lesson): number {
+  const outcomes = practiceOutcomes(progress, lesson);
   if (outcomes.length === 0) return 0;
   return outcomes.reduce((sum, o) => sum + o.bestCredit, 0) / outcomes.length;
 }
@@ -254,7 +270,7 @@ export function lessonRequirements(lesson: Lesson, progress: LessonProgress): Re
   const sentences = unique(sentenceStepIds(lesson));
   const sentencesResolved = sentences.filter((id) => progress.practice[id]?.resolved).length;
 
-  const accuracy = practiceAccuracy(progress);
+  const accuracy = practiceAccuracy(progress, lesson);
 
   const requirements: Requirement[] = [
     {
@@ -331,7 +347,7 @@ export function needsRecovery(lesson: Lesson, progress: LessonProgress): boolean
   const attempted = practiceIds.filter((id) => progress.practice[id]);
   if (attempted.length < practiceIds.length) return false;
   if (progress.recoveryRounds > 0) return false;
-  return practiceAccuracy(progress) < RECOVERY_THRESHOLD;
+  return practiceAccuracy(progress, lesson) < RECOVERY_THRESHOLD;
 }
 
 /** The steps a recovery round should revisit: everything not recalled cleanly. */
