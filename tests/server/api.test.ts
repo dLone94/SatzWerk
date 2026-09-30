@@ -189,6 +189,67 @@ describe('review queue', () => {
     expect(new Date(after.dueAt).getTime()).toBeGreaterThan(new Date(before.dueAt).getTime());
   });
 
+  /*
+   * One lesson asks for the same word again and again: heißen is the target of
+   * nine steps in pre-a1-u2-l3. Every one of those answers used to count as a
+   * review made on time, so one clean sitting took the word through 4, 15, 55
+   * and 200 days to 365, and the core of the lesson never came back in review.
+   */
+  it('keeps a word drilled all through one lesson within its first interval', async () => {
+    const start = Date.now() - 10 * 60_000;
+    const heissen = [{ refId: 'v-heissen', kind: 'vocab', level: 'pre-a1', lessonId: 'pre-a1-u2-l3' }];
+    for (let n = 0; n < 9; n += 1) {
+      const response = await call('POST', '/api/attempts', {
+        ...wrongAttempt,
+        lessonId: 'pre-a1-u2-l3',
+        stepId: `step-${n}`,
+        given: 'heiße',
+        expected: 'heiße',
+        verdict: 'correct',
+        credit: 1,
+        categories: [],
+        resolved: true,
+        reviewTargets: heissen,
+        at: new Date(start + n * 40_000).toISOString(),
+      });
+      expect(response.status).toBe(200);
+    }
+    const item = (await store.getReviewItem(scopeOf(db), 'vocab:v-heissen'))!;
+    expect(item.intervalDays).toBeLessThanOrEqual(4);
+    expect(new Date(item.dueAt).getTime()).toBeLessThanOrEqual(Date.now() + 4 * 86_400_000);
+  });
+
+  it('counts a word met several times in one day as reviewed once, but still demotes a slip', async () => {
+    const right = {
+      ...(wrongAttempt as unknown as store.AttemptInput),
+      given: 'eine',
+      verdict: 'correct' as const,
+      credit: 1,
+      categories: [],
+      resolved: true,
+      tzOffsetMinutes: 0,
+    };
+    await store.recordAttempt(scopeOf(db), right, new Date('2026-03-02T08:00:00Z'));
+    const morning = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
+    expect(morning).toMatchObject({ state: 'known', intervalDays: 4, successCount: 1 });
+
+    // The evening lesson asks for it again: the morning's review stands.
+    await store.recordAttempt(scopeOf(db), { ...right, stepId: 'other' }, new Date('2026-03-02T20:00:00Z'));
+    const evening = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
+    expect(evening.dueAt).toBe(morning.dueAt);
+    expect(evening.successCount).toBe(1);
+
+    // A mistake later that day still brings it back soon.
+    await store.recordAttempt(
+      scopeOf(db),
+      wrongAttempt as unknown as store.AttemptInput,
+      new Date('2026-03-02T21:00:00Z'),
+    );
+    const slipped = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
+    expect(slipped.state).toBe('lapsed');
+    expect(new Date(slipped.dueAt).getTime()).toBe(new Date('2026-03-02T21:05:00Z').getTime());
+  });
+
   it('rejects an unknown grade and an unknown item', async () => {
     expect((await call('POST', '/api/reviews/vocab%3Av-hallo/grade', { grade: 'wat' })).status).toBe(400);
     expect((await call('POST', '/api/reviews/vocab%3Anope/grade', { grade: 'good' })).status).toBe(404);

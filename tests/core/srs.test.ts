@@ -39,7 +39,8 @@ describe('scheduler', () => {
     expect(step1.state).toBe('learning');
     expect(minutesBetween(step1.dueAt, T0)).toBe(1440);
 
-    const graduated = scheduleReview(step1, 'good', T0);
+    // The second step is answered when it falls due, a day later.
+    const graduated = scheduleReview(step1, 'good', new Date(step1.dueAt));
     expect(graduated.state).toBe('known');
     expect(graduated.intervalDays).toBe(2);
   });
@@ -85,6 +86,88 @@ describe('scheduler', () => {
     let rising = item({ state: 'known', intervalDays: 10, ease: 2.75 });
     for (let i = 0; i < 5; i += 1) rising = scheduleReview(rising, 'easy', T0);
     expect(rising.ease).toBeLessThanOrEqual(2.8);
+  });
+});
+
+/*
+ * Early reviews.
+ *
+ * Every answer in a lesson schedules the words it targets, and one lesson
+ * often asks for the same word nine or ten times within a few minutes. Each of
+ * those answers used to count as a review made on time, so the interval was
+ * multiplied again and again: 4 days, 15, 55, 200, 365. One clean sitting sent
+ * the central word of a lesson out of review for a year, and a word answered
+ * wrongly and then right a minute later jumped straight to four days.
+ */
+describe('reviews made before the item is due', () => {
+  const minute = 60_000;
+  const day = 86_400_000;
+  const at = (ms: number) => new Date(T0.getTime() + ms);
+
+  it('keeps a word answered nine times in one sitting within four days', () => {
+    let current = item();
+    for (let n = 0; n < 9; n += 1) current = scheduleReview(current, 'easy', at(n * minute));
+    expect(current.intervalDays).toBeLessThanOrEqual(4);
+    expect(new Date(current.dueAt).getTime() - at(8 * minute).getTime()).toBeLessThanOrEqual(4 * day);
+  });
+
+  it('keeps "good" answers in one sitting within the first learning steps', () => {
+    let current = item();
+    for (let n = 0; n < 9; n += 1) current = scheduleReview(current, 'good', at(n * minute));
+    expect(current.state).toBe('learning');
+    expect(new Date(current.dueAt).getTime() - at(8 * minute).getTime()).toBeLessThanOrEqual(day);
+  });
+
+  it('does not let a right answer straight after a slip skip the learning steps', () => {
+    const slipped = scheduleReview(scheduleReview(item(), 'easy', T0), 'again', at(day * 4));
+    const next = scheduleReview(slipped, 'easy', at(day * 4 + minute));
+    expect(next.state).not.toBe('known');
+    expect(new Date(next.dueAt).getTime() - at(day * 4 + minute).getTime()).toBeLessThanOrEqual(10 * minute);
+  });
+
+  it('grows an early review by the time that has actually passed', () => {
+    // Known for 10 days, last seen 8 days ago: practising it early is worth
+    // about as much as eight days of spacing, not the full ten.
+    const known = item({
+      state: 'known',
+      intervalDays: 10,
+      ease: 2.5,
+      lastReviewAt: at(-8 * day).toISOString(),
+      dueAt: at(2 * day).toISOString(),
+    });
+    const next = scheduleReview(known, 'good', T0);
+    expect(next.intervalDays).toBe(20); // round(8 * 2.5)
+    expect(new Date(next.dueAt).getTime()).toBe(T0.getTime() + 20 * day);
+  });
+
+  it('never shortens an interval because the review came early', () => {
+    const known = item({
+      state: 'known',
+      intervalDays: 30,
+      ease: 2.5,
+      lastReviewAt: at(-1 * day).toISOString(),
+      dueAt: at(29 * day).toISOString(),
+    });
+    for (const grade of ['hard', 'good', 'easy'] as const) {
+      const next = scheduleReview(known, grade, T0);
+      expect(next.intervalDays, grade).toBe(30);
+      expect(next.state).toBe('known');
+      // Practising early still moves it back in the queue, so the next early
+      // round offers something else.
+      expect(new Date(next.dueAt).getTime()).toBeGreaterThanOrEqual(new Date(known.dueAt).getTime());
+    }
+  });
+
+  it('still lets a slip demote an item that is not due yet', () => {
+    const known = item({
+      state: 'known',
+      intervalDays: 30,
+      lastReviewAt: at(-1 * day).toISOString(),
+      dueAt: at(29 * day).toISOString(),
+    });
+    const lapsed = scheduleReview(known, 'again', T0);
+    expect(lapsed.state).toBe('lapsed');
+    expect(minutesBetween(lapsed.dueAt, T0)).toBe(5);
   });
 });
 

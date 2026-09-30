@@ -10,6 +10,7 @@ import {
 import {
   createReviewItem,
   gradeFromAttempt,
+  isDue,
   scheduleReview,
   type RecallGrade,
   type ReviewItem,
@@ -549,6 +550,20 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
             difficulty: target.difficulty,
             now,
           });
+        } else if (
+          grade !== 'again' &&
+          !isDue(item, now) &&
+          item.lastReviewAt !== undefined &&
+          localDay(new Date(item.lastReviewAt), plausibleOffset(input.tzOffsetMinutes)) === day
+        ) {
+          // At most one step forward per item per day. A lesson, its final
+          // check and a quick redo can ask for the same word a dozen times in
+          // an evening; the first right answer that day is the review, and the
+          // rest are practice. The scheduler already refuses to grow an early
+          // review much, and this keeps the whole sitting from counting as more
+          // than one. A slip ('again') still demotes at any time.
+          reviewItems.push(item);
+          continue;
         }
         const next = scheduleReview(item, grade, now);
         await upsertReviewItem(scope, next);
