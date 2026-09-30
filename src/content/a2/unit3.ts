@@ -175,6 +175,9 @@ const lesson1: Lesson = {
           {
             prompt: bi('I think that German is hard.', 'Мисля, че немският е труден.'),
             answer: 'Ich glaube, dass Deutsch schwer ist.',
+            // The lesson teaches glauben and denken side by side for "I think", so
+            // either is right wherever the prompt says "I think".
+            alternatives: ['Ich denke, dass Deutsch schwer ist.', 'Ich finde, dass Deutsch schwer ist.'],
             reviewTargets: ['v-glauben', 'v-dass', 'p-ich-glaube-dass'],
             hints: [],
             traps: [
@@ -199,6 +202,7 @@ const lesson1: Lesson = {
           {
             prompt: bi('I think that is good.', 'Мисля, че това е добре.'),
             answer: 'Ich denke, dass das gut ist.',
+            alternatives: ['Ich glaube, dass das gut ist.', 'Ich finde, dass das gut ist.'],
             reviewTargets: ['v-denken'],
             hints: [bi('Both spellings appear in this one.', 'И двата правописа се появяват тук.')],
           },
@@ -261,6 +265,7 @@ const lesson1: Lesson = {
           {
             prompt: bi('I think that German is hard.', 'Мисля, че немският е труден.'),
             answer: 'Ich glaube, dass Deutsch schwer ist.',
+            alternatives: ['Ich denke, dass Deutsch schwer ist.', 'Ich finde, dass Deutsch schwer ist.'],
             hints: [],
           },
           {
@@ -431,6 +436,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('Maybe I will do a course.', 'Може би ще карам курс.'),
             answer: 'Vielleicht mache ich einen Kurs.',
+            alternatives: ['Vielleicht werde ich einen Kurs machen.'],
             reviewTargets: ['v-vielleicht', 'v-der-kurs'],
             hints: [bi('Something first, so the verb is second.', 'Нещо отпред, значи глаголът е втори.')],
           },
@@ -614,7 +620,13 @@ const lesson3: Lesson = {
           {
             prompt: bi('Tomorrow I will study German.', 'Утре ще уча немски.'),
             answer: 'Morgen lerne ich Deutsch.',
-            alternatives: ['Ich lerne morgen Deutsch.'],
+            // The lesson teaches the werden future too; the hint says the present is
+            // enough, not that the future is wrong.
+            alternatives: [
+              'Ich lerne morgen Deutsch.',
+              'Morgen werde ich Deutsch lernen.',
+              'Ich werde morgen Deutsch lernen.',
+            ],
             hints: [bi('Present tense is enough.', 'Сегашното време стига.')],
           },
           {
@@ -706,7 +718,11 @@ const lesson3: Lesson = {
           {
             prompt: bi('Tomorrow I will study German.', 'Утре ще уча немски.'),
             answer: 'Morgen lerne ich Deutsch.',
-            alternatives: ['Ich lerne morgen Deutsch.'],
+            alternatives: [
+              'Ich lerne morgen Deutsch.',
+              'Morgen werde ich Deutsch lernen.',
+              'Ich werde morgen Deutsch lernen.',
+            ],
             hints: [],
           },
           {
@@ -755,6 +771,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I think that German is hard.', 'Мисля, че немският е труден.'),
           answer: 'Ich glaube, dass Deutsch schwer ist.',
+          alternatives: ['Ich denke, dass Deutsch schwer ist.', 'Ich finde, dass Deutsch schwer ist.'],
           hints: [],
         },
         {
@@ -793,7 +810,11 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('Tomorrow I will study German.', 'Утре ще уча немски.'),
           answer: 'Morgen lerne ich Deutsch.',
-          alternatives: ['Ich lerne morgen Deutsch.'],
+          alternatives: [
+            'Ich lerne morgen Deutsch.',
+            'Morgen werde ich Deutsch lernen.',
+            'Ich werde morgen Deutsch lernen.',
+          ],
           hints: [],
         },
       ]),

@@ -98,3 +98,77 @@ describe('traps that call correct German correct', () => {
     expect(found).toEqual([]);
   });
 });
+
+describe('A2 accepts what it teaches', () => {
+  /*
+   * The future lesson teaches "Ich werde Deutsch lernen" and then marked
+   * "Morgen werde ich Deutsch lernen." as a vocabulary mistake, in the final
+   * check and the unit checkpoint too. The same "I think that …" needed
+   * glaube in one step and denke in the next, each rejecting the other,
+   * although the lesson teaches both. And "Du solltest viel Tee trinken.",
+   * the ordinary way to give advice, was wrong everywhere, the level
+   * checkpoint included.
+   */
+  it('takes the werden future, either verb of thinking, and solltest', () => {
+    expect(
+      rejected({
+        'a2u3l3-ex1-s1': ['Morgen werde ich Deutsch lernen.', 'Ich werde morgen Deutsch lernen.'],
+        'a2u3l3-m1-s1': ['Morgen werde ich Deutsch lernen.'],
+        'cp-a2u3-3-s3': ['Morgen werde ich Deutsch lernen.'],
+        'a2u3l1-ex2-s1': ['Ich denke, dass Deutsch schwer ist.'],
+        'a2u3l1-ex2-s2': ['Ich glaube, dass das gut ist.'],
+        'a2u3l1-m1-s1': ['Ich denke, dass Deutsch schwer ist.'],
+        'cp-a2u3-1-s1': ['Ich denke, dass Deutsch schwer ist.'],
+        'a2-lcp-2-s2': ['Ich denke, dass Deutsch schwer ist.'],
+        'a2u4l2-ex2-s1': ['Du solltest viel Tee trinken.'],
+        'a2u4l2-m1-s1': ['Du solltest viel Tee trinken.'],
+        'cp-a2u4-2-s1': ['Du solltest viel Tee trinken.'],
+        'a2-lcp-4-s3': ['Du solltest viel Tee trinken.'],
+        'a2u4l3-ex2-s3': ['Sie sollten sich ausruhen.'],
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe('the same prompt, the same answers', () => {
+  /*
+   * A lesson, its final check, the unit checkpoint and the level checkpoint
+   * often ask the very same question. When one of them accepts a sentence
+   * and another rejects it, the learner is marked wrong for what the course
+   * taught them a page earlier. Typed steps with the same English prompt must
+   * accept each other's answers. (The placement check is left out: it
+   * measures rather than teaches, so it is deliberately the more generous.)
+   */
+  it('holds across A2, B1 and B2', () => {
+    const byPrompt = new Map<string, ExerciseStep[]>();
+    const typed = [
+      ...availableLessons().flatMap((lesson) => lessonExercises(lesson)),
+      ...allCheckpoints()
+        .filter((checkpoint) => checkpoint.scope !== 'placement')
+        .flatMap((checkpoint) => checkpoint.exercises),
+    ].filter(
+      (exercise) =>
+        ['a2', 'b1', 'b2'].includes(exercise.level) &&
+        !['multipleChoice', 'listenChoose', 'dictation', 'freeWriting', 'wordOrder', 'sentenceBuild'].includes(exercise.kind),
+    );
+    for (const exercise of typed) {
+      for (const entry of exercise.steps) {
+        if (!entry.prompt || entry.scaffold || entry.wordBank) continue;
+        const key = entry.prompt.en.toLowerCase().replace(/[^a-z ]/g, '').trim();
+        byPrompt.set(key, [...(byPrompt.get(key) ?? []), entry]);
+      }
+    }
+    const out: string[] = [];
+    for (const group of byPrompt.values()) {
+      for (const a of group) {
+        for (const b of group) {
+          if (a === b) continue;
+          for (const answer of [...b.answer.accepted, ...(b.answer.alternatives ?? [])]) {
+            if (!isRight(answer, a.id)) out.push(`${a.id} rejects "${answer}" (right in ${b.id})`);
+          }
+        }
+      }
+    }
+    expect([...new Set(out)]).toEqual([]);
+  });
+});

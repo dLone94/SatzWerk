@@ -48,7 +48,11 @@ export const A2_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('Last weekend I was in Berlin.', 'Миналия уикенд бях в Берлин.'),
         answer: 'Letztes Wochenende war ich in Berlin.',
-        alternatives: ['Ich war letztes Wochenende in Berlin.'],
+        alternatives: [
+          'Ich war letztes Wochenende in Berlin.',
+          'Letztes Wochenende bin ich in Berlin gewesen.',
+          'Ich bin letztes Wochenende in Berlin gewesen.',
+        ],
         hints: [],
       },
       {
@@ -67,6 +71,7 @@ export const A2_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('I think that German is hard.', 'Мисля, че немският е труден.'),
         answer: 'Ich glaube, dass Deutsch schwer ist.',
+        alternatives: ['Ich denke, dass Deutsch schwer ist.', 'Ich finde, dass Deutsch schwer ist.'],
         hints: [],
       },
       {
@@ -118,6 +123,7 @@ export const A2_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('You should drink a lot of tea.', 'Трябва да пиеш много чай.'),
         answer: 'Du sollst viel Tee trinken.',
+        alternatives: ['Du solltest viel Tee trinken.'],
         hints: [],
       },
       {

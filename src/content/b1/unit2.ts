@@ -1137,6 +1137,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I hope to get an appointment soon.', 'Надявам се скоро да получа час.'),
           answer: 'Ich hoffe, bald einen Termin zu bekommen.',
+          alternatives: ['Ich hoffe, dass ich bald einen Termin bekomme.'],
           hints: [],
         },
         {

@@ -434,6 +434,9 @@ const lesson2: Lesson = {
           {
             prompt: bi('You should drink a lot of tea.', 'Трябва да пиеш много чай.'),
             answer: 'Du sollst viel Tee trinken.',
+            // solltest is how German usually gives advice in its own voice (see the
+            // callout in g-sollen), so it is at least as right as sollst.
+            alternatives: ['Du solltest viel Tee trinken.'],
             reviewTargets: ['v-sollen', 'p-du-sollst'],
             hints: [bi('Modal second, other verb last.', 'Модалният втори, другият глагол последен.')],
             traps: [
@@ -508,6 +511,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('You should drink a lot of tea.', 'Трябва да пиеш много чай.'),
             answer: 'Du sollst viel Tee trinken.',
+            alternatives: ['Du solltest viel Tee trinken.'],
             hints: [],
           },
           {
@@ -683,6 +687,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('You should rest. (formal)', 'Трябва да си почивате.'),
             answer: 'Sie sollen sich ausruhen.',
+            alternatives: ['Sie sollten sich ausruhen.'],
             hints: [],
           },
         ],
@@ -799,6 +804,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('You should drink a lot of tea.', 'Трябва да пиеш много чай.'),
           answer: 'Du sollst viel Tee trinken.',
+          alternatives: ['Du solltest viel Tee trinken.'],
           hints: [],
         },
         {
