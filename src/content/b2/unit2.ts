@@ -975,6 +975,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('I concede that the schedule is tight.', 'Признавам, че графикът е стегнат.'),
             answer: 'Ich räume ein, dass der Zeitplan knapp ist.',
+            alternatives: ['Ich räume ein, dass der Zeitplan eng ist.'],
             reviewTargets: ['v-einraeumen', 'v-der-zeitplan'],
             hints: [bi('einräumen splits.', 'einräumen се разделя.')],
           },
@@ -1086,6 +1087,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('I concede that the schedule is tight.', 'Признавам, че графикът е стегнат.'),
             answer: 'Ich räume ein, dass der Zeitplan knapp ist.',
+            alternatives: ['Ich räume ein, dass der Zeitplan eng ist.'],
             hints: [],
           },
         ]),

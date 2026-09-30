@@ -855,6 +855,13 @@ const lesson3: Lesson = {
           {
             prompt: bi('The childcare ends at four o’clock.', 'Гледането свършва в шестнайсет часа.'),
             answer: 'Die Betreuung endet um sechzehn Uhr.',
+            // "four o'clock" in English is vier Uhr in German too; the 24-hour sechzehn
+            // is what a Kita letter would write, not the only right answer.
+            alternatives: [
+              'Die Betreuung endet um 16 Uhr.',
+              'Die Betreuung endet um vier Uhr.',
+              'Die Betreuung endet um vier Uhr nachmittags.',
+            ],
             reviewTargets: ['v-die-betreuung'],
             hints: [],
           },
@@ -870,6 +877,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('My mother looked after us.', 'Майка ми се грижеше за нас.'),
             answer: 'Meine Mutter hat sich um uns gekümmert.',
+            alternatives: ['Meine Mutter kümmerte sich um uns.'],
             reviewTargets: ['v-sich-kuemmern'],
             hints: [],
           },

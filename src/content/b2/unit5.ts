@@ -431,7 +431,7 @@ const lesson2: Lesson = {
         },
         {
           t: 'de',
-          de: 'Ich melde mich nach dem Feierabend.',
+          de: 'Ich melde mich nach Feierabend.',
           gloss: bi('I will be in touch after work.', 'Ще се обадя след работа.'),
           audio: true,
         },
@@ -535,7 +535,9 @@ const lesson2: Lesson = {
           },
           {
             prompt: bi('I will be in touch after work.', 'Ще се обадя след работа.'),
-            answer: 'Ich melde mich nach dem Feierabend.',
+            // Feierabend takes no article after nach, as Mittag and Dienst do not.
+            answer: 'Ich melde mich nach Feierabend.',
+            alternatives: ['Ich melde mich nach dem Feierabend.'],
             reviewTargets: ['v-sich-melden', 'v-der-feierabend'],
             hints: [],
           },

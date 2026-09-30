@@ -328,6 +328,7 @@ const lesson1: Lesson = {
           {
             prompt: bi('Rising rents are the main topic of the week.', 'Покачващите се наеми са основната тема на седмицата.'),
             answer: 'Die steigenden Mieten sind das Hauptthema der Woche.',
+            alternatives: ['Steigende Mieten sind das Hauptthema der Woche.'],
             reviewTargets: ['v-steigen', 'v-die-miete'],
             hints: [],
           },

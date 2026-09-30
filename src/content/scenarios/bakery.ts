@@ -348,7 +348,8 @@ const A2 = script({
           ),
           prompt: bi('Ask what is in the dark bread.', 'Попитай какво има в тъмния хляб.'),
           answer: 'Was ist in dem Brot?',
-          alternatives: ['Was ist da drin?', 'Was ist in diesem Brot?'],
+          // im is in + dem, the very dative the instruction asks for.
+          alternatives: ['Was ist da drin?', 'Was ist in diesem Brot?', 'Was ist im Brot?', 'Was ist im dunklen Brot?', 'Was ist in dem dunklen Brot?'],
           shape: 'sentence',
           reviewTargets: ['v-brot', 'v-was'],
           traps: [

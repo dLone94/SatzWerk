@@ -273,6 +273,11 @@ const lesson1: Lesson = {
           {
             prompt: bi('The delivery arrived damaged.', 'Доставката пристигна повредена.'),
             answer: 'Die Lieferung ist beschädigt bei mir angekommen.',
+            alternatives: [
+              'Die Lieferung ist beschädigt angekommen.',
+              'Die Lieferung kam beschädigt bei mir an.',
+              'Die Lieferung kam beschädigt an.',
+            ],
             reviewTargets: ['v-die-lieferung'],
             hints: [],
           },
@@ -291,6 +296,10 @@ const lesson1: Lesson = {
           {
             prompt: bi('I request a refund of the purchase price.', 'Моля за възстановяване на покупната цена.'),
             answer: 'Ich bitte um die Rückerstattung des Kaufpreises.',
+            alternatives: [
+              'Ich bitte um eine Rückerstattung des Kaufpreises.',
+              'Ich bitte um Rückerstattung des Kaufpreises.',
+            ],
             reviewTargets: ['v-die-rueckerstattung', 'v-bitten-um'],
             hints: [bi('bitten um + accusative, then a genitive behind the noun.', 'bitten um + винителен падеж, после родителен зад съществителното.')],
           },
@@ -329,6 +338,11 @@ const lesson1: Lesson = {
           {
             prompt: bi('The delivery arrived damaged.', 'Доставката пристигна повредена.'),
             answer: 'Die Lieferung ist beschädigt bei mir angekommen.',
+            alternatives: [
+              'Die Lieferung ist beschädigt angekommen.',
+              'Die Lieferung kam beschädigt bei mir an.',
+              'Die Lieferung kam beschädigt an.',
+            ],
             hints: [],
           },
           {

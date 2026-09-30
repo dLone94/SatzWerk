@@ -389,6 +389,12 @@ const lesson1: Lesson = {
           {
             prompt: bi('I would like an appointment.', 'Бих искал час.'),
             answer: 'Ich hätte gern einen Termin.',
+            alternatives: [
+              'Ich hätte gerne einen Termin.',
+              'Ich möchte einen Termin.',
+              'Ich möchte gern einen Termin.',
+              'Ich möchte gerne einen Termin.',
+            ],
             hints: [],
           },
           {

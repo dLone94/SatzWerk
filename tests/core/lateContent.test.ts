@@ -304,3 +304,34 @@ describe('a time phrase may come first', () => {
     ).toEqual([]);
   });
 });
+
+describe('answers that contradicted their own prompt or the course', () => {
+  /*
+   * "ends at four o'clock" accepted only "um sechzehn Uhr"; "Die Lieferung ist
+   * beschädigt angekommen." was a missing word although a later model answer
+   * says exactly that; "I request a refund" rejected "eine Rückerstattung";
+   * "the schedule is tight" rejected eng, which B2 Unit 1 taught for it; the
+   * bakery turn that teaches in + dative rejected "im Brot"; the Präteritum
+   * unit rejected a Präteritum; "Rising rents" rejected "Steigende Mieten";
+   * and "nach dem Feierabend" was the only answer where German says "nach
+   * Feierabend".
+   */
+  it('accepts them', () => {
+    expect(
+      rejected({
+        'b1u5l3-ex3-s2': ['Die Betreuung endet um vier Uhr.', 'Die Betreuung endet um 16 Uhr.'],
+        'b1u5l3-ex3-s4': ['Meine Mutter kümmerte sich um uns.'],
+        'b1u3l1-m1-s1': ['Ich möchte einen Termin.', 'Ich hätte gerne einen Termin.'],
+        'b2u4l1-ex3-s1': ['Die Lieferung ist beschädigt angekommen.'],
+        'b2u4l1-m1-s1': ['Die Lieferung ist beschädigt angekommen.'],
+        'b2u4l1-ex3-s4': ['Ich bitte um eine Rückerstattung des Kaufpreises.'],
+        'b2u2l3-ex2-s2': ['Ich räume ein, dass der Zeitplan eng ist.'],
+        'b2u2l3-m1-s3': ['Ich räume ein, dass der Zeitplan eng ist.'],
+        'sc-bakery-a2-t1-s1': ['Was ist im Brot?', 'Was ist im dunklen Brot?'],
+        'b2u3l1-ex4-s2': ['Steigende Mieten sind das Hauptthema der Woche.'],
+        'b2u5l2-ex3-s4': ['Ich melde mich nach Feierabend.'],
+      }),
+    ).toEqual([]);
+    expect(step('b2u5l2-ex3-s4').answer.accepted[0]).toBe('Ich melde mich nach Feierabend.');
+  });
+});
