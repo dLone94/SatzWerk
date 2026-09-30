@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createProvider } from './ai.ts';
 import { handleRequest, healthReport, resolveAuth } from './api.ts';
 import { openDatabase, type Db } from './db.ts';
+import { isDatabaseUnavailable, RETRY_AFTER_SECONDS } from './driver.ts';
 
 /**
  * The whole API as one Vercel function.
@@ -119,9 +120,17 @@ async function answer(request: Incoming): Promise<Answer> {
     try {
       db = await withTimeout(database(), DB_OPEN_TIMEOUT_MS, 'Opening the database');
     } catch (error) {
+      // An open that timed out may still finish later; close it if it does,
+      // rather than leaving a pool nobody will ever use.
+      const stale = cached;
       cached = undefined;
+      stale?.then((late) => late.close()).catch(() => {});
       console.error('[satzwerk] database unavailable:', error);
-      return reply(503, { error: explain(error as Error) });
+      return {
+        status: 503,
+        body: { error: explain(error as Error) },
+        headers: { 'retry-after': String(RETRY_AFTER_SECONDS) },
+      };
     }
 
     provider ??= createProvider();
@@ -141,10 +150,21 @@ async function answer(request: Incoming): Promise<Answer> {
     );
     return { status: response.status, body: response.body, headers: response.headers ?? {} };
   } catch (error) {
-    // A failed open would otherwise be cached as a rejected promise and every
-    // later request would fail with it, including after the fault is fixed.
-    cached = undefined;
+    // The open handle is kept. A failed open is already dropped above; after
+    // that, one bad request says nothing about the handle, and throwing it
+    // away reopened the database (and leaked the old pool) for every request
+    // that failed, including ones anybody could send without a password. A
+    // pool whose connection died opens a new one by itself on the next query.
     console.error('[satzwerk] request failed:', error);
+    if (isDatabaseUnavailable(error)) {
+      // A 503, which the browser holds and sends again, rather than a 500,
+      // which it treats as a refusal and drops.
+      return {
+        status: 503,
+        body: { error: explain(error as Error) },
+        headers: { 'retry-after': String(RETRY_AFTER_SECONDS) },
+      };
+    }
     return reply(500, { error: (error as Error).message });
   }
 }

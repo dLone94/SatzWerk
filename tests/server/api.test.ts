@@ -3,9 +3,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { attemptTime, handleRequest } from '../../server/api.ts';
-import { applyMastery, applyRecoveryRound } from '../../src/core/progress/lesson.ts';
+import {
+  applyMastery,
+  applyRecoveryRound,
+  emptyLessonProgress,
+  recordStepOutcome,
+  type LessonProgress,
+} from '../../src/core/progress/lesson.ts';
 import { openDatabase, SCHEMA_VERSION, type Db } from '../../server/db.ts';
 import * as store from '../../server/store.ts';
+import { streakOn } from '../../src/core/progress/days.ts';
 import { ruleBasedWritingReview, unavailableProvider } from '../../server/ai.ts';
 
 /** Every store call belongs to somebody; in these tests it is the first learner. */
@@ -189,6 +196,150 @@ describe('review queue', () => {
     expect(new Date(after.dueAt).getTime()).toBeGreaterThan(new Date(before.dueAt).getTime());
   });
 
+  /*
+   * One lesson asks for the same word again and again: heißen is the target of
+   * nine steps in pre-a1-u2-l3. Every one of those answers used to count as a
+   * review made on time, so one clean sitting took the word through 4, 15, 55
+   * and 200 days to 365, and the core of the lesson never came back in review.
+   */
+  it('keeps a word drilled all through one lesson within its first interval', async () => {
+    const start = Date.now() - 10 * 60_000;
+    const heissen = [{ refId: 'v-heissen', kind: 'vocab', level: 'pre-a1', lessonId: 'pre-a1-u2-l3' }];
+    for (let n = 0; n < 9; n += 1) {
+      const response = await call('POST', '/api/attempts', {
+        ...wrongAttempt,
+        lessonId: 'pre-a1-u2-l3',
+        stepId: `step-${n}`,
+        given: 'heiße',
+        expected: 'heiße',
+        verdict: 'correct',
+        credit: 1,
+        categories: [],
+        resolved: true,
+        reviewTargets: heissen,
+        at: new Date(start + n * 40_000).toISOString(),
+      });
+      expect(response.status).toBe(200);
+    }
+    const item = (await store.getReviewItem(scopeOf(db), 'vocab:v-heissen'))!;
+    expect(item.intervalDays).toBeLessThanOrEqual(4);
+    expect(new Date(item.dueAt).getTime()).toBeLessThanOrEqual(Date.now() + 4 * 86_400_000);
+  });
+
+  it('counts a word met several times in one day as reviewed once, but still demotes a slip', async () => {
+    const right = {
+      ...(wrongAttempt as unknown as store.AttemptInput),
+      given: 'eine',
+      verdict: 'correct' as const,
+      credit: 1,
+      categories: [],
+      resolved: true,
+      tzOffsetMinutes: 0,
+    };
+    await store.recordAttempt(scopeOf(db), right, new Date('2026-03-02T08:00:00Z'));
+    const morning = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
+    expect(morning).toMatchObject({ state: 'known', intervalDays: 4, successCount: 1 });
+
+    // The evening lesson asks for it again: the morning's review stands.
+    await store.recordAttempt(scopeOf(db), { ...right, stepId: 'other' }, new Date('2026-03-02T20:00:00Z'));
+    const evening = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
+    expect(evening.dueAt).toBe(morning.dueAt);
+    expect(evening.successCount).toBe(1);
+
+    // A mistake later that day still brings it back soon.
+    await store.recordAttempt(
+      scopeOf(db),
+      wrongAttempt as unknown as store.AttemptInput,
+      new Date('2026-03-02T21:00:00Z'),
+    );
+    const slipped = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
+    expect(slipped.state).toBe('lapsed');
+    expect(new Date(slipped.dueAt).getTime()).toBe(new Date('2026-03-02T21:05:00Z').getTime());
+  });
+
+  /*
+   * The once-a-day rule kept "Practise early" from doing anything on its second
+   * round: it offers the soonest items that are not yet due, and an item already
+   * answered that day was left exactly where it was, so the same ten came back
+   * every time. A review round is the learner asking to be tested; the
+   * scheduler's early-review rule already keeps it from growing the interval.
+   */
+  it('moves an item practised early back in the queue, even twice in one day', async () => {
+    const right = {
+      ...(wrongAttempt as unknown as store.AttemptInput),
+      given: 'eine',
+      verdict: 'correct' as const,
+      credit: 1,
+      categories: [],
+      resolved: true,
+      tzOffsetMinutes: 0,
+    };
+    await store.recordAttempt(scopeOf(db), right, new Date('2026-03-02T08:00:00Z'));
+    const morning = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
+
+    const early = { ...right, context: 'review' as const, lessonId: undefined, stepId: 'review-1' };
+    await store.recordAttempt(scopeOf(db), early, new Date('2026-03-02T12:00:00Z'));
+    const noon = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
+    expect(new Date(noon.dueAt).getTime()).toBeGreaterThan(new Date(morning.dueAt).getTime());
+    expect(noon.intervalDays).toBe(morning.intervalDays);
+
+    await store.recordAttempt(scopeOf(db), early, new Date('2026-03-02T18:00:00Z'));
+    const evening = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
+    expect(new Date(evening.dueAt).getTime()).toBeGreaterThan(new Date(noon.dueAt).getTime());
+    expect(evening.intervalDays).toBe(morning.intervalDays);
+  });
+
+  /*
+   * A grade given offline waits in the outbox and used to be scheduled from
+   * the moment it arrived: graded Monday, delivered Wednesday, due two days
+   * later than it should be, and different from what the phone had shown.
+   */
+  it('schedules a grade from when it was given, within reason', async () => {
+    const day = 86_400_000;
+    await call('POST', '/api/reviews/ensure', {
+      targets: [
+        { refId: 'v-hallo', kind: 'vocab', level: 'pre-a1' },
+        { refId: 'v-danke', kind: 'vocab', level: 'pre-a1' },
+        { refId: 'v-bitte', kind: 'vocab', level: 'pre-a1' },
+      ],
+    });
+
+    const monday = new Date(Date.now() - 3 * day).toISOString();
+    const graded = (await call('POST', '/api/reviews/vocab%3Av-hallo/grade', { grade: 'easy', gradedAt: monday }))
+      .body as { lastReviewAt: string; dueAt: string; intervalDays: number };
+    expect(graded.lastReviewAt).toBe(monday);
+    expect(new Date(graded.dueAt).getTime()).toBe(new Date(monday).getTime() + graded.intervalDays * day);
+
+    // A phone clock years out is held to the last thirty days, and one in the
+    // future to now.
+    const before = Date.now();
+    const ancient = (await call('POST', '/api/reviews/vocab%3Av-danke/grade', {
+      grade: 'good',
+      gradedAt: '2019-01-01T00:00:00Z',
+    })).body as { lastReviewAt: string };
+    const reviewedAt = new Date(ancient.lastReviewAt).getTime();
+    expect(reviewedAt).toBeGreaterThanOrEqual(before - 30 * day);
+    expect(reviewedAt).toBeLessThanOrEqual(Date.now() - 30 * day + 1000);
+
+    const future = (await call('POST', '/api/reviews/vocab%3Av-bitte/grade', {
+      grade: 'good',
+      gradedAt: new Date(Date.now() + 5 * day).toISOString(),
+    })).body as { lastReviewAt: string };
+    expect(new Date(future.lastReviewAt).getTime()).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('never dates a late-arriving grade before the item’s last review', async () => {
+    await call('POST', '/api/reviews/ensure', { targets: [{ refId: 'v-hallo', kind: 'vocab', level: 'pre-a1' }] });
+    const first = (await call('POST', '/api/reviews/vocab%3Av-hallo/grade', { grade: 'good' })).body as {
+      lastReviewAt: string;
+    };
+    const stale = (await call('POST', '/api/reviews/vocab%3Av-hallo/grade', {
+      grade: 'good',
+      gradedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+    })).body as { lastReviewAt: string };
+    expect(new Date(stale.lastReviewAt).getTime()).toBeGreaterThanOrEqual(new Date(first.lastReviewAt).getTime());
+  });
+
   it('rejects an unknown grade and an unknown item', async () => {
     expect((await call('POST', '/api/reviews/vocab%3Av-hallo/grade', { grade: 'wat' })).status).toBe(400);
     expect((await call('POST', '/api/reviews/vocab%3Anope/grade', { grade: 'good' })).status).toBe(404);
@@ -222,6 +373,52 @@ describe('lesson progress', () => {
     expect(passed.completedAt).toBeTruthy();
   });
 
+  /*
+   * The final check is played with the lesson's id, so its answers were filed
+   * as practice outcomes. Its step ids are not practice steps, and a failed
+   * final check pulled a 78% first-try score down to 58% and forced an extra
+   * recovery round before the next attempt.
+   */
+  it('does not file final-check answers as practice', async () => {
+    const response = await call('POST', '/api/attempts', {
+      ...wrongAttempt,
+      context: 'mastery',
+      lessonId: 'pre-a1-u1-l1',
+      stepId: 'u1l1-m-s1',
+    });
+    expect(response.status).toBe(200);
+    const progress = (await call('GET', '/api/lessons/pre-a1-u1-l1')).body as LessonProgress;
+    expect(Object.keys(progress.practice)).toEqual([]);
+    // Everything else an answer does still happens: the mistake is banked and
+    // the word is scheduled, and the reply still carries the lesson.
+    expect(await store.listMistakes(scopeOf(db))).toHaveLength(1);
+    expect(await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter')).toBeDefined();
+    expect((response.body as { lessonProgress?: LessonProgress }).lessonProgress?.lessonId).toBe('pre-a1-u1-l1');
+  });
+
+  /*
+   * Marking a section read, then marking the next, reads the list, adds one
+   * and writes the whole list back. Two of those overlapping — sections
+   * tapped through quickly, or two instances on Vercel — each wrote back its
+   * own list, and the later one dropped the earlier section.
+   */
+  it('keeps both sections when two are marked at the same moment', async () => {
+    await Promise.all([
+      store.markSectionSeen(scopeOf(db), 'pre-a1-u2-l1', 'u2l1-intro'),
+      store.markSectionSeen(scopeOf(db), 'pre-a1-u2-l1', 'u2l1-vocab'),
+    ]);
+    const progress = await store.getLessonProgress(scopeOf(db), 'pre-a1-u2-l1');
+    expect([...progress.sectionsSeen].sort()).toEqual(['u2l1-intro', 'u2l1-vocab']);
+  });
+
+  it('counts both recovery rounds when two arrive at the same moment', async () => {
+    await Promise.all([
+      store.recordRecoveryRound(scopeOf(db), 'pre-a1-u2-l1'),
+      store.recordRecoveryRound(scopeOf(db), 'pre-a1-u2-l1'),
+    ]);
+    expect((await store.getLessonProgress(scopeOf(db), 'pre-a1-u2-l1')).recoveryRounds).toBe(2);
+  });
+
   it('never un-passes a mastery check that was already passed', async () => {
     await call('POST', '/api/lessons/x/mastery', { accuracy: 1, passAccuracy: 0.7 });
     await call('POST', '/api/lessons/x/mastery', { accuracy: 0.2, passAccuracy: 0.7 });
@@ -250,6 +447,31 @@ describe('statistics are derived from real activity', () => {
     expect(stats.accuracy).toBe(0);
     expect(stats.retypedCorrections).toBe(1);
     expect(stats.totalAnswers).toBe(2);
+  });
+
+  /*
+   * The dashboard recounts the streak from the study days the state carries,
+   * against the phone's own calendar — and the state carried the 60 most
+   * recent rows. On day 75 of an unbroken streak the flame said 60, and it
+   * stayed at 60 however long the learner kept going.
+   */
+  it('sends enough study days for the dashboard to count a long streak', async () => {
+    const today = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
+    for (let n = 0; n < 75; n += 1) {
+      const day = new Date(today - n * 86_400_000).toISOString().slice(0, 10);
+      await db.run(
+        'INSERT INTO study_days (day, user_id, seconds_active, answers, correct) VALUES (?, 1, 60, 3, 2)',
+        day,
+      );
+    }
+    for (const response of [
+      await call('GET', '/api/state'),
+      await call('POST', '/api/study', { seconds: 30 }),
+    ]) {
+      const { studyDays } = response.body as { studyDays: Array<{ day: string; answers: number }> };
+      const answered = studyDays.filter((day) => day.answers > 0).map((day) => day.day);
+      expect(streakOn(answered, new Date(today).toISOString().slice(0, 10))).toBe(75);
+    }
   });
 
   it('counts a streak only over days with real answers', async () => {
@@ -545,6 +767,11 @@ describe('routing', () => {
     expect((await call('GET', '/api/health')).status).toBe(200);
   });
 
+  it('answers 400, not 500, to an id with broken percent-encoding', async () => {
+    expect((await call('POST', '/api/reviews/vocab%3Av-hallo%/grade', { grade: 'good' })).status).toBe(400);
+    expect((await call('GET', '/api/lessons/%E0%A4%A')).status).toBe(400);
+  });
+
   it('404s an unknown route', async () => {
     expect((await call('GET', '/api/nope')).status).toBe(404);
     expect((await call('GET', '/not-api')).status).toBe(404);
@@ -665,6 +892,50 @@ describe('one mastery rule, on both sides', () => {
     // Still passed, best accuracy still 0.9, attempts now 2 — on both sides.
     expect(stored).toEqual(expected);
     expect(stored).toMatchObject({ attempts: 2, bestAccuracy: 0.9, passed: true });
+  });
+
+  /*
+   * A forgotten full stop is a note, not a mistake: the player shows it as
+   * right first time. The stored step outcome counted only 'correct' and
+   * 'accepted-variant', on the server and in the core's copy of the rule, so a
+   * learner who never typed the final full stop was sent to a quick redo of
+   * sentences that had been accepted. An 'ae' typed for 'ä' is a note that
+   * asks for a retype, and that one still is not first-try correct.
+   */
+  it('agrees that a note asking for nothing is right first time, and one asking for a retype is not', async () => {
+    const note = {
+      ...wrongAttempt,
+      lessonId: 'pre-a1-u2-l2',
+      given: 'Ein Wasser, bitte',
+      expected: 'Ein Wasser, bitte.',
+      verdict: 'accepted-with-note',
+      credit: 1,
+      categories: [],
+      resolved: true,
+    };
+    for (const [stepId, requireRetype] of [
+      ['full-stop', false],
+      ['umlaut', true],
+      ['older-client', undefined],
+    ] as const) {
+      const response = await call('POST', '/api/attempts', { ...note, stepId, requireRetype });
+      expect(response.status).toBe(200);
+      const stored = (response.body as { lessonProgress: LessonProgress }).lessonProgress.practice[stepId]!;
+      const core = recordStepOutcome(emptyLessonProgress('pre-a1-u2-l2'), {
+        stepId,
+        verdict: 'accepted-with-note',
+        requireRetype,
+        credit: 1,
+        hintsUsed: 0,
+        revealed: false,
+        resolved: true,
+      }).practice[stepId]!;
+      expect(stored.firstTryCorrect, stepId).toBe(core.firstTryCorrect);
+      expect(stored.firstTryCorrect, stepId).toBe(requireRetype === false);
+    }
+    // And the day's count of right answers agrees with the screen.
+    const [today] = await store.listStudyDays(scopeOf(db));
+    expect(today!.correct).toBe(1);
   });
 
   it('agrees about a recovery round and about completing', async () => {
@@ -799,11 +1070,24 @@ describe('the day an answer belongs to', () => {
    */
   const BERLIN = 120;
 
+  /*
+   * The stamps are counted back from today rather than written as fixed dates.
+   * The server re-stamps anything older than fourteen days to its own clock, so
+   * the fixed September dates these tests used to send quietly turned into
+   * "today" a fortnight later and the whole suite went red with no code
+   * changed. Midnight UTC five days ago is the Monday of the story below.
+   */
+  const DAY_MS = 86_400_000;
+  const monday = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()) - 5 * DAY_MS;
+  const stamp = (days: number, time: string) =>
+    `${new Date(monday + days * DAY_MS).toISOString().slice(0, 10)}T${time}Z`;
+  const dayOf = (days: number) => new Date(monday + days * DAY_MS).toISOString().slice(0, 10);
+
   it('files it under the learner’s own calendar day', async () => {
     for (const [step, at] of [
-      ['mon', '2026-09-14T19:00:00Z'],
-      ['tue', '2026-09-14T22:30:00Z'],
-      ['wed', '2026-09-16T19:00:00Z'],
+      ['mon', stamp(0, '19:00:00')],
+      ['tue', stamp(0, '22:30:00')],
+      ['wed', stamp(2, '19:00:00')],
     ] as const) {
       const response = await call('POST', '/api/attempts', {
         ...wrongAttempt,
@@ -815,34 +1099,42 @@ describe('the day an answer belongs to', () => {
     }
 
     const days = (await store.listStudyDays(scopeOf(db))).map((day) => day.day).sort();
-    expect(days).toEqual(['2026-09-14', '2026-09-15', '2026-09-16']);
+    expect(days).toEqual([dayOf(0), dayOf(1), dayOf(2)]);
     expect(
-      await store.computeStreak(scopeOf(db), new Date('2026-09-16T19:00:00Z'), BERLIN),
+      await store.computeStreak(scopeOf(db), new Date(stamp(2, '19:00:00')), BERLIN),
       'three evenings running is a streak of three',
     ).toBe(3);
   });
 
   it('falls back to UTC when the browser says nothing', async () => {
-    await call('POST', '/api/attempts', { ...wrongAttempt, at: '2026-09-14T22:30:00Z' });
-    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual(['2026-09-14']);
+    await call('POST', '/api/attempts', { ...wrongAttempt, at: stamp(0, '22:30:00') });
+    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual([dayOf(0)]);
   });
 
   it('ignores an offset no part of the world has', async () => {
     await call('POST', '/api/attempts', {
       ...wrongAttempt,
-      at: '2026-09-14T22:30:00Z',
+      at: stamp(0, '22:30:00'),
       tzOffsetMinutes: 60 * 400,
     });
-    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual(['2026-09-14']);
+    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual([dayOf(0)]);
   });
 
   it('counts minutes studied under the same calendar', async () => {
     await handleRequest(ctx(), {
       method: 'POST',
       path: '/api/study',
-      body: { seconds: 300, at: '2026-09-14T22:30:00Z', tzOffsetMinutes: BERLIN },
+      body: { seconds: 300, at: stamp(0, '22:30:00'), tzOffsetMinutes: BERLIN },
     });
-    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual(['2026-09-15']);
+    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual([dayOf(1)]);
+  });
+
+  it('files a stamp older than a fortnight under today instead', async () => {
+    const before = new Date().toISOString().slice(0, 10);
+    await call('POST', '/api/attempts', { ...wrongAttempt, at: stamp(-20, '12:00:00') });
+    const after = new Date().toISOString().slice(0, 10);
+    const [day] = (await store.listStudyDays(scopeOf(db))).map((row) => row.day);
+    expect([before, after]).toContain(day);
   });
 });
 

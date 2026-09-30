@@ -137,6 +137,24 @@ export function createSession(secret: string, userId: number, now = new Date()):
   return `${body}.${sign(secret, body)}`;
 }
 
+/**
+ * The key session cookies are actually signed with: the session secret, bound
+ * to the password hash in force.
+ *
+ * Binding it to the hash is what makes changing the password sign every other
+ * device out, wherever the secret comes from. Rotating the stored secret did
+ * that only when the stored one was in use; with SATZWERK_SESSION_SECRET set,
+ * every request was checked against the environment's secret, so the change
+ * signed out the one person who made it and left every other session —
+ * a stolen one included — signed in. A new password is a new salt and a new
+ * hash, so it is a new key; so is a new SATZWERK_PASSWORD_HASH.
+ */
+export function sessionKey(config: Pick<AuthConfig, 'sessionSecret' | 'passwordHash'>): string | undefined {
+  if (!config.sessionSecret) return undefined;
+  if (!config.passwordHash) return config.sessionSecret;
+  return createHmac('sha256', config.sessionSecret).update(config.passwordHash).digest('base64url');
+}
+
 /** The user id carried by a valid, unexpired token, or null. */
 export function readSession(secret: string, token: string, now = new Date()): number | null {
   const dot = token.lastIndexOf('.');
@@ -144,9 +162,13 @@ export function readSession(secret: string, token: string, now = new Date()): nu
   const body = token.slice(0, dot);
   const signature = token.slice(dot + 1);
   const expected = sign(secret, body);
-  // Constant-time, and length-checked first for the same reason as above.
-  if (signature.length !== expected.length) return null;
-  if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+  // Constant-time, and length-checked first for the same reason as above —
+  // in bytes, which is what timingSafeEqual compares. A signature of the right
+  // length in characters but not in bytes ('é' is two) made it throw.
+  const given = Buffer.from(signature);
+  const wanted = Buffer.from(expected);
+  if (given.length !== wanted.length) return null;
+  if (!timingSafeEqual(given, wanted)) return null;
   let payload: SessionPayload;
   try {
     payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as SessionPayload;
@@ -182,7 +204,15 @@ export function parseCookies(header: string | undefined): Record<string, string>
     if (eq <= 0) continue;
     const name = part.slice(0, eq).trim();
     const value = part.slice(eq + 1).trim();
-    if (name) out[name] = decodeURIComponent(value);
+    if (!name) continue;
+    // Every app on the host shares the cookie jar, so a value from somebody
+    // else ('discount=100%') can arrive that is not valid percent-encoding.
+    // Kept as it is rather than thrown on, which failed every request.
+    try {
+      out[name] = decodeURIComponent(value);
+    } catch {
+      out[name] = value;
+    }
   }
   return out;
 }

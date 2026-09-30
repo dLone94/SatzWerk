@@ -2,6 +2,7 @@ import type { ErrorCategory, TeachingLanguage } from '../../content/types.ts';
 import type { LessonProgress } from '../../core/progress/lesson.ts';
 import type { RecallGrade, ReviewItem, ReviewKind } from '../../core/srs/scheduler.ts';
 import type { Verdict } from '../../core/validation/validate.ts';
+import { existingPushEndpoint } from '../push/index.ts';
 
 /** Typed client for the SatzWerk API. One place that knows about fetch. */
 
@@ -99,6 +100,13 @@ export interface AttemptPayload {
   revealed: boolean;
   isRetype: boolean;
   resolved: boolean;
+  /**
+   * Whether the validator asked for the answer to be typed again. Sent because
+   * 'accepted-with-note' covers both a forgotten full stop, which is a right
+   * answer, and "ae" for "ä", which is not, and only the validator knows which.
+   * Without it the server treats every note as needing a retype.
+   */
+  requireRetype?: boolean;
   durationMs?: number;
   reviewTargets?: TargetSpec[];
   /**
@@ -284,8 +292,12 @@ export interface LearnerList {
 
 export const api = {
   learners: () => request<LearnerList>('/learners'),
-  addLearner: (name: string) => post<LearnerList>('/learners', { name }),
-  studyAs: (id: number) => post<LearnerList>('/learners/select', { id }),
+  // With this browser's push endpoint, when it has one, so the phone's
+  // reminders move to the learner who is studying on it now.
+  addLearner: async (name: string) =>
+    post<LearnerList>('/learners', { name, endpoint: await existingPushEndpoint() }),
+  studyAs: async (id: number) =>
+    post<LearnerList>('/learners/select', { id, endpoint: await existingPushEndpoint() }),
   renameLearner: (id: number, name: string) =>
     request<LearnerList>(`/learners/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
 

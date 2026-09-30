@@ -159,6 +159,7 @@ async function scenario(db: Db) {
     sections: progress.sectionsSeen,
     mastery: progress.mastery,
     studyDays: await store.listStudyDays(scopeOf(db), 5),
+    studyDaysForStreak: await store.listStudyDaysForStreak(scopeOf(db), 1),
     checkpoints: (await store.listCheckpointResults(scopeOf(db))).map((c) => ({
       checkpointId: c.checkpointId,
       passed: c.passed,
@@ -393,5 +394,63 @@ describeParity('upgrading a Postgres database that already has progress in it', 
     await store.recordMastery({ db, userId: papa.id }, 'pre-a1-u1-l1', 0, 0.67);
     expect((await store.getLessonProgress({ db, userId: papa.id }, 'pre-a1-u1-l1')).mastery.passed).toBe(false);
     expect((await store.getLessonProgress(scopeOf(db), 'pre-a1-u1-l1')).mastery.passed).toBe(true);
+  }, 30_000);
+});
+
+/**
+ * A connection Postgres drops while it sits idle in the pool.
+ *
+ * A restart, a failover, Neon's maintenance or an administrator can close a
+ * pooled connection nobody is using. `pg` reports that as an 'error' event on
+ * the pool, and with nothing listening Node treats it as uncaught and exits:
+ * `npm start` went down until somebody restarted it, and a warm Vercel
+ * instance died under the next request.
+ */
+/**
+ * Two instances marking sections of one lesson at the same moment. Each read
+ * the list, added its section and wrote the whole list back, so the later
+ * write dropped the other's section — 17 times in 40 in a measured run. An
+ * in-process lock cannot cover this, because on Vercel the two requests can
+ * land on different instances; only the database can.
+ */
+describeParity('two instances marking sections at once', () => {
+  it('keeps every section', async () => {
+    const one = await openDatabase({ databaseUrl: POSTGRES_URL! });
+    const two = await openDatabase({ databaseUrl: POSTGRES_URL! });
+    try {
+      for (let round = 0; round < 10; round += 1) {
+        const lesson = `race-${Date.now()}-${round}`;
+        await Promise.all([
+          store.markSectionSeen(scopeOf(one), lesson, 'a'),
+          store.markSectionSeen(scopeOf(two), lesson, 'b'),
+        ]);
+        const seen = (await store.getLessonProgress(scopeOf(one), lesson)).sectionsSeen;
+        expect([...seen].sort(), `round ${round}`).toEqual(['a', 'b']);
+      }
+    } finally {
+      await one.close();
+      await two.close();
+    }
+  }, 60_000);
+});
+
+describeParity('a pooled connection that Postgres closes', () => {
+  it('is dropped quietly, and the next query opens a fresh one', async () => {
+    const db = await openDatabase({ databaseUrl: POSTGRES_URL! });
+    const admin = await openDatabase({ databaseUrl: POSTGRES_URL! });
+    const uncaught: unknown[] = [];
+    const listener = (error: unknown) => uncaught.push(error);
+    process.on('uncaughtException', listener);
+    try {
+      const own = await db.get<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+      await admin.get('SELECT pg_terminate_backend(?)', own!.pid);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(uncaught).toEqual([]);
+      expect(await db.get<{ one: number }>('SELECT 1 AS one')).toEqual({ one: 1 });
+    } finally {
+      process.off('uncaughtException', listener);
+      await admin.close();
+      await db.close();
+    }
   }, 30_000);
 });

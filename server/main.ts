@@ -4,6 +4,7 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { handleRequest } from './api.ts';
 import { createProvider } from './ai.ts';
 import { openDatabase } from './db.ts';
+import { isDatabaseUnavailable, RETRY_AFTER_SECONDS } from './driver.ts';
 import { authState } from './auth.ts';
 import { resolveAuth } from './api.ts';
 
@@ -89,8 +90,19 @@ function serveStatic(res: ServerResponse, urlPath: string): void {
     return;
   }
 
+  // A path with broken percent-encoding (a mistyped /lesson/100%) cannot be
+  // decoded, and the URIError used to end the whole process.
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(urlPath);
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Bad request');
+    return;
+  }
+
   // Resolve inside dist only. normalize() strips any ".." traversal attempt.
-  const requested = normalize(decodeURIComponent(urlPath)).replace(/^(\.\.[/\\])+/, '');
+  const requested = normalize(decoded).replace(/^(\.\.[/\\])+/, '');
   let filePath = join(DIST, requested);
   if (!filePath.startsWith(DIST)) filePath = DIST;
 
@@ -110,10 +122,28 @@ function serveStatic(res: ServerResponse, urlPath: string): void {
     'Content-Type': type,
     'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
   });
-  createReadStream(filePath).pipe(res);
+  // A file removed mid-read (a rebuild of dist, say) ends this response
+  // rather than surfacing as an unhandled 'error' event.
+  createReadStream(filePath)
+    .on('error', () => res.destroy())
+    .pipe(res);
 }
 
-const server = createServer(async (req, res) => {
+/*
+ * Nothing a request does may end the process. Every request goes through
+ * handle(), and anything it throws that was not answered already becomes a
+ * 500 here — the self-hosted server is one process for the app and the API,
+ * so an uncaught rejection took both down until somebody restarted it.
+ */
+const server = createServer((req, res) => {
+  handle(req, res).catch((error: unknown) => {
+    console.error('[satzwerk] request failed:', error);
+    if (!res.headersSent) sendJson(res, 500, { error: 'Internal error' });
+    else res.destroy();
+  });
+});
+
+async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', `http://localhost:${PORT}`);
 
   if (!url.pathname.startsWith('/api/')) {
@@ -159,9 +189,19 @@ const server = createServer(async (req, res) => {
     sendJson(res, response.status, response.body, response.headers ?? {});
   } catch (error) {
     console.error('[satzwerk] request failed:', error);
+    if (isDatabaseUnavailable(error)) {
+      // Held and sent again by the browser, where a 500 would be dropped.
+      sendJson(
+        res,
+        503,
+        { error: `The server cannot reach its database: ${(error as Error).message}` },
+        { 'Retry-After': String(RETRY_AFTER_SECONDS) },
+      );
+      return;
+    }
     sendJson(res, 500, { error: (error as Error).message });
   }
-});
+}
 
 server.listen(PORT, () => {
   const mode = existsSync(DIST) ? 'serving ./dist' : 'API only (run the Vite dev server for the UI)';

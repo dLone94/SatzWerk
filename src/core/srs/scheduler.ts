@@ -25,6 +25,23 @@ import type { Verdict } from '../validation/validate.ts';
  * `again` always sends the item back to learning step 0 with a 5-minute delay,
  * counts a lapse and drops the ease by 0.2.
  *
+ * A review made before the item is due is an *early* review, and it is not
+ * worth what an on-time one is. A lesson asks for the same word many times in
+ * a few minutes, and treating each answer as a review on time multiplied the
+ * interval again and again, so one clean sitting pushed a word just taught a
+ * year away. An early success therefore:
+ *
+ * - leaves a learning item on its current step, due no sooner than that step's
+ *   delay from now (the step exists to test recall after a gap, and an answer
+ *   given inside the gap does not);
+ * - grows a known item only by the time that has actually passed since it was
+ *   last reviewed, `interval' = max(interval, elapsedDays * ease * gradeFactor)`,
+ *   so it never shrinks, and is due that interval from now;
+ * - leaves the ease alone.
+ *
+ * Practising early still moves the item back in the queue, and `again` demotes
+ * at any time, so a slip in a lesson still brings the word back soon.
+ *
  * Recall quality is NOT taken straight from correctness. `gradeFromAttempt`
  * folds in hint usage and error severity, so an answer produced only after the
  * solution was revealed can never be graded better than `again`.
@@ -129,6 +146,26 @@ export function scheduleReview(item: ReviewItem, grade: RecallGrade, now = new D
   }
 
   next.successCount = item.successCount + 1;
+
+  // An early review (see the notes at the top). A brand-new item is due the
+  // moment it is created, and an item never reviewed has nothing to measure
+  // from, so both are always treated as on time.
+  const reviewedAt = item.lastReviewAt ? new Date(item.lastReviewAt).getTime() : Number.NaN;
+  if (item.state !== 'new' && Number.isFinite(reviewedAt) && !isDue(item, now)) {
+    if (item.state === 'known') {
+      const elapsedDays = Math.max(0, (now.getTime() - reviewedAt) / DAY_MS);
+      const earned = Math.round(elapsedDays * item.ease * GRADE_FACTOR[grade]);
+      const interval = clamp(Math.max(item.intervalDays, earned), 1, MAX_INTERVAL_DAYS);
+      next.intervalDays = interval;
+      next.dueAt = iso(new Date(now.getTime() + interval * DAY_MS));
+      return next;
+    }
+    const minutes = LEARNING_STEPS_MINUTES[item.learningStep] ?? LEARNING_STEPS_MINUTES[0]!;
+    const stepDue = now.getTime() + minutes * MINUTE_MS;
+    next.dueAt = iso(new Date(Math.max(new Date(item.dueAt).getTime(), stepDue)));
+    return next;
+  }
+
   next.ease = clamp(item.ease + EASE_DELTA[grade], MIN_EASE, MAX_EASE);
 
   const inLearning = item.state === 'new' || item.state === 'learning' || item.state === 'lapsed';
@@ -157,7 +194,7 @@ export function scheduleReview(item: ReviewItem, grade: RecallGrade, now = new D
     return next;
   }
 
-  // Known item reviewed on time.
+  // Known item reviewed on time (or late).
   const previous = Math.max(item.intervalDays, 1);
   const interval = clamp(Math.round(previous * next.ease * GRADE_FACTOR[grade]), 1, MAX_INTERVAL_DAYS);
   next.state = 'known';

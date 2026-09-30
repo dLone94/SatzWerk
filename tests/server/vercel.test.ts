@@ -248,3 +248,74 @@ describe('the Vercel function', () => {
     delete process.env.CRON_SECRET;
   });
 });
+
+/**
+ * A database that goes away while the function is warm.
+ *
+ * Only a failed open at cold start answered 503. Once the handle was cached,
+ * a refused connection, a dropped one or a Neon compute still waking came back
+ * as a 500 — and the browser's outbox reads a 500 as "refused" and throws the
+ * queued answer away, when a 503 would have been held and sent again. The same
+ * catch also threw the working handle away after *any* error, so one request
+ * carrying a malformed cookie reopened the database, again and again.
+ */
+describe('a failure after the database was opened', () => {
+  afterEach(() => {
+    vi.doUnmock('../../server/api.ts');
+    vi.doUnmock('../../server/db.ts');
+  });
+
+  async function loadFailingHandler(error: () => unknown) {
+    vi.resetModules();
+    let opened = 0;
+    vi.doMock('../../server/db.ts', async (importOriginal) => {
+      const original = await importOriginal<typeof import('../../server/db.ts')>();
+      return {
+        ...original,
+        openDatabase: (...args: Parameters<typeof original.openDatabase>) => {
+          opened += 1;
+          return original.openDatabase(...args);
+        },
+      };
+    });
+    vi.doMock('../../server/api.ts', async (importOriginal) => {
+      const original = await importOriginal<typeof import('../../server/api.ts')>();
+      return {
+        ...original,
+        handleRequest: async () => {
+          throw error();
+        },
+      };
+    });
+    const mod = await import('../../server/vercel.ts');
+    return { handler: mod.default as (request: Request) => Promise<Response>, opened: () => opened };
+  }
+
+  it('answers 503, to be retried, when the database cannot be reached', async () => {
+    for (const make of [
+      () => Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:5432'), { code: 'ECONNREFUSED' }),
+      () => Object.assign(new Error('terminating connection due to administrator command'), { code: '57P01' }),
+      () => new Error('timeout exceeded when trying to connect'),
+      () => new Error('Connection terminated unexpectedly'),
+      () => new Error('fetch failed', { cause: Object.assign(new Error('getaddrinfo'), { code: 'EAI_AGAIN' }) }),
+    ]) {
+      const { handler } = await loadFailingHandler(make);
+      const response = await handler(get('/api/state'));
+      expect(response.status, String((make() as Error).message)).toBe(503);
+      expect(response.headers.get('retry-after')).toBeTruthy();
+    }
+  });
+
+  it('still answers 500 for a genuine bug, so the client does not hold it forever', async () => {
+    const { handler } = await loadFailingHandler(() => new TypeError("Cannot read properties of undefined (reading 'x')"));
+    expect((await handler(get('/api/state'))).status).toBe(500);
+  });
+
+  it('keeps the open database after a request fails', async () => {
+    const { handler, opened } = await loadFailingHandler(() => new TypeError('boom'));
+    await handler(get('/api/state'));
+    await handler(get('/api/state'));
+    await handler(get('/api/state'));
+    expect(opened()).toBe(1);
+  });
+});

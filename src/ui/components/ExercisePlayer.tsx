@@ -402,6 +402,9 @@ export function ExercisePlayer({
         revealed,
         isRetype: false,
         resolved,
+        // The same flag `clean` rests on, so the server counts this answer
+        // right exactly when the player does.
+        requireRetype: validation.requireRetype,
         durationMs: Date.now() - startedAt.current,
         reviewTargets: targetsFor(step),
       });
