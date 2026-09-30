@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CURRICULUM,
   LEXICON,
   SCENARIO_SCRIPTS,
   allCheckpoints,
@@ -411,6 +412,59 @@ describe('the B2 Unit 5 checkpoint says to write the full form', () => {
       expect(step(id).prompt!.en, id).toContain('write it out in full');
       expect(step(id).prompt!.bg, id).toContain('напиши го изцяло');
     }
+  });
+});
+
+describe('scenario hints and wording', () => {
+  /*
+   * Hints counted the wrong number of words ("Three words" for "Auf
+   * Wiedersehen!", "Two words, both short" for "Klar, kein Problem."); a
+   * formal goodbye accepted "Tschüss!" at full credit; an instruction said
+   * "both in the Perfekt … then a plain past"; and a Bulgarian outro began
+   * with a word written half in Latin and half in Cyrillic letters.
+   */
+  it('counts the words it says it counts', () => {
+    const count = (id: string) =>
+      step(id).answer.accepted[0]!.split(/\s+/).filter((word) => /\p{L}/u.test(word)).length;
+    expect(count('sc-bakery-pre-a1-t3-s2')).toBe(2);
+    expect(step('sc-bakery-pre-a1-t3-s2').hints[0]!.en).toMatch(/^Two words/);
+    expect(count('sc-neighbours-a2-t1-s1')).toBe(3);
+    expect(step('sc-neighbours-a2-t1-s1').hints[0]!.en).toMatch(/^Three /);
+    expect(step('sc-neighbours-a2-t1-s1').hints[0]!.bg).toMatch(/^Три /);
+    expect(count('sc-bank-a2-t2-s1')).toBe(4);
+    expect(step('sc-bank-a2-t2-s1').hints[0]!.en).toMatch(/^Four words/);
+    expect(step('sc-bank-a2-t2-s1').hints[0]!.bg).toMatch(/^Четири думи/);
+  });
+
+  it('does not give full credit for an informal goodbye when a formal one is asked for', () => {
+    const result = validateAnswer('Tschüss!', step('sc-bakery-pre-a1-t3-s2').answer, opts);
+    expect(result.credit).toBe(0);
+    expect(result.trapFeedback?.en).toMatch(/informal/);
+  });
+
+  it('describes the tenses the answer uses', () => {
+    const instruction = step('sc-emergency-b1-t1-s1').instruction!.en;
+    expect(instruction).not.toMatch(/both in the Perfekt/);
+    expect(instruction).toMatch(/Perfekt/);
+    expect(instruction).toMatch(/simple past/);
+  });
+
+  it('never writes a word in two alphabets at once', () => {
+    const mixed = /[A-Za-z][Ѐ-ӿ]|[Ѐ-ӿ][A-Za-z]/;
+    const found: string[] = [];
+    const seen = new Set<unknown>();
+    const walk = (node: unknown): void => {
+      if (typeof node === 'string') {
+        if (mixed.test(node)) found.push(node.slice(0, 80));
+        return;
+      }
+      if (typeof node !== 'object' || node === null || seen.has(node)) return;
+      seen.add(node);
+      for (const value of Object.values(node)) walk(value);
+    };
+    walk(SCENARIO_SCRIPTS);
+    walk(CURRICULUM);
+    expect(found).toEqual([]);
   });
 });
 

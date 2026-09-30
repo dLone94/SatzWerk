@@ -558,7 +558,7 @@ const NEIGHBOURS_A2 = script({
           shape: 'phrase',
           reviewTargets: ['v-das-problem'],
           traps: [registerTrap('Selbstverständlich, sehr gern geschehen.', 'du')],
-          hints: [bi('Two words, both short.', 'Две думи, и двете къси.')],
+          hints: [bi('Three short words.', 'Три къси думи.')],
         },
       ],
       'a2',

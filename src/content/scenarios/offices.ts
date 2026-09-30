@@ -169,7 +169,7 @@ const BUERGERAMT_B1 = script({
   lessonIds: ['b1-u2-l2'],
   outro: bi(
     'An Anmeldung is six questions and four documents. The German is easy; what makes it go wrong is not knowing which answer they need, and now you do.',
-    'Adresregistrацията е шест въпроса и четири документа. Немският е лесен; обърква се от това да не знаеш кой отговор им трябва — а сега знаеш.',
+    'Адресната регистрация е шест въпроса и четири документа. Немският е лесен; обърква се от това да не знаеш кой отговор им трябва — а сега знаеш.',
   ),
   beats: [
     them('Sie möchten sich anmelden? Ihren Ausweis, bitte.', bi('You want to register? Your ID, please.', 'Искате да се регистрирате? Личната карта, моля.')),
@@ -526,7 +526,7 @@ const BANK_A2 = script({
           alternatives: ['Ja, seit zwei Wochen bin ich angemeldet.', 'Ja, ich bin seit zwei Wochen gemeldet.'],
           shape: 'phrase',
           reviewTargets: ['v-sich-anmelden', 'v-die-woche'],
-          hints: [bi('Three words.', 'Три думи.')],
+          hints: [bi('Four words.', 'Четири думи.')],
         },
       ],
       'a2',

@@ -301,7 +301,7 @@ const B1 = script({
         {
           id: 'sc-emergency-b1-t1-s1',
           instruction: bi(
-            'Two clauses joined by und, both in the Perfekt for what you did, then a plain past for what was already the case.',
+            'Two clauses joined by und: the first in the Perfekt for what you did, the second in the simple past for what was already the case.',
             'Две части, свързани с „und“: Perfekt за това, което си направил, и просто минало за това, което вече е било така.',
           ),
           prompt: bi('You got home around eight, and the door was open.', 'Прибрал си се около осем и вратата е била отворена.'),
