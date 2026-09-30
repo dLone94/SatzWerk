@@ -1,3 +1,4 @@
+import { createECDH, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, afterEach, describe, expect, it } from 'vitest';
@@ -81,8 +82,15 @@ describe('who is studying', () => {
    * Settings showed reminders as on, with no hint anything was wrong.
    */
   it('moves this phone’s reminders to whoever is studying on it now', async () => {
-    const phone = 'https://push.example/phone';
-    await as(1, 'POST', '/api/push/subscribe', { endpoint: phone, keys: { p256dh: 'k', auth: 'a' } });
+    // Real push-service endpoints and keys a browser could have produced, so
+    // the subscriptions are stored even where the server checks them.
+    const keys = () => {
+      const curve = createECDH('prime256v1');
+      curve.generateKeys();
+      return { p256dh: curve.getPublicKey().toString('base64url'), auth: randomBytes(16).toString('base64url') };
+    };
+    const phone = 'https://fcm.googleapis.com/fcm/send/phone';
+    await as(1, 'POST', '/api/push/subscribe', { endpoint: phone, keys: keys() });
     const owner = async () =>
       (await db.get<{ user_id: number }>('SELECT user_id FROM push_subscriptions WHERE endpoint = ?', phone))!.user_id;
 
@@ -93,8 +101,8 @@ describe('who is studying', () => {
     expect(await owner()).toBe(1);
 
     // Only this phone's: another device's subscription stays where it is.
-    const laptop = 'https://push.example/laptop';
-    await as(1, 'POST', '/api/push/subscribe', { endpoint: laptop, keys: { p256dh: 'k', auth: 'a' } });
+    const laptop = 'https://fcm.googleapis.com/fcm/send/laptop';
+    await as(1, 'POST', '/api/push/subscribe', { endpoint: laptop, keys: keys() });
     await as(1, 'POST', '/api/learners/select', { id: 2, endpoint: phone });
     expect(
       (await db.get<{ user_id: number }>('SELECT user_id FROM push_subscriptions WHERE endpoint = ?', laptop))!.user_id,
