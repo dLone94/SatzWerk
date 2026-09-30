@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { attemptTime, handleRequest } from '../../server/api.ts';
-import { applyMastery, applyRecoveryRound } from '../../src/core/progress/lesson.ts';
+import {
+  applyMastery,
+  applyRecoveryRound,
+  emptyLessonProgress,
+  recordStepOutcome,
+  type LessonProgress,
+} from '../../src/core/progress/lesson.ts';
 import { openDatabase, SCHEMA_VERSION, type Db } from '../../server/db.ts';
 import * as store from '../../server/store.ts';
 import { ruleBasedWritingReview, unavailableProvider } from '../../server/ai.ts';
@@ -281,6 +287,29 @@ describe('lesson progress', () => {
     expect(passed.mastery).toMatchObject({ attempts: 2, passed: true });
     expect(passed.mastery.bestAccuracy).toBeCloseTo(0.9);
     expect(passed.completedAt).toBeTruthy();
+  });
+
+  /*
+   * The final check is played with the lesson's id, so its answers were filed
+   * as practice outcomes. Its step ids are not practice steps, and a failed
+   * final check pulled a 78% first-try score down to 58% and forced an extra
+   * recovery round before the next attempt.
+   */
+  it('does not file final-check answers as practice', async () => {
+    const response = await call('POST', '/api/attempts', {
+      ...wrongAttempt,
+      context: 'mastery',
+      lessonId: 'pre-a1-u1-l1',
+      stepId: 'u1l1-m-s1',
+    });
+    expect(response.status).toBe(200);
+    const progress = (await call('GET', '/api/lessons/pre-a1-u1-l1')).body as LessonProgress;
+    expect(Object.keys(progress.practice)).toEqual([]);
+    // Everything else an answer does still happens: the mistake is banked and
+    // the word is scheduled, and the reply still carries the lesson.
+    expect(await store.listMistakes(scopeOf(db))).toHaveLength(1);
+    expect(await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter')).toBeDefined();
+    expect((response.body as { lessonProgress?: LessonProgress }).lessonProgress?.lessonId).toBe('pre-a1-u1-l1');
   });
 
   it('never un-passes a mastery check that was already passed', async () => {
@@ -731,6 +760,50 @@ describe('one mastery rule, on both sides', () => {
     // Still passed, best accuracy still 0.9, attempts now 2 — on both sides.
     expect(stored).toEqual(expected);
     expect(stored).toMatchObject({ attempts: 2, bestAccuracy: 0.9, passed: true });
+  });
+
+  /*
+   * A forgotten full stop is a note, not a mistake: the player shows it as
+   * right first time. The stored step outcome counted only 'correct' and
+   * 'accepted-variant', on the server and in the core's copy of the rule, so a
+   * learner who never typed the final full stop was sent to a quick redo of
+   * sentences that had been accepted. An 'ae' typed for 'ä' is a note that
+   * asks for a retype, and that one still is not first-try correct.
+   */
+  it('agrees that a note asking for nothing is right first time, and one asking for a retype is not', async () => {
+    const note = {
+      ...wrongAttempt,
+      lessonId: 'pre-a1-u2-l2',
+      given: 'Ein Wasser, bitte',
+      expected: 'Ein Wasser, bitte.',
+      verdict: 'accepted-with-note',
+      credit: 1,
+      categories: [],
+      resolved: true,
+    };
+    for (const [stepId, requireRetype] of [
+      ['full-stop', false],
+      ['umlaut', true],
+      ['older-client', undefined],
+    ] as const) {
+      const response = await call('POST', '/api/attempts', { ...note, stepId, requireRetype });
+      expect(response.status).toBe(200);
+      const stored = (response.body as { lessonProgress: LessonProgress }).lessonProgress.practice[stepId]!;
+      const core = recordStepOutcome(emptyLessonProgress('pre-a1-u2-l2'), {
+        stepId,
+        verdict: 'accepted-with-note',
+        requireRetype,
+        credit: 1,
+        hintsUsed: 0,
+        revealed: false,
+        resolved: true,
+      }).practice[stepId]!;
+      expect(stored.firstTryCorrect, stepId).toBe(core.firstTryCorrect);
+      expect(stored.firstTryCorrect, stepId).toBe(requireRetype === false);
+    }
+    // And the day's count of right answers agrees with the screen.
+    const [today] = await store.listStudyDays(scopeOf(db));
+    expect(today!.correct).toBe(1);
   });
 
   it('agrees about a recovery round and about completing', async () => {

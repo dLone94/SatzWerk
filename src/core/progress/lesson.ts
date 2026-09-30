@@ -77,16 +77,36 @@ export interface RecordInput {
   revealed: boolean;
   /** True once the learner has produced the correct German for this step. */
   resolved: boolean;
+  /**
+   * Whether the validator asked for the answer to be typed again. Only an
+   * 'accepted-with-note' verdict needs it, to tell a forgotten full stop
+   * (false) from 'ae' typed for 'ä' (true).
+   */
+  requireRetype?: boolean;
   now?: string;
 }
 
 const FULL_CREDIT_VERDICTS: ReadonlySet<Verdict> = new Set<Verdict>(['correct', 'accepted-variant']);
 
+/**
+ * Whether a verdict counts as a right answer — the one definition the player,
+ * this file and the server all use.
+ *
+ * A note that asks for nothing (a forgotten full stop) is right: the player
+ * shows it as right first time, and counting it as wrong here sent a learner
+ * who never typed the final full stop to a quick redo of accepted sentences.
+ * A note that asks for a retype is not. When nobody said which it was — an
+ * answer from an older client — it is not counted, as before.
+ */
+export function countsAsRight(verdict: Verdict, requireRetype?: boolean): boolean {
+  return FULL_CREDIT_VERDICTS.has(verdict) || (verdict === 'accepted-with-note' && requireRetype === false);
+}
+
 export function recordStepOutcome(progress: LessonProgress, input: RecordInput): LessonProgress {
   const prior = progress.practice[input.stepId];
   const isFirstAttempt = !prior;
   const firstTryCorrect = isFirstAttempt
-    ? FULL_CREDIT_VERDICTS.has(input.verdict) && input.hintsUsed === 0 && !input.revealed
+    ? countsAsRight(input.verdict, input.requireRetype) && input.hintsUsed === 0 && !input.revealed
     : (prior?.firstTryCorrect ?? false);
 
   const outcome: StepOutcome = {

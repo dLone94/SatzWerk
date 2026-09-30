@@ -54,6 +54,33 @@ function readAllSections(progress: LessonProgress): LessonProgress {
   return next;
 }
 
+describe('what counts as right first time', () => {
+  const base = { stepId: 's', credit: 1, hintsUsed: 0, revealed: false, resolved: true };
+
+  it('counts a note that asks for nothing, such as a forgotten full stop', () => {
+    const next = recordStepOutcome(emptyLessonProgress('l'), {
+      ...base,
+      verdict: 'accepted-with-note',
+      requireRetype: false,
+    });
+    expect(next.practice.s!.firstTryCorrect).toBe(true);
+  });
+
+  it('does not count a note that asks for a retype, such as ae for ä', () => {
+    const next = recordStepOutcome(emptyLessonProgress('l'), {
+      ...base,
+      verdict: 'accepted-with-note',
+      requireRetype: true,
+    });
+    expect(next.practice.s!.firstTryCorrect).toBe(false);
+  });
+
+  it('does not count a note when nobody said whether it asked for a retype', () => {
+    const next = recordStepOutcome(emptyLessonProgress('l'), { ...base, verdict: 'accepted-with-note' });
+    expect(next.practice.s!.firstTryCorrect).toBe(false);
+  });
+});
+
 describe('lesson completion rules', () => {
   it('starts with nothing satisfied', () => {
     const requirements = lessonRequirements(lesson, emptyLessonProgress(lesson.id));

@@ -4,6 +4,7 @@ import {
   applyCompletion,
   applyMastery,
   applyRecoveryRound,
+  countsAsRight,
   type LessonProgress,
   type StepOutcome,
 } from '../src/core/progress/lesson.ts';
@@ -424,6 +425,12 @@ export interface AttemptInput {
   isRetype: boolean;
   /** True once the learner has produced the correct German for this step. */
   resolved: boolean;
+  /**
+   * Whether the validator asked for a retype, which is what separates a
+   * forgotten full stop from 'ae' typed for 'ä' — both 'accepted-with-note'.
+   * Absent from older clients; see countsAsRight.
+   */
+  requireRetype?: boolean;
   durationMs?: number;
   reviewTargets?: TargetSpec[];
   /**
@@ -441,8 +448,6 @@ export interface AttemptResult {
   lessonProgress?: LessonProgress;
   mistakeId?: string;
 }
-
-const CREDIT_VERDICTS = new Set<Verdict>(['correct', 'accepted-variant']);
 
 export async function recordAttempt(scope: Scope, input: AttemptInput, now = new Date()): Promise<AttemptResult> {
   const { db, userId } = scope;
@@ -477,7 +482,8 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
     // Daily activity, from which the streak is derived. Time is not added
     // here: the app measures time on task itself and sends it to /api/study,
     // and adding each answer's duration as well counted the same minutes twice.
-    const wasCorrect = CREDIT_VERDICTS.has(input.verdict) && !input.revealed;
+    const right = countsAsRight(input.verdict, input.requireRetype);
+    const wasCorrect = right && !input.revealed;
     await db.run(`INSERT INTO study_days (day, user_id, seconds_active, answers, correct)
        VALUES (?, ?, ?, 1, ?)
        ON CONFLICT (day, user_id) DO UPDATE SET
@@ -485,15 +491,20 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
          answers = study_days.answers + 1,
          correct = study_days.correct + excluded.correct`, day, userId, 0, wasCorrect ? 1 : 0);
 
-    // Step outcome for the lesson mastery rules.
+    // Step outcome for the lesson mastery rules. Only practice is filed here:
+    // a final check is played with the lesson's id too, but its questions are
+    // not practice steps, and counting them dragged the first-try score down
+    // and forced a recovery round after a failed check. Its result is kept by
+    // recordMastery.
     let lessonProgress: LessonProgress | undefined;
-    if (input.lessonId && !input.isRetype) {
+    const filesOutcome = input.context !== 'mastery';
+    if (input.lessonId && filesOutcome && !input.isRetype) {
       await ensureLessonState(scope, input.lessonId, iso);
       const prior = await db.get('SELECT * FROM step_outcomes WHERE lesson_id = ? AND step_id = ? AND user_id = ?', input.lessonId, input.stepId, userId) as Record<string, unknown> | undefined;
 
       const firstTryCorrect = prior
         ? Number(prior.first_try_correct) === 1
-        : CREDIT_VERDICTS.has(input.verdict) && input.hintsUsed === 0 && !input.revealed;
+        : right && input.hintsUsed === 0 && !input.revealed;
 
       await db.run(`INSERT INTO step_outcomes
            (lesson_id, step_id, user_id, attempts, first_try_correct, best_credit, resolved, hints_used, revealed, updated_at)
@@ -515,7 +526,7 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
         input.revealed ? 1 : 0,
         iso,
         firstTryCorrect ? 1 : 0,);
-    } else if (input.lessonId && input.isRetype && input.resolved) {
+    } else if (input.lessonId && filesOutcome && input.isRetype && input.resolved) {
       // A successful retyping closes the step without changing its first-try record.
       await db.run(`UPDATE step_outcomes SET resolved = 1, updated_at = ? WHERE lesson_id = ? AND step_id = ? AND user_id = ?`, iso, input.lessonId, input.stepId, userId);
     }
@@ -524,7 +535,7 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
     let mistakeId: string | undefined;
     if (!input.isRetype && input.categories.length > 0) {
       mistakeId = await upsertMistake(scope, input, iso);
-    } else if (input.isRetype && CREDIT_VERDICTS.has(input.verdict)) {
+    } else if (input.isRetype && right) {
       await creditRetype(scope, input, iso);
     }
 

@@ -831,6 +831,8 @@ function validateAttempt(body: Record<string, unknown>): AttemptValidation {
       revealed: Boolean(body.revealed),
       isRetype: Boolean(body.isRetype),
       resolved: Boolean(body.resolved),
+      // Left undefined when not sent, which an older client does not.
+      requireRetype: body.requireRetype === undefined ? undefined : Boolean(body.requireRetype),
       // A duration that is not a number is no duration. It used to become NaN,
       // reach `study_days.seconds_active` through the arithmetic below it, fail
       // the NOT NULL constraint, and take the whole answer down with a 500.
