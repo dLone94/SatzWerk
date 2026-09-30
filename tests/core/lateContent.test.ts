@@ -389,6 +389,9 @@ describe('free writing asks for what the task says', () => {
         'Die Reform wurde beschlossen. Sie hat Auswirkungen auf viele Familien. Die Folgen sind noch nicht absehbar.',
       'b2u4l3-ex3-s1':
         'Ich schreibe Ihnen wegen der beschädigten Lieferung. Trotz zweier Anrufe hat sich nichts geändert. Ich bitte um Ersatz bis zum 15. Mai. Andernfalls trete ich vom Kauf zurück.',
+      // "Use gekriegt or geklappt": gekriegt used to be refused.
+      'b2-lcp-10-s1':
+        'Ich hab die Lieferung kaputt gekriegt. Echt ärgerlich. Aufgrund des Schadens bitte ich um Ersatz.',
     };
     const out: string[] = [];
     for (const [id, text] of Object.entries(texts)) {
@@ -554,31 +557,43 @@ describe('figures written as digits', () => {
   /*
    * The B2 lesson on reporting figures writes "um 10 %" and "30 %" in its own
    * table, and then marked "um 10 Prozent" and "um 10 %" as vocabulary
-   * mistakes; at B1 "um 10 Uhr" and "5 Euro" were wrong too. Where a B1 or B2
-   * answer spells out a percentage, an amount of euros or a clock time, the
-   * digits are right as well (and a heard number can be written either way).
+   * mistakes; at B1 "um 10 Uhr" and "5 Euro" were wrong too, and so were
+   * "2 Wochen", "3 Monate" and "seit 5 Jahren", even in a dictation where the
+   * audio cannot say which form is wanted. Where a B1 or B2 answer, or a
+   * scenario from A2 on, spells out a percentage, an amount of euros, a clock
+   * time or a stretch of days, weeks, months or years, the digits are right
+   * as well.
    */
   const WORDS: Record<string, string> = {
+    zwei: '2',
+    drei: '3',
+    vier: '4',
     fünf: '5',
+    acht: '8',
+    neun: '9',
     zehn: '10',
     zwölf: '12',
     sechzehn: '16',
     dreißig: '30',
     neunhundert: '900',
   };
-  const figure = new RegExp(`\\b(${Object.keys(WORDS).join('|')}) (Prozent|Euro|Uhr)\\b`);
+  const figure = new RegExp(
+    `\\b(${Object.keys(WORDS).join('|')}) (Prozent|Euro|Uhr|Tage|Tagen|Wochen|Monate|Monaten|Jahre|Jahren)\\b`,
+    'i',
+  );
 
-  it('accepts the digits wherever a percentage, a price or a time is spelled out', () => {
+  it('accepts the digits wherever a percentage, a price, a time or a duration is spelled out', () => {
     const exercises = [
-      ...availableLessons().flatMap((lesson) => lessonExercises(lesson)),
-      ...allCheckpoints()
-        .filter((checkpoint) => checkpoint.scope !== 'placement')
-        .flatMap((checkpoint) => checkpoint.exercises),
-    ].filter(
-      (exercise) =>
-        ['b1', 'b2'].includes(exercise.level) &&
-        ['type', 'dictation', 'partialRecall'].includes(exercise.kind),
-    );
+      ...[
+        ...availableLessons().flatMap((lesson) => lessonExercises(lesson)),
+        ...allCheckpoints()
+          .filter((checkpoint) => checkpoint.scope !== 'placement')
+          .flatMap((checkpoint) => checkpoint.exercises),
+      ].filter((exercise) => ['b1', 'b2'].includes(exercise.level)),
+      ...SCENARIO_SCRIPTS.filter((script) => ['a2', 'b1', 'b2'].includes(script.level)).flatMap((script) =>
+        script.beats.flatMap((beat) => (beat.who === 'you' ? [beat.exercise] : [])),
+      ),
+    ].filter((exercise) => ['type', 'dictation', 'partialRecall'].includes(exercise.kind));
     const out: string[] = [];
     let checked = 0;
     for (const exercise of exercises) {
@@ -586,7 +601,7 @@ describe('figures written as digits', () => {
         const answer = entry.answer.accepted[0]!;
         const match = figure.exec(answer);
         if (!match || entry.scaffold) continue;
-        const digits = answer.replace(figure, `${WORDS[match[1]!]} ${match[2]}`);
+        const digits = answer.replace(figure, `${WORDS[match[1]!.toLowerCase()]} ${match[2]}`);
         const forms = match[2] === 'Prozent' ? [digits, digits.replace(' Prozent', ' %')] : [digits];
         for (const form of forms) {
           checked += 1;

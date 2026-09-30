@@ -523,7 +523,12 @@ const BANK_A2 = script({
           ),
           prompt: bi('Yes, for two weeks.', 'Да, от две седмици.'),
           answer: 'Ja, seit zwei Wochen.',
-          alternatives: ['Ja, seit zwei Wochen bin ich angemeldet.', 'Ja, ich bin seit zwei Wochen gemeldet.'],
+          alternatives: [
+            'Ja, seit zwei Wochen bin ich angemeldet.',
+            'Ja, ich bin seit zwei Wochen gemeldet.',
+            'Ja, seit 2 Wochen.',
+            'Ja, ich bin seit 2 Wochen gemeldet.',
+          ],
           shape: 'phrase',
           reviewTargets: ['v-sich-anmelden', 'v-die-woche'],
           hints: [bi('Four words.', 'Четири думи.')],
@@ -656,7 +661,12 @@ const BANK_B1 = script({
           ),
           prompt: bi('Two years.', 'Две години.'),
           answer: 'Ich bin seit zwei Jahren dort versichert.',
-          alternatives: ['Seit zwei Jahren bin ich dort versichert.', 'Ich bin dort seit zwei Jahren versichert.'],
+          alternatives: [
+            'Seit zwei Jahren bin ich dort versichert.',
+            'Ich bin dort seit zwei Jahren versichert.',
+            'Ich bin seit 2 Jahren dort versichert.',
+            'Seit 2 Jahren bin ich dort versichert.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-versichert', 'v-das-jahr'],
           hints: [

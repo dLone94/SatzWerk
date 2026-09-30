@@ -583,6 +583,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('Primary school lasts four years.', 'Началното училище трае четири години.'),
             answer: 'Die Grundschule dauert vier Jahre.',
+            alternatives: ['Die Grundschule dauert 4 Jahre.'],
             reviewTargets: ['v-die-grundschule'],
             hints: [],
           },

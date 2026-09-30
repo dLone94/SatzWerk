@@ -347,6 +347,10 @@ describe('scenario answers without a filler nobody asked for', () => {
     'sc-work-b2-t4-s1': ['Ich halte das im Protokoll fest.'],
     'sc-kita-b1-t4-s1': ['Dann lesen wir ihm öfter vor.', 'Das machen wir.'],
     'sc-kita-b2-t1-s1': ['Ich wollte das Thema Betreuungsschlüssel ansprechen.'],
+    // "This is your first time." asks for no "Nein".
+    'sc-doctor-a1-t2-s1': ['Ich bin neu hier.', 'Ich war noch nie hier.', 'Zum ersten Mal.'],
+    // "Say that is very kind.": in German that sentence is the thanks.
+    'sc-neighbours-a1-t3-s1': ['Das ist sehr nett!', 'Das ist sehr freundlich!'],
   };
 
   it('accepts the sentence without it', () => {
@@ -357,8 +361,14 @@ describe('scenario answers without a filler nobody asked for', () => {
     expect(rejected).toEqual([]);
   });
 
-  it('still asks for the yes where the prompt does', () => {
+  it('still asks for the yes where the prompt or the task does', () => {
     expect(isClean('Seit zwei Wochen.', 'sc-bank-a2-t2-s1')).toBe(false);
     expect(isClean('Ich möchte einen Tisch reservieren.', 'sc-restaurant-a2-t1-s1')).toBe(false);
+    // The task shown above these prompts reads "Say yes, and give both
+    // reasons" and "Say no", so the yes and the no are part of what is asked.
+    expect(
+      isClean('Ich bin mit dem Service nicht zufrieden, und der Zusatzbeitrag ist gestiegen.', 'sc-bank-b1-t1-s1'),
+    ).toBe(false);
+    expect(isClean('Im Moment nichts.', 'sc-pharmacy-a1-t2-s1')).toBe(false);
   });
 });

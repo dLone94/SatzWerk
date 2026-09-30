@@ -1045,6 +1045,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('Carrying the project out takes three months.', 'Провеждането на проекта отнема три месеца.'),
             answer: 'Die Durchführung des Projekts dauert drei Monate.',
+            alternatives: ['Die Durchführung des Projekts dauert 3 Monate.'],
             reviewTargets: ['p-nominalisierung-genitiv', 'v-die-durchfuehrung'],
             hints: [],
             traps: [
@@ -1121,6 +1122,8 @@ const lesson3: Lesson = {
         {
           instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
           answer: 'Die Durchführung des Projekts dauert drei Monate.',
+          // A number heard can be written either way; nothing in the audio says which.
+          alternatives: ['Die Durchführung des Projekts dauert 3 Monate.'],
           shape: 'sentence',
           hints: [],
         },
@@ -1141,6 +1144,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('Carrying the project out takes three months.', 'Провеждането на проекта отнема три месеца.'),
             answer: 'Die Durchführung des Projekts dauert drei Monate.',
+            alternatives: ['Die Durchführung des Projekts dauert 3 Monate.'],
             hints: [],
           },
           {
@@ -1264,6 +1268,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('Carrying the project out takes three months.', 'Провеждането на проекта отнема три месеца.'),
           answer: 'Die Durchführung des Projekts dauert drei Monate.',
+          alternatives: ['Die Durchführung des Projekts dauert 3 Monate.'],
           hints: [],
         },
         {
@@ -1284,6 +1289,8 @@ const checkpoint: Checkpoint = {
         {
           instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
           answer: 'Die Durchführung des Projekts dauert drei Monate.',
+          // A number heard can be written either way; nothing in the audio says which.
+          alternatives: ['Die Durchführung des Projekts dauert 3 Monate.'],
           shape: 'sentence',
           hints: [],
         },

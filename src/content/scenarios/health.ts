@@ -73,7 +73,13 @@ const DOCTOR_A1 = script({
           id: 'sc-doctor-a1-t2-s1',
           prompt: bi('This is your first time.', 'За пръв път ти е.'),
           answer: 'Nein, ich bin neu hier.',
-          alternatives: ['Nein, ich war noch nie hier.', 'Nein, zum ersten Mal.'],
+          alternatives: [
+            'Nein, ich war noch nie hier.',
+            'Nein, zum ersten Mal.',
+            'Ich bin neu hier.',
+            'Ich war noch nie hier.',
+            'Zum ersten Mal.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-neu'],
           hints: [bi('"I am new here" works word for word.', '„Нов съм тук“ работи дума по дума.')],
@@ -189,11 +195,11 @@ const DOCTOR_A2 = script({
           alternatives: [
             'Seit drei Tagen habe ich Halsschmerzen.',
             'Mir tut seit drei Tagen der Hals weh.',
-            // The prompt says the throat hurts, and "Mein Hals tut weh" is the
-            // shape A1 taught for exactly that.
             'Mein Hals tut seit drei Tagen weh.',
             'Seit drei Tagen tut mein Hals weh.',
             'Seit drei Tagen tut mir der Hals weh.',
+            'Ich habe seit 3 Tagen Halsschmerzen.',
+            'Seit 3 Tagen habe ich Halsschmerzen.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-hals', 'v-schmerzen'],

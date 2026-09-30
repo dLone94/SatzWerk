@@ -610,6 +610,7 @@ const lesson2: Lesson = {
               'По време на изпитателния срок предизвестието е две седмици.',
             ),
             answer: 'Während der Probezeit beträgt die Kündigungsfrist zwei Wochen.',
+            alternatives: ['Während der Probezeit beträgt die Kündigungsfrist 2 Wochen.'],
             reviewTargets: ['v-die-probezeit', 'v-die-kuendigungsfrist'],
             hints: [],
           },
@@ -622,6 +623,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('The contract is limited to two years.', 'Договорът е срочен, за две години.'),
             answer: 'Der Vertrag ist auf zwei Jahre befristet.',
+            alternatives: ['Der Vertrag ist auf 2 Jahre befristet.'],
             reviewTargets: ['v-der-arbeitsvertrag'],
             hints: [],
           },
@@ -1088,6 +1090,7 @@ const checkpoint: Checkpoint = {
             'По време на изпитателния срок предизвестието е две седмици.',
           ),
           answer: 'Während der Probezeit beträgt die Kündigungsfrist zwei Wochen.',
+          alternatives: ['Während der Probezeit beträgt die Kündigungsfrist 2 Wochen.'],
           hints: [],
         },
       ]),

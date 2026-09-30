@@ -288,7 +288,7 @@ export const B2_LEVEL_CHECKPOINT: Checkpoint = {
         ),
         answer:
           'Die Lieferung ist kaputt angekommen, hat überhaupt nicht geklappt. Aufgrund des Mangels bitte ich um eine Rückerstattung des Kaufpreises.',
-        requiredTokens: ['geklappt', 'bitte'],
+        requiredTokens: ['geklappt|gekriegt', 'bitte'],
         shape: 'sentence',
         hints: [],
       },

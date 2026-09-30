@@ -185,6 +185,8 @@ const WORK_B1 = script({
             'Ich arbeite seit fünf Jahren in der Logistik und würde gern mehr Verantwortung übernehmen.',
             'Seit fünf Jahren arbeite ich in der Logistik und möchte mehr Verantwortung übernehmen.',
             'Seit fünf Jahren bin ich in der Logistik und möchte mehr Verantwortung übernehmen.',
+            'Ich arbeite seit 5 Jahren in der Logistik und möchte mehr Verantwortung übernehmen.',
+            'Seit 5 Jahren arbeite ich in der Logistik und möchte mehr Verantwortung übernehmen.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-die-erfahrung', 'v-sich-bewerben'],
@@ -274,6 +276,8 @@ const WORK_B1 = script({
           alternatives: [
             'Ich habe drei Monate Kündigungsfrist.',
             'Meine Kündigungsfrist beträgt drei Monate, also ab dem ersten Juli.',
+            'Meine Kündigungsfrist beträgt 3 Monate.',
+            'Ich habe 3 Monate Kündigungsfrist.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-die-kuendigungsfrist', 'v-betragen'],
@@ -403,6 +407,8 @@ const WORK_B2 = script({
           alternatives: [
             'Können wir uns auf zehn Tage einigen? Dann schaffen wir die wichtigsten Tests.',
             'Einigen wir uns auf zehn Tage, dann sind die wichtigsten Tests durch.',
+            'Einigen wir uns auf 10 Tage, dann schaffen wir die wichtigsten Tests.',
+            'Können wir uns auf 10 Tage einigen? Dann schaffen wir die wichtigsten Tests.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-sich-einigen', 'v-der-kompromiss'],
