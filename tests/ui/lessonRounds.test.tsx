@@ -99,7 +99,11 @@ function Harness({
   };
   const value = stubState({
     lessons,
-    lessonProgress: (id) => lessons[id] ?? emptyLessonProgress(id),
+    // The mirror, as AppState reads it: the end of a round asks right after
+    // its last answer was applied, before React has rendered it. Read from
+    // state, a slow runner saw the progress one answer behind and skipped the
+    // Quick redo.
+    lessonProgress: of,
     submitAttempt: async (payload) => {
       calls.attempts.push(payload);
       // As on the server: only a lesson's own practice moves its progress.
@@ -112,6 +116,7 @@ function Harness({
           hintsUsed: payload.hintsUsed,
           revealed: payload.revealed,
           resolved: payload.resolved,
+          requireRetype: payload.requireRetype,
           now: NOW,
         }),
       );
@@ -233,7 +238,8 @@ describe('moving from one lesson to the next', () => {
     );
     await user.click(screen.getByRole('button', { name: tr('lessonMastery', 'en') }));
     await play(user, L2.mastery.exercises, { right: () => true, done: () => Boolean(document.querySelector('.done-hero')) });
-    expect(document.querySelector('.done-hero')).not.toBeNull();
+    // The result saves before the celebration shows.
+    await waitFor(() => expect(document.querySelector('.done-hero')).not.toBeNull());
 
     await user.click(screen.getByRole('link', { name: 'elsewhere' }));
     expect(document.querySelector('.done-hero')).toBeNull();
@@ -297,7 +303,8 @@ describe('a step that does not ask for a retype', () => {
       expect(calls.attempts.some((attempt) => attempt.stepId === id && attempt.isRetype && attempt.resolved)).toBe(true);
     }
     await play(user, L2.mastery.exercises, { right: () => true, done: () => Boolean(document.querySelector('.done-hero')) });
-    expect(document.querySelector('.done-hero')).not.toBeNull();
+    // The result saves before the celebration shows.
+    await waitFor(() => expect(document.querySelector('.done-hero')).not.toBeNull());
     expect(calls.completed).toEqual([L2.id]);
   });
 
@@ -321,7 +328,7 @@ describe('a step that does not ask for a retype', () => {
     expect(stepIdOnScreen()).toBe(open);
 
     await play(user, L2.exercises, { right: () => true, done: () => Boolean(document.querySelector('.done-hero')) });
-    expect(document.querySelector('.done-hero')).not.toBeNull();
+    await waitFor(() => expect(document.querySelector('.done-hero')).not.toBeNull());
     expect(calls.mastery).toHaveLength(1);
     expect(calls.completed).toEqual([L2.id]);
   });
