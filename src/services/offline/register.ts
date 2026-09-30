@@ -30,4 +30,61 @@ export function registerServiceWorker(): void {
 
   if (document.readyState === 'complete') start();
   else window.addEventListener('load', start, { once: true });
+
+  watchForNewBuild();
+}
+
+/**
+ * Long enough away that reloading interrupts nothing: the learner put the
+ * phone down, not glanced at a message. A lesson left half-way resumes at its
+ * first unfinished step, and anything unsent is in the outbox, so a reload
+ * after this long costs nothing.
+ */
+const AWAY_MS = 10 * 60_000;
+
+/**
+ * Pick up a new build when an app left open comes back to the front.
+ *
+ * The worker's file is the same from deploy to deploy, so nothing ever told a
+ * running page there was a new version, and iOS keeps a Home Screen app in
+ * memory for days: it went on running the build it started with. So when the
+ * app comes back after a while away, the current build's file list is asked
+ * for, and if the script this page is running is no longer in it, the page
+ * reloads. Without a signal nothing happens; the old build still works.
+ *
+ * Returns a function that stops watching (for tests).
+ */
+export function watchForNewBuild(reload: () => void = () => window.location.reload()): () => void {
+  let hiddenAt = 0;
+  const onVisibility = () => {
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now();
+      return;
+    }
+    if (hiddenAt === 0 || Date.now() - hiddenAt < AWAY_MS) return;
+    hiddenAt = 0;
+    void newBuildIsOut().then((changed) => {
+      if (changed) reload();
+    });
+  };
+  document.addEventListener('visibilitychange', onVisibility);
+  return () => document.removeEventListener('visibilitychange', onVisibility);
+}
+
+async function newBuildIsOut(): Promise<boolean> {
+  const running = [...document.querySelectorAll<HTMLScriptElement>('script[src]')]
+    .map((script) => new URL(script.src, window.location.href).pathname)
+    .filter((path) => path.startsWith('/assets/'));
+  // A dev server serves source files, not a build: nothing to compare.
+  if (running.length === 0) return false;
+  try {
+    const response = await fetch('/asset-manifest.json', { cache: 'no-store' });
+    if (!response.ok) return false;
+    const manifest = (await response.json()) as { files?: unknown };
+    if (!Array.isArray(manifest.files) || manifest.files.length === 0) return false;
+    const current = new Set(manifest.files);
+    return running.some((path) => !current.has(path));
+  } catch {
+    return false;
+  }
 }

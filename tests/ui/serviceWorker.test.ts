@@ -35,7 +35,8 @@ function cacheStorage(network: (url: string) => Response | Promise<Response>) {
     const store = stores.get(name) ?? new Map<string, Response>();
     stores.set(name, store);
     return {
-      match: async (request: { url: string } | string) => store.get(key(request)),
+      // A fresh copy each time, as a real cache hands back.
+      match: async (request: { url: string } | string) => store.get(key(request))?.clone(),
       put: async (request: { url: string } | string, response: Response) => {
         // As a real browser does: a partial response cannot be stored.
         if (response.status === 206) throw new TypeError('Partial response (status code 206) is unsupported');
@@ -49,6 +50,7 @@ function cacheStorage(network: (url: string) => Response | Promise<Response>) {
         store.set(key(url), response);
       },
       keys: async () => [...store.keys()].map((url) => ({ url })),
+      delete: async (request: { url: string } | string) => store.delete(key(request)),
     };
   };
 
@@ -61,7 +63,7 @@ function cacheStorage(network: (url: string) => Response | Promise<Response>) {
       match: async (request: { url: string } | string) => {
         for (const store of stores.values()) {
           const hit = store.get(key(request));
-          if (hit) return hit;
+          if (hit) return hit.clone();
         }
         return undefined;
       },
@@ -74,6 +76,8 @@ interface Harness {
   request: (
     input: { method?: string; url: string; mode?: string; headers?: Record<string, string> },
   ) => Promise<{ handled: boolean; response?: Response; error?: unknown }>;
+  /** Everything the worker asked to be kept alive for after answering. */
+  background: () => Promise<unknown>;
   caches: ReturnType<typeof cacheStorage>;
   fetch: ReturnType<typeof vi.fn>;
   claimed: () => boolean;
@@ -85,6 +89,7 @@ function load(
   const listeners = new Map<string, (event: unknown) => void>();
   const store = cacheStorage(network as (url: string) => Response | Promise<Response>);
   let claimed = false;
+  const kept: Array<Promise<unknown>> = [];
 
   const fetchStub = vi.fn(async (input: string | { url: string; headers?: Headers }) => {
     const url = typeof input === 'string' ? new URL(input, 'https://satzwerk.test').toString() : input.url;
@@ -122,6 +127,7 @@ function load(
     caches: store,
     fetch: fetchStub,
     claimed: () => claimed,
+    background: () => Promise.all(kept),
     async fire(type) {
       const waits: Array<Promise<unknown>> = [];
       listeners.get(type)?.({ waitUntil: (value: Promise<unknown>) => waits.push(value) });
@@ -134,7 +140,9 @@ function load(
         respondWith: (value) => {
           answered = value;
         },
-        waitUntil: () => undefined,
+        waitUntil: (value) => {
+          kept.push(value);
+        },
       };
       listeners.get('fetch')?.(event as unknown);
       if (answered === undefined) return { handled: false };
@@ -328,3 +336,148 @@ describe('a recording asked for in pieces, as Safari does', () => {
   });
 });
 
+
+/** Every key the worker holds, as paths. */
+async function heldPaths(worker: Harness): Promise<string[]> {
+  return [...worker.caches.stores.values()].flatMap((store) => [...store.keys()]).map((url) => new URL(url).pathname);
+}
+
+/*
+ * A weak signal opened a blank screen.
+ *
+ * Pages were network-first with no deadline. With bars on the phone but no
+ * data arriving — the U-Bahn, a captive wifi — the worker's fetch just waited,
+ * and the Home Screen app showed no document at all for as long as the
+ * network took to give up.
+ */
+describe('opening the app on a signal that carries nothing', () => {
+  it('answers from the cache after a short wait, and updates it when the network answers', async () => {
+    await sw.fire('install');
+    let answer: (response: Response) => void = () => {};
+    const stalled = load((url) => {
+      if (url.endsWith('/asset-manifest.json')) return ok(JSON.stringify({ files: ['/assets/app-abc123.js'] }));
+      return new Promise<Response>((resolve) => {
+        answer = resolve;
+      });
+    });
+    stalled.caches.stores.set('satzwerk-app-v1', sw.caches.stores.get('satzwerk-app-v1')!);
+
+    vi.useFakeTimers();
+    try {
+      const pending = stalled.request({ url: '/lesson/pre-a1-u1-l1', mode: 'navigate' });
+      await vi.advanceTimersByTimeAsync(3_500);
+      const result = await pending;
+      expect(result.error).toBeUndefined();
+      expect(await result.response!.text()).toContain('/index.html');
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // The network answers late; the next open gets what it said.
+    answer(ok('the new shell'));
+    await stalled.background();
+    const shell = await stalled.caches.api.match('/index.html');
+    expect(await shell!.text()).toBe('the new shell');
+  });
+
+  it('still waits for the network on a first visit, when nothing is held', async () => {
+    const slow = load(
+      (url) => new Promise<Response>((resolve) => setTimeout(() => resolve(served([])(url)), 3_200)),
+    );
+    vi.useFakeTimers();
+    try {
+      const pending = slow.request({ url: '/', mode: 'navigate' });
+      await vi.advanceTimersByTimeAsync(4_000);
+      const result = await pending;
+      expect(result.error).toBeUndefined();
+      expect(result.response!.status).toBe(200);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+/*
+ * Old builds were never removed, and offline the app could open a weeks-old
+ * version.
+ *
+ * sw.js does not change between deploys, so the cache was never replaced:
+ * every deploy's bundle stayed in it, each visited route kept its own copy of
+ * the page, and the offline fallback '/index.html' was the copy from the day
+ * the worker was installed — which loaded the old bundle, still in the cache.
+ */
+describe('a new deploy', () => {
+  const deploy = (files: string[], shell: string) => (url: string) => {
+    if (url.endsWith('/asset-manifest.json')) return ok(JSON.stringify({ files }));
+    if (new URL(url).pathname.startsWith('/assets/') || url.endsWith('.png') || url.endsWith('.webmanifest')) {
+      return ok(`body of ${url}`);
+    }
+    return new Response(shell, { status: 200, headers: { 'Content-Type': 'text/html' } });
+  };
+
+  it('keeps one copy of the page, the newest, for every route', async () => {
+    let network = deploy(['/assets/app-abc123.js'], 'shell one');
+    const worker = load((url) => network(url));
+    await worker.fire('install');
+
+    network = deploy(['/assets/app-def456.js'], 'shell two');
+    await worker.request({ url: '/lesson/pre-a1-u1-l1', mode: 'navigate' });
+    await worker.background();
+
+    expect(await heldPaths(worker)).not.toContain('/lesson/pre-a1-u1-l1');
+    expect(await (await worker.caches.api.match('/index.html'))!.text()).toBe('shell two');
+
+    // Offline, a route nobody visited opens the newest page.
+    const dark = load(offline as unknown as (url: string) => Promise<never>);
+    dark.caches.stores.set('satzwerk-app-v1', worker.caches.stores.get('satzwerk-app-v1')!);
+    const result = await dark.request({ url: '/vocabulary', mode: 'navigate' });
+    expect(await result.response!.text()).toBe('shell two');
+  });
+
+  it('sweeps the old build and fetches the whole new one, and leaves recordings alone', async () => {
+    let network = deploy(['/assets/app-abc123.js', '/assets/app-abc123.css'], 'shell one');
+    const worker = load((url) => network(url));
+    await worker.fire('install');
+    const cache = await worker.caches.api.open('satzwerk-app-v1');
+    await cache.put({ url: 'https://satzwerk.test/audio/de/abc.mp3' }, ok('clip'));
+    // A page copy an older worker kept per route.
+    await cache.put(
+      { url: 'https://satzwerk.test/review' },
+      new Response('old shell', { status: 200, headers: { 'Content-Type': 'text/html' } }),
+    );
+
+    network = deploy(['/assets/app-def456.js', '/assets/app-def456.css'], 'shell two');
+    await worker.request({ url: '/', mode: 'navigate' });
+    await worker.background();
+
+    const held = await heldPaths(worker);
+    expect(held).not.toContain('/assets/app-abc123.js');
+    expect(held).not.toContain('/assets/app-abc123.css');
+    expect(held).not.toContain('/review');
+    // The new build is all there for the next time there is no signal.
+    expect(held).toContain('/assets/app-def456.js');
+    expect(held).toContain('/assets/app-def456.css');
+    expect(held).toContain('/audio/de/abc.mp3');
+  });
+
+  it('sweeps nothing when it cannot read the new build\'s list', async () => {
+    let manifestUp = true;
+    const worker = load((url) => {
+      if (url.endsWith('/asset-manifest.json') && !manifestUp) return Promise.reject(new TypeError('offline'));
+      return served(['/assets/app-abc123.js'])(url);
+    });
+    await worker.fire('install');
+    manifestUp = false;
+    await worker.request({ url: '/', mode: 'navigate' });
+    await worker.background();
+    expect(await heldPaths(worker)).toContain('/assets/app-abc123.js');
+  });
+
+  it('sweeps old files when a worker activates', async () => {
+    const worker = load(served(['/assets/app-def456.js']));
+    const cache = await worker.caches.api.open('satzwerk-app-v1');
+    await cache.put({ url: 'https://satzwerk.test/assets/app-abc123.js' }, ok('old'));
+    await worker.fire('activate');
+    expect(await heldPaths(worker)).not.toContain('/assets/app-abc123.js');
+  });
+});
