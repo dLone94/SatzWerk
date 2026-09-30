@@ -260,6 +260,7 @@ const lesson1: Lesson = {
           {
             prompt: bi('I agree with you on that.', 'Тук съм съгласен с теб.'),
             answer: 'Da stimme ich dir zu.',
+            alternatives: ['Ich stimme dir da zu.', 'Ich stimme dir zu.'],
             reviewTargets: ['v-zustimmen'],
             hints: [],
             traps: [
@@ -337,6 +338,7 @@ const lesson1: Lesson = {
           {
             prompt: bi('I agree with you on that.', 'Тук съм съгласен с теб.'),
             answer: 'Da stimme ich dir zu.',
+            alternatives: ['Ich stimme dir da zu.', 'Ich stimme dir zu.'],
             hints: [],
           },
         ]),
@@ -572,6 +574,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('I work from home twice a week.', 'Работя от вкъщи два пъти седмично.'),
             answer: 'Ich arbeite zweimal pro Woche im Homeoffice.',
+            alternatives: ['Zweimal pro Woche arbeite ich im Homeoffice.'],
             reviewTargets: ['v-das-homeoffice'],
             hints: [],
           },

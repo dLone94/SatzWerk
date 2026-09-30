@@ -610,8 +610,8 @@ const lesson3: Lesson = {
         {
           t: 'p',
           text: bi(
-            '"Ich bin gewesen" is correct German that nobody says. For sein, haben and es gibt, spoken German keeps an older, shorter past — and you will hear it in the first sentence of any story about the weekend.',
-            '„Ich bin gewesen“ е правилен немски, който никой не казва. При sein, haben и es gibt говоримият немски пази по-старо и по-кратко минало — и ще го чуеш в първото изречение на всеки разказ за уикенда.',
+            '"Ich bin gewesen" is correct German, but it is not what you will usually hear. For sein, haben and es gibt, spoken German mostly keeps an older, shorter past — and you will hear it in the first sentence of any story about the weekend.',
+            '„Ich bin gewesen“ е правилен немски, но не е това, което обикновено ще чуеш. При sein, haben и es gibt говоримият немски най-често пази по-старо и по-кратко минало — и ще го чуеш в първото изречение на всеки разказ за уикенда.',
           ),
         },
       ],
@@ -658,8 +658,8 @@ const lesson3: Lesson = {
         {
           t: 'list',
           items: [
-            bi('war, not bin gewesen.', 'war, не bin gewesen.'),
-            bi('hatte, not habe gehabt.', 'hatte, не habe gehabt.'),
+            bi('war, rather than bin gewesen.', 'war, а не толкова bin gewesen.'),
+            bi('hatte, rather than habe gehabt.', 'hatte, а не толкова habe gehabt.'),
             bi('es gab, for "there was".', 'es gab за „имаше“.'),
             bi('ich and er/sie/es are the same: war, hatte.', 'ich и er/sie/es съвпадат: war, hatte.'),
           ],
@@ -685,19 +685,19 @@ const lesson3: Lesson = {
           {
             prompt: bi('Last weekend I was in Berlin.', 'Миналия уикенд бях в Берлин.'),
             answer: 'Letztes Wochenende war ich in Berlin.',
-            alternatives: ['Ich war letztes Wochenende in Berlin.'],
+            /*
+             * The Perfekt was a trap here, at no credit, although the lesson
+             * before teaches "Ich bin in Berlin gewesen" as its model sentence
+             * and the grammar says the Perfekt forms are not wrong. Credited,
+             * with war shown as the form this lesson is about.
+             */
+            alternatives: [
+              'Ich war letztes Wochenende in Berlin.',
+              'Letztes Wochenende bin ich in Berlin gewesen.',
+              'Ich bin letztes Wochenende in Berlin gewesen.',
+            ],
             reviewTargets: ['p-war-hatte'],
             hints: [],
-            traps: [
-              {
-                answer: 'Letztes Wochenende bin ich in Berlin gewesen.',
-                category: 'verb-tense',
-                feedback: bi(
-                  'Not wrong, but nobody says it. For sein, German uses the simple past: war.',
-                  'Не е грешно, но никой не го казва. При sein немският използва простото минало: war.',
-                ),
-              },
-            ],
           },
           {
             prompt: bi('I had no time.', 'Нямах време.'),
@@ -780,7 +780,9 @@ const lesson3: Lesson = {
           answer:
             'Letztes Wochenende war ich zu Hause. Ich habe viel gelesen. Am Sonntag bin ich zum Park gegangen. Es war super.',
           shape: 'sentence',
-          requiredTokens: ['war', 'habe', 'bin'],
+          // Any form of the two helpers: "we went" is as much a sein-participle
+          // as "I went".
+          requiredTokens: ['war', 'habe|hast|hat|haben|habt', 'bin|bist|ist|sind|seid'],
           hints: [],
         },
       ]),
@@ -882,7 +884,11 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('Last weekend I was in Berlin.', 'Миналия уикенд бях в Берлин.'),
           answer: 'Letztes Wochenende war ich in Berlin.',
-          alternatives: ['Ich war letztes Wochenende in Berlin.'],
+          alternatives: [
+            'Ich war letztes Wochenende in Berlin.',
+            'Letztes Wochenende bin ich in Berlin gewesen.',
+            'Ich bin letztes Wochenende in Berlin gewesen.',
+          ],
           hints: [],
         },
         {

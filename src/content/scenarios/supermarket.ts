@@ -143,7 +143,7 @@ const A2 = script({
           ),
           prompt: bi('You cannot find the milk.', 'Не намираш млякото.'),
           answer: 'Entschuldigung, wo finde ich die Milch?',
-          alternatives: ['Wo finde ich die Milch?', 'Entschuldigung, wo ist die Milch?'],
+          alternatives: ['Wo finde ich die Milch?', 'Entschuldigung, wo ist die Milch?', 'Wo ist die Milch?'],
           shape: 'sentence',
           reviewTargets: ['v-milch', 'v-finden'],
           hints: [
@@ -173,19 +173,17 @@ const A2 = script({
           ),
           prompt: bi('Ask whether you get a deposit back for these bottles.', 'Попитай дали получаваш депозит за тези бутилки.'),
           answer: 'Bekomme ich für diese Flaschen Pfand?',
-          alternatives: ['Gibt es für diese Flaschen Pfand?', 'Kann ich diese Flaschen zurückgeben?'],
+          // "Pfand zurückbekommen" is ordinary German, and the prompt itself
+          // says "back"; it used to be a trap that called zurück an extra word.
+          alternatives: [
+            'Gibt es für diese Flaschen Pfand?',
+            'Kann ich diese Flaschen zurückgeben?',
+            'Bekomme ich für diese Flaschen Pfand zurück?',
+            'Bekomme ich für diese Flaschen das Pfand zurück?',
+            'Bekomme ich das Pfand zurück?',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-flasche'],
-          traps: [
-            {
-              answer: 'Bekomme ich für diese Flaschen Pfand zurück?',
-              category: 'extra-word',
-              feedback: bi(
-                'Close, but "Pfand bekommen" already means getting it back; zurück doubles it. Say either "Bekomme ich Pfand?" or "Bekomme ich das Pfand zurück?".',
-                'Близо, но „Pfand bekommen“ вече значи да си го получиш; „zurück“ го удвоява. Или „Bekomme ich Pfand?“, или „Bekomme ich das Pfand zurück?“.',
-              ),
-            },
-          ],
           hints: [
             bi('Verb first: this is a yes/no question.', 'Първо глаголът: това е въпрос с „да/не“.'),
             bi('B_______ ich für diese Flaschen Pfand?', 'B_______ ich für diese Flaschen Pfand?'),
@@ -239,7 +237,7 @@ const A2 = script({
           id: 'sc-supermarket-a2-t4-s1',
           prompt: bi('Say that helped.', 'Кажи, че това е помогнало.'),
           answer: 'Alles klar, vielen Dank!',
-          alternatives: ['Super, vielen Dank!', 'Danke, das hilft mir!'],
+          alternatives: ['Super, vielen Dank!', 'Danke, das hilft mir!', 'Vielen Dank!'],
           shape: 'phrase',
           reviewTargets: ['v-helfen'],
           hints: [bi('"Alles klar" is the everyday "got it".', '„Alles klar“ е всекидневното „ясно“.')],

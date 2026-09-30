@@ -49,6 +49,9 @@ const BUERGERAMT_A2 = script({
           alternatives: [
             'Guten Tag, ich hätte gern einen Termin für die Anmeldung.',
             'Guten Tag, ich möchte mich anmelden und brauche einen Termin.',
+            'Ich brauche einen Termin für die Anmeldung.',
+            'Ich hätte gern einen Termin für die Anmeldung.',
+            'Ich möchte mich anmelden und brauche einen Termin.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-das-buergeramt', 'v-die-anmeldung', 'v-termin'],
@@ -166,7 +169,7 @@ const BUERGERAMT_B1 = script({
   lessonIds: ['b1-u2-l2'],
   outro: bi(
     'An Anmeldung is six questions and four documents. The German is easy; what makes it go wrong is not knowing which answer they need, and now you do.',
-    'Adresregistrацията е шест въпроса и четири документа. Немският е лесен; обърква се от това да не знаеш кой отговор им трябва — а сега знаеш.',
+    'Адресната регистрация е шест въпроса и четири документа. Немският е лесен; обърква се от това да не знаеш кой отговор им трябва — а сега знаеш.',
   ),
   beats: [
     them('Sie möchten sich anmelden? Ihren Ausweis, bitte.', bi('You want to register? Your ID, please.', 'Искате да се регистрирате? Личната карта, моля.')),
@@ -520,10 +523,15 @@ const BANK_A2 = script({
           ),
           prompt: bi('Yes, for two weeks.', 'Да, от две седмици.'),
           answer: 'Ja, seit zwei Wochen.',
-          alternatives: ['Ja, seit zwei Wochen bin ich angemeldet.', 'Ja, ich bin seit zwei Wochen gemeldet.'],
+          alternatives: [
+            'Ja, seit zwei Wochen bin ich angemeldet.',
+            'Ja, ich bin seit zwei Wochen gemeldet.',
+            'Ja, seit 2 Wochen.',
+            'Ja, ich bin seit 2 Wochen gemeldet.',
+          ],
           shape: 'phrase',
           reviewTargets: ['v-sich-anmelden', 'v-die-woche'],
-          hints: [bi('Three words.', 'Три думи.')],
+          hints: [bi('Four words.', 'Четири думи.')],
         },
       ],
       'a2',
@@ -653,7 +661,12 @@ const BANK_B1 = script({
           ),
           prompt: bi('Two years.', 'Две години.'),
           answer: 'Ich bin seit zwei Jahren dort versichert.',
-          alternatives: ['Seit zwei Jahren bin ich dort versichert.', 'Ich bin dort seit zwei Jahren versichert.'],
+          alternatives: [
+            'Seit zwei Jahren bin ich dort versichert.',
+            'Ich bin dort seit zwei Jahren versichert.',
+            'Ich bin seit 2 Jahren dort versichert.',
+            'Seit 2 Jahren bin ich dort versichert.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-versichert', 'v-das-jahr'],
           hints: [

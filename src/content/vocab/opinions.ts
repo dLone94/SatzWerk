@@ -139,7 +139,9 @@ const OPINION: VocabEntry[] = [
   {
     id: 'v-der-meinung-sein',
     german: 'finden',
-    display: 'finden (= to think)',
+    // display is spoken, recorded and checked against what the learner says,
+    // so it is German only; "to think" is in the translation.
+    display: 'finden',
     wordType: 'verb',
     perfect: { auxiliary: 'haben', participle: 'gefunden' },
     translation: { en: 'to think, to find (an opinion)', bg: 'смятам, намирам (за мнение)' },

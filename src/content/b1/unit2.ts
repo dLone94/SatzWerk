@@ -616,18 +616,16 @@ const lesson2: Lesson = {
           {
             prompt: bi('I hope to get an appointment soon.', 'Надявам се скоро да получа час.'),
             answer: 'Ich hoffe, bald einen Termin zu bekommen.',
+            /*
+             * The dass clause was a trap filed as a word-order mistake, at no
+             * credit, while its own feedback called it grammatically correct.
+             * It is correct: with the same subject in both halves the
+             * infinitive is lighter, not obligatory. Credited, with the
+             * infinitive shown as the form this lesson is about.
+             */
+            alternatives: ['Ich hoffe, dass ich bald einen Termin bekomme.'],
             reviewTargets: ['p-zu-infinitiv'],
             hints: [],
-            traps: [
-              {
-                answer: 'Ich hoffe, dass ich bald einen Termin bekomme.',
-                category: 'word-order',
-                feedback: bi(
-                  'Grammatically correct, but heavy — and German only needs dass when the two halves have different subjects. Here both are "ich", so the infinitive is the natural form: Ich hoffe, bald einen Termin zu bekommen.',
-                  'Граматично е вярно, но е тежко — а немският иска dass само когато двете части имат различни подлози. Тук и двете са „ich“, затова естественото е инфинитивът: Ich hoffe, bald einen Termin zu bekommen. Българското „да получа“ те кара да спрегнеш глагола; на немски той не се мени.',
-                ),
-              },
-            ],
           },
           {
             prompt: bi('It is important to register in good time.', 'Важно е да се регистрираш навреме.'),
@@ -750,6 +748,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('I hope to get an appointment soon.', 'Надявам се скоро да получа час.'),
             answer: 'Ich hoffe, bald einen Termin zu bekommen.',
+            alternatives: ['Ich hoffe, dass ich bald einen Termin bekomme.'],
             hints: [],
           },
           {
@@ -925,7 +924,7 @@ const lesson3: Lesson = {
           de: 'Die Bescheinigung wird Ihnen per Post geschickt.',
           gloss: bi(
             'The certificate will be sent to you by post.',
-            'Удостоверението ще ти бъде изпратено по пощата.',
+            'Удостоверението ще ви бъде изпратено по пощата.',
           ),
           audio: true,
         },
@@ -957,6 +956,11 @@ const lesson3: Lesson = {
           {
             prompt: bi('I have an appointment at ten.', 'Имам час в десет.'),
             answer: 'Ich habe einen Termin um zehn Uhr.',
+            alternatives: [
+              'Ich habe einen Termin um 10 Uhr.',
+              'Ich habe um zehn Uhr einen Termin.',
+              'Ich habe um 10 Uhr einen Termin.',
+            ],
             reviewTargets: ['v-termin'],
             hints: [],
           },
@@ -1023,7 +1027,7 @@ const lesson3: Lesson = {
           {
             prompt: bi(
               'The certificate will be sent to you by post.',
-              'Удостоверението ще ти бъде изпратено по пощата.',
+              'Удостоверението ще ви бъде изпратено по пощата.',
             ),
             answer: 'Die Bescheinigung wird Ihnen per Post geschickt.',
             reviewTargets: ['v-die-bescheinigung'],
@@ -1073,7 +1077,7 @@ const lesson3: Lesson = {
           {
             prompt: bi(
               'The certificate will be sent to you by post.',
-              'Удостоверението ще ти бъде изпратено по пощата.',
+              'Удостоверението ще ви бъде изпратено по пощата.',
             ),
             answer: 'Die Bescheinigung wird Ihnen per Post geschickt.',
             hints: [],
@@ -1138,6 +1142,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I hope to get an appointment soon.', 'Надявам се скоро да получа час.'),
           answer: 'Ich hoffe, bald einen Termin zu bekommen.',
+          alternatives: ['Ich hoffe, dass ich bald einen Termin bekomme.'],
           hints: [],
         },
         {

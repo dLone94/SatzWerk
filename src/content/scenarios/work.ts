@@ -49,6 +49,9 @@ const WORK_A2 = script({
           alternatives: [
             'Ja, ich bin Martin, ich arbeite in der Buchhaltung.',
             'Ja, Martin. Ich arbeite in der Buchhaltung.',
+            'Ich bin Martin. Ich arbeite in der Buchhaltung.',
+            'Ich bin Martin, ich arbeite in der Buchhaltung.',
+            'Martin. Ich arbeite in der Buchhaltung.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-arbeiten', 'v-die-abteilung'],
@@ -180,6 +183,10 @@ const WORK_B1 = script({
           alternatives: [
             'Ich bin seit fünf Jahren in der Logistik und möchte mehr Verantwortung übernehmen.',
             'Ich arbeite seit fünf Jahren in der Logistik und würde gern mehr Verantwortung übernehmen.',
+            'Seit fünf Jahren arbeite ich in der Logistik und möchte mehr Verantwortung übernehmen.',
+            'Seit fünf Jahren bin ich in der Logistik und möchte mehr Verantwortung übernehmen.',
+            'Ich arbeite seit 5 Jahren in der Logistik und möchte mehr Verantwortung übernehmen.',
+            'Seit 5 Jahren arbeite ich in der Logistik und möchte mehr Verantwortung übernehmen.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-die-erfahrung', 'v-sich-bewerben'],
@@ -269,6 +276,8 @@ const WORK_B1 = script({
           alternatives: [
             'Ich habe drei Monate Kündigungsfrist.',
             'Meine Kündigungsfrist beträgt drei Monate, also ab dem ersten Juli.',
+            'Meine Kündigungsfrist beträgt 3 Monate.',
+            'Ich habe 3 Monate Kündigungsfrist.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-die-kuendigungsfrist', 'v-betragen'],
@@ -398,6 +407,8 @@ const WORK_B2 = script({
           alternatives: [
             'Können wir uns auf zehn Tage einigen? Dann schaffen wir die wichtigsten Tests.',
             'Einigen wir uns auf zehn Tage, dann sind die wichtigsten Tests durch.',
+            'Einigen wir uns auf 10 Tage, dann schaffen wir die wichtigsten Tests.',
+            'Können wir uns auf 10 Tage einigen? Dann schaffen wir die wichtigsten Tests.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-sich-einigen', 'v-der-kompromiss'],
@@ -435,7 +446,13 @@ const WORK_B2 = script({
             'Кажи, че ще го запишеш в протокола.',
           ),
           answer: 'Gut, ich halte das im Protokoll fest.',
-          alternatives: ['Gut, ich nehme das ins Protokoll auf.', 'Gut, ich schreibe das ins Protokoll.'],
+          alternatives: [
+            'Gut, ich nehme das ins Protokoll auf.',
+            'Gut, ich schreibe das ins Protokoll.',
+            'Ich halte das im Protokoll fest.',
+            'Ich nehme das ins Protokoll auf.',
+            'Ich schreibe das ins Protokoll.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-das-protokoll'],
           hints: [
@@ -709,7 +726,12 @@ const KITA_B1 = script({
           id: 'sc-kita-b1-t4-s1',
           prompt: bi('Say you will read to him more often.', 'Кажи, че ще му четете по-често.'),
           answer: 'Gut, dann lesen wir ihm öfter vor.',
-          alternatives: ['Gut, das machen wir.', 'Dann lesen wir ihm öfter vor, danke!'],
+          alternatives: [
+            'Gut, das machen wir.',
+            'Dann lesen wir ihm öfter vor, danke!',
+            'Dann lesen wir ihm öfter vor.',
+            'Das machen wir.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-lesen'],
           hints: [
@@ -764,6 +786,9 @@ const KITA_B2 = script({
           alternatives: [
             'Ja, ich wollte kurz das Thema Betreuungsschlüssel ansprechen.',
             'Ja, ich würde gern das Thema Betreuungsschlüssel ansprechen.',
+            'Ich wollte das Thema Betreuungsschlüssel ansprechen.',
+            'Ich wollte kurz das Thema Betreuungsschlüssel ansprechen.',
+            'Ich würde gern das Thema Betreuungsschlüssel ansprechen.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-die-betreuung', 'v-der-elternabend'],

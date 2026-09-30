@@ -115,11 +115,23 @@ const PRE_A1 = script({
           instruction: bi('She used Sie with you.', 'Тя ти говори на „Sie“.'),
           prompt: bi('Now say goodbye, formally.', 'Сега се сбогувай официално.'),
           answer: 'Auf Wiedersehen!',
-          alternatives: ['Tschüss!', 'Schönen Tag noch!'],
+          alternatives: ['Schönen Tag noch!'],
           shape: 'phrase',
           reviewTargets: ['v-auf-wiedersehen'],
+          // Tschüss is fine German, but the prompt asks for the formal goodbye,
+          // so it gets its explanation rather than full credit.
+          traps: [
+            {
+              answer: 'Tschüss!',
+              category: 'vocabulary',
+              feedback: bi(
+                'Tschüss is the informal goodbye, for people you say du to. She said Sie, so the formal one fits: Auf Wiedersehen!',
+                '„Tschüss“ е неофициалното сбогуване, за хора, на които казваш „du“. Тя ти говори на „Sie“, затова пасва официалното: Auf Wiedersehen!',
+              ),
+            },
+          ],
           hints: [
-            bi('Three words, and the last one is one long word.', 'Две думи, като втората е една дълга дума.'),
+            bi('Two words, and the second one is one long word.', 'Две думи, като втората е една дълга дума.'),
             bi('Auf W___.', 'Auf W___.'),
           ],
         },
@@ -348,7 +360,8 @@ const A2 = script({
           ),
           prompt: bi('Ask what is in the dark bread.', 'Попитай какво има в тъмния хляб.'),
           answer: 'Was ist in dem Brot?',
-          alternatives: ['Was ist da drin?', 'Was ist in diesem Brot?'],
+          // im is in + dem, the very dative the instruction asks for.
+          alternatives: ['Was ist da drin?', 'Was ist in diesem Brot?', 'Was ist im Brot?', 'Was ist im dunklen Brot?', 'Was ist in dem dunklen Brot?'],
           shape: 'sentence',
           reviewTargets: ['v-brot', 'v-was'],
           traps: [
@@ -507,6 +520,9 @@ const B1 = script({
           alternatives: [
             'Entschuldigung, ich glaube, hier ist ein Fehler passiert.',
             'Entschuldigung, da stimmt etwas nicht.',
+            'Ich glaube, da ist ein Fehler passiert.',
+            'Ich glaube, hier ist ein Fehler passiert.',
+            'Da stimmt etwas nicht.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-entschuldigung', 'v-glauben', 'v-passieren'],

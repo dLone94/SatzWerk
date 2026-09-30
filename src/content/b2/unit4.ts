@@ -273,6 +273,11 @@ const lesson1: Lesson = {
           {
             prompt: bi('The delivery arrived damaged.', 'Доставката пристигна повредена.'),
             answer: 'Die Lieferung ist beschädigt bei mir angekommen.',
+            alternatives: [
+              'Die Lieferung ist beschädigt angekommen.',
+              'Die Lieferung kam beschädigt bei mir an.',
+              'Die Lieferung kam beschädigt an.',
+            ],
             reviewTargets: ['v-die-lieferung'],
             hints: [],
           },
@@ -291,6 +296,10 @@ const lesson1: Lesson = {
           {
             prompt: bi('I request a refund of the purchase price.', 'Моля за възстановяване на покупната цена.'),
             answer: 'Ich bitte um die Rückerstattung des Kaufpreises.',
+            alternatives: [
+              'Ich bitte um eine Rückerstattung des Kaufpreises.',
+              'Ich bitte um Rückerstattung des Kaufpreises.',
+            ],
             reviewTargets: ['v-die-rueckerstattung', 'v-bitten-um'],
             hints: [bi('bitten um + accusative, then a genitive behind the noun.', 'bitten um + винителен падеж, после родителен зад съществителното.')],
           },
@@ -329,6 +338,11 @@ const lesson1: Lesson = {
           {
             prompt: bi('The delivery arrived damaged.', 'Доставката пристигна повредена.'),
             answer: 'Die Lieferung ist beschädigt bei mir angekommen.',
+            alternatives: [
+              'Die Lieferung ist beschädigt angekommen.',
+              'Die Lieferung kam beschädigt bei mir an.',
+              'Die Lieferung kam beschädigt an.',
+            ],
             hints: [],
           },
           {
@@ -853,10 +867,13 @@ const lesson3: Lesson = {
             'Доставка е пристигнала повредена, а две обаждания не са променили нищо. Напиши четири реда: защо пишеш, какъв е дефектът, каква мярка искаш и до кога, и каква е последицата. Използвай bitte um и предлог с родителен падеж.',
           ),
           answer:
-            'Bezug nehmend auf Ihr Schreiben vom 3. Mai teile ich Ihnen mit, dass die Lieferung beschädigt angekommen ist. Aufgrund der Verzögerung bitte ich um eine Rückerstattung des Kaufpreises bis zum 15. März. Sollte ich bis dahin nichts hören, behalte ich mir weitere Schritte vor.',
+            'Ich schreibe Ihnen wegen meiner Bestellung vom 3. Mai: Die Lieferung ist beschädigt angekommen. Trotz zweier Anrufe hat sich bisher nichts geändert. Ich bitte um eine Rückerstattung des Kaufpreises bis zum 31. Mai. Sollte ich bis dahin nichts hören, behalte ich mir weitere Schritte vor.',
           // Single words only: the checker matches token by token, so a
           // two-word requirement could never be satisfied.
-          requiredTokens: ['bitte', 'Aufgrund'],
+          requiredTokens: [
+            'bitte',
+            'aufgrund|trotz|wegen|während|innerhalb|außerhalb|hinsichtlich|bezüglich|infolge|anlässlich|statt|anstatt|mangels',
+          ],
           shape: 'sentence',
           hints: [],
         },

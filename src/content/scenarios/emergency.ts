@@ -102,7 +102,12 @@ const A1 = script({
           id: 'sc-emergency-a1-t3-s1',
           prompt: bi('He is answering, but very quietly.', 'Отговаря, но много тихо.'),
           answer: 'Ja, aber sehr leise.',
-          alternatives: ['Ja, er antwortet, aber sehr leise.', 'Ja, er spricht, aber leise.'],
+          alternatives: [
+            'Ja, er antwortet, aber sehr leise.',
+            'Ja, er spricht, aber leise.',
+            'Er antwortet, aber sehr leise.',
+            'Er spricht, aber leise.',
+          ],
           shape: 'phrase',
           hints: [bi('Yes, plus one contrast word.', '„Да“ плюс една противопоставителна дума.')],
         },
@@ -122,7 +127,13 @@ const A1 = script({
           ),
           prompt: bi('Say that you will stay on the line.', 'Кажи, че ще останеш на телефона.'),
           answer: 'Ja, ich bleibe am Telefon.',
-          alternatives: ['Ja, ich bleibe dran.', 'Ja, ich bleibe hier.'],
+          alternatives: [
+            'Ja, ich bleibe dran.',
+            'Ja, ich bleibe hier.',
+            'Ich bleibe am Telefon.',
+            'Ich bleibe dran.',
+            'Ich bleibe hier.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-bleiben'],
           hints: [bi('Repeat his verb back.', 'Повтори неговия глагол.')],
@@ -241,6 +252,9 @@ const A2 = script({
           alternatives: [
             'Ja, sie ist ansprechbar, aber sie hat starke Schmerzen.',
             'Ja, sie spricht, hat aber starke Schmerzen.',
+            'Sie antwortet, aber sie hat starke Schmerzen.',
+            'Sie ist ansprechbar, aber sie hat starke Schmerzen.',
+            'Sie spricht, hat aber starke Schmerzen.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-schmerzen'],
@@ -287,7 +301,7 @@ const B1 = script({
         {
           id: 'sc-emergency-b1-t1-s1',
           instruction: bi(
-            'Two clauses joined by und, both in the Perfekt for what you did, then a plain past for what was already the case.',
+            'Two clauses joined by und: the first in the Perfekt for what you did, the second in the simple past for what was already the case.',
             'Две части, свързани с „und“: Perfekt за това, което си направил, и просто минало за това, което вече е било така.',
           ),
           prompt: bi('You got home around eight, and the door was open.', 'Прибрал си се около осем и вратата е била отворена.'),

@@ -968,12 +968,14 @@ const lesson3: Lesson = {
           {
             prompt: bi('I would have reservations about that.', 'Тук бих имал резерви.'),
             answer: 'Da hätte ich Bedenken.',
+            alternatives: ['Ich hätte da Bedenken.'],
             reviewTargets: ['v-das-bedenken'],
             hints: [bi('Konjunktiv II, and the place word first.', 'Konjunktiv II, а думата за място е първа.')],
           },
           {
             prompt: bi('I concede that the schedule is tight.', 'Признавам, че графикът е стегнат.'),
             answer: 'Ich räume ein, dass der Zeitplan knapp ist.',
+            alternatives: ['Ich räume ein, dass der Zeitplan eng ist.'],
             reviewTargets: ['v-einraeumen', 'v-der-zeitplan'],
             hints: [bi('einräumen splits.', 'einräumen се разделя.')],
           },
@@ -1042,7 +1044,7 @@ const lesson3: Lesson = {
             'Някой предлага графикът да се съкрати с две седмици. Напиши три изречения: отстъпи по една точка, изкажи резервата си и предложи условие. Използвай einräumen и Bedenken.',
           ),
           answer:
-            'Ich räume ein, dass wir schneller werden müssen. Trotzdem hätte ich Bedenken. Unter einer Bedingung können wir zustimmen: wir brauchen mehr Leute.',
+            'Ich räume ein, dass wir schneller werden müssen. Trotzdem hätte ich Bedenken. Unter einer Bedingung können wir zustimmen: Wir brauchen mehr Leute.',
           requiredTokens: ['räume', 'Bedenken'],
           shape: 'sentence',
           hints: [],
@@ -1079,11 +1081,13 @@ const lesson3: Lesson = {
           {
             prompt: bi('I would have reservations about that.', 'Тук бих имал резерви.'),
             answer: 'Da hätte ich Bedenken.',
+            alternatives: ['Ich hätte da Bedenken.'],
             hints: [],
           },
           {
             prompt: bi('I concede that the schedule is tight.', 'Признавам, че графикът е стегнат.'),
             answer: 'Ich räume ein, dass der Zeitplan knapp ist.',
+            alternatives: ['Ich räume ein, dass der Zeitplan eng ist.'],
             hints: [],
           },
         ]),
