@@ -606,6 +606,11 @@ describe('routing', () => {
     expect((await call('GET', '/api/health')).status).toBe(200);
   });
 
+  it('answers 400, not 500, to an id with broken percent-encoding', async () => {
+    expect((await call('POST', '/api/reviews/vocab%3Av-hallo%/grade', { grade: 'good' })).status).toBe(400);
+    expect((await call('GET', '/api/lessons/%E0%A4%A')).status).toBe(400);
+  });
+
   it('404s an unknown route', async () => {
     expect((await call('GET', '/api/nope')).status).toBe(404);
     expect((await call('GET', '/not-api')).status).toBe(404);

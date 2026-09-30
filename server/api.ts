@@ -114,6 +114,15 @@ function ok<T>(body: T extends Promise<unknown> ? never : T): ApiResponse {
   return { status: 200, body };
 }
 
+function decodable(segment: string): boolean {
+  try {
+    decodeURIComponent(segment);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function badRequest(message: string): ApiResponse {
   return { status: 400, body: { error: message } };
 }
@@ -251,6 +260,9 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   // /api/...
   if (segments[0] !== 'api') return notFound();
   const route = segments.slice(1);
+  // Routes decode their ids with decodeURIComponent, which throws on broken
+  // percent-encoding; that surfaced as a 500 for what is a bad request.
+  if (!route.every(decodable)) return badRequest('The address is not valid percent-encoding.');
 
   // Health stays public: it must answer before a session exists, so that a
   // deployment can be checked without logging in.
