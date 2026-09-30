@@ -17,6 +17,13 @@ import type { Checkpoint } from '../types.ts';
  * No hints anywhere, and no traps. A trap is a teaching device: it catches a
  * mistake in order to explain it, and here nothing is being taught yet. What
  * is wanted is only whether the sentence arrives.
+ *
+ * Which is also why every question lists the other ordinary ways of saying
+ * it. A band needs three of four right, so one correct sentence refused
+ * because it was not the one the author had in mind (lebe for wohne, the
+ * weil clause first, gerne for gern) places a learner a whole level too low.
+ * The placement check must never be stricter than the lessons that teach
+ * the same sentence.
  */
 
 const PRE_A1 = [
@@ -54,6 +61,7 @@ const PRE_A1 = [
         id: 'pl-pre-a1-4',
         prompt: bi('I live in Hamburg.', 'Живея в Хамбург.'),
         answer: 'Ich wohne in Hamburg.',
+        alternatives: ['Ich lebe in Hamburg.'],
         shape: 'sentence',
         hints: [],
       },
@@ -73,7 +81,8 @@ const A1 = [
         id: 'pl-a1-1',
         prompt: bi('Today I am working at home.', 'Днес работя вкъщи.'),
         answer: 'Heute arbeite ich zu Hause.',
-        alternatives: ['Ich arbeite heute zu Hause.'],
+        // The course accepts zuhause as one word wherever it teaches zu Hause.
+        alternatives: ['Ich arbeite heute zu Hause.', 'Heute arbeite ich zuhause.', 'Ich arbeite heute zuhause.'],
         shape: 'sentence',
         hints: [],
       },
@@ -96,6 +105,7 @@ const A1 = [
         id: 'pl-a1-4',
         prompt: bi('It is half past seven.', 'Часът е седем и половина.'),
         answer: 'Es ist halb acht.',
+        alternatives: ['Es ist sieben Uhr dreißig.'],
         shape: 'sentence',
         hints: [],
       },
@@ -115,7 +125,9 @@ const A2 = [
         id: 'pl-a2-1',
         prompt: bi('Yesterday I bought bread.', 'Вчера купих хляб.'),
         answer: 'Gestern habe ich Brot gekauft.',
-        alternatives: ['Ich habe gestern Brot gekauft.'],
+        // The Präteritum is written German rather than wrong German, and a
+        // learner who reaches for it knows more, not less.
+        alternatives: ['Ich habe gestern Brot gekauft.', 'Gestern kaufte ich Brot.', 'Ich kaufte gestern Brot.'],
         shape: 'sentence',
         hints: [],
       },
@@ -123,6 +135,13 @@ const A2 = [
         id: 'pl-a2-2',
         prompt: bi('I am staying at home because I am ill.', 'Оставам вкъщи, защото съм болен.'),
         answer: 'Ich bleibe zu Hause, weil ich krank bin.',
+        // Either clause may come first; what is being checked is the verb at
+        // the end of the weil clause, and both orders have it.
+        alternatives: [
+          'Weil ich krank bin, bleibe ich zu Hause.',
+          'Ich bleibe zuhause, weil ich krank bin.',
+          'Weil ich krank bin, bleibe ich zuhause.',
+        ],
         shape: 'sentence',
         hints: [],
       },
@@ -160,7 +179,19 @@ const B1 = [
         id: 'pl-b1-1',
         prompt: bi('I would like to make an appointment.', 'Бих искал да запиша час.'),
         answer: 'Ich hätte gern einen Termin.',
-        alternatives: ['Ich würde gern einen Termin vereinbaren.', 'Ich möchte einen Termin vereinbaren.'],
+        // gern and gerne are the same word; the validator does not know that,
+        // so both spellings are listed.
+        alternatives: [
+          'Ich hätte gerne einen Termin.',
+          'Ich würde gern einen Termin vereinbaren.',
+          'Ich würde gerne einen Termin vereinbaren.',
+          'Ich würde gern einen Termin machen.',
+          'Ich würde gerne einen Termin machen.',
+          'Ich möchte einen Termin vereinbaren.',
+          'Ich möchte einen Termin machen.',
+          'Ich möchte gern einen Termin vereinbaren.',
+          'Ich möchte gerne einen Termin vereinbaren.',
+        ],
         shape: 'sentence',
         hints: [],
       },
@@ -168,7 +199,17 @@ const B1 = [
         id: 'pl-b1-2',
         prompt: bi('I think that the rent is too high.', 'Мисля, че наемът е твърде висок.'),
         answer: 'Ich finde, dass die Miete zu hoch ist.',
-        alternatives: ['Ich denke, dass die Miete zu hoch ist.'],
+        // finden, denken, glauben and meinen all say "I think" here. Leaving
+        // out dass (and putting the verb second) is just as correct.
+        alternatives: [
+          'Ich denke, dass die Miete zu hoch ist.',
+          'Ich glaube, dass die Miete zu hoch ist.',
+          'Ich meine, dass die Miete zu hoch ist.',
+          'Ich finde, die Miete ist zu hoch.',
+          'Ich denke, die Miete ist zu hoch.',
+          'Ich glaube, die Miete ist zu hoch.',
+          'Ich meine, die Miete ist zu hoch.',
+        ],
         shape: 'sentence',
         hints: [],
       },
@@ -176,13 +217,32 @@ const B1 = [
         id: 'pl-b1-3',
         prompt: bi('If I have time, I will come along.', 'Ако имам време, ще дойда с вас.'),
         answer: 'Wenn ich Zeit habe, komme ich mit.',
+        // The prompt says "I will", so the werden future is a faithful answer,
+        // not a wrong one; falls is the other ordinary "if"; and either
+        // clause may come first.
+        alternatives: [
+          'Ich komme mit, wenn ich Zeit habe.',
+          'Wenn ich Zeit habe, werde ich mitkommen.',
+          'Ich werde mitkommen, wenn ich Zeit habe.',
+          'Falls ich Zeit habe, komme ich mit.',
+          'Ich komme mit, falls ich Zeit habe.',
+          'Falls ich Zeit habe, werde ich mitkommen.',
+          'Ich werde mitkommen, falls ich Zeit habe.',
+        ],
         shape: 'sentence',
         hints: [],
       },
       {
         id: 'pl-b1-4',
-        prompt: bi('Could you repeat that, please?', 'Бихте ли повторили, моля?'),
+        // Marked formal, as pl-a1-3 is: in English "you" could be anybody,
+        // and only the Sie form is accepted.
+        prompt: bi('Could you repeat that, please? (formal)', 'Бихте ли повторили, моля? (официално)'),
         answer: 'Könnten Sie das bitte wiederholen?',
+        alternatives: [
+          'Könnten Sie das bitte noch einmal wiederholen?',
+          'Könnten Sie das noch einmal wiederholen, bitte?',
+          'Könnten Sie das wiederholen, bitte?',
+        ],
         shape: 'sentence',
         hints: [],
       },
@@ -202,13 +262,25 @@ const B2 = [
         id: 'pl-b2-1',
         prompt: bi('The report was submitted yesterday.', 'Докладът беше подаден вчера.'),
         answer: 'Der Bericht wurde gestern eingereicht.',
+        alternatives: [
+          'Gestern wurde der Bericht eingereicht.',
+          'Der Bericht ist gestern eingereicht worden.',
+          'Gestern ist der Bericht eingereicht worden.',
+        ],
         shape: 'sentence',
         hints: [],
       },
       {
         id: 'pl-b2-2',
-        prompt: bi('He says he has no time.', 'Той казва, че нямал време.'),
+        /*
+         * The Konjunktiv I is what this question is about, so the English says
+         * which register is wanted (the Bulgarian already does, with the
+         * renarrative "нямал"). "Er sagt, er hat keine Zeit." is fine spoken
+         * German and is not what is asked; "dass er keine Zeit habe" is.
+         */
+        prompt: bi('He says he has no time. (reported speech, as in a news report)', 'Той казва, че нямал време.'),
         answer: 'Er sagt, er habe keine Zeit.',
+        alternatives: ['Er sagt, dass er keine Zeit habe.'],
         shape: 'sentence',
         hints: [],
       },
@@ -216,7 +288,11 @@ const B2 = [
         id: 'pl-b2-3',
         prompt: bi('I am writing about the mould in the flat.', 'Пиша относно мухъла в жилището.'),
         answer: 'Ich schreibe wegen des Schimmels in der Wohnung.',
-        alternatives: ['Ich schreibe Ihnen wegen des Schimmels in der Wohnung.'],
+        alternatives: [
+          'Ich schreibe Ihnen wegen des Schimmels in der Wohnung.',
+          'Ich schreibe bezüglich des Schimmels in der Wohnung.',
+          'Ich schreibe Ihnen bezüglich des Schimmels in der Wohnung.',
+        ],
         shape: 'sentence',
         hints: [],
       },
