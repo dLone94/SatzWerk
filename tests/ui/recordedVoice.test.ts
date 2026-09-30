@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { collectPhrases } from '../../scripts/audio/phrases.ts';
 import { SCENARIO_SCRIPTS } from '../../src/content/scenarios/index.ts';
-import { lessonById } from '../../src/content/index.ts';
+import { allLessons, lessonById, sectionBlocks } from '../../src/content/index.ts';
+import type { Block } from '../../src/content/types.ts';
 import { VOCABULARY } from '../../src/content/vocabulary.ts';
 import { NORMAL_RATE, SLOW_RATE, type TtsProvider } from '../../src/services/tts/index.ts';
-import { SAMPLE_PHRASE, phraseKey } from '../../src/services/tts/phraseKey.ts';
+import { SAMPLE_PHRASE, normalizePhrase, phraseKey } from '../../src/services/tts/phraseKey.ts';
+import { speakable } from '../../src/services/tts/speakable.ts';
+import { speakable as tableCellSpeakable } from '../../src/ui/components/bits.tsx';
 import { RECORDED_VOICE_ID, RecordedTtsProvider } from '../../src/services/tts/recorded.ts';
 
 /**
@@ -166,6 +169,48 @@ describe('the phrases sent for recording', () => {
         expect(phrases.has(perfect), perfect).toBe(true);
       }
     }
+  });
+
+  /*
+   * Grammar tables and grammar examples had play buttons with no recording.
+   *
+   * The collector walked content by field name, so plain strings in table rows
+   * were never listed, and it never visited the grammar concepts a section
+   * pulls in. 262 of 506 table buttons, and the example sentences of every
+   * grammar concept, spoke in the phone's voice next to recorded ones.
+   */
+  it('include everything a play button in a lesson can say', () => {
+    const buttons = new Set<string>();
+    const collect = (blocks: Block[] | undefined) => {
+      for (const block of blocks ?? []) {
+        if (block.t === 'de') buttons.add(block.de);
+        if (block.t === 'table') {
+          for (const row of block.rows) {
+            for (const cell of row) {
+              const said = typeof cell === 'string' ? speakable(cell) : null;
+              if (said) buttons.add(said);
+            }
+          }
+        }
+      }
+    };
+    for (const lesson of allLessons()) {
+      for (const lang of ['en', 'bg'] as const) {
+        for (const section of lesson.sections) collect(sectionBlocks(section, lang));
+      }
+      collect(lesson.summary);
+    }
+    expect(buttons.size).toBeGreaterThan(500);
+    const missing = [...buttons].filter((text) => !phrases.has(normalizePhrase(text)));
+    expect(missing).toEqual([]);
+  });
+
+  it('decide what a table cell says with the same rule the tables use', () => {
+    expect(tableCellSpeakable).toBe(speakable);
+    // Endings, single letters and letter groups have no button.
+    expect(speakable('-st')).toBeNull();
+    expect(speakable('sch')).toBeNull();
+    expect(speakable('wohnen — VOH-nen')).toBe('wohnen');
   });
 
   it('include the sample on the Settings page', () => {

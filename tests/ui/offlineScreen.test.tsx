@@ -89,6 +89,57 @@ describe('opened with no connection', () => {
     expect(screen.getByText(tr('offlineWaiting', 'en', { n: 1 }))).toBeInTheDocument();
   });
 
+  /*
+   * Study minutes were counted as answers. One answer typed offline showed as
+   * "2 answers are waiting" after a reload, because the minutes queued when
+   * the app was put away were added in — and more with every reload.
+   */
+  it('counts only answers as answers', async () => {
+    outbox.enqueue({
+      kind: 'attempt',
+      payload: {
+        context: 'lesson',
+        stepId: 's1',
+        expected: 'der Tisch',
+        given: 'der Tisch',
+        verdict: 'correct',
+        credit: 1,
+        categories: [],
+        hintsUsed: 0,
+        revealed: false,
+        isRetype: false,
+        resolved: true,
+      },
+    });
+    outbox.enqueue({ kind: 'studyTime', seconds: 90, at: new Date().toISOString() });
+    outbox.enqueue({ kind: 'studyTime', seconds: 40, at: new Date().toISOString() });
+    outbox.enqueue({ kind: 'mastery', lessonId: 'l1', accuracy: 1, passAccuracy: 0.8 });
+    mount();
+    await screen.findByText(tr('offlineTitle', 'en'));
+    expect(screen.getByText(tr('offlineWaiting', 'en', { n: 1 }))).toBeInTheDocument();
+    expect(screen.getByText(tr('offlineOther', 'en', { n: 1 }))).toBeInTheDocument();
+    expect(screen.queryByText(/answers are waiting/)).not.toBeInTheDocument();
+  });
+
+  // With only a lesson result held, the screen said it was waiting "too",
+  // next to no answers at all.
+  it('does not say "too" when a lesson result is all that is waiting', async () => {
+    outbox.enqueue({ kind: 'mastery', lessonId: 'l1', accuracy: 1, passAccuracy: 0.8 });
+    const { container } = mount();
+    await screen.findByText(tr('offlineTitle', 'en'));
+    expect(screen.getByText(tr('offlineOther', 'en', { n: 1 }))).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/\btoo\b/);
+    expect(tr('offlineOther', 'bg', { n: 1 })).not.toMatch(/ и 1 /);
+    expect(tr('offlineOther', 'bg', { n: 2 })).not.toMatch(/ и 2 /);
+  });
+
+  it('says nothing is waiting when only study minutes are', async () => {
+    outbox.enqueue({ kind: 'studyTime', seconds: 90, at: new Date().toISOString() });
+    const { container } = mount();
+    await screen.findByText(tr('offlineTitle', 'en'));
+    expect(container.textContent).not.toMatch(/waiting/);
+  });
+
   it('offers a way to try again', async () => {
     mount();
     await screen.findByText(tr('offlineTitle', 'en'));

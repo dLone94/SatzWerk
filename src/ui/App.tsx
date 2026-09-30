@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useApp } from '../state/AppState.tsx';
 import { CoachPage } from './pages/CoachPage.tsx';
@@ -21,11 +22,15 @@ import { MorePage, MORE_ROUTES } from './pages/MorePage.tsx';
 import { SyncBanner } from './components/SyncBanner.tsx';
 import { Icon } from './components/icons.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
+import { arrivedAt } from '../services/offline/register.ts';
 
 export function App() {
   const { ready, error, offline, sync, session, profile, reload, t, reviewItems, learners, studyingAs } =
     useApp();
   const location = useLocation();
+  // A new build found while a checkpoint or conversation was open waits for
+  // the learner to leave it; this is how the watcher hears that they have.
+  useEffect(() => arrivedAt(location.pathname), [location.pathname]);
 
   if (!ready) {
     // Three shimmering lines rather than the word "Loading" alone: on a phone
@@ -67,7 +72,6 @@ export function App() {
    * Only what is true, and what is waiting.
    */
   if (error && offline) {
-    const waiting = sync.pending + sync.other;
     return (
       <div className="boot boot--offline">
         <span className="boot__icon" aria-hidden="true">
@@ -75,7 +79,11 @@ export function App() {
         </span>
         <h1>{t('offlineTitle')}</h1>
         <p>{t('offlineBody')}</p>
-        {waiting > 0 ? <p className="boot__waiting">{t('offlineWaiting', { n: waiting })}</p> : null}
+        {/* Answers are counted as answers, and nothing else is: a lesson
+            result is named for what it is, and study minutes are not the
+            learner's work at all, so they are not counted here. */}
+        {sync.pending > 0 ? <p className="boot__waiting">{t('offlineWaiting', { n: sync.pending })}</p> : null}
+        {sync.other > 0 ? <p className="boot__waiting">{t('offlineOther', { n: sync.other })}</p> : null}
         <button type="button" className="btn btn--primary" onClick={() => void reload()}>
           {t('retry')}
         </button>

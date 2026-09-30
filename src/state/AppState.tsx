@@ -15,6 +15,7 @@ import {
   applyMastery,
   applyRecoveryRound,
   markSectionSeen as markSectionSeenIn,
+  recordStepOutcome,
   type LessonProgress,
 } from '../core/progress/lesson.ts';
 import { streakOn, todayHere } from '../core/progress/days.ts';
@@ -22,7 +23,7 @@ import { scheduleReview, type RecallGrade, type ReviewItem } from '../core/srs/s
 import { tr, type UiKey } from '../i18n.ts';
 import {
   api,
-  ApiError,
+  type AttemptResponse,
   type AppStateSnapshot,
   type Learner,
   type AttemptPayload,
@@ -197,6 +198,108 @@ function indexLessons(lessons: LessonProgress[]): Record<string, LessonProgress>
   return out;
 }
 
+/**
+ * What a held write does to one lesson's progress, by the rule the server
+ * applies when it arrives — or nothing, for a write that does not touch a
+ * lesson.
+ *
+ * Answers were the gap. A lesson done in a tunnel held every answer, but none
+ * of them reached the lesson's practice record in the browser, so the end of
+ * the lesson said "Complete every exercise 0 / 9" to somebody who had just done
+ * all nine, skipped the celebration and the recovery round, and never queued
+ * the completion.
+ */
+function heldLessonRule(
+  write: outbox.PendingWrite,
+): { lessonId: string; apply: (prior: LessonProgress) => LessonProgress } | null {
+  const now = new Date().toISOString();
+  switch (write.kind) {
+    case 'attempt': {
+      const attempt = write.payload;
+      if (!attempt.lessonId) return null;
+      // Only practice is practice. A final-check answer is judged by the
+      // mastery result that follows it; filed as a practice step, a failed
+      // check lowered the first-try score and forced a recovery round. The
+      // server keeps the same rule.
+      if (attempt.context !== 'lesson' && attempt.context !== 'practice') return null;
+      if (!attempt.isRetype) {
+        return {
+          lessonId: attempt.lessonId,
+          apply: (prior) =>
+            recordStepOutcome(prior, {
+              stepId: attempt.stepId,
+              verdict: attempt.verdict,
+              credit: attempt.credit,
+              hintsUsed: attempt.hintsUsed,
+              revealed: attempt.revealed,
+              resolved: attempt.resolved,
+              now: attempt.at,
+            }),
+        };
+      }
+      if (!attempt.resolved) return null;
+      // A successful retype closes the step and leaves its first try alone.
+      return {
+        lessonId: attempt.lessonId,
+        apply: (prior) => {
+          const step = prior.practice[attempt.stepId];
+          if (!step) return prior;
+          return { ...prior, practice: { ...prior.practice, [attempt.stepId]: { ...step, resolved: true } } };
+        },
+      };
+    }
+    case 'sectionSeen':
+      return { lessonId: write.lessonId, apply: (prior) => markSectionSeenIn(prior, write.sectionId) };
+    case 'recovery':
+      return { lessonId: write.lessonId, apply: (prior) => applyRecoveryRound(prior, now) };
+    case 'mastery':
+      return {
+        lessonId: write.lessonId,
+        apply: (prior) => applyMastery(prior, write.accuracy, write.passAccuracy, now),
+      };
+    case 'complete':
+      return { lessonId: write.lessonId, apply: (prior) => applyCompletion(prior, now) };
+    default:
+      return null;
+  }
+}
+
+/** One lesson's progress from the server, with what is still held on top. */
+function withHeldLesson(progress: LessonProgress): LessonProgress {
+  let next = progress;
+  for (const { write } of outbox.snapshot().queued) {
+    const rule = heldLessonRule(write);
+    if (rule && rule.lessonId === progress.lessonId) next = rule.apply(next);
+  }
+  return next;
+}
+
+/**
+ * The server's state, with every write still waiting in the outbox applied on
+ * top by the same rules the server will apply when it gets them.
+ *
+ * Without this, fetching the state while something was still held replaced
+ * the result held on the device: the "Lesson complete" screen showed "Pass
+ * the final check" unticked, because the flush that fetched the state had
+ * started before the result was queued.
+ */
+function withHeld(state: AppStateSnapshot): AppStateSnapshot {
+  const queued = outbox.snapshot().queued;
+  if (queued.length === 0) return state;
+  const lessons = indexLessons(state.lessons);
+  let reviewItems = state.reviewItems;
+  for (const { write } of queued) {
+    const rule = heldLessonRule(write);
+    if (rule) {
+      lessons[rule.lessonId] = rule.apply(lessons[rule.lessonId] ?? emptyProgress(rule.lessonId));
+    } else if (write.kind === 'reviewGrade') {
+      const when = write.gradedAt ? new Date(write.gradedAt) : new Date();
+      reviewItems = reviewItems.map((item) => (item.id === write.id ? scheduleReview(item, write.grade, when) : item));
+    }
+  }
+  return { ...state, lessons: Object.values(lessons), reviewItems };
+}
+
 /** How often we flush accumulated active time to the server. */
 const STUDY_FLUSH_MS = 60_000;
 
@@ -242,6 +345,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const lessonsRef = useRef<Record<string, LessonProgress>>({});
   /** The same, for the review schedule: two grades in a row must compose. */
   const reviewItemsRef = useRef<ReviewItem[]>([]);
+  /**
+   * True once a write has had to wait — the server was away, or failed — so
+   * the next flush that sends anything fetches the whole state afterwards.
+   * A write sent straight through needs no such fetch: its own answer is
+   * applied as it arrives.
+   */
+  const replaying = useRef(false);
+  /** Set by a 401. Nothing is sent until the learner signs in again. */
+  const signedOut = useRef(false);
+  /** Something was queued while a flush was already running. */
+  const flushAgain = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -258,7 +372,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         api.coachStatus(),
         api.learners(),
       ]);
-      setSnapshot(state);
+      setSnapshot(withHeld(state));
       setCoach(coachStatus);
       setLearners(household.learners);
       setStudyingAs(household.studyingAs);
@@ -272,28 +386,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     } finally {
       setReady(true);
     }
-  }, []);
-
-  const signIn = useCallback(
-    async (password: string) => {
-      await api.login(password);
-      setReady(false);
-      await load();
-    },
-    [load],
-  );
-
-  const choosePassword = useCallback(
-    async (password: string) => {
-      await api.setupPassword(password);
-      setReady(false);
-      await load();
-    },
-    [load],
-  );
-
-  const changePassword = useCallback(async (current: string, next: string) => {
-    setSession(await api.changePassword(current, next));
   }, []);
 
   const signOut = useCallback(async () => {
@@ -326,8 +418,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       pendingSeconds.current = 0;
       const at = new Date().toISOString();
       const tzOffsetMinutes = -new Date().getTimezoneOffset();
+      const key = outbox.newWriteId();
       void api
-        .addStudyTime(seconds, at, tzOffsetMinutes)
+        .addStudyTime(seconds, at, tzOffsetMinutes, key)
         .then((result) =>
           setSnapshot((current) => (current ? { ...current, stats: result.stats, studyDays: result.studyDays } : current)),
         )
@@ -335,8 +428,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           // Time on task used to be dropped on the floor here. It is real
           // measured time, and it belongs to the day it was spent, so it waits
           // with everything else rather than vanishing.
-          if (outbox.isUnreachable(cause)) {
-            outbox.enqueue({ kind: 'studyTime', seconds, at, tzOffsetMinutes });
+          if (outbox.isRetryable(cause) || outbox.needsSignIn(cause)) {
+            replaying.current = true;
+            outbox.enqueue({ kind: 'studyTime', seconds, at, tzOffsetMinutes }, key);
           }
         });
     }, STUDY_FLUSH_MS);
@@ -397,42 +491,124 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setSnapshot((current) => (current ? { ...current, ...patch } : current));
   }, []);
 
+  const mergeLesson = useCallback((progress: LessonProgress) => {
+    lessonsRef.current = { ...lessonsRef.current, [progress.lessonId]: progress };
+    setSnapshot((current) =>
+      current
+        ? {
+            ...current,
+            lessons: [
+              ...current.lessons.filter((lesson) => lesson.lessonId !== progress.lessonId),
+              progress,
+            ],
+          }
+        : current,
+    );
+  }, []);
+
+  const replaceReviewItem = useCallback((item: ReviewItem) => {
+    // The mirror first, so grading a second concept in the same breath
+    // starts from the first one's result rather than from before it.
+    reviewItemsRef.current = reviewItemsRef.current.map((existing) => (existing.id === item.id ? item : existing));
+    setSnapshot((current) =>
+      current
+        ? {
+            ...current,
+            reviewItems: current.reviewItems.map((existing) => (existing.id === item.id ? item : existing)),
+          }
+        : current,
+    );
+  }, []);
+
   /**
    * The one place that knows how each held write reaches the server.
    *
    * The outbox itself knows nothing about the API — it is a queue of what
-   * happened, in order. This turns an entry back into the request it was.
+   * happened, in order. This turns an entry back into the request it was,
+   * sent with the id it was queued under as its idempotency key.
    */
-  const sendWrite = useCallback((write: outbox.PendingWrite): Promise<unknown> => {
+  const sendWrite = useCallback((write: outbox.PendingWrite, key: string): Promise<unknown> => {
     switch (write.kind) {
       case 'attempt':
-        return api.recordAttempt(write.payload);
+        return api.recordAttempt(write.payload, key);
       case 'reviewGrade':
-        return api.gradeReview(write.id, write.grade);
+        return api.gradeReview(write.id, write.grade, write.gradedAt, key);
       case 'studyTime':
-        return api.addStudyTime(write.seconds, write.at, write.tzOffsetMinutes);
+        return api.addStudyTime(write.seconds, write.at, write.tzOffsetMinutes, key);
       case 'sectionSeen':
-        return api.markSectionSeen(write.lessonId, write.sectionId);
+        return api.markSectionSeen(write.lessonId, write.sectionId, key);
       case 'recovery':
-        return api.recordRecovery(write.lessonId);
+        return api.recordRecovery(write.lessonId, key);
       case 'mastery':
-        return api.recordMastery(write.lessonId, write.accuracy, write.passAccuracy);
+        return api.recordMastery(write.lessonId, write.accuracy, write.passAccuracy, key);
       case 'complete':
-        return api.completeLesson(write.lessonId);
+        return api.completeLesson(write.lessonId, key);
       case 'checkpoint':
-        return api.recordCheckpoint(write.payload);
+        return api.recordCheckpoint(write.payload, key);
       case 'scenarioRun':
-        return api.recordScenarioRun(write.payload);
+        return api.recordScenarioRun(write.payload, key);
     }
   }, []);
+
+  /**
+   * What the server said about one write from the queue, applied as it
+   * arrives — the same as a write sent directly used to be. Whatever is still
+   * waiting behind it is laid back on top, so an answer's response does not
+   * take away the result queued after it. Returns true when the change reaches
+   * further than the response says (the mistake bank), and the state should
+   * be fetched once the queue is empty.
+   */
+  const applySent = useCallback(
+    (write: outbox.PendingWrite, result: unknown): boolean => {
+      switch (write.kind) {
+        case 'attempt': {
+          const response = result as AttemptResponse;
+          setSnapshot((current) => {
+            if (!current) return current;
+            const byId = new Map(current.reviewItems.map((item) => [item.id, item]));
+            for (const item of response.reviewItems) byId.set(item.id, item);
+            return { ...current, stats: response.stats, reviewItems: [...byId.values()] };
+          });
+          if (response.lessonProgress) mergeLesson(withHeldLesson(response.lessonProgress));
+          // The mistake bank changes shape on a wrong answer or a retype.
+          return Boolean(response.mistakeId || write.payload.isRetype);
+        }
+        case 'reviewGrade':
+          replaceReviewItem(result as ReviewItem);
+          return false;
+        case 'studyTime': {
+          const response = result as { stats: Stats; studyDays: AppStateSnapshot['studyDays'] };
+          patchSnapshot({ stats: response.stats, studyDays: response.studyDays });
+          return false;
+        }
+        case 'sectionSeen':
+        case 'recovery':
+        case 'mastery':
+        case 'complete':
+          mergeLesson(withHeldLesson(result as LessonProgress));
+          return false;
+        case 'checkpoint':
+          patchSnapshot({ checkpointResults: (result as { results: AppStateSnapshot['checkpointResults'] }).results });
+          return false;
+        case 'scenarioRun':
+          patchSnapshot({ scenarioRuns: (result as { scenarioRuns: AppStateSnapshot['scenarioRuns'] }).scenarioRuns });
+          return false;
+      }
+    },
+    [mergeLesson, patchSnapshot, replaceReviewItem],
+  );
 
   /** What the outbox currently holds, in the shape the app shows it. */
   const readSync = useCallback(() => {
     const state = outbox.snapshot();
     const answers = state.queued.filter((item) => item.write.kind === 'attempt').length;
+    // Study minutes are bookkeeping, not something the learner did and is
+    // waiting on. Counted in, they turned "1 answer is waiting" into "2
+    // answers" after a reload, and more after each one. They are still sent.
+    const bookkeeping = state.queued.filter((item) => item.write.kind === 'studyTime').length;
     setSync({
       pending: answers,
-      other: state.queued.length - answers,
+      other: state.queued.length - answers - bookkeeping,
       refused: state.rejected.length,
       atRisk: state.queued.length > 0 && !outbox.isDurable(),
       lost: lostAnswers.current,
@@ -440,43 +616,125 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * Send the answers that are waiting.
+   * The session has ended: say so, so the password screen comes up, and send
+   * nothing more until the learner is back. What is waiting stays waiting.
+   */
+  const sessionEnded = useCallback(async () => {
+    signedOut.current = true;
+    try {
+      const current = await api.session();
+      setSession(current);
+      signedOut.current = current.required && !current.signedIn;
+    } catch {
+      // Not reachable to ask. The next try will meet the 401 again and ask
+      // again; holding the queue shut on a guess would be worse.
+      signedOut.current = false;
+    }
+  }, []);
+
+  /**
+   * Send what is waiting.
    *
-   * Afterwards the whole snapshot is fetched again rather than patched: every
-   * sent answer moved the streak, the review schedule and possibly the mistake
-   * bank, and one request that asks the database what is true beats replaying
-   * what each answer ought to have done.
+   * Each write's own answer is applied as it arrives. When writes had to wait
+   * — the server was away — the whole snapshot is fetched once the queue is
+   * empty: every held answer moved the streak and possibly the mistake bank,
+   * and one request that asks the database what is true beats replaying what
+   * each answer ought to have done. Anything still waiting is laid on top of
+   * it, so the fetch never takes back a result held on this device.
    */
   const flushAnswers = useCallback(async () => {
-    if (flushing.current) return flushing.current;
-    if (outbox.queuedCount() === 0) {
+    if (flushing.current) {
+      // A write queued while a flush is running is sent by that flush,
+      // not left for the next timer.
+      flushAgain.current = true;
+      return flushing.current;
+    }
+    if (signedOut.current || outbox.queuedCount() === 0) {
       readSync();
       return;
     }
 
-    const run = (async () => {
-      const outcome = await outbox.flush(sendWrite);
-      if (outcome.sent > 0) {
+    const run = async () => {
+      const wasHeld = replaying.current;
+      let sent = 0;
+      let refresh = false;
+      let stopped: outbox.FlushOutcome['stopped'];
+      do {
+        flushAgain.current = false;
+        const outcome = await outbox.flush(sendWrite, (write, result) => {
+          if (applySent(write, result)) refresh = true;
+        });
+        sent += outcome.sent;
+        stopped = outcome.stopped;
+        // Keep going while writes arrive behind the pass — the learner answering
+        // the next question while the last one was in flight.
+      } while (!stopped && outbox.queuedCount() > 0);
+
+      if (stopped) replaying.current = true;
+      if (stopped === 'signedOut') await sessionEnded();
+
+      if (sent > 0 && (wasHeld || refresh)) {
         try {
-          setSnapshot(await api.state());
+          setSnapshot(withHeld(await api.state()));
+          if (outbox.queuedCount() === 0) replaying.current = false;
         } catch {
           // The connection went again between the last answer and this fetch.
           // The numbers stay as they were; nothing is invented to fill the gap.
         }
       }
       readSync();
-    })();
+      return stopped;
+    };
 
-    flushing.current = run.finally(() => {
-      flushing.current = null;
-    });
+    flushing.current = run().then(
+      (stopped) => {
+        flushing.current = null;
+        if (flushAgain.current && !stopped) void flushAnswers();
+      },
+      () => {
+        flushing.current = null;
+      },
+    );
     return flushing.current;
-  }, [readSync, sendWrite]);
+  }, [readSync, sendWrite, applySent, sessionEnded]);
+
+  // Signing in again sends what waited through the expired session. The
+  // snapshot was never cleared, so the effect below that flushes on load does
+  // not run again by itself.
+  const signIn = useCallback(
+    async (password: string) => {
+      await api.login(password);
+      signedOut.current = false;
+      setReady(false);
+      await load();
+      void flushAnswers();
+    },
+    [load, flushAnswers],
+  );
+
+  const choosePassword = useCallback(
+    async (password: string) => {
+      await api.setupPassword(password);
+      signedOut.current = false;
+      setReady(false);
+      await load();
+      void flushAnswers();
+    },
+    [load, flushAnswers],
+  );
+
+  const changePassword = useCallback(
+    async (current: string, next: string) => {
+      setSession(await api.changePassword(current, next));
+      signedOut.current = false;
+      void flushAnswers();
+    },
+    [flushAnswers],
+  );
 
   // Try again when the browser says the network is back, and on a timer for
   // the cases it does not say — a captive wifi, a server that was restarting.
-  // Gated on having loaded once: flushing before sign-in would meet a row of
-  // 401s and mark good answers as refused.
+  // Gated on having loaded once: before sign-in there is nobody to send as.
   const loaded = snapshot !== null;
   useEffect(() => {
     readSync();
@@ -509,33 +767,39 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
    * on, instead of freezing on a screen that has swallowed their work.
    */
   const refuse = useCallback(
-    async (cause: unknown) => {
+    (cause: unknown) => {
       outbox.recordRefusal(cause instanceof Error ? cause.message : String(cause));
       readSync();
-      if (cause instanceof ApiError && cause.status === 401) {
-        // Signed out somewhere else, or the session expired. Asking the server
-        // again puts the password screen up instead of leaving somebody typing
-        // into nothing.
-        setSession(await api.session());
-      }
     },
     [readSync],
   );
 
-  const mergeLesson = useCallback((progress: LessonProgress) => {
-    lessonsRef.current = { ...lessonsRef.current, [progress.lessonId]: progress };
-    setSnapshot((current) =>
-      current
-        ? {
-            ...current,
-            lessons: [
-              ...current.lessons.filter((lesson) => lesson.lessonId !== progress.lessonId),
-              progress,
-            ],
-          }
-        : current,
-    );
-  }, []);
+  /**
+   * A direct write that did not land: held when the server failed or the
+   * session ended — either way it will be accepted later — and refused only
+   * when the server said this write is wrong. Returns whether it was held.
+   */
+  const heldAfter = useCallback(
+    async (cause: unknown, hold: () => void): Promise<boolean> => {
+      if (outbox.isRetryable(cause)) {
+        replaying.current = true;
+        hold();
+        return true;
+      }
+      if (outbox.needsSignIn(cause)) {
+        // Signed out somewhere else, or the session expired. The write waits
+        // for the learner to sign in again, and asking the server puts the
+        // password screen up instead of leaving somebody typing into nothing.
+        replaying.current = true;
+        hold();
+        await sessionEnded();
+        return true;
+      }
+      refuse(cause);
+      return false;
+    },
+    [refuse, sessionEnded],
+  );
 
   const value = useMemo<AppStateValue>(() => {
     const lessons = indexLessons(snapshot?.lessons ?? []);
@@ -550,36 +814,42 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
      */
     const lessonWrite = async (
       lessonId: string,
-      send: () => Promise<LessonProgress>,
+      send: (key: string) => Promise<LessonProgress>,
       write: outbox.PendingWrite,
       local: (prior: LessonProgress) => LessonProgress,
     ): Promise<LessonProgress> => {
-      const prior = lessonsRef.current[lessonId] ?? lessons[lessonId] ?? emptyProgress(lessonId);
+      const current = () => lessonsRef.current[lessonId] ?? lessons[lessonId] ?? emptyProgress(lessonId);
+      const prior = current();
+      // One key for the direct send and, if it has to wait, for every retry.
+      const key = outbox.newWriteId();
 
+      let optimistic = prior;
       const hold = () => {
-        const optimistic = local(prior);
-        if (!outbox.enqueue(write)) lostAnswers.current += 1;
+        // From the progress as it stands now, not as it stood before the
+        // request: an answer may have been applied while it was in flight.
+        optimistic = local(current());
+        if (!outbox.enqueue(write, key)) lostAnswers.current += 1;
         mergeLesson(optimistic);
         readSync();
-        return optimistic;
       };
 
       // Never jump the queue. Answers from this very lesson may still be
       // waiting, and the mastery result belongs behind them.
       if (outbox.queuedCount() > 0) {
-        const optimistic = hold();
+        hold();
         void flushAnswers();
         return optimistic;
       }
 
       try {
-        const progress = await send();
+        const progress = await send(key);
         mergeLesson(progress);
         return progress;
       } catch (cause) {
-        if (outbox.isUnreachable(cause)) return hold();
-        await refuse(cause);
-        return prior;
+        // A 500 or an expired session is held and shown as the rule says; a
+        // 100% final check is never reported as "Not passed yet" because the
+        // database hiccuped. Only a write the server refused claims nothing.
+        return (await heldAfter(cause, hold)) ? optimistic : prior;
       }
     };
 
@@ -644,7 +914,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
       reload: load,
 
-      lessonProgress: (lessonId: string) => lessons[lessonId] ?? emptyProgress(lessonId),
+      // The mirror first: the end of a lesson asks right after its last
+      // answer was applied, before React has rendered it.
+      lessonProgress: (lessonId: string) =>
+        lessonsRef.current[lessonId] ?? lessons[lessonId] ?? emptyProgress(lessonId),
 
       setTeachingLanguage: async (next) => {
         await reporting('notSavedProfile', async () => {
@@ -665,6 +938,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
        * and shown to the learner; this is only the record of it. So a server
        * that cannot be reached is not a reason to refuse an answer somebody
        * typed. It is held, and sent when there is a connection again.
+       *
+       * Every answer goes through the outbox, even with a good connection,
+       * and this returns as soon as it is held. It used to wait for the
+       * server first, and on a weak signal the verdict sat behind a request
+       * that took up to 30 seconds to give up: the screen looked frozen. The
+       * queue also keeps answers in the order they were given, which the
+       * review schedule needs, however the requests overlap.
        */
       submitAttempt: async (payload) => {
         // `payload` wins so a caller can state the time itself; none does yet.
@@ -675,59 +955,26 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           tzOffsetMinutes: -new Date().getTimezoneOffset(),
           ...payload,
         };
+        const write: outbox.PendingWrite = { kind: 'attempt', payload: stamped };
 
-        const hold = () => {
-          if (!outbox.enqueue({ kind: 'attempt', payload: stamped })) lostAnswers.current += 1;
+        if (!outbox.enqueue(write)) {
+          lostAnswers.current += 1;
           readSync();
-        };
-
-        // Never jump the queue. Earlier answers waiting means this one waits
-        // too: the review schedule is computed from one attempt to the next,
-        // so sending today's before yesterday's schedules the wrong thing.
-        if (outbox.queuedCount() > 0) {
-          hold();
-          void flushAnswers();
           return;
         }
 
-        let result;
-        try {
-          result = await api.recordAttempt(stamped);
-        } catch (cause) {
-          if (outbox.isUnreachable(cause)) {
-            hold();
-            return;
-          }
-          await refuse(cause);
-          return;
+        // The lesson's own record moves now, by the rule the server applies
+        // when the answer arrives, so the end of the lesson sees every step
+        // whether or not the answer has been sent yet.
+        const rule = heldLessonRule(write);
+        if (rule) {
+          mergeLesson(rule.apply(lessonsRef.current[rule.lessonId] ?? lessons[rule.lessonId] ?? emptyProgress(rule.lessonId)));
         }
 
-        setSnapshot((current) => {
-          if (!current) return current;
-          const byId = new Map(current.reviewItems.map((item) => [item.id, item]));
-          for (const item of result.reviewItems) byId.set(item.id, item);
-          return {
-            ...current,
-            stats: result.stats,
-            reviewItems: [...byId.values()],
-            lessons: result.lessonProgress
-              ? [
-                  ...current.lessons.filter((lesson) => lesson.lessonId !== result.lessonProgress!.lessonId),
-                  result.lessonProgress,
-                ]
-              : current.lessons,
-          };
-        });
-        // The mistake bank changes shape on a wrong answer or a retype.
-        if (result.mistakeId || payload.isRetype) {
-          try {
-            const state = await api.state();
-            patchSnapshot({ mistakes: state.mistakes, stats: state.stats });
-          } catch {
-            // The answer itself is banked; only this refresh missed. The
-            // mistake list catches up on the next load.
-          }
-        }
+        // Not counted on screen yet: with a connection it is gone in a moment,
+        // and the strip would flash "1 answer is waiting" after every answer.
+        // The flush says so if it could not be sent.
+        void flushAnswers();
       },
 
       learners,
@@ -802,7 +1049,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       markSectionSeen: async (lessonId, sectionId) => {
         await lessonWrite(
           lessonId,
-          () => api.markSectionSeen(lessonId, sectionId),
+          (key) => api.markSectionSeen(lessonId, sectionId, key),
           { kind: 'sectionSeen', lessonId, sectionId },
           (prior) => markSectionSeenIn(prior, sectionId),
         );
@@ -813,7 +1060,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       recordMastery: (lessonId, accuracy, passAccuracy) =>
         lessonWrite(
           lessonId,
-          () => api.recordMastery(lessonId, accuracy, passAccuracy),
+          (key) => api.recordMastery(lessonId, accuracy, passAccuracy, key),
           { kind: 'mastery', lessonId, accuracy, passAccuracy },
           (prior) => applyMastery(prior, accuracy, passAccuracy, new Date().toISOString()),
         ),
@@ -821,7 +1068,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       recordRecovery: async (lessonId) => {
         await lessonWrite(
           lessonId,
-          () => api.recordRecovery(lessonId),
+          (key) => api.recordRecovery(lessonId, key),
           { kind: 'recovery', lessonId },
           (prior) => applyRecoveryRound(prior, new Date().toISOString()),
         );
@@ -830,7 +1077,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       completeLesson: async (lessonId) => {
         await lessonWrite(
           lessonId,
-          () => api.completeLesson(lessonId),
+          (key) => api.completeLesson(lessonId, key),
           { kind: 'complete', lessonId },
           (prior) => applyCompletion(prior, new Date().toISOString()),
         );
@@ -852,28 +1099,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
        * the grade was gone.
        */
       gradeReview: async (id, grade) => {
-        const replace = (item: ReviewItem) => {
-          // The mirror first, so grading a second concept in the same breath
-          // starts from the first one's result rather than from before it.
-          reviewItemsRef.current = reviewItemsRef.current.map((existing) =>
-            existing.id === item.id ? item : existing,
-          );
-          setSnapshot((current) =>
-            current
-              ? {
-                  ...current,
-                  reviewItems: current.reviewItems.map((existing) =>
-                    existing.id === item.id ? item : existing,
-                  ),
-                }
-              : current,
-          );
-        };
+        // The moment of recall, taken once: the schedule shown here and the
+        // one the server stores both count from it, however long the grade
+        // waits for a connection.
+        const gradedAt = new Date();
+        const key = outbox.newWriteId();
 
         const hold = () => {
           const current = reviewItemsRef.current.find((item) => item.id === id);
-          if (!outbox.enqueue({ kind: 'reviewGrade', id, grade })) lostAnswers.current += 1;
-          if (current) replace(scheduleReview(current, grade));
+          const queued = outbox.enqueue({ kind: 'reviewGrade', id, grade, gradedAt: gradedAt.toISOString() }, key);
+          if (!queued) lostAnswers.current += 1;
+          if (current) replaceReviewItem(scheduleReview(current, grade, gradedAt));
           readSync();
         };
 
@@ -883,10 +1119,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return;
         }
         try {
-          replace(await api.gradeReview(id, grade));
+          replaceReviewItem(await api.gradeReview(id, grade, gradedAt.toISOString(), key));
         } catch (cause) {
-          if (outbox.isUnreachable(cause)) return hold();
-          await refuse(cause);
+          await heldAfter(cause, hold);
         }
       },
 
@@ -904,8 +1139,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       },
 
       recordCheckpoint: async (payload) => {
+        const key = outbox.newWriteId();
         const hold = () => {
-          if (!outbox.enqueue({ kind: 'checkpoint', payload })) lostAnswers.current += 1;
+          if (!outbox.enqueue({ kind: 'checkpoint', payload }, key)) lostAnswers.current += 1;
           // The row the server would store is the row we just sent, so showing
           // it is reporting, not guessing. The server's own list replaces it
           // when the queue drains.
@@ -927,19 +1163,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return;
         }
         try {
-          const result = await api.recordCheckpoint(payload);
+          const result = await api.recordCheckpoint(payload, key);
           patchSnapshot({ checkpointResults: result.results });
         } catch (cause) {
-          if (outbox.isUnreachable(cause)) return hold();
-          await refuse(cause);
+          await heldAfter(cause, hold);
         }
       },
 
       recordScenarioRun: async (scriptId, turns, firstTryCorrect) => {
         const payload = { scriptId, turns, firstTryCorrect };
 
+        const key = outbox.newWriteId();
         const hold = () => {
-          if (!outbox.enqueue({ kind: 'scenarioRun', payload })) lostAnswers.current += 1;
+          if (!outbox.enqueue({ kind: 'scenarioRun', payload }, key)) lostAnswers.current += 1;
           // Unlike a checkpoint row, a scenario's stored figures are an
           // aggregate the server computes across every run. Rather than
           // guessing at it, the Real Life badges stay as they were and the
@@ -953,11 +1189,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return;
         }
         try {
-          const result = await api.recordScenarioRun(payload);
+          const result = await api.recordScenarioRun(payload, key);
           patchSnapshot({ scenarioRuns: result.scenarioRuns });
         } catch (cause) {
-          if (outbox.isUnreachable(cause)) return hold();
-          await refuse(cause);
+          await heldAfter(cause, hold);
         }
       },
 
@@ -967,7 +1202,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         });
       },
     };
-  }, [ready, error, offline, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, sync, readSync, flushAnswers, refuse, learners, studyingAs, notice]);
+  }, [ready, error, offline, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, replaceReviewItem, sync, readSync, flushAnswers, heldAfter, learners, studyingAs, notice]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }

@@ -19,6 +19,7 @@ on:
       - 'src/content/**'
       - 'scripts/audio/**'
       - 'src/services/tts/phraseKey.ts'
+      - 'src/services/tts/speakable.ts'
       - '.github/workflows/voice.yml'
   workflow_dispatch:
 

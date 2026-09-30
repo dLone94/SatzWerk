@@ -796,6 +796,14 @@ export const UI = {
     '{n} answer is waiting to be saved. It is kept and will be sent when there is a connection.',
     '{n} отговор чака да бъде запазен. Пази се и ще бъде изпратен, щом има връзка.',
   ),
+  offlineOther: s(
+    '{n} finished pieces of work are waiting to be saved — a lesson result, a round, a conversation.',
+    '{n} завършени неща чакат да бъдат запазени — резултат от урок, кръг или разговор.',
+  ),
+  offlineOtherOne: s(
+    '{n} finished piece of work is waiting to be saved — a lesson result, a round or a conversation.',
+    '{n} завършено нещо чака да бъде запазено — резултат от урок, кръг или разговор.',
+  ),
   retry: s('Try again', 'Опитай пак'),
   cancel: s('Cancel', 'Отказ'),
   close: s('Close', 'Затвори'),

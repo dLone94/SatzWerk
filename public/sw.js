@@ -34,10 +34,27 @@
 /*
  * Bumped when the caching rules change, never for a content change. The
  * filenames under /assets/ carry their own content hash, so a deploy brings
- * new names rather than new contents under old names — and the old ones are
- * swept below.
+ * new names rather than new contents under old names.
+ *
+ * This file is the same from one deploy to the next, so a deploy does not
+ * install a new worker, and a new cache name would not help: it would also
+ * throw away every recording the phone has downloaded. Instead each fresh
+ * page tells the worker which build is current, and the files of any other
+ * build are swept out of this one cache (see `refreshBuild`).
  */
 const CACHE = 'satzwerk-app-v1';
+
+/*
+ * How long a page waits for the network before the copy held here is used.
+ * With bars on the phone and no data arriving — the U-Bahn, a captive wifi —
+ * the network does not fail, it just never answers, and waiting for it left
+ * the Home Screen app blank. Long enough for a slow but working connection
+ * to win; short enough that a dead one is not noticed.
+ */
+const PAGE_DEADLINE_MS = 3000;
+
+/** The one key every route's page is kept under: they are the same document. */
+const PAGE_KEY = '/index.html';
 
 /** The pages the app is entered through, which must exist offline. */
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/icon-180.png'];
@@ -85,6 +102,8 @@ self.addEventListener('activate', (event) => {
       // Sweep the caches a previous version of these rules left behind.
       const names = await caches.keys();
       await Promise.all(names.filter((name) => name !== CACHE).map((name) => caches.delete(name)));
+      // And any files of a build that is no longer the current one.
+      await refreshBuild();
       await self.clients.claim();
     })(),
   );
@@ -123,9 +142,10 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Navigations and everything else: the network when there is one, so a
-  // deploy is picked up on the next open, and the cache when there is not.
+  // deploy is picked up on the next open, and the cache when there is not —
+  // or, for a page, when the network has not answered within a few seconds.
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirstPage(request));
+    event.respondWith(networkFirstPage(event));
     return;
   }
   event.respondWith(networkFirst(request));
@@ -159,29 +179,118 @@ async function networkFirst(request) {
 
 /**
  * Every route of a single-page app is the same document, so a URL that was
- * never visited online still opens offline: the cached page is served and the
+ * never visited online still opens offline: the held page is served and the
  * router takes it from there.
+ *
+ * The network is asked first, so a deploy is picked up on the next open — but
+ * only for a few seconds. After that the held page is used, and the network's
+ * answer, when it comes, is kept for the next open instead.
  */
-async function networkFirstPage(request) {
+async function networkFirstPage(event) {
+  const request = event.request;
+  const network = fetch(request);
+  // Kept, and the build brought up to date, after the page has its answer —
+  // and the worker must live until that is done, even when the held copy
+  // answered long before. The copy is taken at once, before the page reads
+  // the body.
+  event.waitUntil(
+    network
+      .then((response) => {
+        if (!isWhole(response)) return undefined;
+        const copy = response.clone();
+        return keepPage(copy).then(refreshBuild);
+      })
+      .catch(() => undefined),
+  );
+
   try {
-    const response = await fetch(request);
-    await keep(request, response);
-    return response;
-  } catch (error) {
-    return (
-      (await caches.match(request)) ??
-      (await caches.match('/index.html')) ??
-      (await caches.match('/')) ??
-      Response.error()
-    );
+    const response = await Promise.race([network, deadline(PAGE_DEADLINE_MS)]);
+    if (response) return response;
+  } catch {
+    // No network at all: the held page, below.
   }
+
+  const held = await heldPage();
+  if (held) return held;
+  // Nothing held — a first visit on a slow line. Waiting is all there is.
+  try {
+    return await network;
+  } catch {
+    return Response.error();
+  }
+}
+
+function deadline(ms) {
+  return new Promise((resolve) => setTimeout(() => resolve(undefined), ms));
+}
+
+async function heldPage() {
+  return (await caches.match(PAGE_KEY)) ?? (await caches.match('/')) ?? undefined;
+}
+
+/**
+ * The page, under one key for every route. It used to be kept once per URL
+ * visited, each copy pointing at the build of its day, while the offline
+ * fallback stayed the copy from install — so offline, the app could start a
+ * version weeks old.
+ */
+async function keepPage(response) {
+  try {
+    const cache = await caches.open(CACHE);
+    await cache.put(PAGE_KEY, response.clone());
+    await cache.put('/', response.clone());
+  } catch {
+    // Keeping a copy is a bonus, not a reason to fail the page.
+  }
+}
+
+/**
+ * Bring the cache to the current build: fetch whatever of it is missing, and
+ * delete the files of every other build and the per-route page copies older
+ * versions of this worker kept. Recordings are left alone — they are named by
+ * what they say, not by build.
+ *
+ * Nothing is deleted unless the current build's list was read: offline, or on
+ * a dev server with no list, sweeping could remove the only copy of the app.
+ */
+async function refreshBuild() {
+  const files = await builtAssets();
+  if (files.length === 0) return;
+  try {
+    const cache = await caches.open(CACHE);
+    const current = new Set([...SHELL, ...files]);
+    const held = new Set();
+    for (const key of await cache.keys()) {
+      const path = new URL(key.url).pathname;
+      held.add(path);
+      if (current.has(path) || path.startsWith('/audio/')) continue;
+      if (path.startsWith('/assets/') || (await isPage(cache, key))) await cache.delete(key);
+    }
+    // So the next time there is no signal the whole build is here, not only
+    // the parts this visit happened to load.
+    await Promise.all(
+      files.filter((path) => !held.has(path)).map((path) => cache.add(path).catch(() => undefined)),
+    );
+  } catch {
+    // A sweep that fails leaves the cache as it was, which still works.
+  }
+}
+
+async function isPage(cache, key) {
+  const response = await cache.match(key);
+  const type = response && response.headers ? response.headers.get('Content-Type') : null;
+  return Boolean(type && type.includes('text/html'));
+}
+
+function isWhole(response) {
+  return Boolean(response) && response.status === 200 && response.type === 'basic';
 }
 
 /** Keep a good response. A redirect or an error page is not worth holding. */
 async function keep(request, response) {
   // Only a whole, successful answer. A 206 cannot be stored at all, and
   // trying used to throw and fail the very request it was answering.
-  if (!response || response.status !== 200 || response.type !== 'basic') return;
+  if (!isWhole(response)) return;
   try {
     const cache = await caches.open(CACHE);
     await cache.put(request, response.clone());
