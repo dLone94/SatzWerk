@@ -142,7 +142,8 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Navigations and everything else: the network when there is one, so a
-  // deploy is picked up on the next open, and the cache when there is not.
+  // deploy is picked up on the next open, and the cache when there is not —
+  // or, for a page, when the network has not answered within a few seconds.
   if (request.mode === 'navigate') {
     event.respondWith(networkFirstPage(event));
     return;
