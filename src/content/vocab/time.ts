@@ -39,7 +39,8 @@ function day(init: DayInit): VocabEntry {
       de: `Am ${init.de} arbeite ich.`,
       gloss: {
         en: `On ${init.en} I work.`,
-        bg: `В ${init.bg} работя.`,
+        // Bulgarian says "Във" before в and ф: "Във вторник", not "В вторник".
+        bg: `${/^[вф]/i.test(init.bg) ? 'Във' : 'В'} ${init.bg} работя.`,
       },
     },
     tags: ['time', 'weekday'],

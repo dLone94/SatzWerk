@@ -550,18 +550,22 @@ const lesson2: Lesson = {
       exercise({
         id: 'a1u3l2-ex4',
         kind: 'multipleChoice',
-        objective: bi('What did the waiter ask?', 'Какво попита сервитьорът?'),
+        objective: bi('Answer the waiter', 'Отговори на сервитьора'),
         steps: [
           {
+            // The player grades the tapped option's German against the answer,
+            // so the options are German replies and the answer is the right
+            // one. They used to be English descriptions of the question with
+            // "zusammen" as the answer, which no option could ever match.
             prompt: bi(
-              'The waiter says: "Zusammen oder getrennt?" What is being asked?',
-              'Сервитьорът казва: „Zusammen oder getrennt?“ Какво пита?',
+              'The waiter asks: "Zusammen oder getrennt?" You are paying for your friend too. What do you say?',
+              'Сервитьорът пита: „Zusammen oder getrennt?“ Плащаш и за приятеля си. Какво отговаряш?',
             ),
-            answer: 'zusammen',
+            answer: 'Zusammen, bitte.',
             choices: [
-              { id: 'zusammen', de: 'Whether you want to pay as one bill or separately', gloss: bi('Whether you want to pay as one bill or separately', 'Дали искате да платите на една сметка или поотделно') },
-              { id: 'sitzen', de: 'Whether you want to sit inside or outside', gloss: bi('Whether you want to sit inside or outside', 'Дали искате да седнете вътре или навън') },
-              { id: 'noch', de: 'Whether you want to order anything else', gloss: bi('Whether you want to order anything else', 'Дали искате да поръчате още нещо') },
+              { id: 'zusammen', de: 'Zusammen, bitte.', gloss: bi('Together, please: one bill.', 'Заедно, моля: една сметка.') },
+              { id: 'getrennt', de: 'Getrennt, bitte.', gloss: bi('Separately, please: everyone pays for themselves.', 'Поотделно, моля: всеки плаща за себе си.') },
+              { id: 'noch', de: 'Noch ein Wasser, bitte.', gloss: bi('Another water, please.', 'Още една вода, моля.') },
             ],
             correct: 'zusammen',
             reviewTargets: ['v-zusammen-getrennt'],
@@ -601,6 +605,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('How much is the coffee?', 'Колко струва кафето?'),
             answer: 'Was kostet der Kaffee?',
+            alternatives: ['Wie viel kostet der Kaffee?'],
             hints: [],
           },
           {
@@ -862,6 +867,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I would like a coffee, please.', 'Бих искал едно кафе, моля.'),
           answer: 'Ich möchte einen Kaffee, bitte.',
+          alternatives: ['Ich will einen Kaffee, bitte.'],
           hints: [],
         },
         {
@@ -881,6 +887,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('How much is the cake?', 'Колко струва сладкишът?'),
           answer: 'Was kostet der Kuchen?',
+          alternatives: ['Wie viel kostet der Kuchen?'],
           hints: [],
         },
         {

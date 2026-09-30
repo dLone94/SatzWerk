@@ -133,6 +133,8 @@ const TENS: VocabEntry[] = [
   numeral({ id: 'v-neunzig', de: 'neunzig', en: 'ninety', bg: 'деветдесет', pronEn: 'NOYN-tsikh', pronBg: 'НОЙН-цих', lesson: L2, difficulty: 2 }),
   numeral({ id: 'v-hundert', de: 'hundert', en: 'a hundred', bg: 'сто', pronEn: 'HOON-dert', pronBg: 'ХУН-дерт', lesson: L2 }),
   numeral({ id: 'v-einundzwanzig', de: 'einundzwanzig', en: 'twenty-one', bg: 'двайсет и едно', pronEn: 'EYN-oont-tsvan-tsikh', pronBg: 'АЙН-унт-цван-цих', lesson: L2, difficulty: 4,
+    // година is feminine, so the counted form is "една": двайсет и една години.
+    example: { de: 'Ich bin einundzwanzig Jahre alt.', en: 'I am twenty-one years old.', bg: 'Аз съм на двайсет и една години.' },
     note: {
       en: 'Said back to front: literally "one-and-twenty", written as one word.',
       bg: 'Казва се обратно: буквално „едно-и-двайсет“, изписано като една дума.',

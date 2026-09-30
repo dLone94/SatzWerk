@@ -396,6 +396,9 @@ const lesson2: Lesson = {
           {
             prompt: bi('I have a headache.', 'Боли ме главата.'),
             answer: 'Ich habe Kopfschmerzen.',
+            // Bulgarian says both German sentences as "Боли ме главата", and the
+            // lesson teaches both, so every step takes both.
+            alternatives: ['Mein Kopf tut weh.'],
             reviewTargets: ['v-schmerzen', 'p-ich-habe-schmerzen'],
             hints: [bi('One word, and no article.', 'Една дума и без член.')],
             traps: [
@@ -418,6 +421,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('My throat hurts.', 'Боли ме гърлото.'),
             answer: 'Mein Hals tut weh.',
+            alternatives: ['Ich habe Halsschmerzen.'],
             reviewTargets: ['v-weh-tun', 'v-hals'],
             hints: [bi('The throat is the subject here.', 'Гърлото тук е подлогът.')],
           },
@@ -493,11 +497,13 @@ const lesson2: Lesson = {
           {
             prompt: bi('I am ill and I have a sore throat.', 'Болен съм и ме боли гърлото.'),
             answer: 'Ich bin krank und ich habe Halsschmerzen.',
+            alternatives: ['Ich bin krank und mein Hals tut weh.'],
             hints: [],
           },
           {
             prompt: bi('My stomach hurts.', 'Боли ме коремът.'),
             answer: 'Mein Bauch tut weh.',
+            alternatives: ['Ich habe Bauchschmerzen.'],
             hints: [],
           },
           {
@@ -650,6 +656,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('What is the weather like today?', 'Какво е времето днес?'),
             answer: 'Wie ist das Wetter heute?',
+            alternatives: ['Wie ist heute das Wetter?'],
             reviewTargets: ['v-wetter', 'p-wie-ist-das-wetter'],
             hints: [],
           },
@@ -802,11 +809,13 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I have a headache.', 'Боли ме главата.'),
           answer: 'Ich habe Kopfschmerzen.',
+          alternatives: ['Mein Kopf tut weh.'],
           hints: [],
         },
         {
           prompt: bi('My throat hurts.', 'Боли ме гърлото.'),
           answer: 'Mein Hals tut weh.',
+          alternatives: ['Ich habe Halsschmerzen.'],
           hints: [],
         },
       ]),

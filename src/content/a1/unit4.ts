@@ -780,7 +780,7 @@ const lesson3: Lesson = {
             hints: [],
           },
           {
-            prompt: bi('Do you drink tea or coffee?', 'Пиеш ли чай или кафе?'),
+            prompt: bi('Do you drink tea or coffee? (informal)', 'Пиеш ли чай или кафе?'),
             answer: 'Trinkst du Tee oder Kaffee?',
             hints: [],
           },
@@ -809,7 +809,7 @@ const checkpoint: Checkpoint = {
     a1(
       typeIt('cp-a1u4-1', bi('Work', 'Работа'), [
         {
-          prompt: bi('I work as a teacher. (male)', 'Работя като учител.'),
+          prompt: bi('I work as a teacher. (male)', 'Работя като учител. (за мъж)'),
           answer: 'Ich arbeite als Lehrer.',
           hints: [],
         },
