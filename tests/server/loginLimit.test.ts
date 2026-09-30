@@ -1,3 +1,4 @@
+import pg from 'pg';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { handleRequest, resolveAuth } from '../../server/api.ts';
 import { unavailableProvider } from '../../server/ai.ts';
@@ -33,9 +34,16 @@ if (process.env.TEST_DATABASE_URL) {
   databases.push([
     'postgres',
     async () => {
-      const db = await openDatabase({ databaseUrl: process.env.TEST_DATABASE_URL! });
-      await db.run("DELETE FROM meta WHERE key LIKE 'login_fail:%'");
-      return db;
+      // A schema of its own: the parity tests drop and recreate `public` while
+      // other files run, and would pull the tables out from under this one.
+      // A plain client for that, since openDatabase would migrate `public` too.
+      const url = process.env.TEST_DATABASE_URL!;
+      const admin = new pg.Client({ connectionString: url });
+      await admin.connect();
+      await admin.query('DROP SCHEMA IF EXISTS login_limit CASCADE; CREATE SCHEMA login_limit;');
+      await admin.end();
+      const separator = url.includes('?') ? '&' : '?';
+      return openDatabase({ databaseUrl: `${url}${separator}options=-c%20search_path%3Dlogin_limit` });
     },
   ]);
 }

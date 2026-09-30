@@ -85,7 +85,10 @@ If you do want the button, it is cents rather than a subscription: the model is
 `claude-opus-5` by default, about half a cent per explanation, and
 `SATZWERK_AI_MODEL` switches it — `claude-haiku-4-5` is roughly a sixth of a
 cent. Either way you are billed for what you press, and pressing nothing costs
-nothing.
+nothing. The whole deployment makes at most 200 model calls a day
+(`SATZWERK_AI_DAILY_LIMIT` changes that); past it an explanation says it is back
+tomorrow and writing review uses the rule-based checks. A spending limit on the
+API key itself is still the best backstop.
 
 ---
 
@@ -104,7 +107,10 @@ or the tests changes.
 **Why the password.** Hosted, the app is on a public URL, and
 `POST /api/reset` deletes everything. So a hosted deployment with no password
 configured refuses every request with a 503 that names what is missing. It
-never quietly serves an open app.
+never quietly serves an open app. Five wrong passwords from one address mean
+a wait before the next try, doubling from 30 seconds to 15 minutes, and a
+burst of wrong passwords from many addresses slows every new sign-in for up
+to a minute; a device that is already signed in is not affected.
 
 1. **Create a free Postgres database.** [Neon](https://neon.tech) works well
    with Vercel and has a free tier. Copy the connection string; it starts
@@ -178,6 +184,7 @@ One variable, and the app is unchanged without it:
 | --- | --- |
 | `ANTHROPIC_API_KEY` | a key from [the Claude Console](https://console.anthropic.com). Server-side only — never prefixed `VITE_`. |
 | `SATZWERK_AI_MODEL` | optional. Defaults to `claude-opus-5`. |
+| `SATZWERK_AI_DAILY_LIMIT` | optional. Model calls per UTC day for the whole deployment. Defaults to 200. |
 | `SATZWERK_AI_PROVIDER` | optional. Set to `none` to keep the feature off even where a key exists — a key on the host for something else is not consent to spend it here. |
 
 `GET /api/coach/status` reports what is actually on. With no key it answers
