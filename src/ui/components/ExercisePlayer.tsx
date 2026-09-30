@@ -364,7 +364,13 @@ export function ExercisePlayer({
       return;
     }
 
-    const validation = validateAnswer(value, step.answer, { lexicon });
+    // Where the answer stands (a gap that opens the sentence) and what kind of
+    // task it is decide how a capital or the word order is judged.
+    const validation = validateAnswer(value, step.answer, {
+      lexicon,
+      scaffold: step.scaffold,
+      exerciseKind: exercise.kind,
+    });
     if (validation.verdict === 'empty') {
       setFeedback(buildFeedback(validation, { lexicon, describeNoun }));
       setResult(validation);
@@ -454,7 +460,11 @@ export function ExercisePlayer({
   const submitRetype = useCallback(async () => {
     if (!current || busy || !result) return;
     const { exercise, step } = current;
-    const check = validateAnswer(value, step.answer, { lexicon });
+    const check = validateAnswer(value, step.answer, {
+      lexicon,
+      scaffold: step.scaffold,
+      exerciseKind: exercise.kind,
+    });
     // "Sufficiently accurate": the right words, at most a punctuation slip.
     if (check.credit < 0.9) {
       setRetypeNudge(true);

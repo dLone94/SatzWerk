@@ -13,6 +13,7 @@ const lexicon = extendLexicon(createBaseLexicon(), [
   { german: 'Bulgarien', wordType: 'noun' },
   { german: 'Entschuldigung', wordType: 'noun', gender: 'f' },
   { german: 'Arbeit', wordType: 'noun', gender: 'f' },
+  { german: 'Tschüss', wordType: 'phrase' },
 ]);
 
 const opts = { lexicon };
@@ -378,6 +379,108 @@ describe('a trap that differs from the answer only by punctuation', () => {
     });
     expect(validateAnswer('Wie heißen sie', spec, opts).trapFeedback).toBeDefined();
     expect(validateAnswer('Wie heißen Sie', spec, opts).trapFeedback).toBeUndefined();
+  });
+});
+
+/*
+ * The lowercase first letter of a sentence was forgiven only in answers of two
+ * or more words. A one-word answer that opens a sentence — "tschüss", or "am"
+ * in "___ Montag arbeite ich." — gets a field with the phone's capitals off,
+ * so the iPhone typed it in lower case and the learner got "Almost right", half
+ * the credit and a retype that refused the same word again. The mirror case
+ * was just as unfair: "Der Tisch" for "der Tisch", or "Zwei" typed from a
+ * recording, is how German writes a word that stands on its own, and it was
+ * graded as a capital-letter mistake too.
+ */
+describe('the first letter of an answer that opens a sentence', () => {
+  const note = (r: ReturnType<typeof validateAnswer>) => {
+    expect(r.verdict).toBe('accepted-with-note');
+    expect(r.notes).toContain('capitalization');
+    expect(r.requireRetype).toBe(false);
+    expect(r.credit).toBeGreaterThanOrEqual(0.9);
+  };
+
+  it('lets a lowercase one-word answer through with a note', () => {
+    note(validateAnswer('tschüss', word(['Tschüss']), opts));
+    note(validateAnswer('danke', word(['Danke']), opts));
+  });
+
+  it('lets a lowercase word in a gap at the start of the sentence through', () => {
+    note(validateAnswer('am', word(['Am']), { ...opts, scaffold: '___ Montag arbeite ich.' }));
+    note(validateAnswer('mein', word(['Mein']), { ...opts, scaffold: '___ Baby schläft.' }));
+    note(validateAnswer('als', word(['Als']), { ...opts, scaffold: '___ ich zehn war, kam ich aufs Gymnasium.' }));
+    note(validateAnswer('wer', word(['Wer']), { ...opts, scaffold: 'Hallo! ___ ist das?' }));
+  });
+
+  it('still wants the capital on a noun, singular or plural', () => {
+    for (const [given, answer] of [
+      ['tochter', 'Tochter'],
+      ['töchter', 'Töchter'],
+      ['hamburg', 'Hamburg'],
+    ]) {
+      const r = validateAnswer(given!, word([answer!]), opts);
+      expect(r.verdict, given).toBe('almost');
+      expect(r.requireRetype, given).toBe(true);
+    }
+    const gap = validateAnswer('tisch', word(['Tisch']), { ...opts, scaffold: '___ ist groß.' });
+    expect(gap.verdict).toBe('almost');
+  });
+
+  it('still wants the capital in a gap inside the sentence', () => {
+    const formal = validateAnswer('ihres', word(['Ihres']), { ...opts, scaffold: 'hinsichtlich ___ Schreibens' });
+    expect(formal.verdict).toBe('almost');
+    const unknown = validateAnswer('anspruch', word(['Anspruch']), { ...opts, scaffold: 'Sie haben ___ auf Urlaub.' });
+    expect(unknown.verdict).toBe('almost');
+  });
+
+  it('still tells the one-word Sie from sie', () => {
+    expect(validateAnswer('sie', word(['Sie']), opts).verdict).not.toBe('accepted-with-note');
+    expect(validateAnswer('Sie', word(['sie']), opts).verdict).not.toBe('accepted-with-note');
+  });
+
+  it('lets a capital on a word or phrase that stands on its own through with a note', () => {
+    note(validateAnswer('Der Tisch', word(['der Tisch']), opts));
+    note(validateAnswer('Das Wasser', word(['das Wasser']), opts));
+    note(validateAnswer('Zwei', word(['zwei']), opts));
+    note(validateAnswer('Der', word(['der']), { ...opts, scaffold: '___ Tisch' }));
+    note(
+      validateAnswer(
+        'Die Reform, die von der Regierung geplant wurde',
+        sentence(['die Reform, die von der Regierung geplant wurde']),
+        opts,
+      ),
+    );
+  });
+
+  it('still counts a capital inside the sentence, or on a noun lowered after it', () => {
+    const inside = validateAnswer('Eine', word(['eine']), { ...opts, scaffold: 'Ich habe ___ Tochter.' });
+    expect(inside.verdict).toBe('almost');
+    expect(validateAnswer('Der tisch', word(['der Tisch']), opts).verdict).toBe('almost');
+    expect(validateAnswer('der tisch', word(['der Tisch']), opts).verdict).toBe('almost');
+  });
+});
+
+/*
+ * "sie ist Ärztin." for "She is a doctor." was scored as a pronoun mistake and
+ * told that "sie" means she — which is exactly what the learner wrote. At the
+ * start of a sentence a capital cannot tell Sie from sie, so the lowercase
+ * first letter there is only the phone's missing capital.
+ */
+describe('sie at the start of a sentence', () => {
+  it('is a missing capital, not a pronoun mistake', () => {
+    const r = validateAnswer('sie ist Ärztin.', sentence(['Sie ist Ärztin.']), opts);
+    expect(r.verdict).toBe('accepted-with-note');
+    expect(r.notes).toContain('capitalization');
+  });
+
+  it('is not filed as a pronoun mistake beside another slip', () => {
+    const r = validateAnswer('sie ist Arztin.', sentence(['Sie ist Ärztin.']), opts);
+    expect(r.categories).not.toContain('pronoun');
+  });
+
+  it('still counts inside the sentence', () => {
+    const r = validateAnswer('Wie heißen sie?', sentence(['Wie heißen Sie?']), opts);
+    expect(r.categories).toContain('pronoun');
   });
 });
 

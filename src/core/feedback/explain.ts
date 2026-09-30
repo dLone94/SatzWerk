@@ -167,11 +167,24 @@ function explainCategory(
       ];
 
     case 'pronoun': {
-      if (lower(expected) === 'sie') {
+      // Only a Sie written as sie (or the other way round) is about the
+      // capital; "du" for "Sie" is the wrong kind of "you".
+      if (lower(expected) === 'sie' && lower(given) === 'sie') {
         return [
           bi(
             'Capitalisation matters here: "Sie" is the formal "you", while "sie" means "she" or "they".',
             'Главната буква тук е важна: „Sie“ е учтивото „Вие“, а „sie“ означава „тя“ или „те“.',
+          ),
+        ];
+      }
+      // Inside the sentence a capital Sie can only be the formal "you".
+      const at = result.diff.findIndex((d) => d.expected === expected && d.given === given);
+      const opens = at === result.diff.findIndex((d) => d.expected !== undefined);
+      if (expected === 'Sie' && given && !opens) {
+        return [
+          bi(
+            `Here German needs the formal "Sie", not "${given}".`,
+            `Тук немският изисква учтивото „Sie“, а не „${given}“.`,
           ),
         ];
       }
@@ -199,6 +212,19 @@ function explainCategory(
 
     case 'capitalization': {
       if (result.verdict === 'accepted-with-note') {
+        // A capital added to a word that stands on its own ("Der Tisch") is
+        // fine German; the note only says how it is written inside a sentence.
+        const raised = result.diff.find(
+          (d) => d.status === 'case' && d.given && d.expected && d.given[0] !== d.expected[0] && d.expected[0] === lower(d.expected[0]!),
+        );
+        if (raised) {
+          return [
+            bi(
+              `Fine on its own. Inside a sentence it is written "${result.target}".`,
+              `Така е добре самостоятелно. В изречение се пише „${result.target}“.`,
+            ),
+          ];
+        }
         return [
           bi(
             'Small thing: a German sentence starts with a capital letter.',
@@ -367,7 +393,10 @@ export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): F
     };
   }
 
-  const categories = result.verdict === 'accepted-with-note' ? result.notes : result.categories;
+  // An "almost" can carry notes as well (the dots left off beside a capital),
+  // and the learner should hear about both.
+  const categories =
+    result.verdict === 'accepted-with-note' ? result.notes : [...result.categories, ...result.notes];
   // Several categories can share one explanation (article and gender describe
   // the same slip), so the same paragraph must not be printed twice.
   const lines = dedupeLines(categories.flatMap((category) => explainCategory(category, result, ctx)));

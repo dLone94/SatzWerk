@@ -31,6 +31,12 @@ export interface GermanLexicon {
   knownWords: Set<string>;
   /** Lowercased noun to grammatical gender. */
   nounGender: Map<string, Gender>;
+  /**
+   * Every noun the course teaches, singular and plural, lowercased — with or
+   * without a gender. A noun keeps its capital anywhere in a sentence, so the
+   * capital-letter checks need to know one when they see it.
+   */
+  nouns: Set<string>;
   /** Lowercased singular noun to its plural (bare, no article). */
   pluralOf: Map<string, string>;
   /** Lowercased plural noun to its singular. */
@@ -202,6 +208,7 @@ export function createBaseLexicon(): GermanLexicon {
     verbForms,
     knownWords,
     nounGender: new Map(),
+    nouns: new Set(),
     pluralOf: new Map(),
     singularOf: new Map(),
   };
@@ -228,6 +235,7 @@ export function extendLexicon(base: GermanLexicon, entries: LexiconSeed[]): Germ
   const pluralOf = new Map(base.pluralOf);
   const singularOf = new Map(base.singularOf);
   const knownWords = new Set(base.knownWords);
+  const nouns = new Set(base.nouns);
 
   for (const entry of entries) {
     const head = lower(entry.german);
@@ -240,6 +248,7 @@ export function extendLexicon(base: GermanLexicon, entries: LexiconSeed[]): Germ
     if (entry.participle) knownWords.add(lower(entry.participle));
 
     if (entry.wordType === 'noun') {
+      nouns.add(head);
       if (entry.gender) nounGender.set(head, entry.gender);
       if (entry.plural) {
         // Plurals are authored with their article ("die Toechter"); store bare.
@@ -247,11 +256,12 @@ export function extendLexicon(base: GermanLexicon, entries: LexiconSeed[]): Germ
         pluralOf.set(head, bare);
         singularOf.set(bare, head);
         knownWords.add(bare);
+        nouns.add(bare);
       }
     }
   }
 
-  return { ...base, nounGender, pluralOf, singularOf, knownWords };
+  return { ...base, nounGender, nouns, pluralOf, singularOf, knownWords };
 }
 
 export function isFunctionWord(lexicon: GermanLexicon, token: string): boolean {
@@ -263,6 +273,12 @@ export function isFunctionWord(lexicon: GermanLexicon, token: string): boolean {
     lexicon.conjunctions.has(key) ||
     lexicon.verbForms.has(key)
   );
+}
+
+/** A noun the course teaches, in the singular or the plural. */
+export function isNoun(lexicon: GermanLexicon, token: string): boolean {
+  const key = lower(token);
+  return lexicon.nouns.has(key) || lexicon.nounGender.has(key) || lexicon.singularOf.has(key);
 }
 
 export function verbLemmas(lexicon: GermanLexicon, token: string): VerbForm[] {

@@ -1,11 +1,12 @@
-import type { AnswerSpec, Bilingual, ErrorCategory } from '../../content/types.ts';
-import { isFunctionWord, verbLemmas, type GermanLexicon } from './lexicon.ts';
+import type { AnswerSpec, Bilingual, ErrorCategory, ExerciseKind } from '../../content/types.ts';
+import { isFunctionWord, isNoun, verbLemmas, type GermanLexicon } from './lexicon.ts';
 import {
   compareUmlauts,
   editDistance,
   isReordering,
   lower,
   shapeKey,
+  splitScaffold,
   stripPunctuation,
   tidy,
   toDigraphs,
@@ -59,6 +60,35 @@ export interface ValidateOptions {
    * the German special letters, with a note and a retype. Default true.
    */
   acceptDigraphs?: boolean;
+  /**
+   * The step's scaffold ("___ Montag arbeite ich."), when the answer fills a
+   * gap. It says where the answer stands in its sentence, which decides
+   * whether the case of its first letter is German or only the keyboard.
+   * Without one the answer stands on its own.
+   */
+  scaffold?: string;
+  /**
+   * The kind of exercise the answer belongs to. In a dictation the recording
+   * fixes the exact words, and in the word-order drills the order is the task.
+   */
+  exerciseKind?: ExerciseKind;
+}
+
+/** Where the answer stands, as far as the first letter's case is concerned. */
+interface AnswerPlace {
+  /** The answer begins a sentence (or stands alone), so its first capital is not a rule of its own. */
+  opensSentence: boolean;
+  /** No scaffold at all: the answer is the whole thing the learner typed. */
+  standalone: boolean;
+}
+
+function answerPlace(scaffold: string | undefined): AnswerPlace {
+  if (scaffold === undefined) return { opensSentence: true, standalone: true };
+  const { before, seed } = splitScaffold(scaffold);
+  // A seeded gap ("F___") shows the first letter already.
+  if (seed) return { opensSentence: false, standalone: false };
+  const lead = before.trim();
+  return { opensSentence: lead === '' || /[.!?:]$/.test(lead), standalone: false };
 }
 
 /** Categories that are never forgiven: they are grammar, not typing. */
@@ -250,9 +280,11 @@ function compareAgainst(
     };
   }
 
+  const place = answerPlace(options.scaffold);
+
   // Case only.
   if (lower(gNoP) === lower(eNoP)) {
-    if (onlySentenceStartLowered(gNoP, eNoP, eTokens, lexicon)) {
+    if (onlyFirstLetterCase(gNoP, eNoP, eTokens, lexicon, place)) {
       return {
         ...base,
         verdict: isVariant ? 'accepted-variant' : 'accepted-with-note',
@@ -289,7 +321,8 @@ function compareAgainst(
     // would slip through with it ("der tisch ist gross"). Look again.
     const gDigraphs = toDigraphs(gNoP);
     const eDigraphs = toDigraphs(eNoP);
-    if (gDigraphs !== eDigraphs && !onlySentenceStartLowered(gDigraphs, eDigraphs, eTokens, lexicon)) {
+    const caseOnlyAtStart = onlyFirstLetterCase(gDigraphs, eDigraphs, eTokens, lexicon, place);
+    if (gDigraphs !== eDigraphs && !caseOnlyAtStart) {
       const cased = classifyCase(tokenize(gDigraphs), tokenize(eDigraphs), lexicon, spec);
       if (cased.some((c) => HARD_CATEGORIES.has(c))) {
         return { ...base, verdict: 'incorrect', credit: 0, categories: cased, notes: ['umlaut'], requireRetype: true };
@@ -307,7 +340,8 @@ function compareAgainst(
       ...base,
       verdict: 'accepted-with-note',
       credit: SOFT_CREDIT.umlaut!,
-      notes: ['umlaut'],
+      // The first letter's case was let go too; say so, as a sentence would.
+      notes: gDigraphs !== eDigraphs ? ['umlaut', 'capitalization'] : ['umlaut'],
       requireRetype: true,
     };
   }
@@ -375,22 +409,45 @@ function compareAgainst(
   };
 }
 
+/** Pronouns whose capital is their meaning: Sie is "you", sie is "she". */
+const CASE_MEANS_PERSON = new Set(['sie', 'ihr', 'ihre', 'ihren', 'ihrem', 'ihrer', 'ihres', 'ihnen']);
+
 /**
- * True when the only difference is a lowercase first letter of a sentence that
- * does not start with a noun or with "Sie" — the capital a phone keyboard did
- * not add, rather than a German rule the learner has not learned.
+ * True when the only difference is the case of the answer's first letter, and
+ * the answer opens a sentence, so that case is not a rule the learner broke.
+ *
+ * A lowercase first letter is the capital a phone keyboard did not add — the
+ * field turns the phone's capitals off for a word, so "tschüss" or "am" in
+ * "___ Montag arbeite ich." is what an iPhone types. An added capital is how
+ * German writes a word that stands on its own ("Der Tisch", "Zwei"). Neither
+ * is forgiven on a noun, which keeps its capital anywhere, nor on a lone Sie
+ * or Ihr, whose capital is the difference between "you" and "she".
  */
-function onlySentenceStartLowered(
+function onlyFirstLetterCase(
   given: string,
   expected: string,
   eTokens: string[],
   lexicon: GermanLexicon,
+  place: AnswerPlace,
 ): boolean {
-  if (eTokens.length < 2 || given === expected) return false;
+  if (!place.opensSentence || given === expected) return false;
   if (given.slice(1) !== expected.slice(1)) return false;
-  if (given[0]!.toUpperCase() !== expected[0] || given[0] === expected[0]) return false;
-  const first = lower(eTokens[0]!);
-  return first !== 'sie' && !lexicon.nounGender.has(first);
+  const g = given[0]!;
+  const e = expected[0]!;
+  if (g === e || lower(g) !== lower(e)) return false;
+  const first = lower(eTokens[0] ?? '');
+  const single = eTokens.length < 2;
+  const raised = e === lower(e);
+  // At the start of a sentence "sie ist Ärztin" cannot say which it means, so
+  // only a lone word, or a capital added to a lowercase one, is held to it.
+  if (CASE_MEANS_PERSON.has(first) && (single || raised)) return false;
+  // Nouns are never written in lower case, so an added capital cannot be one.
+  if (raised) return true;
+  if (isNoun(lexicon, first)) return false;
+  // A word on its own could be a name the course has never listed; forgive
+  // only a word it knows is not a noun.
+  if (single && place.standalone) return lexicon.knownWords.has(first);
+  return true;
 }
 
 const PLAIN_VOWEL: Record<string, string> = { 'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 's' };
@@ -425,8 +482,9 @@ function classifyCase(
     const e = eTokens[i];
     const g = gTokens[i];
     if (!e || !g || e === g) continue;
-    // "Sie" (formal you) versus "sie" (she / they) is a meaning change, not a typo.
-    if (lower(e) === 'sie') {
+    // "Sie" (formal you) versus "sie" (she / they) is a meaning change, not a
+    // typo — except as the first word, where every sentence has a capital.
+    if (lower(e) === 'sie' && i > 0) {
       categories.add('pronoun');
       continue;
     }
@@ -518,7 +576,9 @@ function classifyTokens(
   diff.forEach((entry, index) => {
     if (entry.status === 'same') return;
     if (entry.status === 'case') {
-      if (lower(entry.expected ?? '') === 'sie') categories.add('pronoun');
+      // Only inside the sentence does the capital tell Sie from sie.
+      const opens = diff.findIndex((d) => d.expected !== undefined) === index;
+      if (lower(entry.expected ?? '') === 'sie' && !opens) categories.add('pronoun');
       else categories.add('capitalization');
       return;
     }
