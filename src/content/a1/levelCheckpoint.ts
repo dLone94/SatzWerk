@@ -31,6 +31,9 @@ export const A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('My grandfather comes from Austria.', 'Дядо ми е от Австрия.'),
         answer: 'Mein Opa kommt aus Österreich.',
+        // The same alternatives the Unit 1 checkpoint takes: Großvater is the
+        // literal word for grandfather, and the Bulgarian prompt says "е от".
+        alternatives: ['Mein Opa ist aus Österreich.', 'Mein Großvater kommt aus Österreich.', 'Mein Großvater ist aus Österreich.'],
         hints: [],
       },
       {
@@ -79,6 +82,7 @@ export const A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('I get up at seven o’clock.', 'Ставам в седем часа.'),
         answer: 'Ich stehe um sieben Uhr auf.',
+        alternatives: ['Um sieben Uhr stehe ich auf.'],
         hints: [],
       },
       {
@@ -138,6 +142,9 @@ export const A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('I work as a teacher.', 'Работя като учител.'),
         answer: 'Ich arbeite als Lehrer.',
+        // The English does not say which teacher, and Unit 4 glosses
+        // "Ich arbeite als Lehrerin." as exactly this sentence.
+        alternatives: ['Ich arbeite als Lehrerin.'],
         hints: [],
       },
       {
@@ -196,6 +203,7 @@ export const A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('Excuse me, how do I get to the museum? (formal)', 'Извинете, как да стигна до музея?'),
         answer: 'Entschuldigen Sie, wie komme ich zum Museum?',
+        alternatives: ['Entschuldigung, wie komme ich zum Museum?'],
         hints: [],
       },
     ]),
@@ -209,6 +217,7 @@ export const A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('I have a headache.', 'Боли ме главата.'),
         answer: 'Ich habe Kopfschmerzen.',
+        alternatives: ['Mein Kopf tut weh.'],
         hints: [],
       },
       {
@@ -326,13 +335,17 @@ export const A1_LEVEL_CHECKPOINT: Checkpoint = {
           'Напиши пет изречения за един обикновен ден: кога ставаш, какво трябва да правиш, какво ядеш, как стигаш дотам и какво правиш вечер.',
         ),
         instruction: bi(
-          'Use your own details. A separable verb, a modal and mit dem or zum have to appear somewhere.',
-          'Използвай собствените си данни. Някъде трябва да се появят делим глагол, модален глагол и mit dem или zum.',
+          'Use your own details. A separable verb (aufstehen, fernsehen or anfangen), a modal and mit dem or zum have to appear somewhere.',
+          'Използвай собствените си данни. Някъде трябва да се появят делим глагол (aufstehen, fernsehen или anfangen), модален глагол и mit dem или zum.',
         ),
         answer:
           'Ich stehe um sieben Uhr auf. Ich muss heute arbeiten. Ich esse ein Brot. Ich fahre mit dem Bus zum Büro. Am Abend sehe ich fern.',
         shape: 'sentence',
-        requiredTokens: ['auf', 'muss', 'mit', 'Abend'],
+        // What the instruction names, and no more: any modal, and mit or zum.
+        // The separable verbs are matched by their split-off part, except
+        // anfangen: a bare "an" (like ein and ab) matches Anna, andere and
+        // Abend, so it is matched by fang instead ("fängt … an", "anfangen").
+        requiredTokens: ['auf|fern|anfang|fang|fäng', 'muss|müss|kann|könn|will|woll|möcht|darf|dürf|soll', 'mit|zum|zur', 'Abend'],
         hints: [],
       },
       {

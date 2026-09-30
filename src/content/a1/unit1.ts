@@ -441,7 +441,7 @@ const lesson1: Lesson = {
             hints: [],
           },
           {
-            prompt: bi('Is that your brother?', 'Това брат ти ли е?'),
+            prompt: bi('Is that your brother? (informal)', 'Това брат ти ли е?'),
             answer: 'Ist das dein Bruder?',
             hints: [],
           },
@@ -711,7 +711,7 @@ const lesson2: Lesson = {
         bi('Five verbs, one rule', 'Пет глагола, едно правило'),
         [
           {
-            prompt: bi('I know your father.', 'Познавам баща ти.'),
+            prompt: bi('I know your father. (informal)', 'Познавам баща ти.'),
             answer: 'Ich kenne deinen Vater.',
             reviewTargets: ['v-kennen', 'g-accusative'],
             hints: [bi('Vater is masculine and it is the object.', 'Vater е мъжки род и е допълнение.')],
@@ -751,7 +751,7 @@ const lesson2: Lesson = {
             hints: [bi('After sein, nothing changes.', 'След sein нищо не се мени.')],
           },
           {
-            prompt: bi('I like your brother.', 'Харесвам брат ти.'),
+            prompt: bi('I like your brother. (informal)', 'Харесвам брат ти.'),
             answer: 'Ich mag deinen Bruder.',
             reviewTargets: ['v-moegen', 'g-accusative'],
             hints: [
@@ -842,7 +842,7 @@ const lesson2: Lesson = {
       a1(
         typeIt('a1u1l2-m1', bi('Final check: the accusative', 'Проверка: винителен падеж'), [
           {
-            prompt: bi('I know your uncle.', 'Познавам чичо ти.'),
+            prompt: bi('I know your uncle. (informal)', 'Познавам чичо ти.'),
             answer: 'Ich kenne deinen Onkel.',
             hints: [],
           },
@@ -1259,7 +1259,7 @@ const checkpoint: Checkpoint = {
     a1(
       typeIt('cp-a1u1-2', bi('Subject and object', 'Подлог и допълнение'), [
         {
-          prompt: bi('I know your uncle.', 'Познавам чичо ти.'),
+          prompt: bi('I know your uncle. (informal)', 'Познавам чичо ти.'),
           answer: 'Ich kenne deinen Onkel.',
           hints: [],
         },

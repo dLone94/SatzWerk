@@ -291,6 +291,7 @@ const lesson1: Lesson = {
           {
             prompt: bi('The museum is closed today.', 'Музеят е затворен днес.'),
             answer: 'Das Museum ist heute zu.',
+            alternatives: ['Heute ist das Museum zu.'],
             hints: [],
           },
           {
@@ -524,6 +525,8 @@ const lesson2: Lesson = {
           {
             prompt: bi('We are going to the cinema by car.', 'Отиваме на кино с колата.'),
             answer: 'Wir fahren mit dem Auto zum Kino.',
+            // The Kino card teaches "Wir gehen ins Kino.", which is just as right.
+            alternatives: ['Wir fahren mit dem Auto ins Kino.'],
             reviewTargets: ['v-auto', 'v-kino'],
             hints: [bi('How first, then where.', 'Първо как, после къде.')],
           },
@@ -713,6 +716,9 @@ const lesson3: Lesson = {
           {
             prompt: bi('Excuse me, where is the station?', 'Извинете, къде е гарата?'),
             answer: 'Entschuldigen Sie, wo ist der Bahnhof?',
+            // Pre-A1 taught Entschuldigung for getting a stranger's attention,
+            // and the prompt does not ask for the verb form.
+            alternatives: ['Entschuldigung, wo ist der Bahnhof?'],
             reviewTargets: ['v-entschuldigen-sie', 'p-wo-ist'],
             hints: [],
           },
@@ -809,7 +815,8 @@ const lesson3: Lesson = {
             'Напиши две изречения: спри учтиво някого и попитай как да стигнеш донякъде.',
           ),
           answer: 'Entschuldigen Sie. Wie komme ich zum Bahnhof?',
-          requiredTokens: ['Entschuldigen'],
+          // "Stop someone politely": Entschuldigung does that too.
+          requiredTokens: ['Entschuldigen|Entschuldigung'],
           shape: 'sentence',
           hints: [
             bi('Start with Entschuldigen Sie.', 'Започни с Entschuldigen Sie.'),
@@ -827,6 +834,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('Excuse me, where is the pharmacy?', 'Извинете, къде е аптеката?'),
             answer: 'Entschuldigen Sie, wo ist die Apotheke?',
+            alternatives: ['Entschuldigung, wo ist die Apotheke?'],
             hints: [],
           },
           {
@@ -890,6 +898,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('We are going to the cinema by car.', 'Отиваме на кино с колата.'),
           answer: 'Wir fahren mit dem Auto zum Kino.',
+          alternatives: ['Wir fahren mit dem Auto ins Kino.'],
           hints: [],
         },
         {
@@ -904,6 +913,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('Excuse me, how do I get to the museum?', 'Извинете, как да стигна до музея?'),
           answer: 'Entschuldigen Sie, wie komme ich zum Museum?',
+          alternatives: ['Entschuldigung, wie komme ich zum Museum?'],
           hints: [],
         },
         {
