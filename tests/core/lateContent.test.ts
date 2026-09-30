@@ -468,6 +468,48 @@ describe('scenario hints and wording', () => {
   });
 });
 
+describe('register traps say what is actually wrong', () => {
+  /*
+   * "Ja, das passt dir gut." is a mir/dir slip, and its feedback said it was
+   * the wrong register and should be Sie, which leads to "das passt Ihnen",
+   * just as wrong. A trap on the informal neighbour said "Sie sounds like
+   * you are addressing a stranger" about a sentence with no Sie in it. And
+   * the shared text said "someone behind a counter" to a neighbour on the
+   * stairs and a job interviewer.
+   */
+  it('explains the mir/dir slip as a mir/dir slip', () => {
+    const result = validateAnswer('Ja, das passt dir gut.', step('sc-doctor-a1-t4-s1').answer, opts);
+    expect(result.credit).toBe(0);
+    expect(result.trapFeedback?.en).toContain('das passt mir');
+    expect(result.trapFeedback?.en).not.toContain('"Sie"');
+  });
+
+  it('only calls a sentence too formal when it says Sie', () => {
+    for (const trap of step('sc-neighbours-a2-t1-s1').answer.trapAnswers ?? []) {
+      expect(trap.answer).toMatch(/\bSie\b|\bIhnen\b/);
+    }
+  });
+
+  it('does not put every formal partner behind a counter', () => {
+    const counter: string[] = [];
+    for (const script of SCENARIO_SCRIPTS) {
+      for (const beat of script.beats) {
+        if (beat.who !== 'you') continue;
+        for (const entry of beat.exercise.steps) {
+          for (const trap of entry.answer.trapAnswers ?? []) {
+            // The shared register trap, which is used whoever the partner is.
+            if (!trap.feedback.en.startsWith('Right words, wrong person.')) continue;
+            if (/counter/.test(trap.feedback.en) || /гише/.test(trap.feedback.bg)) {
+              counter.push(`${entry.id} (${script.partner.en})`);
+            }
+          }
+        }
+      }
+    }
+    expect(counter).toEqual([]);
+  });
+});
+
 describe('figures written as digits', () => {
   /*
    * The B2 lesson on reporting figures writes "um 10 %" and "30 %" in its own

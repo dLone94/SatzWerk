@@ -557,7 +557,9 @@ const NEIGHBOURS_A2 = script({
           alternatives: ['Ja klar, kein Problem.', 'Klar, mache ich.'],
           shape: 'phrase',
           reviewTargets: ['v-das-problem'],
-          traps: [registerTrap('Selbstverständlich, sehr gern geschehen.', 'du')],
+          // A register trap needs a Sie in it; "gern geschehen" had none, and
+          // means "you're welcome" besides.
+          traps: [registerTrap('Klar, das mache ich gern für Sie.', 'du')],
           hints: [bi('Three short words.', 'Три къси думи.')],
         },
       ],

@@ -127,7 +127,27 @@ const DOCTOR_A1 = script({
           ],
           shape: 'sentence',
           reviewTargets: ['v-passt', 'v-donnerstag'],
-          traps: [registerTrap('Ja, das passt dir gut.', 'Sie')],
+          // dir here is not the register: it says the time suits the
+          // receptionist. Sent to Sie, the learner would write "das passt
+          // Ihnen", which is the same mistake.
+          traps: [
+            {
+              answer: 'Ja, das passt dir gut.',
+              category: 'pronoun',
+              feedback: bi(
+                'passen takes the person the time suits, and that is you: das passt mir. dir would mean it suits the person you are talking to.',
+                '„passen“ иска човека, на когото часът е удобен, а това си ти: das passt mir. dir би значело, че е удобно на човека, с когото говориш.',
+              ),
+            },
+            {
+              answer: 'Ja, das passt Ihnen gut.',
+              category: 'pronoun',
+              feedback: bi(
+                'passen takes the person the time suits, and that is you: das passt mir. Ihnen would mean it suits the person you are talking to.',
+                '„passen“ иска човека, на когото часът е удобен, а това си ти: das passt mir. Ihnen би значело, че е удобно на човека, с когото говориш.',
+              ),
+            },
+          ],
           hints: [bi('das passt ___ gut — the person goes in the dative.', 'das passt ___ gut — човекът е в дателен падеж.')],
         },
       ],

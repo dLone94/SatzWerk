@@ -108,8 +108,10 @@ export function registerTrap(answer: string, register: 'du' | 'Sie') {
     feedback:
       register === 'Sie'
         ? {
-            en: 'Right words, wrong person. You are talking to someone behind a counter, so it is "Sie" — that sentence is what you would say to a friend.',
-            bg: 'Правилни думи, грешен човек. Говориш с някого зад гише, значи е „Sie“ — това изречение е за приятел.',
+            // Said to a neighbour on the stairs and a job interviewer as well
+            // as across a counter, so it names the register, not the room.
+            en: 'Right words, wrong person. This is someone you say "Sie" to — that sentence is what you would say to a friend.',
+            bg: 'Правилни думи, грешен човек. На този човек говориш на „Sie“ — това изречение е за приятел.',
           }
         : {
             en: 'This one is "du". "Sie" here sounds like you are addressing a stranger, and you are not.',
