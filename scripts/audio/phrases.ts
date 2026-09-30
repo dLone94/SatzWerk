@@ -13,10 +13,12 @@ import {
   allCheckpoints,
   allLessons,
   lessonExercises,
+  sectionBlocks,
 } from '../../src/content/index.ts';
 import { SCENARIO_SCRIPTS } from '../../src/content/scenarios/index.ts';
 import { VOCABULARY } from '../../src/content/vocabulary.ts';
 import { SAMPLE_PHRASE, normalizePhrase, phraseKey } from '../../src/services/tts/phraseKey.ts';
+import { speakable } from '../../src/services/tts/speakable.ts';
 
 /** Fields whose string value is German that a button may read out. */
 const SPOKEN_FIELDS = new Set(['de', 'promptDe', 'display', 'plural']);
@@ -48,11 +50,27 @@ export function collectPhrases(): Map<string, string> {
     if (record.answer && typeof record.answer === 'object') {
       for (const accepted of (record.answer as { accepted?: unknown[] }).accepted ?? []) add(accepted);
     }
+    // A table's German cells are plain strings in arrays, with no field name
+    // to recognise them by. Each gets a play button when the tables' own rule
+    // says it is speakable, and says exactly that text.
+    if (record.t === 'table' && Array.isArray(record.rows)) {
+      for (const row of record.rows as unknown[]) {
+        if (!Array.isArray(row)) continue;
+        for (const cell of row) if (typeof cell === 'string') add(speakable(cell));
+      }
+    }
   };
 
   for (const lesson of allLessons()) {
     walk(lesson);
     lessonExercises(lesson).forEach(walk);
+    // A section can pull in a grammar concept's blocks, whose examples and
+    // tables have play buttons too. Both paths, since the blocks are chosen
+    // per teaching language.
+    for (const section of lesson.sections) {
+      walk(sectionBlocks(section, 'en'));
+      walk(sectionBlocks(section, 'bg'));
+    }
   }
   allCheckpoints().forEach(walk);
   walk(PLACEMENT_CHECKPOINT);
