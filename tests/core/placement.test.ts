@@ -161,7 +161,8 @@ describe('the placement questions', () => {
       'Wenn ich Zeit habe, werde ich mitkommen.',
       'Falls ich Zeit habe, komme ich mit.',
     ],
-    'pl-b1-4': ['Könnten Sie das bitte noch einmal wiederholen?'],
+    // würden is Konjunktiv II too, and just as polite.
+    'pl-b1-4': ['Könnten Sie das bitte noch einmal wiederholen?', 'Würden Sie das bitte wiederholen?'],
     'pl-b2-1': ['Gestern wurde der Bericht eingereicht.', 'Der Bericht ist gestern eingereicht worden.'],
     'pl-b2-2': ['Er sagt, dass er keine Zeit habe.'],
   };

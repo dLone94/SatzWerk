@@ -245,6 +245,8 @@ const B1 = [
           'Könnten Sie das bitte noch einmal wiederholen?',
           'Könnten Sie das noch einmal wiederholen, bitte?',
           'Könnten Sie das wiederholen, bitte?',
+          'Würden Sie das bitte wiederholen?',
+          'Würden Sie das bitte noch einmal wiederholen?',
         ],
         shape: 'sentence',
         hints: [],
