@@ -100,6 +100,13 @@ export interface AttemptPayload {
   revealed: boolean;
   isRetype: boolean;
   resolved: boolean;
+  /**
+   * Whether the validator asked for the answer to be typed again. Sent because
+   * 'accepted-with-note' covers both a forgotten full stop, which is a right
+   * answer, and "ae" for "ä", which is not, and only the validator knows which.
+   * Without it the server treats every note as needing a retype.
+   */
+  requireRetype?: boolean;
   durationMs?: number;
   reviewTargets?: TargetSpec[];
   /**
