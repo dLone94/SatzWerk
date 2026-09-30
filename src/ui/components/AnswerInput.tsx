@@ -2,6 +2,7 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useId,
   useImperativeHandle,
   useRef,
   type KeyboardEvent,
@@ -74,8 +75,10 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
   },
   ref,
 ) {
-  const { t } = useApp();
+  const { t, lang } = useApp();
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const scaffoldId = useId();
+  const scaffolded = Boolean(prefix || suffix);
 
   const focus = useCallback(() => {
     const element = inputRef.current;
@@ -157,7 +160,7 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
     onChange: (event: { target: { value: string } }) => onChange(event.target.value),
     onKeyDown: handleKeyDown,
     'aria-label': label,
-    'aria-describedby': describedBy,
+    'aria-describedby': [scaffolded ? scaffoldId : '', describedBy ?? ''].filter(Boolean).join(' ') || undefined,
     // German text, so the browser should not autocorrect it as English.
     autoComplete: 'off',
     autoCapitalize: capitalizeSentences ? 'sentences' : 'off',
@@ -169,6 +172,22 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
 
   return (
     <div className="answer">
+      {/*
+        The words around the gap, for a screen reader.
+
+        The visible ones are hidden from it so they are not read twice, but
+        they were the only copy: the field was announced as just "Type your
+        answer", so a learner who could not see "___ Kind ist klein." typed
+        the whole sentence and was marked wrong. This copy is what the field
+        is described by, in German, with the gap read as a word.
+      */}
+      {scaffolded ? (
+        <span id={scaffoldId} className="visually-hidden" lang="de">
+          {prefix ? `${prefix.trim()} ` : ''}
+          <span lang={lang}>{t('exerciseBlank')}</span>
+          {suffix ? ` ${suffix.trim()}` : ''}
+        </span>
+      ) : null}
       <div className="answer__row">
         {prefix ? (
           <span className="answer__scaffold" aria-hidden="true">

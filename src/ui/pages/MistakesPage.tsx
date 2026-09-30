@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { lessonById, practiceForCategory } from '../../content/index.ts';
-import type { ErrorCategory } from '../../content/types.ts';
+import type { ErrorCategory, Exercise } from '../../content/types.ts';
 import { CATEGORY_LABELS, UI } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AudioButton, Card, EmptyState, Meter, formatRelativeDate } from '../components/bits.tsx';
@@ -17,8 +17,15 @@ import { buildMistakePractice } from '../reviewBuilder.ts';
 export function MistakesPage() {
   const { t, say, lang, mistakes, stats, resolveMistake } = useApp();
   const [category, setCategory] = useState<ErrorCategory | ''>('');
-  const [running, setRunning] = useState(false);
   const [mode, setMode] = useState<'mistakes' | 'category'>('mistakes');
+  /*
+   * The practice set, fixed when practice starts.
+   *
+   * A wrong answer reloads the bank, which then gains a row at the top. Built
+   * live, the card under the retype became a different mistake, and typing
+   * the correction on screen was refused every time.
+   */
+  const [session, setSession] = useState<{ id: number; exercises: Exercise[] } | null>(null);
   const [summary, setSummary] = useState<PlayerSummary | null>(null);
 
   const filtered = useMemo(
@@ -27,16 +34,14 @@ export function MistakesPage() {
   );
 
   const exercises = useMemo(() => buildMistakePractice(filtered), [filtered]);
-  // Practice built from the course's own tasks for this kind of mistake,
-  // rather than a replay of the exact sentences the learner got wrong.
-  const categoryExercises = useMemo(
-    () => (category ? practiceForCategory(category) : []),
-    [category],
-  );
-  const activeExercises = mode === 'category' ? categoryExercises : exercises;
   const maxCount = stats.categoryCounts.reduce((max, entry) => Math.max(max, entry.count), 0);
 
-  if (running && activeExercises.length > 0) {
+  const start = (next: Exercise[]) => {
+    setSummary(null);
+    setSession({ id: (session?.id ?? 0) + 1, exercises: next });
+  };
+
+  if (session && session.exercises.length > 0) {
     return (
       <div className="page page--player">
         <header className="player-header">
@@ -48,14 +53,15 @@ export function MistakesPage() {
           </p>
         </header>
         <ExercisePlayer
-          exercises={activeExercises}
+          key={session.id}
+          exercises={session.exercises}
           context="practice"
           level="pre-a1"
           onFinish={(result) => {
             setSummary(result);
-            setRunning(false);
+            setSession(null);
           }}
-          onExit={() => setRunning(false)}
+          onExit={() => setSession(null)}
           exitLabel={t('cancel')}
         />
       </div>
@@ -103,8 +109,10 @@ export function MistakesPage() {
                       onClick={() => {
                         setCategory(entry.category);
                         setMode('category');
-                        setSummary(null);
-                        setRunning(true);
+                        // Practice built from the course's own tasks for this
+                        // kind of mistake, rather than a replay of the exact
+                        // sentences the learner got wrong.
+                        start(practiceForCategory(entry.category));
                       }}
                     >
                       {t('mistakesPractiseCategory')}
@@ -124,8 +132,7 @@ export function MistakesPage() {
                 disabled={exercises.length === 0}
                 onClick={() => {
                   setMode('mistakes');
-                  setSummary(null);
-                  setRunning(true);
+                  start(exercises);
                 }}
               >
                 {t('mistakesPractise')}

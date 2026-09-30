@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { grammarById } from '../../content/index.ts';
-import { summarizeQueue, type RecallGrade } from '../../core/srs/scheduler.ts';
+import type { Exercise } from '../../content/types.ts';
+import { summarizeQueue, type RecallGrade, type ReviewItem } from '../../core/srs/scheduler.ts';
 import { UI, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AudioButton, Card, EmptyState, formatRelativeDate } from '../components/bits.tsx';
@@ -15,10 +16,26 @@ const GRADES: RecallGrade[] = ['again', 'hard', 'good', 'easy'];
 /** How many due items one review round takes. */
 export const REVIEW_ROUND_SIZE = 20;
 
+/** A round as it was when it started. */
+interface Round {
+  id: number;
+  exercises: Exercise[];
+  size: number;
+  early: boolean;
+}
+
 export function ReviewPage() {
   const { t, say, lang, reviewItems, gradeReview } = useApp();
-  const [running, setRunning] = useState(false);
-  const [early, setEarly] = useState(false);
+  /*
+   * The round is fixed when it starts.
+   *
+   * Every answer moves its word's due date, so the queue below changes after
+   * each one. Built live, the round lost the word just answered, shifted left
+   * under the cursor and skipped the next: half the due words were never
+   * asked, and a round of ten ended "5 of 5". SessionPage fixes its plan the
+   * same way.
+   */
+  const [round, setRound] = useState<Round | null>(null);
   const [summary, setSummary] = useState<PlayerSummary | null>(null);
 
   const queue = useMemo(() => buildQueue(reviewItems), [reviewItems]);
@@ -36,27 +53,33 @@ export function ReviewPage() {
 
   // One sitting at a time: a beginner's first bad day can make thirty words
   // due at once, and the most overdue come first, so the rest can wait.
-  const activeItems = early ? earlyItems : queue.slice(0, REVIEW_ROUND_SIZE).map((entry) => entry.item);
-  const build = useMemo(() => buildReviewExercises(activeItems), [activeItems]);
+  const dueItems = useMemo(() => queue.slice(0, REVIEW_ROUND_SIZE).map((entry) => entry.item), [queue]);
+  const build = useMemo(() => buildReviewExercises(dueItems), [dueItems]);
 
-  if (running && build.exercises.length > 0) {
+  const start = (items: ReviewItem[], early: boolean) => {
+    setSummary(null);
+    setRound({ id: (round?.id ?? 0) + 1, exercises: buildReviewExercises(items).exercises, size: items.length, early });
+  };
+
+  if (round && round.exercises.length > 0) {
     return (
       <div className="page page--player">
         <header className="player-header">
           <p className="player-header__lesson">{t('reviewTitle')}</p>
           <p className="player-header__phase">
-            {early ? t('reviewPracticeEarly') : t('reviewRoundSize', { n: activeItems.length })}
+            {round.early ? t('reviewPracticeEarly') : t('reviewRoundSize', { n: round.size })}
           </p>
         </header>
         <ExercisePlayer
-          exercises={build.exercises}
+          key={round.id}
+          exercises={round.exercises}
           context="review"
           level="pre-a1"
           onFinish={(result) => {
             setSummary(result);
-            setRunning(false);
+            setRound(null);
           }}
-          onExit={() => setRunning(false)}
+          onExit={() => setRound(null)}
           exitLabel={t('cancel')}
         />
       </div>
@@ -85,11 +108,7 @@ export function ReviewPage() {
                 <button
                   type="button"
                   className="btn btn--primary"
-                  onClick={() => {
-                    setEarly(true);
-                    setSummary(null);
-                    setRunning(true);
-                  }}
+                  onClick={() => start(earlyItems, true)}
                 >
                   {t('reviewPracticeEarly')}
                 </button>
@@ -117,11 +136,7 @@ export function ReviewPage() {
               type="button"
               className="btn btn--primary btn--lg"
               disabled={build.exercises.length === 0}
-              onClick={() => {
-                setEarly(false);
-                setSummary(null);
-                setRunning(true);
-              }}
+              onClick={() => start(dueItems, false)}
               autoFocus
             >
               {t('reviewStart')}
