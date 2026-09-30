@@ -256,6 +256,57 @@ describe('review queue', () => {
     expect(new Date(slipped.dueAt).getTime()).toBe(new Date('2026-03-02T21:05:00Z').getTime());
   });
 
+  /*
+   * A grade given offline waits in the outbox and used to be scheduled from
+   * the moment it arrived: graded Monday, delivered Wednesday, due two days
+   * later than it should be, and different from what the phone had shown.
+   */
+  it('schedules a grade from when it was given, within reason', async () => {
+    const day = 86_400_000;
+    await call('POST', '/api/reviews/ensure', {
+      targets: [
+        { refId: 'v-hallo', kind: 'vocab', level: 'pre-a1' },
+        { refId: 'v-danke', kind: 'vocab', level: 'pre-a1' },
+        { refId: 'v-bitte', kind: 'vocab', level: 'pre-a1' },
+      ],
+    });
+
+    const monday = new Date(Date.now() - 3 * day).toISOString();
+    const graded = (await call('POST', '/api/reviews/vocab%3Av-hallo/grade', { grade: 'easy', gradedAt: monday }))
+      .body as { lastReviewAt: string; dueAt: string; intervalDays: number };
+    expect(graded.lastReviewAt).toBe(monday);
+    expect(new Date(graded.dueAt).getTime()).toBe(new Date(monday).getTime() + graded.intervalDays * day);
+
+    // A phone clock years out is held to the last thirty days, and one in the
+    // future to now.
+    const before = Date.now();
+    const ancient = (await call('POST', '/api/reviews/vocab%3Av-danke/grade', {
+      grade: 'good',
+      gradedAt: '2019-01-01T00:00:00Z',
+    })).body as { lastReviewAt: string };
+    const reviewedAt = new Date(ancient.lastReviewAt).getTime();
+    expect(reviewedAt).toBeGreaterThanOrEqual(before - 30 * day);
+    expect(reviewedAt).toBeLessThanOrEqual(Date.now() - 30 * day + 1000);
+
+    const future = (await call('POST', '/api/reviews/vocab%3Av-bitte/grade', {
+      grade: 'good',
+      gradedAt: new Date(Date.now() + 5 * day).toISOString(),
+    })).body as { lastReviewAt: string };
+    expect(new Date(future.lastReviewAt).getTime()).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('never dates a late-arriving grade before the item’s last review', async () => {
+    await call('POST', '/api/reviews/ensure', { targets: [{ refId: 'v-hallo', kind: 'vocab', level: 'pre-a1' }] });
+    const first = (await call('POST', '/api/reviews/vocab%3Av-hallo/grade', { grade: 'good' })).body as {
+      lastReviewAt: string;
+    };
+    const stale = (await call('POST', '/api/reviews/vocab%3Av-hallo/grade', {
+      grade: 'good',
+      gradedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+    })).body as { lastReviewAt: string };
+    expect(new Date(stale.lastReviewAt).getTime()).toBeGreaterThanOrEqual(new Date(first.lastReviewAt).getTime());
+  });
+
   it('rejects an unknown grade and an unknown item', async () => {
     expect((await call('POST', '/api/reviews/vocab%3Av-hallo/grade', { grade: 'wat' })).status).toBe(400);
     expect((await call('POST', '/api/reviews/vocab%3Anope/grade', { grade: 'good' })).status).toBe(404);

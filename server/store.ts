@@ -393,10 +393,19 @@ export async function ensureReviewItems(scope: Scope, targets: TargetSpec[]): Pr
   return created;
 }
 
-export async function gradeReviewItem(scope: Scope, id: string, grade: RecallGrade): Promise<ReviewItem | undefined> {
+export async function gradeReviewItem(
+  scope: Scope,
+  id: string,
+  grade: RecallGrade,
+  gradedAt = new Date(),
+): Promise<ReviewItem | undefined> {
   const item = await getReviewItem(scope, id);
   if (!item) return undefined;
-  const next = scheduleReview(item, grade);
+  // Never earlier than the item's last review: a grade that waited in one
+  // phone's outbox may arrive after a later one from another device, and a
+  // schedule must not run backwards.
+  const last = item.lastReviewAt ? new Date(item.lastReviewAt).getTime() : Number.NEGATIVE_INFINITY;
+  const next = scheduleReview(item, grade, new Date(Math.max(gradedAt.getTime(), last)));
   await upsertReviewItem(scope, next);
   return next;
 }

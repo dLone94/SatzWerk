@@ -549,7 +549,14 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       const body = asRecord(request.body);
       const grade = String(body.grade);
       if (!GRADES.has(grade)) return badRequest('grade must be again, hard, good or easy');
-      const item = await store.gradeReviewItem(scope, decodeURIComponent(route[1]!), grade as RecallGrade);
+      // When it was graded, which is not when it arrived if it waited in the
+      // outbox: a grade given on Monday is scheduled from Monday.
+      const item = await store.gradeReviewItem(
+        scope,
+        decodeURIComponent(route[1]!),
+        grade as RecallGrade,
+        gradeTime(body.gradedAt, new Date()),
+      );
       if (!item) return notFound('Review item not found');
       return ok(item);
     }
@@ -762,6 +769,24 @@ export function attemptTime(raw: unknown, now: Date): Date {
   if (millis > now.getTime() + ATTEMPT_SKEW_MS) return now;
   if (millis < now.getTime() - ATTEMPT_BACKDATE_LIMIT_MS) return now;
   return stamped;
+}
+
+/** How far back a queued review grade may date itself. */
+export const GRADE_BACKDATE_LIMIT_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * The time a review grade was given, held to the last thirty days.
+ *
+ * Clamped rather than replaced, unlike an answer's time: a grade only moves a
+ * schedule, and one from a phone whose clock is wrong is better placed at the
+ * edge of the plausible window than at an arbitrary "now". Nothing is dated
+ * in the future.
+ */
+export function gradeTime(raw: unknown, now: Date): Date {
+  if (typeof raw !== 'string' || raw.length === 0) return now;
+  const millis = new Date(raw).getTime();
+  if (!Number.isFinite(millis)) return now;
+  return new Date(Math.min(now.getTime(), Math.max(now.getTime() - GRADE_BACKDATE_LIMIT_MS, millis)));
 }
 
 /** A step nobody spent two hours on, and nobody finished in negative time. */
