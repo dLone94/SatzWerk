@@ -72,3 +72,102 @@ describe('the formal Sie in the explanation', () => {
     expect(en.join(' ')).not.toContain('formal');
   });
 });
+
+/*
+ * Every explanation quoted the first changed word, whatever it was about:
+ * "Das Tisch sind groß." was told "The verb ending is wrong: "Der", not
+ * "Das"". Each line now quotes the word its own mistake is in.
+ */
+describe('each explanation quotes its own word', () => {
+  it('names the verb in the verb line and the article in the article line', () => {
+    const { en } = explain('Das Tisch sind groß.', spec('Der Tisch ist groß.'));
+    const verb = en.find((line) => line.toLowerCase().includes('verb'));
+    expect(verb).toContain('"ist"');
+    expect(verb).not.toContain('"Der"');
+    expect(en.join(' ')).toContain('"Der Tisch"');
+  });
+
+  it('does the same for a possessive beside a verb ending', () => {
+    const { en } = explain('Mein Oma wohnen in Hamburg.', spec('Meine Oma wohnt in Hamburg.'));
+    const verb = en.find((line) => line.toLowerCase().includes('verb'));
+    expect(verb).toContain('"wohnt"');
+    expect(verb).not.toContain('Meine');
+  });
+
+  it('quotes the right word for a vocabulary slip beside an article slip', () => {
+    const { en } = explain('Das Tisch ist klein.', spec('Der Tisch ist groß.'));
+    const vocabulary = en.find((line) => line.startsWith('The word German uses'));
+    expect(vocabulary).toContain('"groß"');
+  });
+});
+
+/*
+ * Two neighbouring wrong words were misaligned: "Ich wohnst im Hamburg." was
+ * told that German does not need "wohnst", that the word it uses is "wohne",
+ * and that "in" is missing — and was filed as an extra word.
+ */
+describe('two wrong words side by side', () => {
+  it('pairs each wrong word with the word it stands for', () => {
+    const { result, en } = explain('Ich wohnst im Hamburg.', spec('Ich wohne in Hamburg.'));
+    expect(result.categories).toEqual(['verb-conjugation', 'preposition']);
+    expect(en.join(' ')).toContain('"wohne"');
+    expect(en.join(' ')).toContain('"in"');
+    expect(en.join(' ')).toContain('"im"');
+  });
+
+  it('diagnoses "Wie heißt du?" as a verb and a pronoun, not as missing words', () => {
+    const { result } = explain('Wie heißt du?', spec('Wie heißen Sie?'));
+    expect(result.categories).toContain('verb-conjugation');
+    expect(result.categories).toContain('pronoun');
+    expect(result.categories).not.toContain('missing-word');
+    expect(result.categories).not.toContain('extra-word');
+  });
+
+  it('grades two typos side by side like two typos apart', () => {
+    const apart = validateAnswer('Guten Morge, Frau Webe!', spec('Guten Morgen, Frau Weber!'), { lexicon: LEXICON });
+    const together = validateAnswer('Guten Morge, Fra Weber!', spec('Guten Morgen, Frau Weber!'), { lexicon: LEXICON });
+    expect(together.verdict).toBe(apart.verdict);
+  });
+
+  it('still pairs the likely word when one word is extra', () => {
+    const { result } = explain('Ich wohne jetzt im Hamburg.', spec('Ich wohne in Hamburg.'));
+    expect(result.categories).toContain('preposition');
+    expect(result.categories).toContain('extra-word');
+  });
+});
+
+/*
+ * The article explanation rebuilt the "right" article from the noun's gender,
+ * always in the nominative: "mit das Auto" was told German uses "das Auto",
+ * not "das Auto"; "Mein Oma" was told to write "die Oma"; and the plural-only
+ * Eltern was called feminine.
+ */
+describe('the article explanation', () => {
+  it('prescribes the article the sentence needs, not the nominative', () => {
+    const { en, bg } = explain('Wir fahren mit das Auto zum Kino.', spec('Wir fahren mit dem Auto zum Kino.'));
+    expect(en.join(' ')).toContain('"dem Auto"');
+    expect(en.join(' ')).not.toMatch(/uses "das Auto", not "das Auto"/);
+    expect(bg.join(' ')).toContain('dem Auto');
+  });
+
+  it('keeps the possessive the answer uses', () => {
+    const { en } = explain('Mein Oma wohnt in Hamburg.', spec('Meine Oma wohnt in Hamburg.'));
+    expect(en.join(' ')).toContain('"Meine Oma"');
+    expect(en.join(' ')).not.toContain('"die Oma", not');
+  });
+
+  it('asks for keinen where the learner wrote kein or nicht', () => {
+    for (const given of ['Ich habe kein Bruder.', 'Ich habe nicht Bruder.']) {
+      const { en } = explain(given, spec('Ich habe keinen Bruder.'));
+      expect(en.join(' '), given).toContain('"keinen Bruder"');
+    }
+  });
+
+  it('calls a plural-only noun plural, not feminine', () => {
+    const { en, bg } = explain('Mein Eltern wohnen in Bulgarien.', spec('Meine Eltern wohnen in Bulgarien.'));
+    expect(en.join(' ')).not.toContain('feminine');
+    expect(en.join(' ')).toContain('plural');
+    expect(en.join(' ')).toContain('"Meine Eltern"');
+    expect(bg.join(' ')).toContain('множествено число');
+  });
+});

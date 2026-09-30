@@ -567,23 +567,73 @@ function alignTokens(given: string[], expected: string[]): TokenDiffEntry[] {
     j += 1;
   }
 
-  // Collapse an adjacent extra+missing pair into a single substitution, which
-  // is what a learner actually did when they used the wrong word.
+  // Turn the extra and missing words between two matches into substitutions,
+  // which is what a learner actually did when they used the wrong word. The
+  // whole stretch is paired at once: pairing only neighbours crossed two
+  // wrong words side by side ("Ich wohnst im Hamburg" came out as an extra
+  // "wohnst", "im" for "wohne", and a missing "in").
   const merged: TokenDiffEntry[] = [];
-  for (let k = 0; k < out.length; k += 1) {
-    const cur = out[k]!;
-    const next = out[k + 1];
-    if (cur.status === 'extra' && next?.status === 'missing') {
-      merged.push({ status: 'changed', given: cur.given, expected: next.expected });
+  for (let k = 0; k < out.length; ) {
+    if (out[k]!.status !== 'extra' && out[k]!.status !== 'missing') {
+      merged.push(out[k]!);
       k += 1;
-    } else if (cur.status === 'missing' && next?.status === 'extra') {
-      merged.push({ status: 'changed', given: next.given, expected: cur.expected });
-      k += 1;
-    } else {
-      merged.push(cur);
+      continue;
     }
+    const extras: string[] = [];
+    const missing: string[] = [];
+    while (k < out.length && (out[k]!.status === 'extra' || out[k]!.status === 'missing')) {
+      if (out[k]!.status === 'extra') extras.push(out[k]!.given!);
+      else missing.push(out[k]!.expected!);
+      k += 1;
+    }
+    merged.push(...pairStretch(extras, missing));
   }
   return merged;
+}
+
+/**
+ * Pair the learner's unmatched words with the answer's, keeping both in order.
+ * Equal numbers pair up one to one; when one side has more, each word goes
+ * with the one it most resembles ("jetzt im" against "in" pairs im with in).
+ */
+function pairStretch(extras: string[], missing: string[]): TokenDiffEntry[] {
+  const n = extras.length;
+  const m = missing.length;
+  // Any substitution costs less than leaving two words unpaired.
+  const GAP = 1;
+  const substitute = (a: string, b: string) => {
+    const x = lower(a);
+    const y = lower(b);
+    return editDistance(x, y) / Math.max(x.length, y.length, 1);
+  };
+  const cost: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  for (let i = n; i >= 0; i -= 1) {
+    for (let j = m; j >= 0; j -= 1) {
+      if (i === n && j === m) continue;
+      const options: number[] = [];
+      if (i < n && j < m) options.push(substitute(extras[i]!, missing[j]!) + cost[i + 1]![j + 1]!);
+      if (i < n) options.push(GAP + cost[i + 1]![j]!);
+      if (j < m) options.push(GAP + cost[i]![j + 1]!);
+      cost[i]![j] = Math.min(...options);
+    }
+  }
+  const out: TokenDiffEntry[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < n || j < m) {
+    if (i < n && j < m && cost[i]![j] === substitute(extras[i]!, missing[j]!) + cost[i + 1]![j + 1]!) {
+      out.push({ status: 'changed', given: extras[i]!, expected: missing[j]! });
+      i += 1;
+      j += 1;
+    } else if (i < n && cost[i]![j] === GAP + cost[i + 1]![j]!) {
+      out.push({ status: 'extra', given: extras[i]! });
+      i += 1;
+    } else {
+      out.push({ status: 'missing', expected: missing[j]! });
+      j += 1;
+    }
+  }
+  return out;
 }
 
 function buildDiff(given: string[], expected: string[]): TokenDiffEntry[] {
