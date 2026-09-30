@@ -1128,6 +1128,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('We moved in last month.', 'Нанесохме се миналия месец.'),
             answer: 'Wir sind letzten Monat eingezogen.',
+            alternatives: ['Letzten Monat sind wir eingezogen.'],
             reviewTargets: ['v-einziehen'],
             hints: [],
             traps: [

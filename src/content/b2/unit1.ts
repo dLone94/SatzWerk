@@ -718,6 +718,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('I would suggest that we check the figures first.', 'Бих предложил първо да проверим числата.'),
             answer: 'Ich würde vorschlagen, dass wir zuerst die Zahlen prüfen.',
+            alternatives: ['Ich würde vorschlagen, dass wir die Zahlen zuerst prüfen.'],
             reviewTargets: ['p-vorschlag-dass', 'v-vorschlagen'],
             hints: [],
             traps: [
@@ -827,6 +828,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('I would suggest that we check the figures first.', 'Бих предложил първо да проверим числата.'),
             answer: 'Ich würde vorschlagen, dass wir zuerst die Zahlen prüfen.',
+            alternatives: ['Ich würde vorschlagen, dass wir die Zahlen zuerst prüfen.'],
             hints: [],
           },
           {
@@ -1237,6 +1239,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I would suggest that we check the figures first.', 'Бих предложил първо да проверим числата.'),
           answer: 'Ich würde vorschlagen, dass wir zuerst die Zahlen prüfen.',
+          alternatives: ['Ich würde vorschlagen, dass wir die Zahlen zuerst prüfen.'],
           hints: [],
         },
         {

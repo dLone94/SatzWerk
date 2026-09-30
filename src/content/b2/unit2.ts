@@ -968,6 +968,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('I would have reservations about that.', 'Тук бих имал резерви.'),
             answer: 'Da hätte ich Bedenken.',
+            alternatives: ['Ich hätte da Bedenken.'],
             reviewTargets: ['v-das-bedenken'],
             hints: [bi('Konjunktiv II, and the place word first.', 'Konjunktiv II, а думата за място е първа.')],
           },
@@ -1079,6 +1080,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('I would have reservations about that.', 'Тук бих имал резерви.'),
             answer: 'Da hätte ich Bedenken.',
+            alternatives: ['Ich hätte da Bedenken.'],
             hints: [],
           },
           {

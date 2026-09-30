@@ -160,6 +160,8 @@ const APARTMENT_B1 = script({
           alternatives: [
             'Ich bin seit drei Jahren Krankenpflegerin und habe einen unbefristeten Vertrag.',
             'Ich arbeite seit drei Jahren als Krankenpflegerin, mein Vertrag ist unbefristet.',
+            'Seit drei Jahren arbeite ich als Krankenpflegerin und habe einen unbefristeten Vertrag.',
+            'Seit drei Jahren bin ich Krankenpflegerin und habe einen unbefristeten Vertrag.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-arbeiten', 'v-als', 'v-befristet'],

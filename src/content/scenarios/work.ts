@@ -183,6 +183,8 @@ const WORK_B1 = script({
           alternatives: [
             'Ich bin seit fünf Jahren in der Logistik und möchte mehr Verantwortung übernehmen.',
             'Ich arbeite seit fünf Jahren in der Logistik und würde gern mehr Verantwortung übernehmen.',
+            'Seit fünf Jahren arbeite ich in der Logistik und möchte mehr Verantwortung übernehmen.',
+            'Seit fünf Jahren bin ich in der Logistik und möchte mehr Verantwortung übernehmen.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-die-erfahrung', 'v-sich-bewerben'],

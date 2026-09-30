@@ -200,3 +200,107 @@ describe('the Bulgarian prompt asks for the register the answer is in', () => {
     expect(out).toEqual([]);
   });
 });
+
+describe('both ways of saying something hurts', () => {
+  /*
+   * Bulgarian says "Боли ме гърбът" for both "I have back pain" and "My back
+   * hurts", so a Bulgarian-path learner cannot tell which German shape a step
+   * wants, and the other one, equally correct, was marked wrong: in the A2
+   * final check and unit checkpoint too. The A2 doctor scenario, whose prompt
+   * is literally "Your throat has hurt", rejected "Mein Hals tut … weh".
+   */
+  it('accepts -schmerzen and tut weh alike', () => {
+    expect(
+      rejected({
+        'a2u4l3-ex1-s1': ['Mein Rücken tut weh.'],
+        'a2u4l3-ex1-s2': ['Ich habe Zahnschmerzen.', 'Mir tut der Zahn weh.'],
+        'a2u4l3-m1-s1': ['Mein Rücken tut weh.'],
+        'cp-a2u4-3-s1': ['Mein Rücken tut weh.', 'Mir tut der Rücken weh.'],
+        'sc-doctor-a2-t1-s1': ['Mein Hals tut seit drei Tagen weh.', 'Seit drei Tagen tut mein Hals weh.'],
+      }),
+    ).toEqual([]);
+  });
+
+  it('keeps the same Bulgarian prompt answerable the same way across A2, B1 and B2', () => {
+    // The English prompts differ ("I have back pain" / "My back hurts"); the
+    // Bulgarian ones do not, so they are compared on their own.
+    const byPrompt = new Map<string, ExerciseStep[]>();
+    const typed = [
+      ...availableLessons().flatMap((lesson) => lessonExercises(lesson)),
+      ...allCheckpoints()
+        .filter((checkpoint) => checkpoint.scope !== 'placement')
+        .flatMap((checkpoint) => checkpoint.exercises),
+    ].filter((exercise) => ['a2', 'b1', 'b2'].includes(exercise.level) && exercise.kind === 'type');
+    for (const exercise of typed) {
+      for (const entry of exercise.steps) {
+        if (!entry.prompt?.bg || entry.scaffold || entry.wordBank) continue;
+        const key = entry.prompt.bg.toLowerCase().replace(/[^\p{L} ]/gu, '').trim();
+        byPrompt.set(key, [...(byPrompt.get(key) ?? []), entry]);
+      }
+    }
+    const out: string[] = [];
+    for (const group of byPrompt.values()) {
+      for (const a of group) {
+        for (const b of group) {
+          if (a === b) continue;
+          for (const answer of b.answer.accepted) {
+            if (!isRight(answer, a.id)) out.push(`${a.id} rejects "${answer}" (right in ${b.id})`);
+          }
+        }
+      }
+    }
+    expect([...new Set(out)]).toEqual([]);
+  });
+});
+
+describe('a time phrase may come first', () => {
+  /*
+   * Putting a time phrase first and the verb second is the central rule of
+   * A1, and it was a word-order mistake whenever the model answer happened
+   * not to front it: "Letzten Monat sind wir eingezogen.", "Zweimal pro Woche
+   * arbeite ich im Homeoffice.", "Seit fünf Jahren arbeite ich in der
+   * Logistik …". The same went for ordinary reorderings of the middle of the
+   * sentence at B1 and B2.
+   */
+  it('accepts the fronted order wherever the answer starts with subject, verb, time', () => {
+    const TIME = String.raw`(heute|morgen|gestern|jetzt|bald|um \S+ Uhr|letzte[nm]? (?:Woche|Monat|Jahr|Wochenende)|nächste[nm]? (?:Woche|Monat|Jahr|Wochenende)|seit (?:\S+ )?(?:Tagen|Wochen|Monaten|Jahren)|zweimal pro Woche|jeden (?:Tag|Morgen|Abend))`;
+    const pattern = new RegExp(String.raw`^(Ich|Wir|Er|Du|Ihr) ([^\s,]+) ${TIME} (.+)$`);
+    const typed = [
+      ...availableLessons().flatMap((lesson) => lessonExercises(lesson)),
+      ...allCheckpoints()
+        .filter((checkpoint) => checkpoint.scope !== 'placement')
+        .flatMap((checkpoint) => checkpoint.exercises),
+      ...SCENARIO_SCRIPTS.flatMap((script) =>
+        script.beats.flatMap((beat) => (beat.who === 'you' ? [beat.exercise] : [])),
+      ),
+    ].filter((exercise) => ['a2', 'b1', 'b2'].includes(exercise.level) && exercise.kind === 'type');
+    const out: string[] = [];
+    let checked = 0;
+    for (const exercise of typed) {
+      for (const entry of exercise.steps) {
+        if (entry.scaffold || entry.wordBank) continue;
+        const match = pattern.exec(entry.answer.accepted[0]!);
+        if (!match) continue;
+        const [, subject, verb, time, rest] = match;
+        const fronted = `${time![0]!.toUpperCase()}${time!.slice(1)} ${verb} ${subject === 'Ich' ? 'ich' : subject!.toLowerCase()} ${rest}`;
+        checked += 1;
+        if (!isRight(fronted, entry.id)) out.push(`${entry.id}: ${fronted}`);
+      }
+    }
+    expect(checked).toBeGreaterThan(5);
+    expect(out).toEqual([]);
+  });
+
+  it('accepts the ordinary middle-field orders it used to call word-order mistakes', () => {
+    expect(
+      rejected({
+        'b1u6l1-ex2-s4': ['Ich stimme dir da zu.'],
+        'b1u6l1-m1-s3': ['Ich stimme dir da zu.'],
+        'b2u1l2-ex3-s1': ['Ich würde vorschlagen, dass wir die Zahlen zuerst prüfen.'],
+        'b2u1l2-m1-s1': ['Ich würde vorschlagen, dass wir die Zahlen zuerst prüfen.'],
+        'cp-b2u1-3-s1': ['Ich würde vorschlagen, dass wir die Zahlen zuerst prüfen.'],
+        'b2u2l3-m1-s2': ['Ich hätte da Bedenken.'],
+      }),
+    ).toEqual([]);
+  });
+});

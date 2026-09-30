@@ -169,6 +169,11 @@ const DOCTOR_A2 = script({
           alternatives: [
             'Seit drei Tagen habe ich Halsschmerzen.',
             'Mir tut seit drei Tagen der Hals weh.',
+            // The prompt says the throat hurts, and "Mein Hals tut weh" is the
+            // shape A1 taught for exactly that.
+            'Mein Hals tut seit drei Tagen weh.',
+            'Seit drei Tagen tut mein Hals weh.',
+            'Seit drei Tagen tut mir der Hals weh.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-hals', 'v-schmerzen'],
