@@ -590,6 +590,71 @@ describe('a wrong ending is grammar, not a typo', () => {
   });
 });
 
+/*
+ * Fronting the place or the time keeps the verb second and is correct German
+ * ("In Hamburg wohne ich."), but every reordering scored nothing as a
+ * word-order mistake, with the explanation that the verb belongs in second
+ * position — the rule the learner had just applied.
+ */
+describe('the verb in second place after a fronted phrase', () => {
+  const taught = extendLexicon(lexicon, [
+    { german: 'Oma', wordType: 'noun', gender: 'f' },
+    { german: 'Sonntag', wordType: 'noun', gender: 'm' },
+    { german: 'Bruder', wordType: 'noun', gender: 'm' },
+    { german: 'groß', wordType: 'adjective' },
+    { german: 'aufstehen', wordType: 'verb' },
+  ]);
+  const with_ = { lexicon: taught };
+
+  it('accepts a place, a time or an object moved to the front', () => {
+    for (const [given, answer] of [
+      ['In Hamburg wohne ich.', 'Ich wohne in Hamburg.'],
+      ['Heute muss ich arbeiten.', 'Ich muss heute arbeiten.'],
+      ['Am Sonntag arbeite ich nicht.', 'Ich arbeite am Sonntag nicht.'],
+      ['In Hamburg wohnt meine Oma.', 'Meine Oma wohnt in Hamburg.'],
+      ['Um sieben Uhr stehe ich auf.', 'Ich stehe um sieben Uhr auf.'],
+      ['Einen Bruder habe ich.', 'Ich habe einen Bruder.'],
+    ]) {
+      const r = validateAnswer(given!, sentence([answer!]), with_);
+      expect(r.verdict, given).toBe('accepted-variant');
+      expect(r.credit, given).toBe(1);
+      expect(r.target, given).toBe(answer);
+    }
+  });
+
+  it('still refuses an order that breaks the rule', () => {
+    for (const [given, answer] of [
+      ['In Hamburg ich wohne.', 'Ich wohne in Hamburg.'],
+      ['Hamburg wohne ich in.', 'Ich wohne in Hamburg.'],
+      ['Heute muss arbeiten ich.', 'Ich muss heute arbeiten.'],
+      ['Arbeiten muss ich heute.', 'Ich muss heute arbeiten.'],
+      ['Heute ich arbeite.', 'Ich arbeite heute.'],
+      ['Auf stehe ich um sieben Uhr.', 'Ich stehe um sieben Uhr auf.'],
+      ['Bruder habe ich einen großen.', 'Ich habe einen großen Bruder.'],
+      ['Heute zu Hause arbeite ich.', 'Ich arbeite heute zu Hause.'],
+    ]) {
+      const r = validateAnswer(given!, sentence([answer!]), with_);
+      expect(r.categories, given).toEqual(['word-order']);
+      expect(r.credit, given).toBe(0);
+    }
+  });
+
+  it('keeps the order the lesson asks for when it fronts the time itself', () => {
+    const r = validateAnswer('Ich arbeite heute zu Hause.', sentence(['Heute arbeite ich zu Hause.']), with_);
+    expect(r.categories).toEqual(['word-order']);
+  });
+
+  it('keeps the exact order in a dictation and in the word-order drills', () => {
+    for (const kind of ['dictation', 'wordOrder', 'sentenceBuild'] as const) {
+      const r = validateAnswer('In Hamburg wohne ich.', sentence(['Ich wohne in Hamburg.']), {
+        ...with_,
+        exerciseKind: kind,
+      });
+      expect(r.categories, kind).toEqual(['word-order']);
+    }
+  });
+});
+
 describe('sie at the start of a sentence', () => {
   it('is a missing capital, not a pronoun mistake', () => {
     const r = validateAnswer('sie ist Ärztin.', sentence(['Sie ist Ärztin.']), opts);

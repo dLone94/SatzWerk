@@ -3,6 +3,7 @@ import {
   FREE_VARIANTS,
   isFunctionWord,
   isNoun,
+  isVerbForm,
   sharedInflection,
   verbLemmas,
   type GermanLexicon,
@@ -58,6 +59,13 @@ export interface ValidationResult {
   diff: TokenDiffEntry[];
   /** Authored explanation for a known wrong turn. */
   trapFeedback?: Bilingual;
+  /**
+   * For a word-order mistake: whether the learner's order already keeps the
+   * finite verb in second place (so the verb-second rule is not what went
+   * wrong), and the words the answer opens with. Absent when the verb is not
+   * one the lexicon knows.
+   */
+  wordOrder?: { verbSecond: boolean; opening: string };
 }
 
 export interface ValidateOptions {
@@ -393,12 +401,20 @@ function compareAgainst(
 
   // Same words, wrong order.
   if (isReordering(gTokens, eTokens)) {
+    // A place, a time or an object moved to the front, with the verb still
+    // second ("In Hamburg wohne ich."), is good German. Not where the exact
+    // order is the task: a dictation, or the drills that build the order.
+    const fronted = STRICT_ORDER.has(options.exerciseKind ?? 'type')
+      ? undefined
+      : frontedVariant(gTokens, eTokens, expectedTidy, lexicon);
+    if (fronted) return compareAgainst(raw, fronted, spec, options, true);
     return {
       ...base,
       verdict: 'incorrect',
       credit: 0,
       categories: ['word-order'],
       requireRetype: true,
+      wordOrder: orderReading(gTokens, eTokens, lexicon),
     };
   }
 
@@ -439,6 +455,249 @@ function compareAgainst(
     categories,
     requireRetype: true,
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * The verb in second place
+ * ------------------------------------------------------------------ */
+
+/** Exercises where the exact order of the words is the task. */
+const STRICT_ORDER: ReadonlySet<ExerciseKind> = new Set<ExerciseKind>(['dictation', 'wordOrder', 'sentenceBuild']);
+
+/** Pronouns that can be the subject, and the determiners a subject can start with. */
+const SUBJECT_PRONOUNS = new Set(['ich', 'du', 'er', 'sie', 'es', 'wir', 'ihr', 'man']);
+const SUBJECT_DETERMINERS = new Set([
+  'der', 'die', 'das', 'ein', 'eine', 'kein', 'keine', 'mein', 'meine', 'dein', 'deine',
+  'sein', 'seine', 'ihr', 'ihre', 'unser', 'unsere', 'euer', 'eure',
+]);
+/** Articles that can open a genitive, which belongs to the noun before it. */
+const GENITIVE_OPENERS = new Set(['des', 'der', 'eines', 'einer']);
+/** Words that open a noun or prepositional phrase, besides the articles and prepositions. */
+const PHRASE_OPENERS = new Set(['jeden', 'jede', 'jedes', 'diesen', 'diese', 'dieses', 'letzte', 'letzten', 'nächste', 'nächsten', 'nächstes']);
+/** Particles that never stand in front of the verb on their own. */
+const NOT_FRONTED = new Set([
+  'nicht', 'auch', 'noch', 'schon', 'nur', 'sehr', 'ja', 'nein', 'doch', 'mal', 'denn', 'sich',
+  'etwa', 'fast', 'gar', 'erst', 'bloß', 'eben', 'halt', 'wohl', 'sogar', 'ganz', 'so', 'zu',
+]);
+/** Separable prefixes, which close the sentence and never move to the front. */
+const SEPARABLE = new Set(['ab', 'an', 'auf', 'aus', 'ein', 'mit', 'nach', 'vor', 'zu', 'zurück', 'weg', 'los', 'fest', 'fern', 'her', 'hin']);
+
+/** The index of the finite verb when it stands second, after a short subject. */
+function finiteVerbIndex(tokens: string[], lexicon: GermanLexicon): number {
+  for (let i = 0; i < Math.min(tokens.length, 4); i += 1) {
+    const token = tokens[i]!;
+    // "Sein Bruder …": a possessive that is also an infinitive opens the sentence.
+    if (i === 0 && lexicon.articles.has(lower(token))) continue;
+    if (!isVerbForm(lexicon, token)) continue;
+    // A capital inside the sentence is a noun ("die Reise"), not a verb.
+    if (i > 0 && token[0] !== lower(token[0]!) && !lexicon.verbForms.has(lower(token))) continue;
+    return i >= 1 ? i : -1;
+  }
+  return -1;
+}
+
+/** Could these words be the subject of the sentence? */
+function isSubject(words: string[], lexicon: GermanLexicon): boolean {
+  const first = lower(words[0] ?? '');
+  if (words.length === 1) return SUBJECT_PRONOUNS.has(first) || isNoun(lexicon, first);
+  return words.length <= 3 && SUBJECT_DETERMINERS.has(first);
+}
+
+/** Could these words be one phrase in front of the verb? A loose reading. */
+function isOnePhrase(words: string[], lexicon: GermanLexicon): boolean {
+  if (words.length === 0 || words.length > 4) return false;
+  if (words.some((word) => isVerbForm(lexicon, word))) return false;
+  const lowered = words.map(lower);
+  const last = lowered[lowered.length - 1]!;
+  if (lexicon.articles.has(last) || lexicon.prepositions.has(last)) return false;
+  if (words.length === 1) {
+    return !(
+      lexicon.articles.has(last) ||
+      lexicon.pronouns.has(last) ||
+      lexicon.conjunctions.has(last) ||
+      NOT_FRONTED.has(last) ||
+      SEPARABLE.has(last)
+    );
+  }
+  // One phrase: a preposition or a determiner, then the words that belong to it.
+  const [head, ...rest] = lowered;
+  const opensPhrase =
+    lexicon.prepositions.has(head!) || lexicon.articles.has(head!) || PHRASE_OPENERS.has(head!) || /^\d+$/.test(head!);
+  return opensPhrase && !rest.some((word) => lexicon.prepositions.has(word));
+}
+
+/**
+ * Adverbs that stand in front of the verb on their own: time, place, and the
+ * sentence adverbs a learner meets early.
+ */
+const FRONTING_ADVERBS = new Set([
+  'heute', 'morgen', 'gestern', 'übermorgen', 'vorgestern', 'jetzt', 'dann', 'danach', 'später', 'bald',
+  'oft', 'manchmal', 'immer', 'nie', 'selten', 'meistens', 'normalerweise', 'abends', 'morgens', 'mittags',
+  'nachmittags', 'vormittags', 'nachts', 'montags', 'dienstags', 'mittwochs', 'donnerstags', 'freitags',
+  'samstags', 'sonntags', 'dort', 'hier', 'da', 'links', 'rechts', 'oben', 'unten', 'zuerst', 'zuletzt',
+  'endlich', 'leider', 'vielleicht', 'wahrscheinlich', 'natürlich', 'gerade', 'trotzdem', 'deshalb',
+  'deswegen', 'außerdem', 'damals', 'früher', 'zusammen', 'gern', 'lieber', 'sofort', 'gleich',
+]);
+
+/**
+ * Is `moved` a whole phrase of the answer, so that it can stand in front of
+ * the verb with the words `before` and `behind` it staying where they were?
+ * Kept to the shapes that are safe to recognise: a listed adverb ("Heute"),
+ * a prepositional phrase ending in its noun ("Am Sonntag", "In Hamburg"), a
+ * noun phrase with its article ("Einen Bruder"), or a lone noun object with
+ * at most an adverb before it ("Tee trinke ich gern"). Anything torn out of a
+ * longer phrase — "Um acht | Uhr", "als | Lehrer", "dreißig Jahre | alt" — is
+ * not recognised.
+ */
+function frontsCleanly(moved: string[], before: string[], behind: string[], lexicon: GermanLexicon): boolean {
+  if (moved.length === 0 || moved.length > 4) return false;
+  if (moved.some((word) => isVerbForm(lexicon, word))) return false;
+  const lowered = moved.map(lower);
+  const [head, ...tail] = lowered;
+  const last = moved[moved.length - 1]!;
+  const isNounWord = (word: string) => word[0] !== lower(word[0]!) || /^\d+$/.test(word);
+  // The words left behind must not have been the start of the moved phrase.
+  const leftOpen = (word: string | undefined) =>
+    word !== undefined &&
+    (lexicon.articles.has(lower(word)) ||
+      lexicon.prepositions.has(lower(word)) ||
+      lexicon.conjunctions.has(lower(word)) ||
+      lower(word) === 'wie');
+  if (leftOpen(before[before.length - 1])) return false;
+  // Nor may the next word still belong to it ("Um acht | Uhr"), or a
+  // genitive hang on either side ("das Hauptthema | der Woche").
+  if (behind[0] !== undefined && isNounWord(behind[0]) && !lexicon.prepositions.has(lower(behind[0]))) return false;
+  const genitive = (word: string | undefined) => word !== undefined && GENITIVE_OPENERS.has(lower(word));
+  if (genitive(behind[0])) return false;
+  const beforeLast = before[before.length - 1];
+  if (genitive(moved[0]) && beforeLast !== undefined && isNounWord(beforeLast)) return false;
+
+  if (moved.length === 1) {
+    if (FRONTING_ADVERBS.has(head!)) return true;
+    // A lone noun, with nothing but an adverb left in front of it.
+    return (
+      isNounWord(last) &&
+      !lexicon.pronouns.has(head!) &&
+      before.every((word) => FRONTING_ADVERBS.has(lower(word)))
+    );
+  }
+  // A phrase ends in its noun, a name, a number or a pronoun ("bei mir").
+  if (!isNounWord(last) && !lexicon.pronouns.has(lower(last))) return false;
+  const middle = tail.slice(0, -1);
+  if (middle.some((word) => lexicon.prepositions.has(word))) return false;
+  if (lexicon.prepositions.has(head!)) return true;
+  // A noun phrase: its article, perhaps an adjective, then the noun.
+  return (
+    (lexicon.articles.has(head!) || PHRASE_OPENERS.has(head!)) &&
+    moved.slice(1, -1).every((word) => word === lower(word) && !lexicon.articles.has(word))
+  );
+}
+
+/** Can this word close the sentence as the second half of the verb? */
+function closesVerb(word: string, lexicon: GermanLexicon): boolean {
+  const key = lower(word);
+  return (
+    isVerbForm(lexicon, word) ||
+    lexicon.participles.has(key) ||
+    SEPARABLE.has(key) ||
+    (word[0] === key[0] && /^ge\p{L}+(t|en)$/u.test(key))
+  );
+}
+
+/**
+ * When the learner moved one phrase of a subject-first answer to the front and
+ * kept the verb second, with the subject straight after it and everything
+ * else in its order, the answer rewritten in the learner's order. For
+ * "Ich wohne in Hamburg." and "In Hamburg wohne ich." that is
+ * "In Hamburg wohne ich." Undefined for anything else, including the reverse:
+ * a lesson that asks for the time first is practising exactly that.
+ */
+function frontedVariant(
+  gTokens: string[],
+  eTokens: string[],
+  expected: string,
+  lexicon: GermanLexicon,
+): string | undefined {
+  // One plain statement: no question, no second clause, no second sentence.
+  if (/[?,;:]/.test(expected) || /[.!?]\s+\S/.test(expected)) return undefined;
+  if (eTokens.some((word) => lexicon.conjunctions.has(lower(word)))) return undefined;
+  const v = finiteVerbIndex(eTokens, lexicon);
+  if (v < 1) return undefined;
+  const subject = eTokens.slice(0, v);
+  const rest = eTokens.slice(v + 1);
+  // A sentence that opens with Sie does not say whether it means "you" or
+  // "she", and moved inside the sentence it would have to.
+  // Nor with the "es" of "Es ist neun Uhr", which is not a subject that moves.
+  const opener = lower(subject[0]!);
+  if (!isSubject(subject, lexicon) || opener === 'sie' || opener === 'es') return undefined;
+
+  const g = gTokens.map(lower);
+  const verb = lower(eTokens[v]!);
+  const p = g.indexOf(verb);
+  if (p < 1 || g.lastIndexOf(verb) !== p) return undefined;
+  const front = gTokens.slice(0, p);
+  if (g.slice(p + 1, p + 1 + subject.length).join(' ') !== subject.map(lower).join(' ')) return undefined;
+  const after = g.slice(p + 1 + subject.length);
+
+  // The fronted words are one stretch of the rest of the answer.
+  const r = rest.map(lower);
+  const f = front.map(lower);
+  let start = -1;
+  for (let s = 0; s + f.length <= r.length; s += 1) {
+    if (f.every((word, k) => r[s + k] === word)) {
+      start = s;
+      break;
+    }
+  }
+  if (start < 0) return undefined;
+  const before = rest.slice(0, start);
+  const behind = rest.slice(start + f.length);
+  if ([...before, ...behind].map(lower).join(' ') !== after.join(' ')) return undefined;
+  const moved = rest.slice(start, start + f.length);
+  if (!frontsCleanly(moved, before, behind, lexicon)) return undefined;
+  // The end of the sentence (an infinitive, a participle, a separable prefix)
+  // stays at the end.
+  if (behind.length === 0 && rest.length > f.length && closesVerb(rest[rest.length - 1]!, lexicon)) return undefined;
+
+  const opening = moved[0]!;
+  const firstWord = subject[0]!;
+  // The subject loses the capital it had only for opening the sentence.
+  const keepsCapital = firstWord === 'Sie' || isNoun(lexicon, firstWord) || !lexicon.knownWords.has(lower(firstWord));
+  const words = [
+    opening[0]!.toUpperCase() + opening.slice(1),
+    ...moved.slice(1),
+    eTokens[v]!,
+    keepsCapital ? firstWord : lower(firstWord[0]!) + firstWord.slice(1),
+    ...subject.slice(1),
+    ...before,
+    ...behind,
+  ];
+  const close = /[.!]+$/.exec(expected)?.[0] ?? '';
+  return words.join(' ') + close;
+}
+
+/**
+ * For a rejected reordering, whether the learner's finite verb is already in
+ * second place: right after one word, or after a stretch of words that stood
+ * together in the answer too.
+ */
+function orderReading(
+  gTokens: string[],
+  eTokens: string[],
+  lexicon: GermanLexicon,
+): ValidationResult['wordOrder'] {
+  const v = finiteVerbIndex(eTokens, lexicon);
+  if (v < 1) return undefined;
+  const g = gTokens.map(lower);
+  const e = eTokens.map(lower);
+  const p = g.indexOf(e[v]!);
+  if (p < 0 || g.lastIndexOf(e[v]!) !== p) return undefined;
+  const opening = eTokens.slice(0, v).join(' ');
+  if (p === 0) return { verbSecond: false, opening };
+  if (p === 1) return { verbSecond: true, opening };
+  const lead = g.slice(0, p).join(' ');
+  const together = e.some((_, s) => e.slice(s, s + p).join(' ') === lead) && !g.slice(0, p).includes(e[0]!);
+  return { verbSecond: together && isOnePhrase(gTokens.slice(0, p), lexicon), opening };
 }
 
 /** Pronouns whose capital is their meaning: Sie is "you", sie is "she". */

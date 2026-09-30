@@ -44,6 +44,8 @@ export interface GermanLexicon {
    * which is grammar, never a typo.
    */
   inflections: Map<string, string[]>;
+  /** Lowercased Perfekt participles the course teaches ("gegangen"). */
+  participles: Set<string>;
   /** Lowercased singular noun to its plural (bare, no article). */
   pluralOf: Map<string, string>;
   /** Lowercased plural noun to its singular. */
@@ -157,6 +159,15 @@ const VERB_PARADIGMS: Record<string, Partial<Record<VerbForm['person'], string>>
     ich: 'koste', du: 'kostest', er: 'kostet', wir: 'kosten', ihr: 'kostet',
     sie: 'kosten', infinitive: 'kosten',
   },
+  // The modal verbs and werden: irregular, and the verb in second place of
+  // many taught sentences ("Ich muss heute arbeiten").
+  müssen: { ich: 'muss', du: 'musst', er: 'muss', wir: 'müssen', ihr: 'müsst', sie: 'müssen', infinitive: 'müssen' },
+  können: { ich: 'kann', du: 'kannst', er: 'kann', wir: 'können', ihr: 'könnt', sie: 'können', infinitive: 'können' },
+  wollen: { ich: 'will', du: 'willst', er: 'will', wir: 'wollen', ihr: 'wollt', sie: 'wollen', infinitive: 'wollen' },
+  dürfen: { ich: 'darf', du: 'darfst', er: 'darf', wir: 'dürfen', ihr: 'dürft', sie: 'dürfen', infinitive: 'dürfen' },
+  sollen: { ich: 'soll', du: 'sollst', er: 'soll', wir: 'sollen', ihr: 'sollt', sie: 'sollen', infinitive: 'sollen' },
+  möchten: { ich: 'möchte', du: 'möchtest', er: 'möchte', wir: 'möchten', ihr: 'möchtet', sie: 'möchten' },
+  werden: { ich: 'werde', du: 'wirst', er: 'wird', wir: 'werden', ihr: 'werdet', sie: 'werden', infinitive: 'werden' },
 };
 
 const PAST_FORMS: Array<[string, string, VerbForm['person']]> = [
@@ -232,6 +243,7 @@ export function createBaseLexicon(): GermanLexicon {
     nounGender: new Map(),
     nouns: new Set(),
     inflections: new Map(),
+    participles: new Set(),
     pluralOf: new Map(),
     singularOf: new Map(),
   };
@@ -259,6 +271,7 @@ export function extendLexicon(base: GermanLexicon, entries: LexiconSeed[]): Germ
   const singularOf = new Map(base.singularOf);
   const knownWords = new Set(base.knownWords);
   const nouns = new Set(base.nouns);
+  const participles = new Set(base.participles);
   const inflections = new Map<string, string[]>();
   for (const [form, words] of base.inflections) inflections.set(form, [...words]);
   const inflect = (word: string, forms: string[]) => {
@@ -277,7 +290,10 @@ export function extendLexicon(base: GermanLexicon, entries: LexiconSeed[]): Germ
     // Without this, the moment A2 starts asking for "Ich bin gegangen" the
     // validator calls a perfectly good participle a typo, because nothing in
     // the course had ever named it as a word.
-    if (entry.participle) knownWords.add(lower(entry.participle));
+    if (entry.participle) {
+      knownWords.add(lower(entry.participle));
+      participles.add(lower(entry.participle));
+    }
 
     if (entry.wordType === 'verb') inflect(`verb:${head}`, presentForms(head));
     if (entry.wordType === 'adjective') inflect(`adjective:${head}`, adjectiveForms(head));
@@ -296,7 +312,7 @@ export function extendLexicon(base: GermanLexicon, entries: LexiconSeed[]): Germ
     }
   }
 
-  return { ...base, nounGender, nouns, inflections, pluralOf, singularOf, knownWords };
+  return { ...base, nounGender, nouns, inflections, participles, pluralOf, singularOf, knownWords };
 }
 
 const SEPARABLE_PREFIXES = [
@@ -339,6 +355,16 @@ export function sharedInflection(lexicon: GermanLexicon, a: string, b: string): 
   const second = new Set(lexicon.inflections.get(lower(b)) ?? []);
   const shared = first.find((word) => second.has(word));
   return shared ? (shared.split(':')[0] as 'verb' | 'adjective') : undefined;
+}
+
+/** A form of a verb the course knows: a taught paradigm or a vocabulary verb. */
+export function isVerbForm(lexicon: GermanLexicon, token: string): boolean {
+  const key = lower(token);
+  return (
+    lexicon.verbForms.has(key) ||
+    lexicon.participles.has(key) ||
+    (lexicon.inflections.get(key) ?? []).some((word) => word.startsWith('verb:'))
+  );
 }
 
 export function isFunctionWord(lexicon: GermanLexicon, token: string): boolean {

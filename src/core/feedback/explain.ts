@@ -246,13 +246,34 @@ function explainCategory(
         ),
       ];
 
-    case 'word-order':
+    case 'word-order': {
+      // The verb-second rule is only the explanation when the learner broke
+      // it. "In Hamburg wohne ich." keeps the verb second; telling it
+      // otherwise taught the opposite of the rule it had just applied.
+      const order = result.wordOrder;
+      if (order?.verbSecond) {
+        return [
+          bi(
+            `All your words are right and the verb is in second place, but this sentence starts with "${order.opening}".`,
+            `Всички думи са верни и глаголът е на второ място, но това изречение започва с „${order.opening}“.`,
+          ),
+        ];
+      }
+      if (order) {
+        return [
+          bi(
+            'All your words are right, but German puts them in a different order. In a German main clause the conjugated verb stands in second position.',
+            'Всички думи са верни, но немският ги подрежда иначе. В немското главно изречение спрегнатият глагол стои на второ място.',
+          ),
+        ];
+      }
       return [
         bi(
-          'All your words are right, but German puts them in a different order. In a German main clause the conjugated verb stands in second position.',
-          'Всички думи са верни, но немският ги подрежда иначе. В немското главно изречение спрегнатият глагол стои на второ място.',
+          'All your words are right, but German puts them in a different order here.',
+          'Всички думи са верни, но тук немският ги подрежда иначе.',
         ),
       ];
+    }
 
     case 'preposition':
       if (!change) {

@@ -190,3 +190,38 @@ describe('the ending explanations', () => {
     expect(en.join(' ')).toContain('"kennen"');
   });
 });
+
+/*
+ * Every reordering was told that the verb belongs in second position, even
+ * when the learner's verb was second ("In Hamburg wohne ich." in a
+ * dictation, or "Ich arbeite heute." where the lesson fronts the time).
+ */
+describe('the word-order explanation', () => {
+  it('does not cite the verb-second rule when the verb is already second', () => {
+    for (const [given, answer, kind] of [
+      ['In Hamburg wohne ich.', 'Ich wohne in Hamburg.', 'dictation'],
+      ['Ich arbeite heute zu Hause.', 'Heute arbeite ich zu Hause.', 'type'],
+    ] as const) {
+      const { result, en } = explain(given, spec(answer), { exerciseKind: kind });
+      expect(result.categories, given).toEqual(['word-order']);
+      expect(en.join(' '), given).not.toContain('second position');
+      expect(en.join(' '), given).toContain(`starts with "${answer.split(' ')[0]}"`);
+    }
+  });
+
+  it('still cites it when the verb is out of place', () => {
+    for (const [given, answer] of [
+      ['In Hamburg ich wohne.', 'Ich wohne in Hamburg.'],
+      ['Heute ich arbeite zu Hause.', 'Heute arbeite ich zu Hause.'],
+    ]) {
+      const { en } = explain(given!, spec(answer!));
+      expect(en.join(' '), given).toContain('second position');
+    }
+  });
+
+  it('accepts the fronted phrase in a typed answer, showing the taught order', () => {
+    const { result, feedback } = explain('In Hamburg wohne ich.', spec('Ich wohne in Hamburg.'), { exerciseKind: 'type' });
+    expect(result.verdict).toBe('accepted-variant');
+    expect(feedback.correction).toBe('Ich wohne in Hamburg.');
+  });
+});
