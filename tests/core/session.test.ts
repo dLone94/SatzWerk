@@ -218,6 +218,29 @@ describe('building the round from real progress', () => {
     expect(build.sources.lesson).toEqual([]);
   });
 
+  /*
+   * Opening a lesson marks its first section as seen, and that alone used to
+   * put every exercise of the lesson into the round: all six forms of heißen,
+   * sein, and du vs Sie, none of them taught yet. The empty lesson part was
+   * then read as "only the final check is left".
+   */
+  it('draws nothing from a lesson that has only been opened', () => {
+    const build = sessionBuild(progress([allSections[0]!], []), [], [], new Date(), 'bg');
+    expect(build.sources.lesson).toEqual([]);
+    expect(build.lessonAwaitsMastery).toBe(false);
+    expect(build.lesson?.lesson.id).toBe(lesson.id);
+  });
+
+  it('draws on the lesson once every section on the learner’s path is read', () => {
+    for (const lang of ['en', 'bg'] as const) {
+      const onPath = lesson.sections
+        .filter((section) => !section.only || section.only.includes(lang))
+        .map((section) => section.id);
+      const build = sessionBuild(progress(onPath, []), [], [], new Date(), lang);
+      expect(build.sources.lesson.length).toBe(lesson.exercises.length);
+    }
+  });
+
   it('asks only for the steps that are not already right', () => {
     const [first, second, ...rest] = allStepIds;
     const build = sessionBuild(progress(allSections, [first!, second!]), [], []);

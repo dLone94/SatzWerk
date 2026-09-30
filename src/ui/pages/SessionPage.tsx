@@ -65,8 +65,8 @@ export function SessionPage() {
   const collected = useRef<PlayerSummary[]>([]);
 
   const build = useMemo(
-    () => sessionBuild(lessons, reviewItems, mistakes),
-    [lessons, reviewItems, mistakes],
+    () => sessionBuild(lessons, reviewItems, mistakes, new Date(), lang),
+    [lessons, reviewItems, mistakes, lang],
   );
   const preview = useMemo(
     () => planSession(build.sources, profile.dailyTargetMinutes, stats),

@@ -33,6 +33,7 @@ export function LessonPage() {
     lessons,
     reviewItems,
     mistakes,
+    checkpointResults,
     lessonProgress,
     markSectionSeen,
     recordMastery,
@@ -270,7 +271,7 @@ export function LessonPage() {
       // Where to go from here: the same next step Today would offer, unless
       // the app has not caught up with this lesson being finished yet (offline,
       // say) and would send you straight back into it.
-      const next = nextAction(lessons, reviewItems, mistakes, true);
+      const next = nextAction(lessons, reviewItems, mistakes, true, checkpointResults);
       const onward = next.to !== `/lesson/${lesson.id}` && next.kind !== 'idle' ? next : null;
       return (
         <div className="page">

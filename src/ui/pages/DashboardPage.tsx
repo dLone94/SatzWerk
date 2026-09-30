@@ -20,12 +20,13 @@ import { buildLessonViews, buildVocabViews, nextAction, sessionBuild, skillProgr
  * progress" until there is something in them.
  */
 export function DashboardPage() {
-  const { t, say, lang, lessons, reviewItems, mistakes, favorites, stats, studyDays, profile } = useApp();
+  const { t, say, lang, lessons, reviewItems, mistakes, favorites, stats, studyDays, profile, checkpointResults } =
+    useApp();
 
-  const action = nextAction(lessons, reviewItems, mistakes, profile.onboarded);
+  const action = nextAction(lessons, reviewItems, mistakes, profile.onboarded, checkpointResults);
   // The same plan the round itself will build, so the two never disagree.
   const round = planSession(
-    sessionBuild(lessons, reviewItems, mistakes).sources,
+    sessionBuild(lessons, reviewItems, mistakes, new Date(), lang).sources,
     profile.dailyTargetMinutes,
     stats,
   );
