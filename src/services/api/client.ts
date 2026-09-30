@@ -201,12 +201,13 @@ const REQUEST_TIMEOUT_MS = 30_000;
 
 /**
  * For the writes the outbox can hold. Nobody waits on these any more — the
- * verdict is on screen before they are sent — so a request stuck on a weak
- * signal only holds up the queue behind it. Giving up sooner hands it back to
- * the outbox, which tries again; the idempotency key it carries is how the
- * server can tell a copy that did arrive from a new write.
+ * verdict is on screen before they are sent — so giving up sooner would only
+ * hand a stuck request back to the outbox to try again. It stays as long as
+ * any other request for now: a cold function waking a sleeping database can
+ * take longer than ten seconds and still save the write, and until the server
+ * recognises a repeat by its idempotency key, the retry would save it twice.
  */
-const WRITE_TIMEOUT_MS = 10_000;
+const WRITE_TIMEOUT_MS = REQUEST_TIMEOUT_MS;
 
 /** Header naming a write, the same on every try of it. See `QueuedWrite.id`. */
 export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
