@@ -329,7 +329,7 @@ const lesson1: Lesson = {
             hints: [],
           },
           {
-            prompt: bi('For the specialist you need a referral.', 'За специалиста ти трябва направление.'),
+            prompt: bi('For the specialist you need a referral.', 'За специалиста ви трябва направление.'),
             answer: 'Für den Facharzt brauchen Sie eine Überweisung.',
             reviewTargets: ['v-der-facharzt', 'v-die-ueberweisung'],
             hints: [],
@@ -344,7 +344,7 @@ const lesson1: Lesson = {
         bi('At the surgery', 'В кабинета'),
         [
           {
-            prompt: bi('How long have you had these symptoms?', 'Откога имаш тези оплаквания?'),
+            prompt: bi('How long have you had these symptoms?', 'Откога имате тези оплаквания?'),
             answer: 'Seit wann haben Sie diese Beschwerden?',
             reviewTargets: ['v-die-beschwerden'],
             hints: [],
@@ -1069,7 +1069,7 @@ const checkpoint: Checkpoint = {
     b1(
       typeIt('cp-b1u3-4', bi('Being ill in Germany', 'Боледуване в Германия'), [
         {
-          prompt: bi('For the specialist you need a referral.', 'За специалиста ти трябва направление.'),
+          prompt: bi('For the specialist you need a referral.', 'За специалиста ви трябва направление.'),
           answer: 'Für den Facharzt brauchen Sie eine Überweisung.',
           hints: [],
         },

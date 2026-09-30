@@ -172,3 +172,31 @@ describe('the same prompt, the same answers', () => {
     expect([...new Set(out)]).toEqual([]);
   });
 });
+
+describe('the Bulgarian prompt asks for the register the answer is in', () => {
+  /*
+   * Six B1 steps, one of them in a unit checkpoint, said "ти" in Bulgarian
+   * ("За специалиста ти трябва направление.") while only the Sie form was
+   * accepted, so a Bulgarian-path learner who translated faithfully wrote du
+   * and was marked wrong. English "you" is neutral; Bulgarian is not.
+   */
+  it('never says ти where only Sie is accepted', () => {
+    const informal = /(?<!\p{L})(ти|твой|твоя|твое|твоите|имаш|можеш|искаш|знаеш)(?!\p{L})/iu;
+    const formal = /(^|[^.!?]\s)(Sie|Ihnen|Ihr\w*)\b|^(Können|Könnten|Würden|Haben|Sind|Möchten|Brauchen)\s+Sie\b/;
+    const du = /\b(du|dich|dir|dein\w*)\b/i;
+    const out: string[] = [];
+    const exercises = [
+      ...availableLessons().flatMap((lesson) => lessonExercises(lesson)),
+      ...allCheckpoints().flatMap((checkpoint) => checkpoint.exercises),
+    ].filter((exercise) => ['a2', 'b1', 'b2'].includes(exercise.level) && exercise.kind !== 'freeWriting');
+    for (const exercise of exercises) {
+      for (const entry of exercise.steps) {
+        if (!entry.prompt?.bg) continue;
+        const answers = [...entry.answer.accepted, ...(entry.answer.alternatives ?? [])];
+        const onlySie = answers.some((answer) => formal.test(answer)) && !answers.some((answer) => du.test(answer));
+        if (onlySie && informal.test(entry.prompt.bg)) out.push(`${entry.id}: ${entry.prompt.bg}`);
+      }
+    }
+    expect(out).toEqual([]);
+  });
+});

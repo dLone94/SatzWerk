@@ -924,7 +924,7 @@ const lesson3: Lesson = {
           de: 'Die Bescheinigung wird Ihnen per Post geschickt.',
           gloss: bi(
             'The certificate will be sent to you by post.',
-            'Удостоверението ще ти бъде изпратено по пощата.',
+            'Удостоверението ще ви бъде изпратено по пощата.',
           ),
           audio: true,
         },
@@ -1022,7 +1022,7 @@ const lesson3: Lesson = {
           {
             prompt: bi(
               'The certificate will be sent to you by post.',
-              'Удостоверението ще ти бъде изпратено по пощата.',
+              'Удостоверението ще ви бъде изпратено по пощата.',
             ),
             answer: 'Die Bescheinigung wird Ihnen per Post geschickt.',
             reviewTargets: ['v-die-bescheinigung'],
@@ -1072,7 +1072,7 @@ const lesson3: Lesson = {
           {
             prompt: bi(
               'The certificate will be sent to you by post.',
-              'Удостоверението ще ти бъде изпратено по пощата.',
+              'Удостоверението ще ви бъде изпратено по пощата.',
             ),
             answer: 'Die Bescheinigung wird Ihnen per Post geschickt.',
             hints: [],

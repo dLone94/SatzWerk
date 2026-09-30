@@ -921,7 +921,7 @@ const lesson3: Lesson = {
         bi('At the interview', 'На интервюто'),
         [
           {
-            prompt: bi('What are your strengths and weaknesses?', 'Какви са силните и слабите ти страни?'),
+            prompt: bi('What are your strengths and weaknesses?', 'Какви са вашите силни и слаби страни?'),
             answer: 'Was sind Ihre Stärken und Schwächen?',
             reviewTargets: ['v-die-staerke', 'v-die-schwaeche'],
             hints: [],
