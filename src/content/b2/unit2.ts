@@ -1044,7 +1044,7 @@ const lesson3: Lesson = {
             'Някой предлага графикът да се съкрати с две седмици. Напиши три изречения: отстъпи по една точка, изкажи резервата си и предложи условие. Използвай einräumen и Bedenken.',
           ),
           answer:
-            'Ich räume ein, dass wir schneller werden müssen. Trotzdem hätte ich Bedenken. Unter einer Bedingung können wir zustimmen: wir brauchen mehr Leute.',
+            'Ich räume ein, dass wir schneller werden müssen. Trotzdem hätte ich Bedenken. Unter einer Bedingung können wir zustimmen: Wir brauchen mehr Leute.',
           requiredTokens: ['räume', 'Bedenken'],
           shape: 'sentence',
           hints: [],

@@ -626,7 +626,7 @@ const lesson2: Lesson = {
         },
         {
           t: 'de',
-          de: 'Da habe ich einen Einwand: der Zeitplan ist zu eng.',
+          de: 'Da habe ich einen Einwand: Der Zeitplan ist zu eng.',
           gloss: bi('I have an objection there: the schedule is too tight.', 'Тук имам възражение: графикът е твърде стегнат.'),
           audio: true,
         },

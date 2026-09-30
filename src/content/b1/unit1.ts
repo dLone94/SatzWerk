@@ -1134,7 +1134,7 @@ const lesson3: Lesson = {
             traps: [
               {
                 answer: 'Wir haben letzten Monat eingezogen.',
-                category: 'verb-conjugation',
+                category: 'auxiliary-verb',
                 feedback: bi(
                   'einziehen is a change of place, so it takes sein: Wir sind eingezogen. So do ausziehen and umziehen.',
                   'einziehen е промяна на мястото, затова взима sein: Wir sind eingezogen. Същото важи за ausziehen и umziehen.',

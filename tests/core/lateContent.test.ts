@@ -7,7 +7,7 @@ import {
   availableLessons,
   lessonExercises,
 } from '../../src/content/index.ts';
-import type { ExerciseStep } from '../../src/content/types.ts';
+import type { Block, ExerciseStep } from '../../src/content/types.ts';
 import { VOCABULARY } from '../../src/content/vocabulary.ts';
 import { checkFreeWriting, validateAnswer } from '../../src/core/validation/validate.ts';
 
@@ -36,6 +36,13 @@ function step(id: string): ExerciseStep {
   const found = STEPS.get(id);
   if (!found) throw new Error(`no step ${id}`);
   return found;
+}
+
+/** Every teaching block written into the lessons of one level. */
+function levelBlocks(level: string): Block[] {
+  return availableLessons()
+    .filter((lesson) => lesson.level === level)
+    .flatMap((lesson) => lesson.sections.flatMap((section) => section.blocks));
 }
 
 function isRight(given: string, id: string): boolean {
@@ -521,6 +528,25 @@ describe('a word is displayed as German only', () => {
   it('keeps glosses out of every display', () => {
     const glossed = VOCABULARY.filter((entry) => /[(=]/.test(entry.display)).map((entry) => `${entry.id}: ${entry.display}`);
     expect(glossed).toEqual([]);
+  });
+});
+
+describe('small German and labelling errors at B1 and B2', () => {
+  /*
+   * A whole sentence after a colon starts with a capital in German, and two
+   * B2 lines showed it lower case. And the haben/sein trap on "Wir haben
+   * letzten Monat eingezogen." was filed as a conjugation mistake, so it
+   * landed in the wrong practice pool and the wrong row of the mistake bank.
+   */
+  it('capitalises a sentence after a colon', () => {
+    expect(step('b2u2l3-ex4-s1').answer.accepted[0]).toContain(': Wir brauchen mehr Leute.');
+    const example = levelBlocks('b2').find((block) => block.t === 'de' && block.de.startsWith('Da habe ich einen Einwand'));
+    expect(example && example.t === 'de' ? example.de : '').toBe('Da habe ich einen Einwand: Der Zeitplan ist zu eng.');
+  });
+
+  it('files a haben-for-sein trap as an auxiliary-verb mistake', () => {
+    const trap = step('b1u1l3-ex3-s3').answer.trapAnswers!.find((entry) => entry.answer.startsWith('Wir haben'))!;
+    expect(trap.category).toBe('auxiliary-verb');
   });
 });
 
