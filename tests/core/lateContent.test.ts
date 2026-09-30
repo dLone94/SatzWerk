@@ -95,8 +95,9 @@ describe('traps that call correct German correct', () => {
   it('keeps a trap that admits the German is correct only where it means something else here', () => {
     // Each of these was read on purpose: the sentence is real German, but for
     // another meaning (ist ausgefüllt), another register (von + dative in a
-    // written application) or another move (naming a culprit).
-    const reviewed = new Set(['b1u2l1-ex3-s1', 'b1u4l1-ex2-s1', 'sc-bakery-b1-t1-s1']);
+    // written application), another move (naming a culprit) or another tone
+    // (Ich will … as a demand at a café counter).
+    const reviewed = new Set(['a1u3l1-ex2-s1', 'b1u2l1-ex3-s1', 'b1u4l1-ex2-s1', 'sc-bakery-b1-t1-s1']);
     const admitting = /not wrong|grammatically correct|correct german/i;
     const found: string[] = [];
     for (const [id, entry] of STEPS) {

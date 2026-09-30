@@ -43,8 +43,12 @@ export function WordPage() {
   const perfectForm = entry.perfect
     ? `${entry.perfect.auxiliary === 'sein' ? 'ist' : 'hat'} ${entry.perfect.participle}`
     : '';
-  const genderLabel =
-    entry.gender === 'm'
+  // Eltern, Geschwister, Schmerzen: taught only in the plural, where German
+  // has no gender. Their `gender` is the article's, so it read "feminine".
+  const pluralOnly = entry.plural !== undefined && entry.plural.toLowerCase() === entry.display.toLowerCase();
+  const genderLabel = pluralOnly
+    ? UI.wordPluralOnly[lang]
+    : entry.gender === 'm'
       ? UI.wordGenderM[lang]
       : entry.gender === 'f'
         ? UI.wordGenderF[lang]

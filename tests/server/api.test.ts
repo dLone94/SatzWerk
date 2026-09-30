@@ -373,6 +373,14 @@ describe('lesson progress', () => {
     expect(passed.completedAt).toBeTruthy();
   });
 
+  it('keeps a final-check score to a share, so a best is never over 100%', async () => {
+    await call('POST', '/api/lessons/pre-a1-u2-l1/mastery', { accuracy: 1.4, passAccuracy: 0.7 });
+    const lesson = (await call('GET', '/api/lessons/pre-a1-u2-l1')).body as {
+      mastery: { bestAccuracy: number; passed: boolean };
+    };
+    expect(lesson.mastery).toMatchObject({ bestAccuracy: 1, passed: true });
+  });
+
   /*
    * The final check is played with the lesson's id, so its answers were filed
    * as practice outcomes. Its step ids are not practice steps, and a failed

@@ -552,7 +552,10 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       if (!Number.isFinite(accuracy) || !Number.isFinite(passAccuracy)) {
         return badRequest('accuracy and passAccuracy are required numbers');
       }
-      return ok(await store.recordMastery(scope, lessonId, accuracy, passAccuracy));
+      // Kept to a share, as the checkpoint results are: 1.4 would show as a
+      // best of 140% for good, since the best only ever goes up.
+      const share = (value: number) => Math.min(1, Math.max(0, value));
+      return ok(await store.recordMastery(scope, lessonId, share(accuracy), share(passAccuracy)));
     }
     if (route.length === 3 && route[2] === 'recovery' && method === 'POST') {
       return ok(await store.recordRecoveryRound(scope, lessonId));

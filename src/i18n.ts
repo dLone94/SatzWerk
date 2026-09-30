@@ -611,6 +611,7 @@ export const UI = {
   wordGenderM: s('masculine', 'мъжки род'),
   wordGenderF: s('feminine', 'женски род'),
   wordGenderN: s('neuter', 'среден род'),
+  wordPluralOnly: s('plural only — no gender', 'само множествено число — без род'),
 
   // Mistakes
   mistakesTitle: s('Mistake bank', 'Банка с грешки'),

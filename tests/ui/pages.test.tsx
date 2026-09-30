@@ -231,6 +231,19 @@ describe.each(LANGS)('pages render in the %s path', (lang) => {
     expect(screen.getByText('die Töchter')).toBeInTheDocument();
   });
 
+  it('word detail: a plural-only noun is not called feminine', () => {
+    mount(
+      <Routes>
+        <Route path="/vocabulary/:wordId" element={<WordPage />} />
+      </Routes>,
+      lang,
+      undefined,
+      '/vocabulary/v-die-eltern',
+    );
+    expect(screen.getByText(tr('wordPluralOnly', lang))).toBeInTheDocument();
+    expect(screen.queryByText(tr('wordGenderF', lang))).not.toBeInTheDocument();
+  });
+
   it('mistakes', () => {
     mount(<MistakesPage />, lang);
     expect(screen.getByText(tr('mistakesEmpty', lang))).toBeInTheDocument();
