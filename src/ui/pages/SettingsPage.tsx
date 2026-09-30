@@ -10,7 +10,7 @@ import {
 } from '../../services/push/index.ts';
 import { SAMPLE_PHRASE } from '../../services/tts/phraseKey.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { Card } from '../components/bits.tsx';
+import { Card, learnerName } from '../components/bits.tsx';
 
 const TARGETS = [10, 20, 30];
 
@@ -102,7 +102,7 @@ export function SettingsPage() {
             {lang === 'bg' ? 'Нива в структурата' : 'Levels in the structure'}: <strong>{stats.levels}</strong>
           </li>
           <li>
-            {lang === 'bg' ? 'Завършени урока' : 'Finished lessons'}: <strong>{stats.lessons}</strong>
+            {t('settingsLessonsWritten')}: <strong>{stats.lessons}</strong>
           </li>
           <li>
             {lang === 'bg' ? 'Упражнения' : 'Exercises'}: <strong>{stats.exercises}</strong>
@@ -162,7 +162,11 @@ export function SettingsPage() {
             className="btn btn--danger"
             disabled={confirm !== 'DELETE'}
             onClick={() => {
-              void resetAll().then(() => {
+              // Only a reset that happened is announced. A failed one used to
+              // say "Progress deleted." under the banner saying nothing was.
+              setResetDone(false);
+              void resetAll().then((deleted) => {
+                if (deleted !== true) return;
                 setConfirm('');
                 setResetDone(true);
               });
@@ -361,7 +365,7 @@ function Learners() {
       <ul className="learners">
         {learners.map((learner) => (
           <li key={learner.id} className={`learners__row${learner.id === studyingAs ? ' is-active' : ''}`}>
-            <span className="learners__name">{learner.name}</span>
+            <span className="learners__name">{learnerName(learner.name, t)}</span>
             {learner.id === studyingAs ? (
               <span className="learners__badge">{t('learnersStudying')}</span>
             ) : (
@@ -378,7 +382,7 @@ function Learners() {
               type="button"
               className="btn btn--quiet btn--sm"
               onClick={() => {
-                const next = window.prompt(t('learnersName'), learner.name);
+                const next = window.prompt(t('learnersName'), learnerName(learner.name, t));
                 if (next && next.trim()) void renameLearner(learner.id, next.trim());
               }}
             >

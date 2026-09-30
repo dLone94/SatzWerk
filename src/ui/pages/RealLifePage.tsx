@@ -45,7 +45,7 @@ export function RealLifePage() {
                 </strong>
               </p>
 
-              <h4 className="mini-head">{t('realLifeStages')}</h4>
+              <h3 className="mini-head">{t('realLifeStages')}</h3>
               <ul className="stages">
                 {scenario.stages.map((stage) => {
                   const script = scriptFor(scenario.id, stage.level);

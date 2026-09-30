@@ -18,7 +18,7 @@ const APARTMENT_A2 = script({
   register: 'Sie',
   partner: bi('the letting agent', 'брокерът'),
   goal: bi('At the viewing: find out the rent, the size and when it is free.', 'На огледа: разбери наема, размера и кога е свободен.'),
-  lessonIds: ['b1-u1-l1'],
+  lessonIds: ['a1-u2-l1', 'a2-u2-l3'],
   outro: bi(
     'Three questions, three numbers. The one that catches people out is the first: a German rent is quoted cold, and the real figure is somewhere above it.',
     'Три въпроса, три числа. Първият изненадва хората: немският наем се обявява „студен“, а истинската сума е някъде над него.',

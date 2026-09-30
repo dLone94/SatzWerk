@@ -15,6 +15,8 @@ export const UI = {
   tagline: s('Your personal German tutor', 'Твоят личен учител по немски'),
 
   // Navigation
+  skipToContent: s('Skip to content', 'Към съдържанието'),
+  navMain: s('Main', 'Основно меню'),
   navToday: s('Today', 'Днес'),
   navSession: s('Round', 'Кръг'),
   navCourse: s('Course', 'Курс'),
@@ -40,6 +42,7 @@ export const UI = {
   loginPassword: s('Password', 'Парола'),
   loginSubmit: s('Continue', 'Продължи'),
   loginWorking: s('Checking…', 'Проверява се…'),
+  loginWrong: s('That password is not right.', 'Паролата не е правилна.'),
   signOut: s('Sign out', 'Излез'),
 
   // First run on a hosted copy: choosing the password
@@ -108,6 +111,8 @@ export const UI = {
   todayStreak: s('Study streak: {n} days', 'Поредни дни учене: {n}'),
   todayStreakOne: s('Study streak: {n} day', 'Поредни дни учене: {n}'),
   todayLessonDone: s('done', 'готово'),
+  requirementMet: s('done', 'изпълнено'),
+  requirementNotMet: s('not yet', 'още не'),
   todayLessonNow: s('now', 'сега'),
   dashboardNextAction: s('Your next useful step', 'Следващата ти полезна стъпка'),
   dashboardContinue: s('Continue the lesson', 'Продължи урока'),
@@ -159,6 +164,10 @@ export const UI = {
     'Nothing is due, no mistake has come back twice, and no lesson is half-finished. Start a lesson, or practise ahead of schedule.',
     'Нищо не е за повторение, нито една грешка не се е повторила, и няма недовършен урок. Започни урок или упражнявай предварително.',
   ),
+  sessionReadFirst: s(
+    'Finish reading your lesson first: its exercises join the round once every section is read.',
+    'Първо дочети урока си: упражненията му влизат в кръга, щом прочетеш всички раздели.',
+  ),
   sessionMasteryLeft: s(
     'Your lesson has only its final check left. That is taken in one sitting on the lesson page, so it is not in the round.',
     'От урока ти е останала само финалната проверка. Тя се прави наведнъж на страницата на урока, затова не е в кръга.',
@@ -178,7 +187,9 @@ export const UI = {
   statWordsLearning: s('Words being learnt', 'Думи в процес на учене'),
   statWordsKnown: s('Words known', 'Научени думи'),
   statDue: s('Due for review', 'За повторение'),
-  statLessonsDone: s('Lessons completed', 'Завършени урока'),
+  // "урока" is the counted form, right only straight after a number.
+  statLessonsDone: s('Lessons completed', 'Завършени уроци'),
+  levelLessonsDone: s('{done} of {total} lessons completed', 'Завършени {done} от {total} урока'),
   statCorrections: s('Corrections retyped', 'Поправени и пренаписани'),
   statNoData: s('No data yet — answer something first.', 'Още няма данни — първо отговори на нещо.'),
 
@@ -204,9 +215,11 @@ export const UI = {
 
   // Course / level map
   courseTitle: s('The course', 'Курсът'),
+  // It ended "the rest is the planned outline" — "планиран план" in Bulgarian —
+  // long after every level had been written.
   courseSubtitle: s(
-    'Pre-A1 to B2. Lessons marked as available are finished and playable; the rest is the planned outline.',
-    'От Pre-A1 до B2. Отбелязаните като налични уроци са завършени и работят; останалото е планиран план.',
+    'Pre-A1 to B2: five levels, each built from units of short lessons, with a checkpoint at the end of every unit.',
+    'От Pre-A1 до B2: пет нива, всяко от раздели с кратки уроци и контролна проверка в края на всеки раздел.',
   ),
   statusAvailable: s('Available', 'Налично'),
   statusPartial: s('In progress', 'В процес'),
@@ -517,7 +530,8 @@ export const UI = {
   feedbackWordByWord: s('Word by word', 'Дума по дума'),
 
   // Review
-  reviewTitle: s('Review', 'Преговор'),
+  // The tab that opens this page says Повторение; so does the page now.
+  reviewTitle: s('Review', 'Повторение'),
   reviewDueCount: s('{n} due now', '{n} за сега'),
   reviewNothingDue: s('Nothing is due', 'Нищо не е дължимо'),
   reviewRoundSize: s('{n} in this round', '{n} в този кръг'),
@@ -549,6 +563,9 @@ export const UI = {
   vocabFilters: s('Filters', 'Филтри'),
   vocabShowMore: s('Show {n} more', 'Покажи още {n}'),
   vocabSearch: s('Search German, English or Bulgarian', 'Търси на немски, английски или български'),
+  // The field is 390px wide on a phone; the full Bulgarian sentence was cut
+  // off, so the placeholder is shorter and the label keeps the whole of it.
+  vocabSearchShort: s('Search German, English or Bulgarian', 'Търси: немски, англ., български'),
   vocabAll: s('All words', 'Всички думи'),
   vocabLearning: s('Learning', 'Учи се'),
   vocabKnown: s('Known', 'Научени'),
@@ -730,7 +747,7 @@ export const UI = {
   coachAbilityPractice: s('Make up new practice sentences', 'Измисля нови изречения за упражнение'),
   coachAbilityConversation: s('Hold a free conversation', 'Води свободен разговор'),
   coachCanYes: s('Yes', 'Да'),
-  coachCanYesAi: s('Yes, with AI', 'Да, с ИИ'),
+  coachCanYesAi: s('Yes, with AI', 'Да, с AI'),
   coachCanNotYet: s('Not yet', 'Още не'),
   coachCanNotHere: s('Not in this browser', 'Не в този браузър'),
   coachCanNever: s('No, on purpose', 'Не, нарочно'),
@@ -743,6 +760,7 @@ export const UI = {
   settingsTitle: s('Settings', 'Настройки'),
   // Who is studying — a household switch, not a second password
   learnersTitle: s('Who is studying?', 'Кой учи?'),
+  learnerMe: s('Me', 'Аз'),
   learnersNote: s(
     'Each person keeps their own progress, their own reviews and their own teaching path. This device remembers who you are, so you only pick once.',
     'Всеки пази своя напредък, своите повторения и своя път на преподаване. Това устройство помни кой си, така че избираш само веднъж.',
@@ -775,7 +793,8 @@ export const UI = {
   settingsMinutes: s('{n} minutes', '{n} минути'),
   settingsMinutesOne: s('{n} minute', '{n} минута'),
   settingsAudio: s('Audio', 'Звук'),
-  voiceAutomatic: s('Automatic: {name}', 'Автоматично: {name}'),
+  // Short, so the voice's quality after its name still fits in the picker.
+  voiceAutomatic: s('Automatic: {name}', 'Авто: {name}'),
   voiceQualityPremium: s('natural', 'естествен'),
   voiceQualityGood: s('good', 'добър'),
   voiceSample: s('Play a sample', 'Пусни пример'),
@@ -790,9 +809,12 @@ export const UI = {
   ),
   settingsVoice: s('Voice in use', 'Използван глас'),
   settingsData: s('Your data', 'Твоите данни'),
+  // True of a copy on this computer and of the hosted one alike: it used to
+  // promise SQLite "on this machine" to a learner whose progress is on a
+  // server in another country.
   settingsDataNote: s(
-    'Progress is stored in a SQLite database on this machine, so it survives a refresh and a restart.',
-    'Напредъкът се пази в база данни SQLite на тази машина, така че остава след презареждане и рестарт.',
+    'Progress is saved in the SatzWerk server’s database, not only in this browser, so it survives a refresh, a restart and clearing the browser.',
+    'Напредъкът се пази в базата данни на сървъра на SatzWerk, а не само в този браузър, така че остава след презареждане, рестарт и изчистване на браузъра.',
   ),
   settingsReset: s('Delete all progress', 'Изтрий целия напредък'),
   settingsResetConfirm: s(
@@ -801,13 +823,14 @@ export const UI = {
   ),
   settingsResetDone: s('Progress deleted.', 'Напредъкът е изтрит.'),
   settingsContent: s('What is actually built', 'Какво е наистина направено'),
+  settingsLessonsWritten: s('Lessons written', 'Написани уроци'),
 
   // Generic
-  loading: s('Loading…', 'Зарежда…'),
+  loading: s('Loading…', 'Зарежда се…'),
   errorTitle: s('Something went wrong', 'Нещо се обърка'),
-  errorOffline: s(
-    'Could not reach the SatzWerk server. Is it running?',
-    'Не може да се стигне до сървъра на SatzWerk. Работи ли?',
+  errorServer: s(
+    'The server answered with an error. Try again in a moment.',
+    'Сървърът отговори с грешка. Опитай пак след малко.',
   ),
   /*
    * No signal is not a fault.
@@ -848,6 +871,10 @@ export const UI = {
   no: s('No', 'Не'),
   of: s('of', 'от'),
   minutesShort: s('min', 'мин'),
+  relInDays: s('in {n} days', 'след {n} дни'),
+  relInDaysOne: s('in {n} day', 'след {n} ден'),
+  relDaysAgo: s('{n} days ago', 'преди {n} дни'),
+  relDaysAgoOne: s('{n} day ago', 'преди {n} ден'),
 } as const;
 
 export type UiKey = keyof typeof UI;
@@ -909,4 +936,111 @@ export const WORD_TYPE_LABELS: Record<string, Bilingual> = {
   phrase: s('phrase', 'израз'),
   interjection: s('interjection', 'междуметие'),
   particle: s('particle', 'частица'),
+};
+
+/**
+ * The vocabulary's topic tags, for the Topic filter. It listed the raw tags —
+ * "time-of-day", "grammar-word", "noun-gender" — in both paths, so a
+ * Bulgarian learner could not read the filter at all.
+ */
+export const TOPIC_LABELS: Record<string, Bilingual> = {
+  accusative: s('accusative', 'винителен падеж'),
+  adjective: s('adjectives', 'прилагателни'),
+  adverb: s('adverbs', 'наречия'),
+  advice: s('advice', 'съвети'),
+  alphabet: s('alphabet', 'азбука'),
+  animals: s('animals', 'животни'),
+  appointment: s('appointments', 'срещи и часове'),
+  argument: s('arguing a point', 'аргументиране'),
+  authorities: s('authorities', 'институции'),
+  basics: s('basics', 'основни думи'),
+  body: s('the body', 'тяло'),
+  cafe: s('café', 'кафене'),
+  clock: s('telling the time', 'часовник'),
+  communication: s('communication', 'общуване'),
+  complaint: s('complaints', 'оплаквания'),
+  conjunction: s('conjunctions', 'съюзи'),
+  connectors: s('linking words', 'свързващи думи'),
+  country: s('countries', 'държави'),
+  dative: s('dative', 'дателен падеж'),
+  description: s('describing', 'описание'),
+  directions: s('directions', 'посоки'),
+  drink: s('drinks', 'напитки'),
+  education: s('education', 'образование'),
+  environment: s('environment', 'околна среда'),
+  events: s('events', 'събития'),
+  family: s('family', 'семейство'),
+  farewell: s('saying goodbye', 'сбогуване'),
+  food: s('food', 'храна'),
+  formal: s('formal', 'официално'),
+  'free-time': s('free time', 'свободно време'),
+  frequency: s('how often', 'честота'),
+  furniture: s('furniture', 'мебели'),
+  grammar: s('grammar', 'граматика'),
+  'grammar-word': s('grammar words', 'граматически думи'),
+  greeting: s('greetings', 'поздрави'),
+  health: s('health', 'здраве'),
+  home: s('home', 'дом'),
+  housing: s('housing', 'жилище'),
+  informal: s('informal', 'неофициално'),
+  insurance: s('insurance', 'осигуровки'),
+  introduction: s('introducing yourself', 'представяне'),
+  irregular: s('irregular', 'неправилни'),
+  language: s('languages', 'езици'),
+  leisure: s('leisure', 'отдих'),
+  letter: s('formal letters', 'официални писма'),
+  media: s('media', 'медии'),
+  meetings: s('meetings', 'срещи'),
+  meta: s('about the language', 'за езика'),
+  modal: s('modal verbs', 'модални глаголи'),
+  money: s('money', 'пари'),
+  month: s('months', 'месеци'),
+  movement: s('movement', 'движение'),
+  nationality: s('nationality', 'националност'),
+  negation: s('negation', 'отрицание'),
+  'noun-gender': s('noun gender', 'род на съществителните'),
+  numbers: s('numbers', 'числа'),
+  numeral: s('numerals', 'числителни'),
+  objects: s('things', 'предмети'),
+  occupation: s('jobs', 'професии'),
+  opinion: s('opinions', 'мнения'),
+  origin: s('where you are from', 'произход'),
+  paperwork: s('paperwork', 'документи'),
+  past: s('the past', 'миналото'),
+  people: s('people', 'хора'),
+  personal: s('personal details', 'лични данни'),
+  phrase: s('phrases', 'изрази'),
+  phrases: s('set phrases', 'готови фрази'),
+  place: s('places', 'места'),
+  places: s('town', 'град'),
+  politeness: s('politeness', 'учтивост'),
+  position: s('where things are', 'разположение'),
+  preposition: s('prepositions', 'предлози'),
+  problem: s('problems', 'проблеми'),
+  projects: s('projects', 'проекти'),
+  pronoun: s('pronouns', 'местоимения'),
+  quantity: s('quantities', 'количества'),
+  question: s('questions', 'въпроси'),
+  reflexive: s('reflexive verbs', 'възвратни глаголи'),
+  reporting: s('reporting what was said', 'предаване на чужди думи'),
+  residence: s('residence', 'местожителство'),
+  routine: s('daily routine', 'всекидневие'),
+  school: s('school', 'училище'),
+  separable: s('separable verbs', 'разделими глаголи'),
+  services: s('services', 'услуги'),
+  shopping: s('shopping', 'пазаруване'),
+  smalltalk: s('small talk', 'светски разговор'),
+  society: s('society', 'общество'),
+  spoken: s('spoken German', 'разговорен немски'),
+  status: s('marital status', 'семейно положение'),
+  study: s('studying', 'учене'),
+  time: s('time', 'време'),
+  'time-of-day': s('times of day', 'части от деня'),
+  transport: s('transport', 'транспорт'),
+  travel: s('travel', 'пътуване'),
+  verb: s('verbs', 'глаголи'),
+  weather: s('weather', 'времето навън'),
+  weekday: s('days of the week', 'дни от седмицата'),
+  work: s('work', 'работа'),
+  writing: s('writing', 'писане'),
 };

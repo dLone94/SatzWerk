@@ -126,6 +126,29 @@ describe('scenario scripts', () => {
     expect(missing).toEqual([]);
   });
 
+  /*
+   * "The language is already covered in" sent an A1 restaurant learner to the
+   * family lesson, and A2 learners to B1 lessons on the passive and relative
+   * clauses. A linked lesson can at least never be above the conversation, and
+   * the ones found wrong are pinned to the lessons that teach their language.
+   */
+  it('links only to lessons at or below the conversation’s level', () => {
+    const rank = new Map(CURRICULUM.map((level, index) => [level.id, index]));
+    const above: string[] = [];
+    for (const script of SCENARIO_SCRIPTS) {
+      for (const id of script.lessonIds ?? []) {
+        const lesson = lessonById(id);
+        if (lesson && rank.get(lesson.level)! > rank.get(script.level)!) above.push(`${script.id} -> ${id}`);
+      }
+    }
+    expect(above).toEqual([]);
+    const linked = (id: string) => scriptById(id)?.lessonIds ?? [];
+    expect(linked('sc-restaurant-a1')).toContain('a1-u3-l1');
+    expect(linked('sc-bakery-a1')).toContain('a1-u3-l2');
+    expect(linked('sc-work-a2')).toContain('a1-u4-l1');
+    expect(linked('sc-kita-a2')).toContain('a1-u6-l2');
+  });
+
   it('accepts every canonical answer as fully correct', () => {
     const failures: string[] = [];
     for (const script of SCENARIO_SCRIPTS) {

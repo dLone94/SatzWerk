@@ -3,7 +3,7 @@ import type { Block, ContentStatus, VocabEntry } from '../../content/types.ts';
 import { NORMAL_RATE, SLOW_RATE } from '../../services/tts/index.ts';
 import { speakable } from '../../services/tts/speakable.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { WORD_TYPE_LABELS } from '../../i18n.ts';
+import { WORD_TYPE_LABELS, tr } from '../../i18n.ts';
 import { Icon, type IconName } from './icons.tsx';
 
 /** Small shared building blocks: buttons, badges, meters, block rendering. */
@@ -53,6 +53,14 @@ function withLineBreaks(text: string, keyPrefix: string): ReactNode[] {
 // Shared with the list of phrases sent for recording, so every play button in
 // a table has a recording behind it.
 export { speakable };
+
+/**
+ * The first learner is stored as "me", a placeholder rather than a name, and
+ * it was shown as the English word on the Bulgarian path too.
+ */
+export function learnerName(name: string, t: (key: 'learnerMe') => string): string {
+  return name === 'me' ? t('learnerMe') : name;
+}
 
 export function RichText({ text }: { text: string }) {
   const paragraphs = text.split(/\n{2,}/).filter((paragraph) => paragraph.trim().length > 0);
@@ -109,13 +117,27 @@ export function Meter({
   max = 1,
   label,
   tone = 'accent',
+  decorative = false,
 }: {
   value: number;
   max?: number;
   label?: string;
   tone?: 'accent' | 'muted' | 'good';
+  /**
+   * A bar drawn beside a number that is already printed, comparing it with
+   * its neighbours. Not a progress bar: announced as one, it had no name and
+   * read "100%" for the biggest of a few counts.
+   */
+  decorative?: boolean;
 }) {
   const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+  if (decorative) {
+    return (
+      <div className={`meter meter--${tone}`} aria-hidden="true">
+        <span className="meter__fill" style={{ width: `${pct}%` }} />
+      </div>
+    );
+  }
   return (
     <div
       className={`meter meter--${tone}`}
@@ -214,9 +236,16 @@ export function AudioButton({
   concealText?: boolean;
   onPlay?: () => void;
 }) {
-  const { tts, t } = useApp();
+  const { tts, t, lang } = useApp();
   if (!tts.available) return null;
-  const action = slow ? t('exercisePlaySlow') : t('exercisePlayAudio');
+  const label = slow ? t('exercisePlaySlow') : t('exercisePlayAudio');
+  /*
+   * The name is written out rather than given as an aria-label, because an
+   * aria-label has one language: the button's. Inside a German table cell or
+   * review label that made VoiceOver read "Пусни" in German, and elsewhere it
+   * read the German text with an English or Bulgarian voice. Written out, the
+   * button's word is marked as the teaching language and the text as German.
+   */
   return (
     <button
       type="button"
@@ -228,11 +257,16 @@ export function AudioButton({
         tts.speak(text, { rate: slow ? SLOW_RATE : NORMAL_RATE });
         onPlay?.();
       }}
-      aria-label={concealText ? action : `${action}: ${text}`}
-      title={slow ? t('exercisePlaySlow') : t('exercisePlayAudio')}
+      lang={lang}
+      title={label}
     >
       <Icon name={slow ? 'slow' : 'speaker'} size={compact ? 18 : 20} />
-      {compact ? null : <span>{slow ? t('exercisePlaySlow') : t('exercisePlayAudio')}</span>}
+      <span className={compact ? 'visually-hidden' : undefined}>{label}</span>
+      {!concealText && (
+        <span className="visually-hidden">
+          : <span lang="de">{text}</span>
+        </span>
+      )}
     </button>
   );
 }
@@ -324,7 +358,7 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
           case 'callout':
             return (
               <aside key={key} className={`callout callout--${block.tone}`}>
-                {block.title && say(block.title) ? <h4>{say(block.title)}</h4> : null}
+                {block.title && say(block.title) ? <h3>{say(block.title)}</h3> : null}
                 <p>
                   <RichText text={say(block.text)} />
                 </p>
@@ -464,13 +498,9 @@ export function formatRelativeDate(iso: string, lang: 'en' | 'bg'): string {
         ? `преди ${hours} ${unit}`
         : `${hours} ${unit} ago`;
   }
+  // Days need a singular — the second learning step is exactly one day, so
+  // "in 1 days" / "след 1 дни" was on nearly every new word. Minutes and hours
+  // are abbreviations and read right for any number.
   const days = Math.round(hours / 24);
-  const unit = lang === 'bg' ? 'дни' : 'days';
-  return diffMinutes > 0
-    ? lang === 'bg'
-      ? `след ${days} ${unit}`
-      : `in ${days} ${unit}`
-    : lang === 'bg'
-      ? `преди ${days} ${unit}`
-      : `${days} ${unit} ago`;
+  return tr(diffMinutes > 0 ? 'relInDays' : 'relDaysAgo', lang, { n: days });
 }

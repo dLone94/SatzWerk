@@ -794,7 +794,11 @@ export function ExercisePlayer({
 
         {!hideText && step.prompt ? (
           <p className="task__prompt" lang={lang === 'bg' ? 'bg' : 'en'}>
-            {lang === 'bg' ? `„${say(step.prompt)}“` : say(step.prompt)}
+            {/* As on the English path, no quotation marks of its own: many
+                prompts are instructions ("Слушай. Коя дума чу?"), not
+                sentences to translate, and a prompt that quotes German
+                ended up with quotes inside quotes. */}
+            {say(step.prompt)}
           </p>
         ) : null}
 

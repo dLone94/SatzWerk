@@ -37,6 +37,7 @@ import {
 import * as outbox from '../services/api/outbox.ts';
 import { createTtsProvider, type TtsProvider } from '../services/tts/index.ts';
 import { createSpeechRecogniser, type SpeechRecogniser } from '../services/speech/recogniser.ts';
+import { deviceLanguage, markPageLanguage, rememberLanguage } from '../ui/deviceLanguage.ts';
 
 /**
  * One context for the whole app.
@@ -126,7 +127,8 @@ export interface AppStateValue {
     passed: boolean;
   }) => Promise<void>;
   recordScenarioRun: (scriptId: string, turns: number, firstTryCorrect: number) => Promise<void>;
-  resetAll: () => Promise<void>;
+  /** True once the server has deleted everything; anything else means it did not. */
+  resetAll: () => Promise<boolean | undefined>;
   lessonProgress: (lessonId: string) => LessonProgress;
 }
 
@@ -474,8 +476,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     reviewItemsRef.current = snapshot?.reviewItems ?? [];
   }, [snapshot]);
 
-  const profile = snapshot?.profile ?? DEFAULT_PROFILE;
+  // Before the profile has loaded — the boot, offline, error and password
+  // screens — the language last used on this device, not always English. It
+  // is read again each time there is no profile, not once at start: signing
+  // out clears the profile, and by then the learner may have switched.
+  const noSnapshot = snapshot === null;
+  const fallbackProfile = useMemo<Profile>(
+    () => ({ ...DEFAULT_PROFILE, teachingLanguage: deviceLanguage() }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [noSnapshot],
+  );
+  const profile = snapshot?.profile ?? fallbackProfile;
   const lang = profile.teachingLanguage;
+  const knowsLanguage = snapshot !== null;
+  useEffect(() => {
+    markPageLanguage(lang);
+    if (knowsLanguage) rememberLanguage(lang);
+  }, [lang, knowsLanguage]);
 
   const t = useCallback(
     (key: UiKey, vars?: Record<string, string | number>) => tr(key, lang, vars),
@@ -1196,11 +1213,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         }
       },
 
-      resetAll: async () => {
-        await reporting('notSavedReset', async () => {
+      // Says whether it worked: Settings used to announce "Progress deleted."
+      // under the banner saying nothing was.
+      resetAll: async () =>
+        (await reporting('notSavedReset', async () => {
           setSnapshot(await api.reset());
-        });
-      },
+          return true;
+        })) === true,
     };
   }, [ready, error, offline, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, replaceReviewItem, sync, readSync, flushAnswers, heldAfter, learners, studyingAs, notice]);
 

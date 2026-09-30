@@ -46,6 +46,7 @@ function LessonView() {
     lessons,
     reviewItems,
     mistakes,
+    checkpointResults,
     lessonProgress,
     markSectionSeen,
     recordMastery,
@@ -82,6 +83,22 @@ function LessonView() {
   );
 
   const section = sections[sectionIndex];
+
+  /*
+   * Each new section, and each new stage, starts at the top of the page.
+   * Next sits under a long section, and swapping the content in place left the
+   * page scrolled: the new section opened at its end, its title and first
+   * paragraphs above the screen. Not on arrival — the route has already been
+   * put at the top, and Back should keep its place.
+   */
+  const arrived = useRef(false);
+  useEffect(() => {
+    if (!arrived.current) {
+      arrived.current = true;
+      return;
+    }
+    window.scrollTo(0, 0);
+  }, [stage, sectionIndex]);
 
   // Mark a section as read once it is actually on screen.
   useEffect(() => {
@@ -311,7 +328,7 @@ function LessonView() {
 
           {section.vocabIds && section.vocabIds.length > 0 ? (
             <div className="word-list">
-              <h4 className="mini-head">{t('lessonWordList')}</h4>
+              <h3 className="mini-head">{t('lessonWordList')}</h3>
               {section.vocabIds.map((id) => {
                 const entry = vocabById(id);
                 return entry ? <VocabRow key={id} entry={entry} /> : null;
@@ -359,7 +376,7 @@ function LessonView() {
       // Where to go from here: the same next step Today would offer, unless
       // the app has not caught up with this lesson being finished yet (offline,
       // say) and would send you straight back into it.
-      const next = nextAction(lessons, reviewItems, mistakes, true);
+      const next = nextAction(lessons, reviewItems, mistakes, true, checkpointResults);
       const onward = next.to !== `/lesson/${lesson.id}` && next.kind !== 'idle' ? next : null;
       return (
         <div className="page">
@@ -512,7 +529,7 @@ function LessonView() {
 
       <Card title={t('lessonObjective')} tone="accent">
         <p className="objective">{say(lesson.objective)}</p>
-        <h4 className="mini-head">{t('lessonOutcomes')}</h4>
+        <h3 className="mini-head">{t('lessonOutcomes')}</h3>
         <ul className="outcomes__list">
           {lesson.outcomes.map((outcome, index) => (
             <li key={index}>{say(outcome)}</li>
@@ -563,14 +580,16 @@ function PlayerHeader({ lesson, phase }: { lesson: Lesson; phase: string }) {
   const { say } = useApp();
   return (
     <header className="player-header">
-      <p className="player-header__lesson">{say(lesson.title)}</p>
+      {/* The page's one heading while reading and practising: without it a
+          screen reader found no heading at all during the exercises. */}
+      <h1 className="player-header__lesson">{say(lesson.title)}</h1>
       <p className="player-header__phase">{phase}</p>
     </header>
   );
 }
 
 function Requirements({ lesson }: { lesson: Lesson }) {
-  const { say, lessonProgress } = useApp();
+  const { say, t, lessonProgress } = useApp();
   const requirements = lessonRequirements(lesson, lessonProgress(lesson.id));
   return (
     <ul className="requirements">
@@ -580,6 +599,11 @@ function Requirements({ lesson }: { lesson: Lesson }) {
             {requirement.satisfied ? '✓' : '○'}
           </span>
           <span className="requirements__label">{say(requirement.label)}</span>
+          {/* The mark is drawn, not read; "Pass the final check" has no
+              count, so without this it sounded the same passed or not. */}
+          <span className="visually-hidden">
+            {requirement.satisfied ? t('requirementMet') : t('requirementNotMet')}
+          </span>
           {/* A share reads as a share ("40%", not "40 / 100"), and not at all
               before there is anything to measure. */}
           {requirement.id === 'accuracy' ? (

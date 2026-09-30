@@ -100,7 +100,7 @@ export function MistakesPage() {
                     >
                       {say(CATEGORY_LABELS[entry.category] ?? CATEGORY_LABELS.unknown)}
                     </button>
-                    <Meter value={entry.count} max={maxCount} tone="muted" />
+                    <Meter value={entry.count} max={maxCount} tone="muted" decorative />
                     <span className="cat-bars__n">{entry.count}</span>
                     <button
                       type="button"
@@ -114,6 +114,8 @@ export function MistakesPage() {
                         // sentences the learner got wrong.
                         start(practiceForCategory(entry.category));
                       }}
+                      // One per row, so each needs the row's name to be told apart.
+                      aria-label={`${t('mistakesPractiseCategory')}: ${say(CATEGORY_LABELS[entry.category] ?? CATEGORY_LABELS.unknown)}`}
                     >
                       {t('mistakesPractiseCategory')}
                     </button>
