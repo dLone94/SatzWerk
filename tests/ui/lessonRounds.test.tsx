@@ -28,6 +28,9 @@ import { play, stepIdOnScreen, stubState, type User } from './playerStub.tsx';
  * for the next.
  */
 
+// Whole lessons typed key by key: seconds each, more on a busy machine.
+vi.setConfig({ testTimeout: 30_000 });
+
 const L1 = lessonById('pre-a1-u1-l1')!;
 const L2 = lessonById('pre-a1-u1-l2')!;
 const L3 = lessonById('pre-a1-u2-l1')!;

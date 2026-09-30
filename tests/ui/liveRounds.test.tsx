@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { lessonById, vocabById } from '../../src/content/index.ts';
 import type { ReviewItem } from '../../src/core/srs/scheduler.ts';
 import { tr } from '../../src/i18n.ts';
@@ -22,6 +22,9 @@ import { play, stepIdOnScreen, stubState } from './playerStub.tsx';
  * answer adds a mistake. The rounds used to follow those lists while they were
  * being played.
  */
+
+// Whole rounds typed key by key: seconds each, more on a busy machine.
+vi.setConfig({ testTimeout: 30_000 });
 
 const DAY = 24 * 60 * 60 * 1000;
 const vocabIds = lessonById('pre-a1-u1-l2')!.vocabIds.filter((id) => vocabById(id)).slice(0, 6);
