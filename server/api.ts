@@ -11,6 +11,7 @@ import {
   parseCookies,
   passwordProblem,
   readSession,
+  sessionKey,
   sessionCookie,
   SESSION_COOKIE,
   verifyPassword,
@@ -309,10 +310,8 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   // Whether the cookie may carry Secure. See sessionCookie for why this is the
   // request's protocol and not the deployment's shape.
   const secure = request.secure ?? isSecureRequest(request.headers ?? {});
-  const userId =
-    state === 'required' && auth.sessionSecret
-      ? readSession(auth.sessionSecret, cookies[SESSION_COOKIE] ?? '')
-      : null;
+  const key = sessionKey(auth);
+  const userId = state === 'required' && key ? readSession(key, cookies[SESSION_COOKIE] ?? '') : null;
   const signedIn = state === 'open' || userId !== null;
 
   const sessionBody = {
@@ -338,12 +337,16 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     const problem = passwordProblem(password);
     if (problem) return { status: 400, body: { error: problem } };
 
-    await store.setPasswordHash(db, hashPassword(password));
+    const passwordHash = hashPassword(password);
+    await store.setPasswordHash(db, passwordHash);
+    // Signed with the key the next request will check it against, which is
+    // bound to the hash just stored.
     const secret = auth.sessionSecret ?? (await store.getOrCreateSessionSecret(db));
+    const token = createSession(sessionKey({ sessionSecret: secret, passwordHash })!, 1);
     return {
       status: 200,
       body: { required: true, signedIn: true, needsSetup: false, canChangePassword: true },
-      headers: { 'set-cookie': sessionCookie(createSession(secret, 1), secure) },
+      headers: { 'set-cookie': sessionCookie(token, secure) },
     };
   }
 
@@ -361,7 +364,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     return {
       status: 200,
       body: { ...sessionBody, signedIn: true },
-      headers: { 'set-cookie': sessionCookie(createSession(auth.sessionSecret!, 1), secure) },
+      headers: { 'set-cookie': sessionCookie(createSession(key!, 1), secure) },
     };
   }
 
@@ -447,15 +450,17 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     const problem = passwordProblem(next);
     if (problem) return { status: 400, body: { error: problem } };
 
-    await store.setPasswordHash(db, hashPassword(next));
-    // A new secret invalidates every existing session, including any that is
-    // not the one making this request. Changing the password should end them.
-    await store.clearSessionSecret(db);
-    const secret = await store.getOrCreateSessionSecret(db);
+    const passwordHash = hashPassword(next);
+    await store.setPasswordHash(db, passwordHash);
+    // Sessions are signed with a key bound to the password hash (see
+    // sessionKey), so the new hash alone ends every existing session, this
+    // device's included — whether the secret is stored or comes from the
+    // environment. This device gets a fresh cookie under the new key.
+    const token = createSession(sessionKey({ sessionSecret: auth.sessionSecret, passwordHash })!, 1);
     return {
       status: 200,
       body: { required: true, signedIn: true, needsSetup: false, canChangePassword: true },
-      headers: { 'set-cookie': sessionCookie(createSession(secret, 1), secure) },
+      headers: { 'set-cookie': sessionCookie(token, secure) },
     };
   }
 

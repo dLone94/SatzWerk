@@ -248,8 +248,9 @@ live in the hosting provider rather than the database:
 | `SATZWERK_SESSION_SECRET` | Used instead of the generated one. |
 
 The session secret is otherwise generated on first run and kept in the
-database, so sessions survive a redeploy. Changing the password rotates it,
-which signs out every other device.
+database, so sessions survive a redeploy. Sessions are signed with it bound to
+the current password, so changing the password signs out every other device,
+whichever secret is in use.
 
 ### One learner, by design
 
