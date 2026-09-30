@@ -158,6 +158,8 @@ describe('the review queue', () => {
     expect(entry!.label).not.toBe('p-ich-komme-aus');
     expect(entry!.label).toMatch(/Ich komme aus/);
     expect(entry!.german).toBe(true);
+    // Its gloss translates the pattern, blank included, so the pattern comes too.
+    expect(entry!.template).toBe('Ich komme aus ___.');
   });
 
   it('shows a grammar item by its title, and does not mark it as German', () => {

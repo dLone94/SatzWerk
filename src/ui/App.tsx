@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { useApp } from '../state/AppState.tsx';
 import { CoachPage } from './pages/CoachPage.tsx';
@@ -24,6 +24,9 @@ import { Icon } from './components/icons.tsx';
 import { learnerName } from './components/bits.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
 
+/** How often the "No connection" screen tries again on its own. */
+const OFFLINE_RETRY_MS = 15_000;
+
 export function App() {
   const { ready, error, offline, sync, session, profile, reload, t, reviewItems, learners, studyingAs } =
     useApp();
@@ -36,19 +39,32 @@ export function App() {
    * up it listens itself — for the browser saying it is online, and for the
    * app being brought back to the front, which on an iPhone is often the
    * first sign the train is out of the tunnel.
+   *
+   * Neither comes when the phone never went offline: a server answering 503
+   * while its database wakes, or wifi that holds every request. So it also
+   * tries again on a timer, one attempt at a time.
    */
   const waitingForSignal = Boolean(error) && offline;
+  const retrying = useRef(false);
   useEffect(() => {
     if (!waitingForSignal) return;
-    const retry = () => void reload();
+    const retry = () => {
+      if (retrying.current) return;
+      retrying.current = true;
+      void reload().finally(() => {
+        retrying.current = false;
+      });
+    };
     const onVisible = () => {
       if (document.visibilityState === 'visible') retry();
     };
     window.addEventListener('online', retry);
     document.addEventListener('visibilitychange', onVisible);
+    const timer = window.setInterval(retry, OFFLINE_RETRY_MS);
     return () => {
       window.removeEventListener('online', retry);
       document.removeEventListener('visibilitychange', onVisible);
+      window.clearInterval(timer);
     };
   }, [waitingForSignal, reload]);
 

@@ -239,8 +239,16 @@ export function AudioButton({
   disabled?: boolean;
   onPlay?: () => void;
 }) {
-  const { tts, t } = useApp();
+  const { tts, t, lang } = useApp();
   if (!tts.available) return null;
+  const label = slow ? t('exercisePlaySlow') : t('exercisePlayAudio');
+  /*
+   * The name is written out rather than given as an aria-label, because an
+   * aria-label has one language: the button's. Inside a German table cell or
+   * review label that made VoiceOver read "Пусни" in German, and elsewhere it
+   * read the German text with an English or Bulgarian voice. Written out, the
+   * button's word is marked as the teaching language and the text as German.
+   */
   return (
     <button
       type="button"
@@ -252,11 +260,14 @@ export function AudioButton({
         tts.speak(text, { rate: slow ? SLOW_RATE : NORMAL_RATE });
         onPlay?.();
       }}
-      aria-label={`${slow ? t('exercisePlaySlow') : t('exercisePlayAudio')}: ${text}`}
-      title={slow ? t('exercisePlaySlow') : t('exercisePlayAudio')}
+      lang={lang}
+      title={label}
     >
       <Icon name={slow ? 'slow' : 'speaker'} size={compact ? 18 : 20} />
-      {compact ? null : <span>{slow ? t('exercisePlaySlow') : t('exercisePlayAudio')}</span>}
+      <span className={compact ? 'visually-hidden' : undefined}>{label}</span>
+      <span className="visually-hidden">
+        : <span lang="de">{text}</span>
+      </span>
     </button>
   );
 }

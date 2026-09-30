@@ -383,8 +383,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [snapshot]);
 
   // Before the profile has loaded — the boot, offline, error and password
-  // screens — the language last used on this device, not always English.
-  const [fallbackProfile] = useState<Profile>(() => ({ ...DEFAULT_PROFILE, teachingLanguage: deviceLanguage() }));
+  // screens — the language last used on this device, not always English. It
+  // is read again each time there is no profile, not once at start: signing
+  // out clears the profile, and by then the learner may have switched.
+  const noSnapshot = snapshot === null;
+  const fallbackProfile = useMemo<Profile>(
+    () => ({ ...DEFAULT_PROFILE, teachingLanguage: deviceLanguage() }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [noSnapshot],
+  );
   const profile = snapshot?.profile ?? fallbackProfile;
   const lang = profile.teachingLanguage;
   const knowsLanguage = snapshot !== null;

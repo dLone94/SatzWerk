@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { tr } from '../../src/i18n.ts';
 import * as outbox from '../../src/services/api/outbox.ts';
-import { AppStateProvider } from '../../src/state/AppState.tsx';
+import { AppStateProvider, useApp } from '../../src/state/AppState.tsx';
 import { App, ScrollToTop } from '../../src/ui/App.tsx';
 
 /**
@@ -42,7 +42,7 @@ const snapshot = (lang: 'en' | 'bg') => ({
 });
 
 /** How the server behaves: absent, present and unhappy, or fine. */
-let mode: 'unreachable' | 'broken' | 'fine' = 'unreachable';
+let mode: 'unreachable' | 'waking' | 'broken' | 'fine' = 'unreachable';
 let profileLang: 'en' | 'bg' = 'en';
 let session: Record<string, unknown> = { required: false, signedIn: true };
 const originalFetch = globalThis.fetch;
@@ -62,6 +62,7 @@ beforeEach(() => {
     const url = String(input);
     const method = init?.method ?? 'GET';
     if (mode === 'unreachable') throw new TypeError('Failed to fetch');
+    if (mode === 'waking') return json({ error: 'The database is waking up.' }, 503);
     if (url.endsWith('/api/session')) return json(session);
     if (url.endsWith('/api/login') && method === 'POST') return json({ error: 'That password is not right.' }, 401);
     if (mode === 'broken') return json({ error: 'the database is on fire' }, 500);
@@ -100,11 +101,37 @@ describe('the offline start screen', () => {
     mount();
     await screen.findByText(tr('offlineTitle', 'en'));
     mode = 'fine';
-    await act(async () => {
+    // The screen starts listening in an effect, which may run just after it
+    // first appears, so the signal is given until it is heard.
+    await waitFor(() => {
       window.dispatchEvent(new Event('online'));
+      expect(screen.queryByText(tr('offlineTitle', 'en'))).not.toBeInTheDocument();
     });
-    await waitFor(() => expect(screen.queryByText(tr('offlineTitle', 'en'))).not.toBeInTheDocument());
     expect(screen.getByRole('navigation')).toBeInTheDocument();
+  });
+
+  /*
+   * A server that answers 503 while its database wakes, or wifi that holds
+   * every request, also shows "No connection" — and there the phone never
+   * went offline, so no "online" event ever came and the screen waited for
+   * ever. It now also tries again every little while.
+   */
+  it('tries again by itself when the phone never went offline', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      mode = 'waking';
+      mount();
+      await screen.findByText(tr('offlineTitle', 'en'));
+      mode = 'fine';
+      // As above: the timer starts in an effect, so time is moved on until
+      // the retry has happened.
+      await waitFor(() => {
+        vi.advanceTimersByTime(15_000);
+        expect(screen.getByRole('navigation')).toBeInTheDocument();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -128,7 +155,44 @@ describe('the language before progress has loaded', () => {
     profileLang = 'bg';
     mount();
     await screen.findByRole('navigation');
-    expect(localStorage.getItem('satzwerk.lang')).toBe('bg');
+    // The language is written by an effect, which can run just after the
+    // navigation first appears.
+    await waitFor(() => {
+      expect(localStorage.getItem('satzwerk.lang')).toBe('bg');
+      expect(document.documentElement.lang).toBe('bg');
+    });
+  });
+
+  /*
+   * The language before progress loads was read once, when the app started.
+   * Signing out clears the progress, so the password screen went back to the
+   * language of that start: English for a learner who had since switched the
+   * app to Bulgarian.
+   */
+  it('is the one last used after signing out, not the one the app started in', async () => {
+    mode = 'fine';
+    profileLang = 'bg';
+    session = { required: true, signedIn: true };
+    function SignOut() {
+      const { signOut } = useApp();
+      return (
+        <button type="button" onClick={() => void signOut()}>
+          sign out
+        </button>
+      );
+    }
+    render(
+      <MemoryRouter>
+        <AppStateProvider>
+          <App />
+          <SignOut />
+        </AppStateProvider>
+      </MemoryRouter>,
+    );
+    await screen.findByRole('navigation');
+    await waitFor(() => expect(localStorage.getItem('satzwerk.lang')).toBe('bg'));
+    await userEvent.click(screen.getByRole('button', { name: 'sign out' }));
+    expect(await screen.findByText(tr('loginIntro', 'bg'))).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('bg');
   });
 

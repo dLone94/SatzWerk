@@ -164,6 +164,10 @@ export const UI = {
     'Nothing is due, no mistake has come back twice, and no lesson is half-finished. Start a lesson, or practise ahead of schedule.',
     'Нищо не е за повторение, нито една грешка не се е повторила, и няма недовършен урок. Започни урок или упражнявай предварително.',
   ),
+  sessionReadFirst: s(
+    'Finish reading your lesson first: its exercises join the round once every section is read.',
+    'Първо дочети урока си: упражненията му влизат в кръга, щом прочетеш всички раздели.',
+  ),
   sessionMasteryLeft: s(
     'Your lesson has only its final check left. That is taken in one sitting on the lesson page, so it is not in the round.',
     'От урока ти е останала само финалната проверка. Тя се прави наведнъж на страницата на урока, затова не е в кръга.',

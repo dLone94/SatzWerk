@@ -136,13 +136,24 @@ export function ReviewPage() {
             {queue.slice(0, 25).map((entry) => (
               <li key={entry.item.id} className={`queue__row queue__row--${entry.item.state}`}>
                 {/* Patterns are German sentences and get the same audio and
-                    gloss as words; a grammar item is named by its title, in
-                    the teaching language, so it is not marked as German. */}
+                    gloss as words, the gloss beside the pattern it translates
+                    (it has the pattern's blank); a grammar item is named by
+                    its title, in the teaching language, so it is not marked
+                    as German. */}
                 <span className="queue__label" lang={entry.german ? 'de' : undefined}>
                   {entry.title ? say(entry.title) : entry.label}
                   {entry.german ? <AudioButton text={entry.label} compact /> : null}
                 </span>
-                {entry.gloss ? <span className="queue__gloss">{say(entry.gloss)}</span> : null}
+                {entry.gloss ? (
+                  <span className="queue__gloss">
+                    {entry.template ? (
+                      <>
+                        <span lang="de">{entry.template}</span> —{' '}
+                      </>
+                    ) : null}
+                    {say(entry.gloss)}
+                  </span>
+                ) : null}
                 <span className="queue__reason">{UI[reasonKey(entry.reason)][lang]}</span>
                 <span className="queue__meta">
                   {entry.item.successCount > 0

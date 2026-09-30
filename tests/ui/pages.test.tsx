@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactElement } from 'react';
@@ -12,6 +12,7 @@ import {
   SCENARIOS,
   contentStats,
   describeNoun,
+  lessonById,
   partialLevels,
   scenarioStatus,
   scriptFor,
@@ -638,6 +639,35 @@ describe('the daily round', () => {
     expect(screen.queryByText(tr('sessionStart', 'en'))).toBeNull();
   });
 
+  /*
+   * A lesson that is opened but not read to the end rightly adds nothing to
+   * the round. The page then said "no lesson is half-finished" right above an
+   * "Open lesson" button for that very lesson.
+   */
+  it('asks for the lesson to be read first, rather than saying none is started', () => {
+    const lesson = lessonById('pre-a1-u1-l1')!;
+    for (const lang of LANGS) {
+      const { unmount } = mount(<SessionPage />, lang, {
+        lessons: {
+          [lesson.id]: {
+            lessonId: lesson.id,
+            sectionsSeen: [lesson.sections[0]!.id],
+            practice: {},
+            mastery: { attempts: 0, bestAccuracy: 0, passed: false },
+            recoveryRounds: 0,
+          },
+        },
+      });
+      expect(screen.getByText(tr('sessionReadFirst', lang))).toBeInTheDocument();
+      expect(screen.queryByText(tr('sessionNothingBody', lang))).toBeNull();
+      expect(screen.getByRole('link', { name: tr('sessionOpenLesson', lang) })).toHaveAttribute(
+        'href',
+        `/lesson/${lesson.id}`,
+      );
+      unmount();
+    }
+  });
+
   it('names each part and how many answers it holds', () => {
     mount(<SessionPage />, 'en', {
       reviewItems: [dueVocab('r1', 'v-die-tochter'), dueVocab('r2', 'v-der-sohn')],
@@ -945,6 +975,49 @@ describe('the review queue on the page', () => {
     });
     expect(screen.queryByText('p-ich-komme-aus')).toBeNull();
     expect(document.querySelector('.queue__label')).toHaveTextContent('Ich komme aus Bulgarien.');
+    // The translation belongs to the pattern, blank and all, so it is shown
+    // beside the pattern: "I come from ___." under "Ich komme aus Bulgarien."
+    // alone read as a translation with a word missing.
+    const gloss = document.querySelector('.queue__gloss')!;
+    expect(gloss).toHaveTextContent('Ich komme aus ___. — I come from ___.');
+    expect(within(gloss as HTMLElement).getByText('Ich komme aus ___.')).toHaveAttribute('lang', 'de');
+  });
+
+  /*
+   * The play button sits inside the German label, and its name was an
+   * aria-label, so "Пусни: Ich komme aus Bulgarien." was all read in German:
+   * the Bulgarian word too. The button's own word is now marked as the
+   * teaching language, and only the German text as German.
+   */
+  it('names its play button in the teaching language, and only the German as German', () => {
+    mount(<ReviewPage />, 'bg', {
+      tts: { ...nullTtsProvider, available: true },
+      reviewItems: [
+        {
+          id: 'r1',
+          kind: 'pattern',
+          refId: 'p-ich-komme-aus',
+          level: 'pre-a1',
+          state: 'learning',
+          ease: 2.5,
+          intervalDays: 0,
+          dueAt: new Date(Date.now() - 60_000).toISOString(),
+          successCount: 1,
+          failureCount: 0,
+          lapses: 0,
+          learningStep: 1,
+          createdAt: now,
+        },
+      ],
+    });
+    const play = tr('exercisePlayAudio', 'bg');
+    const button = screen.getByRole('button', { name: `${play}: Ich komme aus Bulgarien.` });
+    expect(button.closest('[lang="de"]')).not.toBeNull();
+    expect(button).not.toHaveAttribute('aria-label');
+    const word = within(button).getByText(play);
+    expect(word.closest('[lang]')).toHaveAttribute('lang', 'bg');
+    const german = within(button).getByText('Ich komme aus Bulgarien.');
+    expect(german.closest('[lang]')).toHaveAttribute('lang', 'de');
   });
 });
 

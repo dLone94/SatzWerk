@@ -635,6 +635,11 @@ export interface QueueEntry {
   title?: Bilingual;
   /** What the German means, when the content says. */
   gloss?: Bilingual;
+  /**
+   * A pattern's own German, with its blank. The gloss translates this, not
+   * the example sentence in `label`, so it is shown beside the gloss.
+   */
+  template?: string;
   entry?: VocabEntry;
 }
 
@@ -648,7 +653,9 @@ export function buildQueue(reviewItems: ReviewItem[], now = new Date()): QueueEn
     const entry = vocabById(item.refId);
     if (entry) return { item, reason, label: entry.display, german: true, gloss: entry.translation, entry };
     const pattern = patternById(item.refId);
-    if (pattern) return { item, reason, label: pattern.example, german: true, gloss: pattern.gloss };
+    if (pattern) {
+      return { item, reason, label: pattern.example, german: true, gloss: pattern.gloss, template: pattern.template };
+    }
     const concept = grammarById(item.refId);
     if (concept) return { item, reason, label: concept.title.en, german: false, title: concept.title };
     return { item, reason, label: item.refId, german: false };
