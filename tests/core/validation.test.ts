@@ -313,3 +313,71 @@ describe('open writing that asks for particular words', () => {
   });
 });
 
+/*
+ * Two traps differ from the answer only by punctuation: the comma before
+ * "weil" and the apostrophe in "Peter's". The trap check stripped all
+ * punctuation before comparing, which removed the very comma or apostrophe
+ * the trap is about, so the correct sentence typed without its full stop was
+ * caught by the trap: no credit, "German always puts a comma before weil",
+ * and the retype refused the same correct sentence.
+ */
+describe('a trap that differs from the answer only by punctuation', () => {
+  const weil = sentence(['Ich rufe an, weil die Heizung kaputt ist.'], {
+    trapAnswers: [
+      {
+        answer: 'Ich rufe an weil die Heizung kaputt ist.',
+        category: 'punctuation',
+        feedback: { en: 'German always puts a comma before weil.', bg: 'Запетая преди weil.' },
+      },
+    ],
+  });
+  const peter = sentence(['Peters Lebenslauf ist sehr gut.'], {
+    trapAnswers: [
+      {
+        answer: "Peter's Lebenslauf ist sehr gut.",
+        category: 'punctuation',
+        feedback: { en: 'No apostrophe in the genitive.', bg: 'Без апостроф.' },
+      },
+    ],
+  });
+
+  it('does not catch the correct answer typed without its full stop', () => {
+    for (const [answer, spec] of [
+      ['Ich rufe an, weil die Heizung kaputt ist', weil],
+      ['Ich rufe an, weil die Heizung kaputt ist!', weil],
+      ['Peters Lebenslauf ist sehr gut', peter],
+      ['Peters Lebenslauf ist sehr gut!', peter],
+    ] as const) {
+      const r = validateAnswer(answer, spec, opts);
+      expect(r.trapFeedback, answer).toBeUndefined();
+      expect(r.credit, answer).toBeGreaterThanOrEqual(0.9);
+      expect(r.requireRetype, answer).toBe(false);
+    }
+  });
+
+  it('still catches the trap itself, with or without the full stop', () => {
+    for (const [answer, spec] of [
+      ['Ich rufe an weil die Heizung kaputt ist.', weil],
+      ['Ich rufe an weil die Heizung kaputt ist', weil],
+      ["Peter's Lebenslauf ist sehr gut.", peter],
+      ["Peter's Lebenslauf ist sehr gut", peter],
+      // The iPhone types a curly apostrophe.
+      ['Peter’s Lebenslauf ist sehr gut.', peter],
+    ] as const) {
+      const r = validateAnswer(answer, spec, opts);
+      expect(r.trapFeedback, answer).toBeDefined();
+      expect(r.credit, answer).toBe(0);
+    }
+  });
+
+  it('keeps the case-only trap working', () => {
+    const spec = sentence(['Wie heißen Sie?'], {
+      trapAnswers: [
+        { answer: 'Wie heißen sie?', category: 'pronoun', feedback: { en: 'Formal Sie.', bg: 'Sie.' } },
+      ],
+    });
+    expect(validateAnswer('Wie heißen sie', spec, opts).trapFeedback).toBeDefined();
+    expect(validateAnswer('Wie heißen Sie', spec, opts).trapFeedback).toBeUndefined();
+  });
+});
+

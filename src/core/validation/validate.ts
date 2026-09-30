@@ -156,11 +156,14 @@ export function validateAnswer(
   // specific explanation the lesson author wrote.
   const acceptedShapes = new Set(spec.accepted.map((answer) => shapeKey(answer)));
   for (const trap of spec.trapAnswers ?? []) {
-    // A trap that only re-cases a correct answer must be matched exactly,
-    // otherwise it would also match the correct answer.
+    // A trap that only re-cases or re-punctuates a correct answer must be
+    // matched on its case and its inner punctuation, otherwise it would also
+    // match the correct answer. Only the final full stop is let go: stripping
+    // every mark removed the very comma ("an, weil") or apostrophe ("Peter's")
+    // the trap is about, and the right sentence without its full stop fell in.
     const collidesWithAnswer = acceptedShapes.has(shapeKey(trap.answer));
     const matchesTrap = collidesWithAnswer
-      ? stripPunctuation(raw) === stripPunctuation(tidy(trap.answer))
+      ? trapKey(raw) === trapKey(trap.answer)
       : shapeKey(raw) === shapeKey(trap.answer);
     if (matchesTrap) {
       return {
@@ -189,6 +192,18 @@ export function validateAnswer(
   const result = best ?? emptyResult(target);
   // Always steer the learner to the taught form, even after an accepted variant.
   return { ...result, target };
+}
+
+/**
+ * The form a trap that collides with a correct answer is compared in: case
+ * and inner punctuation kept, the curly apostrophe an iPhone types made
+ * straight, and the sentence's closing mark dropped.
+ */
+function trapKey(text: string): string {
+  return tidy(text)
+    .replace(/[’‘ʼ`´]/g, "'")
+    .replace(/\s+([,;:])/g, '$1')
+    .replace(/[\s.!?…]+$/u, '');
 }
 
 function compareAgainst(
