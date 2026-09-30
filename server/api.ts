@@ -1,6 +1,6 @@
 import { ERROR_CATEGORIES, type ErrorCategory, type TeachingLanguage } from '../src/content/types.ts';
 import type { RecallGrade } from '../src/core/srs/scheduler.ts';
-import { createProvider, type AiProvider } from './ai.ts';
+import { createProvider, withDailyLimit, type AiProvider } from './ai.ts';
 import {
   authState,
   clearedCookie,
@@ -11,19 +11,22 @@ import {
   parseCookies,
   passwordProblem,
   readSession,
+  sessionKey,
   sessionCookie,
   SESSION_COOKIE,
-  verifyPassword,
   type AuthConfig,
 } from './auth.ts';
+import { checkPassword, tooManyTries } from './auth-limit.ts';
 import { plausibleOffset } from '../src/core/progress/days.ts';
 import { findDatabaseUrl, type Db } from './db.ts';
 import * as store from './store.ts';
 import {
   deleteSubscription,
+  moveSubscription,
   pushConfig,
   saveSubscription,
   sendDueReminder,
+  subscriptionProblem,
 } from './push.ts';
 
 /**
@@ -45,6 +48,8 @@ export interface ApiRequest {
   headers?: Record<string, string | undefined>;
   /** Whether the request arrived over HTTPS, when the adapter knows directly. */
   secure?: boolean;
+  /** Who is asking, as far as the adapter can tell. Keys the wrong-password count. */
+  clientIp?: string;
 }
 
 export interface ApiResponse {
@@ -113,6 +118,24 @@ function ok<T>(body: T extends Promise<unknown> ? never : T): ApiResponse {
   return { status: 200, body };
 }
 
+/**
+ * The browser sends its push endpoint, when it has one, with a switch of
+ * learner, so this phone's reminders go to whoever is studying on it now.
+ */
+async function followedByReminders(db: Db, body: unknown, learnerId: number): Promise<void> {
+  const endpoint = asRecord(body).endpoint;
+  if (typeof endpoint === 'string' && endpoint.length > 0) await moveSubscription(db, endpoint, learnerId);
+}
+
+function decodable(segment: string): boolean {
+  try {
+    decodeURIComponent(segment);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function badRequest(message: string): ApiResponse {
   return { status: 400, body: { error: message } };
 }
@@ -156,7 +179,7 @@ export async function fullState(scope: store.Scope) {
     store.listMistakes(scope),
     store.listFavorites(scope),
     store.getStats(scope),
-    store.listStudyDays(scope, 60),
+    store.listStudyDaysForStreak(scope, 60),
     store.listCheckpointResults(scope),
     store.listScenarioRuns(scope),
   ]);
@@ -242,7 +265,8 @@ export function healthReport(env: NodeJS.ProcessEnv = process.env): {
 
 export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promise<ApiResponse> {
   const { db } = ctx;
-  const provider = ctx.provider ?? createProvider();
+  // Every model call counts against a daily allowance. See withDailyLimit.
+  const provider = withDailyLimit(ctx.provider ?? createProvider(), db);
   const { method } = request;
   const path = request.path.replace(/\/+$/, '') || '/';
   const segments = path.split('/').filter(Boolean);
@@ -250,6 +274,9 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   // /api/...
   if (segments[0] !== 'api') return notFound();
   const route = segments.slice(1);
+  // Routes decode their ids with decodeURIComponent, which throws on broken
+  // percent-encoding; that surfaced as a 500 for what is a bad request.
+  if (!route.every(decodable)) return badRequest('The address is not valid percent-encoding.');
 
   // Health stays public: it must answer before a session exists, so that a
   // deployment can be checked without logging in.
@@ -285,18 +312,23 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
      * A cron has no cookie, so there is no "who is studying" to read here —
      * and there should not be: a household's evening reminder is everybody's.
      * Each learner's due count comes from their own reviews and goes to the
-     * subscriptions registered while they were the one studying.
+     * subscriptions of the devices they are the one studying on (a switch of
+     * learner on a device carries its subscription over).
      */
     const learners = await store.listLearners(db);
-    const reports = [];
-    for (const learner of learners) {
-      const theirs: store.Scope = { db, userId: learner.id };
-      const profile = await store.getProfile(theirs);
-      reports.push({
-        learner: learner.name,
-        ...(await sendDueReminder(theirs, { lang: profile.teachingLanguage })),
-      });
-    }
+    // All learners at once. Each may take up to the send deadline, and one
+    // after another, a handful of learners with a device that never answers
+    // would add up to the function's time limit before the rest were reached.
+    const reports = await Promise.all(
+      learners.map(async (learner) => {
+        const theirs: store.Scope = { db, userId: learner.id };
+        const profile = await store.getProfile(theirs);
+        return {
+          learner: learner.name,
+          ...(await sendDueReminder(theirs, { lang: profile.teachingLanguage })),
+        };
+      }),
+    );
     // The shape of a single report is kept at the top level for the one-learner
     // case, which is every household that has not added anybody: a smoke test
     // and a cron log should not have to learn a new shape to stay readable.
@@ -309,10 +341,8 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   // Whether the cookie may carry Secure. See sessionCookie for why this is the
   // request's protocol and not the deployment's shape.
   const secure = request.secure ?? isSecureRequest(request.headers ?? {});
-  const userId =
-    state === 'required' && auth.sessionSecret
-      ? readSession(auth.sessionSecret, cookies[SESSION_COOKIE] ?? '')
-      : null;
+  const key = sessionKey(auth);
+  const userId = state === 'required' && key ? readSession(key, cookies[SESSION_COOKIE] ?? '') : null;
   const signedIn = state === 'open' || userId !== null;
 
   const sessionBody = {
@@ -338,12 +368,16 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     const problem = passwordProblem(password);
     if (problem) return { status: 400, body: { error: problem } };
 
-    await store.setPasswordHash(db, hashPassword(password));
+    const passwordHash = hashPassword(password);
+    await store.setPasswordHash(db, passwordHash);
+    // Signed with the key the next request will check it against, which is
+    // bound to the hash just stored.
     const secret = auth.sessionSecret ?? (await store.getOrCreateSessionSecret(db));
+    const token = createSession(sessionKey({ sessionSecret: secret, passwordHash })!, 1);
     return {
       status: 200,
       body: { required: true, signedIn: true, needsSetup: false, canChangePassword: true },
-      headers: { 'set-cookie': sessionCookie(createSession(secret, 1), secure) },
+      headers: { 'set-cookie': sessionCookie(token, secure) },
     };
   }
 
@@ -353,7 +387,9 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       return { status: 409, body: { error: 'No password is set yet.', needsSetup: true } };
     }
     const password = String(asRecord(request.body).password ?? '');
-    if (!password || !verifyPassword(password, auth.passwordHash!)) {
+    const verdict = await checkPassword(db, request.clientIp, password, auth.passwordHash!);
+    if (typeof verdict !== 'boolean') return tooManyTries(verdict);
+    if (!verdict) {
       // Deliberately vague, and the same shape whether or not a password was
       // supplied, so this cannot be used to probe.
       return { status: 401, body: { error: 'That password is not right.' } };
@@ -361,7 +397,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     return {
       status: 200,
       body: { ...sessionBody, signedIn: true },
-      headers: { 'set-cookie': sessionCookie(createSession(auth.sessionSecret!, 1), secure) },
+      headers: { 'set-cookie': sessionCookie(createSession(key!, 1), secure) },
     };
   }
 
@@ -399,6 +435,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       const name = String(asRecord(request.body).name ?? '').trim();
       if (!name) return badRequest('A learner needs a name.');
       const learner = await store.createLearner(db, name);
+      await followedByReminders(db, request.body, learner.id);
       // Created, and immediately studying as them: adding somebody is
       // something you do in order to hand them the phone.
       return {
@@ -410,6 +447,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     if (route.length === 2 && method === 'POST' && route[1] === 'select') {
       const id = Number(asRecord(request.body).id);
       if (!(await store.getLearner(db, id))) return badRequest('No such learner.');
+      await followedByReminders(db, request.body, id);
       return {
         status: 200,
         body: { learners: await store.listLearners(db), studyingAs: id },
@@ -441,21 +479,25 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     const body = asRecord(request.body);
     const current = String(body.currentPassword ?? '');
     const next = String(body.newPassword ?? '');
-    if (state === 'required' && !verifyPassword(current, auth.passwordHash!)) {
-      return { status: 401, body: { error: 'That password is not right.' } };
+    if (state === 'required') {
+      const verdict = await checkPassword(db, request.clientIp, current, auth.passwordHash!);
+      if (typeof verdict !== 'boolean') return tooManyTries(verdict);
+      if (!verdict) return { status: 401, body: { error: 'That password is not right.' } };
     }
     const problem = passwordProblem(next);
     if (problem) return { status: 400, body: { error: problem } };
 
-    await store.setPasswordHash(db, hashPassword(next));
-    // A new secret invalidates every existing session, including any that is
-    // not the one making this request. Changing the password should end them.
-    await store.clearSessionSecret(db);
-    const secret = await store.getOrCreateSessionSecret(db);
+    const passwordHash = hashPassword(next);
+    await store.setPasswordHash(db, passwordHash);
+    // Sessions are signed with a key bound to the password hash (see
+    // sessionKey), so the new hash alone ends every existing session, this
+    // device's included — whether the secret is stored or comes from the
+    // environment. This device gets a fresh cookie under the new key.
+    const token = createSession(sessionKey({ sessionSecret: auth.sessionSecret, passwordHash })!, 1);
     return {
       status: 200,
       body: { required: true, signedIn: true, needsSetup: false, canChangePassword: true },
-      headers: { 'set-cookie': sessionCookie(createSession(secret, 1), secure) },
+      headers: { 'set-cookie': sessionCookie(token, secure) },
     };
   }
 
@@ -510,7 +552,10 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       if (!Number.isFinite(accuracy) || !Number.isFinite(passAccuracy)) {
         return badRequest('accuracy and passAccuracy are required numbers');
       }
-      return ok(await store.recordMastery(scope, lessonId, accuracy, passAccuracy));
+      // Kept to a share, as the checkpoint results are: 1.4 would show as a
+      // best of 140% for good, since the best only ever goes up.
+      const share = (value: number) => Math.min(1, Math.max(0, value));
+      return ok(await store.recordMastery(scope, lessonId, share(accuracy), share(passAccuracy)));
     }
     if (route.length === 3 && route[2] === 'recovery' && method === 'POST') {
       return ok(await store.recordRecoveryRound(scope, lessonId));
@@ -532,7 +577,14 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       const body = asRecord(request.body);
       const grade = String(body.grade);
       if (!GRADES.has(grade)) return badRequest('grade must be again, hard, good or easy');
-      const item = await store.gradeReviewItem(scope, decodeURIComponent(route[1]!), grade as RecallGrade);
+      // When it was graded, which is not when it arrived if it waited in the
+      // outbox: a grade given on Monday is scheduled from Monday.
+      const item = await store.gradeReviewItem(
+        scope,
+        decodeURIComponent(route[1]!),
+        grade as RecallGrade,
+        gradeTime(body.gradedAt, new Date()),
+      );
       if (!item) return notFound('Review item not found');
       return ok(item);
     }
@@ -599,7 +651,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       attemptTime(body.at, new Date()),
       plausibleOffset(body.tzOffsetMinutes),
     );
-    return ok({ stats: await store.getStats(scope), studyDays: await store.listStudyDays(scope, 60) });
+    return ok({ stats: await store.getStats(scope), studyDays: await store.listStudyDaysForStreak(scope, 60) });
   }
 
   if (route.length === 1 && route[0] === 'attempts-recent' && method === 'GET') {
@@ -696,6 +748,9 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       const p256dh = String(keys.p256dh ?? '');
       const auth256 = String(keys.auth ?? '');
       if (!endpoint || !p256dh || !auth256) return badRequest('endpoint and keys are required');
+      // Only a real push service, or the evening job would send wherever it was told.
+      const problem = subscriptionProblem({ endpoint, p256dh, auth: auth256 });
+      if (problem) return badRequest(problem);
       await saveSubscription(scope, { endpoint, p256dh, auth: auth256 });
       return ok({ subscribed: true });
     }
@@ -745,6 +800,24 @@ export function attemptTime(raw: unknown, now: Date): Date {
   if (millis > now.getTime() + ATTEMPT_SKEW_MS) return now;
   if (millis < now.getTime() - ATTEMPT_BACKDATE_LIMIT_MS) return now;
   return stamped;
+}
+
+/** How far back a queued review grade may date itself. */
+export const GRADE_BACKDATE_LIMIT_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * The time a review grade was given, held to the last thirty days.
+ *
+ * Clamped rather than replaced, unlike an answer's time: a grade only moves a
+ * schedule, and one from a phone whose clock is wrong is better placed at the
+ * edge of the plausible window than at an arbitrary "now". Nothing is dated
+ * in the future.
+ */
+export function gradeTime(raw: unknown, now: Date): Date {
+  if (typeof raw !== 'string' || raw.length === 0) return now;
+  const millis = new Date(raw).getTime();
+  if (!Number.isFinite(millis)) return now;
+  return new Date(Math.min(now.getTime(), Math.max(now.getTime() - GRADE_BACKDATE_LIMIT_MS, millis)));
 }
 
 /** A step nobody spent two hours on, and nobody finished in negative time. */
@@ -814,6 +887,8 @@ function validateAttempt(body: Record<string, unknown>): AttemptValidation {
       revealed: Boolean(body.revealed),
       isRetype: Boolean(body.isRetype),
       resolved: Boolean(body.resolved),
+      // Left undefined when not sent, which an older client does not.
+      requireRetype: body.requireRetype === undefined ? undefined : Boolean(body.requireRetype),
       // A duration that is not a number is no duration. It used to become NaN,
       // reach `study_days.seconds_active` through the arithmetic below it, fail
       // the NOT NULL constraint, and take the whole answer down with a 500.

@@ -6,10 +6,20 @@ import { useApp } from '../../state/AppState.tsx';
 import { Card, EmptyState, ScoreRing } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 
-/** A checkpoint, unit or level: mixed skills, no hints, result stored. */
+/*
+ * One page per checkpoint, for the same reason as a lesson: the router keeps
+ * the component when only the id changes, and one checkpoint's run or result
+ * would otherwise show on the next.
+ */
 export function CheckpointPage() {
   const { checkpointId = '' } = useParams();
-  const { t, say, recordCheckpoint, checkpointResults } = useApp();
+  return <CheckpointView key={checkpointId} />;
+}
+
+/** A checkpoint, unit or level: mixed skills, no hints, result stored. */
+function CheckpointView() {
+  const { checkpointId = '' } = useParams();
+  const { t, say, lang, recordCheckpoint, checkpointResults } = useApp();
   const checkpoint = checkpointById(checkpointId);
   const [running, setRunning] = useState(false);
   const [summary, setSummary] = useState<PlayerSummary | null>(null);
@@ -41,6 +51,27 @@ export function CheckpointPage() {
   const history = checkpointResults.filter((result) => result.checkpointId === checkpoint.id);
   const best = history.reduce((max, result) => Math.max(max, result.accuracy), 0);
   const passed = history.some((result) => result.passed);
+  const scopeName = checkpoint.scope === 'level' ? t('levelCheckpoint') : t('unitCheckpoint');
+
+  /*
+   * The rule, stated for this checkpoint.
+   *
+   * The card used to borrow the lesson's line, "a few questions from this
+   * lesson, one slip is allowed". A checkpoint is a whole unit or level,
+   * marked strictly at its own pass mark, and allows several slips. Counted
+   * the way the player counts its questions, so the two cannot disagree.
+   */
+  const questions = checkpoint.exercises
+    .filter((exercise) => !exercise.only || exercise.only.includes(lang))
+    .flatMap((exercise) => exercise.steps)
+    .filter((step) => !step.only || step.only.includes(lang)).length;
+  // The most answers that can go wrong with the accuracy still at the mark.
+  // The small allowance keeps 0.7 × 10 from coming out as 7.000…1.
+  const slips = questions - Math.ceil(checkpoint.passAccuracy * questions - 1e-9);
+  const rule = [
+    t(checkpoint.scope === 'level' ? 'checkpointIntroLevel' : 'checkpointIntroUnit', { n: questions }),
+    slips > 0 ? t('checkpointSlips', { n: slips }) : t('checkpointSlipsNone'),
+  ].join(' ');
 
   const finish = async (result: PlayerSummary) => {
     setSummary(result);
@@ -59,7 +90,7 @@ export function CheckpointPage() {
       <div className="page page--player">
         <header className="player-header">
           <p className="player-header__lesson">{say(checkpoint.title)}</p>
-          <p className="player-header__phase">{t('unitCheckpoint')}</p>
+          <p className="player-header__phase">{scopeName}</p>
         </header>
         <ExercisePlayer
           exercises={checkpoint.exercises}
@@ -88,11 +119,11 @@ export function CheckpointPage() {
       */}
       <Card
         tone="accent"
-        title={checkpoint.scope === 'level' ? t('levelCheckpoint') : t('unitCheckpoint')}
+        title={scopeName}
         subtitle={say(checkpoint.description)}
       >
         <p className="card__foot">
-          {t('lessonMasteryIntro')} {'·'} {Math.round(checkpoint.passAccuracy * 100)}%
+          {rule} {'·'} {Math.round(checkpoint.passAccuracy * 100)}%
         </p>
 
         {summary ? (

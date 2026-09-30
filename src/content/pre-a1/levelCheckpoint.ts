@@ -1,5 +1,6 @@
 import { bi, dictation, exercise, freeWriting, typeIt } from '../authoring.ts';
 import type { Checkpoint } from '../types.ts';
+import { HEAR_AS_WORD, digitsTrap } from './unit3.ts';
 
 /**
  * The Pre-A1 level checkpoint.
@@ -36,6 +37,8 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('Order a water politely.', 'Поръчай една вода учтиво.'),
         answer: 'Ein Wasser, bitte.',
+        // What the Unit 2 lesson and checkpoint take for the same prompt.
+        alternatives: ['Bitte ein Wasser.', 'Wasser, bitte.'],
         hints: [],
       },
     ]),
@@ -117,7 +120,7 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('My birthday is in May.', 'През май имам рожден ден.'),
         answer: 'Im Mai habe ich Geburtstag.',
-        alternatives: ['Ich habe im Mai Geburtstag.'],
+        alternatives: ['Ich habe im Mai Geburtstag.', 'Mein Geburtstag ist im Mai.'],
         hints: [],
       },
       {
@@ -129,7 +132,7 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('I work at eight o’clock.', 'Работя в осем часа.'),
         answer: 'Ich arbeite um acht Uhr.',
-        alternatives: ['Um acht Uhr arbeite ich.'],
+        alternatives: ['Ich arbeite um acht.', 'Um acht Uhr arbeite ich.'],
         hints: [],
       },
     ]),
@@ -156,7 +159,7 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
         hints: [],
       },
       {
-        prompt: bi('You (all) are teachers.', 'Вие сте учители.'),
+        prompt: bi('You (all, informal) are teachers.', 'Вие сте учители. (на няколко приятели)'),
         answer: 'Ihr seid Lehrer.',
         hints: [],
       },
@@ -225,9 +228,12 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
         hints: [],
       },
       {
-        instruction: bi('Type the number you hear.', 'Напиши числото, което чуваш.'),
+        // The same wording and digits trap as the Unit 3 steps: "21" is the
+        // right number, and the learner should hear that, not "vocabulary".
+        instruction: HEAR_AS_WORD,
         answer: 'einundzwanzig',
         shape: 'word',
+        traps: [digitsTrap('21', 'einundzwanzig')],
         hints: [],
       },
     ]),
@@ -244,7 +250,8 @@ export const PRE_A1_LEVEL_CHECKPOINT: Checkpoint = {
         ),
         answer: 'Guten Tag! Ich heiße Teo. Ich komme aus Bulgarien. Ich wohne in Hamburg. Ich bin Ingenieur.',
         shape: 'sentence',
-        requiredTokens: ['heiße|Name|bin', 'komme|bin', 'wohne', 'bin|arbeite'],
+        // Pre-A1 teaches leben as well as wohnen, as the Unit 2 writing does.
+        requiredTokens: ['heiße|Name|bin', 'komme|bin', 'wohne|lebe', 'bin|arbeite'],
         hints: [],
       },
     ]),

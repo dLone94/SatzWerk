@@ -2,19 +2,23 @@ import {
   GRAMMAR_CONCEPTS,
   VOCABULARY,
   allCheckpoints,
+  allLessons,
   availableLessons,
+  grammarById,
   lessonExercises,
   lessonsInOrder,
+  patternById,
   practiceForCategory,
   unitForLesson,
   vocabById,
 } from '../content/index.ts';
-import type { Bilingual, Exercise, Lesson, TeachingLanguage, VocabEntry } from '../content/types.ts';
-import { isLessonComplete, lessonRequirements, type LessonProgress } from '../core/progress/lesson.ts';
+import type { Bilingual, Exercise, ExerciseStep, Lesson, TeachingLanguage, VocabEntry } from '../content/types.ts';
+import { allStepIds, isLessonComplete, lessonRequirements, type LessonProgress } from '../core/progress/lesson.ts';
 import type { SessionSources } from '../core/progress/session.ts';
 import { dueItems, dueReason, orderQueue, type ReviewItem } from '../core/srs/scheduler.ts';
+import { toDigraphs } from '../core/validation/text.ts';
 import { CATEGORY_LABELS } from '../i18n.ts';
-import type { MistakeRecord } from '../services/api/client.ts';
+import type { CheckpointResult, MistakeRecord } from '../services/api/client.ts';
 import { buildMistakePractice, buildReviewExercises } from './reviewBuilder.ts';
 
 /**
@@ -42,12 +46,10 @@ export function buildVocabViews(
   const byRef = new Map(reviewItems.filter((item) => item.kind === 'vocab').map((item) => [item.refId, item]));
   const favoriteSet = new Set(favorites);
 
-  // A mistake counts towards a word when the word appears in the expected answer.
   const mistakeCounts = new Map<string, number>();
   for (const mistake of mistakes) {
-    const expected = mistake.expected.toLowerCase();
     for (const entry of VOCABULARY) {
-      if (expected.includes(entry.german.toLowerCase())) {
+      if (mistakeMatchesVocab(mistake, entry)) {
         mistakeCounts.set(entry.id, (mistakeCounts.get(entry.id) ?? 0) + mistake.occurrences);
       }
     }
@@ -64,6 +66,94 @@ export function buildVocabViews(
       favorite: favoriteSet.has(entry.id),
     };
   });
+}
+
+/** Every authored step, by id: lesson practice, final checks and checkpoints. */
+let stepIndex: Map<string, ExerciseStep> | null = null;
+function stepById(id: string): ExerciseStep | undefined {
+  if (!stepIndex) {
+    stepIndex = new Map();
+    const exercises = [
+      ...allLessons().flatMap((lesson) => [...lesson.exercises, ...lesson.mastery.exercises]),
+      ...allCheckpoints().flatMap((checkpoint) => checkpoint.exercises),
+    ];
+    for (const exercise of exercises) for (const step of exercise.steps) stepIndex.set(step.id, step);
+  }
+  return stepIndex.get(id);
+}
+
+/** Lower-case words, split on anything that is not a letter (umlauts and ß are letters). */
+function words(text: string): string[] {
+  return text.toLowerCase().split(/[^\p{L}]+/u).filter(Boolean);
+}
+
+/**
+ * Whether a mistake was made on this word — shared by the vocabulary list and
+ * the word page, so the count on one matches the history on the other.
+ *
+ * It used to be a substring test on the expected answer, which blamed "das Ei"
+ * for every "heiße", "zwei" and "eine", and "er" for every "Eltern". Now the
+ * step the mistake came from decides, when it names the words it practises;
+ * failing that, the word has to appear in the answer as whole words, in order
+ * ("zu Hause" still counts, "Ei" inside "eine" does not). The price is that an
+ * inflected form ("heiße") no longer counts against its dictionary form when
+ * the step does not say so — better silent than wrong.
+ */
+export function mistakeMatchesVocab(mistake: MistakeRecord, entry: VocabEntry): boolean {
+  const step = mistake.stepId ? stepById(mistake.stepId) : undefined;
+  const vocabTargets = (step?.reviewTargets ?? []).filter((id) => vocabById(id));
+  if (vocabTargets.length > 0) return vocabTargets.includes(entry.id);
+
+  const answer = words(mistake.expected);
+  const word = words(entry.german);
+  if (word.length === 0) return false;
+  for (let start = 0; start + word.length <= answer.length; start += 1) {
+    if (word.every((token, offset) => answer[start + offset] === token)) return true;
+  }
+  return false;
+}
+
+/*
+ * Vocabulary search, as forgiving as the answer checker.
+ *
+ * The first lesson tells a learner without a German keyboard that ae, oe, ue
+ * and ss are fine, and the checker accepts them — but the search did not, so
+ * "strasse", "tschuess" and "Madchen" found nothing. German fields are folded
+ * two ways, to digraphs (ä → ae) and to bare letters (ä → a), and the query is
+ * folded the same way. The Bulgarian translation is left alone: taking marks
+ * off Cyrillic would turn й into и.
+ */
+const toBare = (text: string) =>
+  text.replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss');
+
+const searchFields = new WeakMap<VocabEntry, { digraph: string[]; bare: string[]; plain: string[] }>();
+function fieldsOf(entry: VocabEntry) {
+  let fields = searchFields.get(entry);
+  if (!fields) {
+    const german = [entry.german, entry.display, entry.plural ?? '', entry.translation.en].map((field) =>
+      field.toLowerCase(),
+    );
+    fields = {
+      digraph: german.map(toDigraphs),
+      bare: german.map(toBare),
+      plain: [...german, entry.translation.bg.toLowerCase()],
+    };
+    searchFields.set(entry, fields);
+  }
+  return fields;
+}
+
+export function vocabMatches(entry: VocabEntry, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (needle.length === 0) return true;
+  const fields = fieldsOf(entry);
+  const digraph = toDigraphs(needle);
+  const bare = toBare(needle);
+  return (
+    fields.plain.some((field) => field.includes(needle)) ||
+    fields.digraph.some((field) => field.includes(digraph)) ||
+    fields.bare.some((field) => field.includes(bare))
+  );
 }
 
 export interface LessonView {
@@ -124,6 +214,7 @@ export function nextAction(
   reviewItems: ReviewItem[],
   mistakes: MistakeRecord[],
   onboarded: boolean,
+  checkpointResults: CheckpointResult[] = [],
   now = new Date(),
 ): NextAction {
   if (!onboarded) {
@@ -160,7 +251,7 @@ export function nextAction(
     };
   }
 
-  const next = views.find((view) => !view.started);
+  const next = nextNewLesson(views);
   if (next) {
     return {
       kind: 'start-lesson',
@@ -171,8 +262,23 @@ export function nextAction(
     };
   }
 
-  // Every authored lesson is done: offer the checkpoint, then the queue.
-  const checkpoint = allCheckpoints()[0];
+  if (due.length > 0) {
+    return {
+      kind: 'review',
+      to: '/review',
+      title: bi(`${due.length} items are due`, `${due.length} елемента са за повторение`),
+      detail: bi('A short review round.', 'Кратък кръг повторение.'),
+      estimatedMinutes: Math.max(2, Math.round(due.length * 0.4)),
+    };
+  }
+
+  // Every authored lesson is done and nothing is due: the checkpoints not yet
+  // passed, in course order. It used to be the first checkpoint, always —
+  // passed or not, and ahead of anything due.
+  const passed = new Set(checkpointResults.filter((result) => result.passed).map((result) => result.checkpointId));
+  const checkpoint = allCheckpoints().find(
+    (candidate) => candidate.status === 'available' && !passed.has(candidate.id),
+  );
   const allComplete = views.length > 0 && views.every((view) => view.complete);
   if (allComplete && checkpoint) {
     return {
@@ -181,16 +287,6 @@ export function nextAction(
       title: checkpoint.title,
       detail: checkpoint.description,
       estimatedMinutes: 10,
-    };
-  }
-
-  if (due.length > 0) {
-    return {
-      kind: 'review',
-      to: '/review',
-      title: bi(`${due.length} items are due`, `${due.length} елемента са за повторение`),
-      detail: bi('A short review round.', 'Кратък кръг повторение.'),
-      estimatedMinutes: Math.max(2, Math.round(due.length * 0.4)),
     };
   }
 
@@ -237,6 +333,23 @@ export function nextAction(
 }
 
 /**
+ * The next lesson not yet started, counted on from where the learner is.
+ *
+ * The first unstarted lesson in the whole course sent a learner placed at A2
+ * back to Pre-A1 lesson 1 after every lesson they finished. So the search
+ * starts after the furthest lesson already started or finished; the lessons
+ * left behind (below a placement, or skipped) come round once the end of the
+ * course is reached.
+ */
+function nextNewLesson(views: LessonView[]): LessonView | undefined {
+  let furthest = -1;
+  views.forEach((view, index) => {
+    if (view.started || view.complete) furthest = index;
+  });
+  return views.slice(furthest + 1).find((view) => !view.started) ?? views.find((view) => !view.started);
+}
+
+/**
  * The error category that is costing the learner most, provided the course
  * actually has tasks to practise it with. Needs at least three occurrences, so
  * a single slip never becomes the headline.
@@ -275,7 +388,7 @@ export function studyPlan(
 ): PlanItem[] {
   const due = dueItems(reviewItems, now);
   const views = buildLessonViews(lessons);
-  const lesson = views.find((view) => view.started && !view.complete) ?? views.find((view) => !view.started);
+  const lesson = views.find((view) => view.started && !view.complete) ?? nextNewLesson(views);
   const listening = due.filter((item) => item.kind === 'sentence' || item.kind === 'pattern').length;
 
   const candidates: PlanItem[] = [];
@@ -344,7 +457,7 @@ export interface SessionBuild {
   /** The lesson the third part came from, when there is one. */
   lesson?: LessonView;
   /**
-   * The lesson is started but every practice step in it is already answered
+   * The lesson is started and every practice step in it is already answered
    * correctly, so what is left is the mastery check — which is a test, taken
    * in one sitting on the lesson page, not a slice of a mixed round.
    */
@@ -358,6 +471,7 @@ export function sessionBuild(
   reviewItems: ReviewItem[],
   mistakes: MistakeRecord[],
   now = new Date(),
+  lang?: TeachingLanguage,
 ): SessionBuild {
   /*
    * Ordered, not merely filtered.
@@ -380,8 +494,10 @@ export function sessionBuild(
   let lessonExercisesLeft: Exercise[] = [];
   let lessonAwaitsMastery = false;
   if (lesson) {
-    lessonExercisesLeft = unresolvedPractice(lesson.lesson, lesson.progress);
-    lessonAwaitsMastery = lessonExercisesLeft.length === 0;
+    lessonExercisesLeft = unresolvedPractice(lesson.lesson, lesson.progress, lang);
+    // Read from the steps themselves: an empty list also means "not read yet",
+    // which is not the same as only the final check being left.
+    lessonAwaitsMastery = allStepIds(lesson.lesson).every((id) => lesson.progress.practice[id]?.resolved ?? false);
   }
 
   return {
@@ -405,11 +521,20 @@ export function sessionBuild(
  * are kept, so an answer here counts towards the same lesson progress and the
  * same review items as it would inside the lesson.
  *
- * Only sections the learner has actually read are drawn on: a round must never
- * ask for German that the course has not taught yet.
+ * A round must never ask for German that the course has not taught yet. So the
+ * lesson is drawn on only once every section on the learner's path has been
+ * read — opening a lesson marks its first section as seen, and that alone used
+ * to put all of its exercises into the round — or once the learner has chosen
+ * to start the exercises themselves. Without the teaching language, only the
+ * sections both paths share are asked for.
  */
-function unresolvedPractice(lesson: Lesson, progress: LessonProgress): Exercise[] {
-  if (progress.sectionsSeen.length === 0) return [];
+function unresolvedPractice(lesson: Lesson, progress: LessonProgress, lang?: TeachingLanguage): Exercise[] {
+  const onPath = lesson.sections.filter((section) =>
+    lang ? !section.only || section.only.includes(lang) : !section.only,
+  );
+  const read = onPath.every((section) => progress.sectionsSeen.includes(section.id));
+  const practising = Object.keys(progress.practice).length > 0;
+  if (progress.sectionsSeen.length === 0 || !(read || practising)) return [];
   const out: Exercise[] = [];
   for (const exercise of lesson.exercises) {
     const steps = exercise.steps.filter((step) => !(progress.practice[step.id]?.resolved ?? false));
@@ -502,19 +627,38 @@ function emptyProgress(lessonId: string): LessonProgress {
 export interface QueueEntry {
   item: ReviewItem;
   reason: ReturnType<typeof dueReason>;
+  /** German for words and sentences; the raw id only when nothing resolves. */
   label: string;
+  /** Whether `label` is German, to be marked lang="de" and played. */
+  german: boolean;
+  /** A grammar item's title, shown in the teaching language instead of `label`. */
+  title?: Bilingual;
+  /** What the German means, when the content says. */
+  gloss?: Bilingual;
+  /**
+   * A pattern's own German, with its blank. The gloss translates this, not
+   * the example sentence in `label`, so it is shown beside the gloss.
+   */
+  template?: string;
   entry?: VocabEntry;
 }
 
+/**
+ * The review queue as the learner sees it. Only vocabulary used to be looked
+ * up, so a due sentence pattern was listed as "p-ich-komme-aus".
+ */
 export function buildQueue(reviewItems: ReviewItem[], now = new Date()): QueueEntry[] {
   return orderQueue(reviewItems, now).map((item) => {
-    const entry = item.kind === 'vocab' ? vocabById(item.refId) : undefined;
-    return {
-      item,
-      reason: dueReason(item),
-      label: entry?.display ?? item.refId,
-      entry,
-    };
+    const reason = dueReason(item);
+    const entry = vocabById(item.refId);
+    if (entry) return { item, reason, label: entry.display, german: true, gloss: entry.translation, entry };
+    const pattern = patternById(item.refId);
+    if (pattern) {
+      return { item, reason, label: pattern.example, german: true, gloss: pattern.gloss, template: pattern.template };
+    }
+    const concept = grammarById(item.refId);
+    if (concept) return { item, reason, label: concept.title.en, german: false, title: concept.title };
+    return { item, reason, label: item.refId, german: false };
   });
 }
 

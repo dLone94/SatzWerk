@@ -363,6 +363,34 @@ describe('a small slip in a final check', () => {
   });
 });
 
+/*
+ * The player counted an answer without its full stop as right, but the server
+ * could not tell that note from one asking for a retype (ae for ä), because
+ * the attempt did not say which it was. It counted both as wrong, so the
+ * lesson's first-try figure fell and a "Quick redo" followed for answers the
+ * learner had got right.
+ */
+describe('what the server is told about a note', () => {
+  it('says a forgotten full stop asks for no retype', async () => {
+    const user = userEvent.setup();
+    mount(<ExercisePlayer exercises={[originExercise]} context="lesson" level="pre-a1" onFinish={() => {}} />);
+    await user.type(field(), 'Ich komme aus Bulgarien{Enter}');
+    await waitFor(() => expect(attempts).toHaveLength(1));
+    expect(attempts[0]).toMatchObject({ verdict: 'accepted-with-note', requireRetype: false });
+  });
+
+  it('says a spelled-out umlaut does', async () => {
+    const user = userEvent.setup();
+    const bye = typeIt('t-bye', bi('Bye', 'Чао'), [
+      { id: 't-bye-s1', prompt: bi('bye', 'чао'), answer: 'Tschüss', hints: [] },
+    ]);
+    mount(<ExercisePlayer exercises={[bye]} context="lesson" level="pre-a1" onFinish={() => {}} />);
+    await user.type(field(), 'Tschuess{Enter}');
+    await waitFor(() => expect(attempts).toHaveLength(1));
+    expect(attempts[0]).toMatchObject({ requireRetype: true });
+  });
+});
+
 describe('the keyboard on a phone', () => {
   it('capitalises the first letter of a sentence answer', () => {
     mount(<ExercisePlayer exercises={[originExercise]} context="lesson" level="pre-a1" onFinish={() => {}} />);

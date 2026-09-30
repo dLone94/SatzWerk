@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { ApiError } from '../../services/api/client.ts';
 import { useApp } from '../../state/AppState.tsx';
 
 /**
@@ -26,7 +27,10 @@ export function LoginPage() {
     try {
       await signIn(password);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      // A wrong password is the one refusal worth saying in the learner's own
+      // language; the server's sentence for it is English.
+      if (cause instanceof ApiError && cause.status === 401) setError(t('loginWrong'));
+      else setError(cause instanceof Error ? cause.message : String(cause));
       setPassword('');
       input.current?.focus();
     } finally {

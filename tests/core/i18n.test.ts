@@ -30,6 +30,23 @@ describe('interface strings', () => {
     expect(tr('wordFailures', 'bg', { n: 1 })).toBe('1 неуспешно припомняне');
   });
 
+  /*
+   * "Завършени урока" is the counted form, right only straight after a
+   * number; "Зарежда…" lacked its reflexive; the course lede promised a
+   * "планиран план"; and the coach mixed AI and ИИ on one screen.
+   */
+  it('reads as grammatical Bulgarian where the audit found it did not', () => {
+    expect(tr('statLessonsDone', 'bg')).toBe('Завършени уроци');
+    expect(tr('levelLessonsDone', 'bg', { done: 3, total: 18 })).toBe('Завършени 3 от 18 урока');
+    expect(tr('levelLessonsDone', 'en', { done: 3, total: 18 })).toBe('3 of 18 lessons completed');
+    expect(tr('loading', 'bg')).toBe('Зарежда се…');
+    expect(tr('courseSubtitle', 'bg')).not.toMatch(/планиран план/);
+    const bulgarian = Object.values(UI).map((value) => value.bg).join('\n');
+    expect(bulgarian).not.toMatch(/ИИ/);
+    expect(tr('relInDays', 'bg', { n: 1 })).toBe('след 1 ден');
+    expect(tr('relDaysAgo', 'en', { n: 1 })).toBe('1 day ago');
+  });
+
   it('gives every singular variant a plural to fall back to, and vice versa', () => {
     for (const key of Object.keys(UI)) {
       if (!key.endsWith('One')) continue;

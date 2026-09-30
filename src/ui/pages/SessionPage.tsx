@@ -65,8 +65,8 @@ export function SessionPage() {
   const collected = useRef<PlayerSummary[]>([]);
 
   const build = useMemo(
-    () => sessionBuild(lessons, reviewItems, mistakes),
-    [lessons, reviewItems, mistakes],
+    () => sessionBuild(lessons, reviewItems, mistakes, new Date(), lang),
+    [lessons, reviewItems, mistakes, lang],
   );
   const preview = useMemo(
     () => planSession(build.sources, profile.dailyTargetMinutes, stats),
@@ -146,7 +146,15 @@ export function SessionPage() {
         <Card>
           <EmptyState
             title={t('sessionNothing')}
-            body={build.lessonAwaitsMastery ? t('sessionMasteryLeft') : t('sessionNothingBody')}
+            body={
+              build.lessonAwaitsMastery
+                ? t('sessionMasteryLeft')
+                : build.lesson
+                  ? // Started but not read to the end: its exercises wait for
+                    // the reading, so "no lesson is half-finished" would be false.
+                    t('sessionReadFirst')
+                  : t('sessionNothingBody')
+            }
             action={
               build.lesson ? (
                 <Link className="btn btn--primary" to={`/lesson/${build.lesson.lesson.id}`}>

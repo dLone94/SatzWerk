@@ -16,7 +16,16 @@ type Stage = 'intro' | 'playing' | 'done';
  * grade for "handled the situation well", because nothing here can measure
  * that.
  */
+/*
+ * One page per conversation: keyed by the script, so moving from one to
+ * another starts at the new one's introduction, not at the old one's result.
+ */
 export function ScenarioPage() {
+  const { scriptId } = useParams();
+  return <ScenarioView key={scriptId} />;
+}
+
+function ScenarioView() {
   const { scriptId } = useParams();
   const navigate = useNavigate();
   const { t, say, lang, recordScenarioRun } = useApp();

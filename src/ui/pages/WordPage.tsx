@@ -6,7 +6,7 @@ import { useApp } from '../../state/AppState.tsx';
 import { Icon } from '../components/icons.tsx';
 import { AudioButton, Card, EmptyState, formatRelativeDate } from '../components/bits.tsx';
 import { SpeakCheck } from '../components/Speaking.tsx';
-import { buildVocabViews, type VocabView } from '../selectors.ts';
+import { buildVocabViews, mistakeMatchesVocab, type VocabView } from '../selectors.ts';
 import { stateLabel } from './VocabularyPage.tsx';
 
 /** Everything known about one word, including the learner's own history with it. */
@@ -38,15 +38,17 @@ export function WordPage() {
 
   const lesson = entry.lessonId ? lessonById(entry.lessonId) : undefined;
   const related = (entry.related ?? []).map((id) => vocabById(id)).filter(Boolean);
-  const wordMistakes = mistakes.filter((mistake) =>
-    mistake.expected.toLowerCase().includes(entry.german.toLowerCase()),
-  );
+  const wordMistakes = mistakes.filter((mistake) => mistakeMatchesVocab(mistake, entry));
   const note = entry.notes?.[lang];
   const perfectForm = entry.perfect
     ? `${entry.perfect.auxiliary === 'sein' ? 'ist' : 'hat'} ${entry.perfect.participle}`
     : '';
-  const genderLabel =
-    entry.gender === 'm'
+  // Eltern, Geschwister, Schmerzen: taught only in the plural, where German
+  // has no gender. Their `gender` is the article's, so it read "feminine".
+  const pluralOnly = entry.plural !== undefined && entry.plural.toLowerCase() === entry.display.toLowerCase();
+  const genderLabel = pluralOnly
+    ? UI.wordPluralOnly[lang]
+    : entry.gender === 'm'
       ? UI.wordGenderM[lang]
       : entry.gender === 'f'
         ? UI.wordGenderF[lang]
@@ -180,7 +182,7 @@ export function WordPage() {
 
         {entry.collocations && entry.collocations.length > 0 ? (
           <>
-            <h4 className="mini-head">{t('wordCollocations')}</h4>
+            <h3 className="mini-head">{t('wordCollocations')}</h3>
             <ul className="collocations">
               {entry.collocations.map((collocation, index) => (
                 <li key={index}>
@@ -195,7 +197,7 @@ export function WordPage() {
 
         {related.length > 0 ? (
           <>
-            <h4 className="mini-head">{t('wordRelated')}</h4>
+            <h3 className="mini-head">{t('wordRelated')}</h3>
             <ul className="pill-list">
               {related.map((candidate) =>
                 candidate ? (

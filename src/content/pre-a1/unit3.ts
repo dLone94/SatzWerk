@@ -12,10 +12,10 @@ import type { Checkpoint, Lesson, SentencePattern, Unit } from '../types.ts';
 
 /** Said wherever a number has to be typed in letters, so digits are never a surprise. */
 const AS_WORD = bi('Write the number as a word.', 'Напиши числото с думи.');
-const HEAR_AS_WORD = bi('Write the number you hear as a word.', 'Напиши числото, което чуваш, с думи.');
+export const HEAR_AS_WORD = bi('Write the number you hear as a word.', 'Напиши числото, което чуваш, с думи.');
 
 /** Digits where the task asked for a word: right number, so say so. */
-const digitsTrap = (digits: string, word: string) => ({
+export const digitsTrap = (digits: string, word: string) => ({
   answer: digits,
   category: 'spelling' as const,
   feedback: bi(

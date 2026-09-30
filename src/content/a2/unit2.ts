@@ -789,7 +789,9 @@ const lesson3: Lesson = {
           answer:
             'Die Heizung ist kaputt. Ich rufe an, weil die Heizung nicht funktioniert. Können Sie die Heizung reparieren?',
           shape: 'sentence',
-          requiredTokens: ['weil', 'kaputt', 'reparieren'],
+          // Only what the task asks for: weil, and asking about a repair.
+          // "reparier" is a prefix, so repariert and reparieren both count.
+          requiredTokens: ['weil', 'reparier'],
           hints: [],
         },
       ]),

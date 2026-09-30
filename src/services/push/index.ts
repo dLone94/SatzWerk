@@ -16,6 +16,8 @@
  * app, change a setting, or configure the server.
  */
 
+import { CLIENT_HEADERS } from '../api/client.ts';
+
 export type PushState =
   | 'unsupported'
   | 'needs-install'
@@ -69,6 +71,23 @@ async function serverKey(): Promise<string | null> {
     return body.configured && body.publicKey ? body.publicKey : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * The endpoint this browser already holds a subscription with, if any.
+ *
+ * Sent with a switch of learner so the phone's reminders follow whoever is
+ * studying on it now. Asks the person nothing: reading an existing
+ * subscription needs no prompt and no tap, and any failure is simply "none".
+ */
+export async function existingPushEndpoint(): Promise<string | undefined> {
+  if (!pushApiPresent()) return undefined;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    return (await registration?.pushManager.getSubscription())?.endpoint ?? undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -163,7 +182,7 @@ export async function enablePush(): Promise<PushStatus> {
   const json = subscription.toJSON() as { endpoint?: string; keys?: Record<string, string> };
   const response = await fetch('/api/push/subscribe', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { ...CLIENT_HEADERS, 'content-type': 'application/json' },
     body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
   });
   if (!response.ok) return { state: 'off' };
@@ -178,7 +197,7 @@ export async function disablePush(): Promise<PushStatus> {
   if (subscription) {
     await fetch('/api/push/unsubscribe', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { ...CLIENT_HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({ endpoint: subscription.endpoint }),
     }).catch(() => undefined);
     await subscription.unsubscribe().catch(() => undefined);

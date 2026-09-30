@@ -18,7 +18,7 @@ const APARTMENT_A2 = script({
   register: 'Sie',
   partner: bi('the letting agent', 'брокерът'),
   goal: bi('At the viewing: find out the rent, the size and when it is free.', 'На огледа: разбери наема, размера и кога е свободен.'),
-  lessonIds: ['b1-u1-l1'],
+  lessonIds: ['a1-u2-l1', 'a2-u2-l3'],
   outro: bi(
     'Three questions, three numbers. The one that catches people out is the first: a German rent is quoted cold, and the real figure is somewhere above it.',
     'Три въпроса, три числа. Първият изненадва хората: немският наем се обявява „студен“, а истинската сума е някъде над него.',
@@ -160,6 +160,10 @@ const APARTMENT_B1 = script({
           alternatives: [
             'Ich bin seit drei Jahren Krankenpflegerin und habe einen unbefristeten Vertrag.',
             'Ich arbeite seit drei Jahren als Krankenpflegerin, mein Vertrag ist unbefristet.',
+            'Seit drei Jahren arbeite ich als Krankenpflegerin und habe einen unbefristeten Vertrag.',
+            'Seit drei Jahren bin ich Krankenpflegerin und habe einen unbefristeten Vertrag.',
+            'Ich arbeite seit 3 Jahren als Krankenpflegerin und habe einen unbefristeten Vertrag.',
+            'Seit 3 Jahren arbeite ich als Krankenpflegerin und habe einen unbefristeten Vertrag.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-arbeiten', 'v-als', 'v-befristet'],
@@ -509,7 +513,12 @@ const NEIGHBOURS_A1 = script({
           id: 'sc-neighbours-a1-t3-s1',
           prompt: bi('Say that is very kind.', 'Кажи, че е много мило.'),
           answer: 'Danke, das ist sehr nett!',
-          alternatives: ['Vielen Dank, das ist sehr nett!', 'Danke, das ist sehr freundlich!'],
+          alternatives: [
+            'Vielen Dank, das ist sehr nett!',
+            'Danke, das ist sehr freundlich!',
+            'Das ist sehr nett!',
+            'Das ist sehr freundlich!',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-nett'],
           traps: [registerTrap('Danke dir, das ist sehr nett!', 'Sie')],
@@ -555,8 +564,10 @@ const NEIGHBOURS_A2 = script({
           alternatives: ['Ja klar, kein Problem.', 'Klar, mache ich.'],
           shape: 'phrase',
           reviewTargets: ['v-das-problem'],
-          traps: [registerTrap('Selbstverständlich, sehr gern geschehen.', 'du')],
-          hints: [bi('Two words, both short.', 'Две думи, и двете къси.')],
+          // A register trap needs a Sie in it; "gern geschehen" had none, and
+          // means "you're welcome" besides.
+          traps: [registerTrap('Klar, das mache ich gern für Sie.', 'du')],
+          hints: [bi('Three short words.', 'Три къси думи.')],
         },
       ],
       'a2',
@@ -577,6 +588,8 @@ const NEIGHBOURS_A2 = script({
           alternatives: [
             'Alles klar, ich bin heute Nachmittag zu Hause.',
             'Kein Problem, ich bin den ganzen Nachmittag da.',
+            'Ich bin den ganzen Nachmittag zu Hause.',
+            'Ich bin heute Nachmittag zu Hause.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-zu-hause'],
@@ -609,6 +622,7 @@ const NEIGHBOURS_A2 = script({
           alternatives: [
             'Hallo Jonas, dein Paket ist bei mir. Komm einfach vorbei!',
             'Dein Paket liegt bei mir. Komm einfach vorbei!',
+            'Jonas, dein Paket ist bei mir. Komm einfach vorbei!',
           ],
           shape: 'sentence',
           reviewTargets: ['v-vorbeikommen'],

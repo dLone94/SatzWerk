@@ -185,3 +185,57 @@ export function normaliseRow(row: Row): Row {
   }
   return changed ? out : row;
 }
+
+/*
+ * Node's own codes for a network that is not there, or went away.
+ * ENOTFOUND and EAI_AGAIN are DNS: a database host that cannot be resolved
+ * right now is as unreachable as one that refuses.
+ */
+const UNREACHABLE_CODES = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EPIPE',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+]);
+
+/*
+ * Postgres's: 57P01-03 are the server shutting down or not yet accepting
+ * connections, and 53300 is "too many connections". Class 08 is every kind of
+ * connection exception.
+ */
+const UNAVAILABLE_SQLSTATES = new Set(['57P01', '57P02', '57P03', '53300']);
+
+/** What `pg` and its pool say when the connection itself failed. */
+const UNAVAILABLE_MESSAGE = /timeout exceeded when trying to connect|Connection terminated/i;
+
+/**
+ * True when an error means "the database cannot be reached right now" rather
+ * than "this request is wrong".
+ *
+ * The difference decides what the browser does with its queued work. It holds
+ * an answer the server could not store yet (HTTP 503) and sends it again once
+ * the connection is back; it drops one the server refused (HTTP 500), because
+ * sending the same thing again would only fail the same way. A database that
+ * blinked for a few seconds used to come back as a 500, and the answers typed
+ * in those seconds were thrown away. The error's `cause` is followed as well,
+ * since fetch-based drivers wrap the network error in one.
+ */
+export function isDatabaseUnavailable(error: unknown): boolean {
+  for (let current = error, depth = 0; current && depth < 5; depth += 1) {
+    const candidate = current as { code?: unknown; message?: unknown; cause?: unknown };
+    const code = typeof candidate.code === 'string' ? candidate.code : '';
+    if (UNREACHABLE_CODES.has(code) || UNAVAILABLE_SQLSTATES.has(code) || /^08[0-9A-Z]{3}$/.test(code)) {
+      return true;
+    }
+    if (typeof candidate.message === 'string' && UNAVAILABLE_MESSAGE.test(candidate.message)) return true;
+    current = candidate.cause;
+  }
+  return false;
+}
+
+/** How long a client should wait before sending again after a 503, in seconds. */
+export const RETRY_AFTER_SECONDS = 5;

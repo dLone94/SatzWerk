@@ -1,6 +1,6 @@
 import { bi } from '../authoring.ts';
 import type { ScenarioScript } from '../types.ts';
-import { registerTrap, script, them, you } from './authoring.ts';
+import { script, them, you } from './authoring.ts';
 
 /**
  * At the doctor, and at the pharmacy.
@@ -40,6 +40,9 @@ const DOCTOR_A1 = script({
           alternatives: [
             'Guten Tag, ich hätte gern einen Termin.',
             'Guten Tag, ich möchte einen Termin vereinbaren.',
+            'Ich möchte einen Termin machen.',
+            'Ich hätte gern einen Termin.',
+            'Ich möchte einen Termin vereinbaren.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-termin', 'v-praxis'],
@@ -70,7 +73,13 @@ const DOCTOR_A1 = script({
           id: 'sc-doctor-a1-t2-s1',
           prompt: bi('This is your first time.', 'За пръв път ти е.'),
           answer: 'Nein, ich bin neu hier.',
-          alternatives: ['Nein, ich war noch nie hier.', 'Nein, zum ersten Mal.'],
+          alternatives: [
+            'Nein, ich war noch nie hier.',
+            'Nein, zum ersten Mal.',
+            'Ich bin neu hier.',
+            'Ich war noch nie hier.',
+            'Zum ersten Mal.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-neu'],
           hints: [bi('"I am new here" works word for word.', '„Нов съм тук“ работи дума по дума.')],
@@ -115,10 +124,36 @@ const DOCTOR_A1 = script({
           ),
           prompt: bi('Thursday works.', 'Четвъртък става.'),
           answer: 'Ja, das passt mir gut.',
-          alternatives: ['Ja, das passt.', 'Ja, Donnerstag um zehn passt mir.'],
+          alternatives: [
+            'Ja, das passt.',
+            'Ja, Donnerstag um zehn passt mir.',
+            'Das passt mir gut.',
+            'Das passt.',
+            'Donnerstag um zehn passt mir.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-passt', 'v-donnerstag'],
-          traps: [registerTrap('Ja, das passt dir gut.', 'Sie')],
+          // dir here is not the register: it says the time suits the
+          // receptionist. Sent to Sie, the learner would write "das passt
+          // Ihnen", which is the same mistake.
+          traps: [
+            {
+              answer: 'Ja, das passt dir gut.',
+              category: 'pronoun',
+              feedback: bi(
+                'passen takes the person the time suits, and that is you: das passt mir. dir would mean it suits the person you are talking to.',
+                '„passen“ иска човека, на когото часът е удобен, а това си ти: das passt mir. dir би значело, че е удобно на човека, с когото говориш.',
+              ),
+            },
+            {
+              answer: 'Ja, das passt Ihnen gut.',
+              category: 'pronoun',
+              feedback: bi(
+                'passen takes the person the time suits, and that is you: das passt mir. Ihnen would mean it suits the person you are talking to.',
+                '„passen“ иска човека, на когото часът е удобен, а това си ти: das passt mir. Ihnen би значело, че е удобно на човека, с когото говориш.',
+              ),
+            },
+          ],
           hints: [bi('das passt ___ gut — the person goes in the dative.', 'das passt ___ gut — човекът е в дателен падеж.')],
         },
       ],
@@ -160,6 +195,11 @@ const DOCTOR_A2 = script({
           alternatives: [
             'Seit drei Tagen habe ich Halsschmerzen.',
             'Mir tut seit drei Tagen der Hals weh.',
+            'Mein Hals tut seit drei Tagen weh.',
+            'Seit drei Tagen tut mein Hals weh.',
+            'Seit drei Tagen tut mir der Hals weh.',
+            'Ich habe seit 3 Tagen Halsschmerzen.',
+            'Seit 3 Tagen habe ich Halsschmerzen.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-hals', 'v-schmerzen'],
@@ -194,7 +234,13 @@ const DOCTOR_A2 = script({
           ),
           prompt: bi('Yesterday it was 38 degrees.', 'Вчера беше 38 градуса.'),
           answer: 'Ja, gestern hatte ich achtunddreißig Grad.',
-          alternatives: ['Ja, gestern hatte ich 38 Grad.', 'Ja, gestern waren es achtunddreißig Grad.'],
+          alternatives: [
+            'Ja, gestern hatte ich 38 Grad.',
+            'Ja, gestern waren es achtunddreißig Grad.',
+            'Gestern hatte ich achtunddreißig Grad.',
+            'Gestern hatte ich 38 Grad.',
+            'Gestern waren es achtunddreißig Grad.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-fieber', 'v-gestern'],
           hints: [
@@ -289,6 +335,8 @@ const DOCTOR_B1 = script({
           alternatives: [
             'Ja, die Beschwerden sind seitdem nicht besser geworden.',
             'Ja, aber es ist seitdem nicht besser geworden.',
+            'Die Beschwerden sind seitdem nicht besser geworden.',
+            'Es ist seitdem nicht besser geworden.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-die-beschwerden', 'v-besser'],
@@ -329,6 +377,9 @@ const DOCTOR_B1 = script({
           alternatives: [
             'Ja, seit einer Woche nehme ich ein Schmerzmittel.',
             'Ja, ein Schmerzmittel, seit einer Woche.',
+            'Ich nehme seit einer Woche ein Schmerzmittel.',
+            'Seit einer Woche nehme ich ein Schmerzmittel.',
+            'Ein Schmerzmittel, seit einer Woche.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-das-medikament', 'v-einnehmen'],
@@ -515,7 +566,12 @@ const PHARMACY_A1 = script({
           id: 'sc-pharmacy-a1-t4-s1',
           prompt: bi('Say you will take it, and thank her.', 'Кажи, че го взимаш, и ѝ благодари.'),
           answer: 'Gut, das nehme ich. Vielen Dank!',
-          alternatives: ['Das nehme ich, danke!', 'Gut, ich nehme das. Danke schön!'],
+          alternatives: [
+            'Das nehme ich, danke!',
+            'Gut, ich nehme das. Danke schön!',
+            'Das nehme ich. Vielen Dank!',
+            'Ich nehme das. Danke schön!',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-nehmen'],
           hints: [bi('Start with das, so the verb comes second.', 'Започни с „das“, значи глаголът е втори.')],
@@ -547,7 +603,13 @@ const PHARMACY_A2 = script({
           id: 'sc-pharmacy-a2-t1-s1',
           prompt: bi('You have a prescription from the doctor.', 'Имаш рецепта от лекаря.'),
           answer: 'Guten Tag, ich habe ein Rezept.',
-          alternatives: ['Guten Tag, ich möchte dieses Rezept einlösen.', 'Guten Tag, hier ist mein Rezept.'],
+          alternatives: [
+            'Guten Tag, ich möchte dieses Rezept einlösen.',
+            'Guten Tag, hier ist mein Rezept.',
+            'Ich habe ein Rezept.',
+            'Ich möchte dieses Rezept einlösen.',
+            'Hier ist mein Rezept.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-das-rezept'],
           hints: [
@@ -632,7 +694,7 @@ const PHARMACY_A2 = script({
           id: 'sc-pharmacy-a2-t4-s1',
           prompt: bi('Say thank you for the explanation.', 'Благодари за обяснението.'),
           answer: 'Alles klar, vielen Dank!',
-          alternatives: ['Gut zu wissen, danke!', 'Danke für die Erklärung!'],
+          alternatives: ['Gut zu wissen, danke!', 'Danke für die Erklärung!', 'Vielen Dank!'],
           shape: 'phrase',
           hints: [bi('"Gut zu wissen" — good to know.', '„Gut zu wissen“ — добре е да се знае.')],
         },
@@ -776,6 +838,8 @@ const PHARMACY_B1 = script({
           alternatives: [
             'Dann nehme ich das Generikum. Vielen Dank!',
             'Gut, das nehme ich. Danke für die Beratung!',
+            'Dann nehme ich das. Vielen Dank für die Beratung!',
+            'Das nehme ich. Danke für die Beratung!',
           ],
           shape: 'sentence',
           reviewTargets: ['v-die-zuzahlung'],

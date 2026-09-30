@@ -4,12 +4,14 @@ import {
   applyCompletion,
   applyMastery,
   applyRecoveryRound,
+  countsAsRight,
   type LessonProgress,
   type StepOutcome,
 } from '../src/core/progress/lesson.ts';
 import {
   createReviewItem,
   gradeFromAttempt,
+  isDue,
   scheduleReview,
   type RecallGrade,
   type ReviewItem,
@@ -232,18 +234,30 @@ async function ensureLessonState({ db, userId }: Scope, lessonId: string, now: s
      ON CONFLICT (lesson_id, user_id) DO UPDATE SET last_active_at = excluded.last_active_at`, lessonId, userId, now, now);
 }
 
+/*
+ * The writes below read the lesson row, work out the new value and write it
+ * back, so two of them overlapping used to lose one: two sections tapped
+ * through quickly each wrote back their own list, and the later dropped the
+ * earlier. Each now runs in a transaction that starts with the upsert in
+ * ensureLessonState. In one process the transaction gate runs them one at a
+ * time; on Postgres that upsert also locks the row until COMMIT, so a request
+ * on another instance waits for it and then reads what it wrote.
+ */
+
 export async function markSectionSeen(scope: Scope, lessonId: string, sectionId: string): Promise<LessonProgress> {
   const { db, userId } = scope;
   const now = new Date().toISOString();
-  await ensureLessonState(scope, lessonId, now);
-  const current = await getLessonProgress(scope, lessonId);
-  if (!current.sectionsSeen.includes(sectionId)) {
-    const next = [...current.sectionsSeen, sectionId];
-    await db.run('UPDATE lesson_state SET sections_seen = ?, last_active_at = ? WHERE lesson_id = ? AND user_id = ?', JSON.stringify(next),
-      now,
-      lessonId,
-      userId,);
-  }
+  await db.transaction(async () => {
+    await ensureLessonState(scope, lessonId, now);
+    const current = await getLessonProgress(scope, lessonId);
+    if (!current.sectionsSeen.includes(sectionId)) {
+      const next = [...current.sectionsSeen, sectionId];
+      await db.run('UPDATE lesson_state SET sections_seen = ?, last_active_at = ? WHERE lesson_id = ? AND user_id = ?', JSON.stringify(next),
+        now,
+        lessonId,
+        userId,);
+    }
+  });
   return await getLessonProgress(scope, lessonId);
 }
 
@@ -255,38 +269,44 @@ export async function recordMastery(
 ): Promise<LessonProgress> {
   const { db, userId } = scope;
   const now = new Date().toISOString();
-  await ensureLessonState(scope, lessonId, now);
-  // The rule is `applyMastery` in the pure core, because the browser has to be
-  // able to answer "did I pass?" from a tunnel, with no database to ask.
-  const next = applyMastery(await getLessonProgress(scope, lessonId), accuracy, passAccuracy, now);
-  await db.run(`UPDATE lesson_state
-     SET mastery_attempts = ?, mastery_best_accuracy = ?, mastery_passed = ?, last_active_at = ?
-     WHERE lesson_id = ? AND user_id = ?`, next.mastery.attempts,
-    next.mastery.bestAccuracy,
-    next.mastery.passed ? 1 : 0,
-    now,
-    lessonId,
-    userId,);
+  await db.transaction(async () => {
+    await ensureLessonState(scope, lessonId, now);
+    // The rule is `applyMastery` in the pure core, because the browser has to be
+    // able to answer "did I pass?" from a tunnel, with no database to ask.
+    const next = applyMastery(await getLessonProgress(scope, lessonId), accuracy, passAccuracy, now);
+    await db.run(`UPDATE lesson_state
+       SET mastery_attempts = ?, mastery_best_accuracy = ?, mastery_passed = ?, last_active_at = ?
+       WHERE lesson_id = ? AND user_id = ?`, next.mastery.attempts,
+      next.mastery.bestAccuracy,
+      next.mastery.passed ? 1 : 0,
+      now,
+      lessonId,
+      userId,);
+  });
   return await getLessonProgress(scope, lessonId);
 }
 
 export async function recordRecoveryRound(scope: Scope, lessonId: string): Promise<LessonProgress> {
   const { db, userId } = scope;
   const now = new Date().toISOString();
-  await ensureLessonState(scope, lessonId, now);
-  const next = applyRecoveryRound(await getLessonProgress(scope, lessonId), now);
-  await db.run('UPDATE lesson_state SET recovery_rounds = ?, last_active_at = ? WHERE lesson_id = ? AND user_id = ?', next.recoveryRounds, now, lessonId, userId);
+  await db.transaction(async () => {
+    await ensureLessonState(scope, lessonId, now);
+    const next = applyRecoveryRound(await getLessonProgress(scope, lessonId), now);
+    await db.run('UPDATE lesson_state SET recovery_rounds = ?, last_active_at = ? WHERE lesson_id = ? AND user_id = ?', next.recoveryRounds, now, lessonId, userId);
+  });
   return await getLessonProgress(scope, lessonId);
 }
 
 export async function completeLesson(scope: Scope, lessonId: string): Promise<LessonProgress> {
   const { db, userId } = scope;
   const now = new Date().toISOString();
-  await ensureLessonState(scope, lessonId, now);
-  const next = applyCompletion(await getLessonProgress(scope, lessonId), now);
-  await db.run(`UPDATE lesson_state
-     SET completed_at = ?, last_active_at = ?
-     WHERE lesson_id = ? AND user_id = ?`, next.completedAt ?? now, now, lessonId, userId);
+  await db.transaction(async () => {
+    await ensureLessonState(scope, lessonId, now);
+    const next = applyCompletion(await getLessonProgress(scope, lessonId), now);
+    await db.run(`UPDATE lesson_state
+       SET completed_at = ?, last_active_at = ?
+       WHERE lesson_id = ? AND user_id = ?`, next.completedAt ?? now, now, lessonId, userId);
+  });
   return await getLessonProgress(scope, lessonId);
 }
 
@@ -391,10 +411,19 @@ export async function ensureReviewItems(scope: Scope, targets: TargetSpec[]): Pr
   return created;
 }
 
-export async function gradeReviewItem(scope: Scope, id: string, grade: RecallGrade): Promise<ReviewItem | undefined> {
+export async function gradeReviewItem(
+  scope: Scope,
+  id: string,
+  grade: RecallGrade,
+  gradedAt = new Date(),
+): Promise<ReviewItem | undefined> {
   const item = await getReviewItem(scope, id);
   if (!item) return undefined;
-  const next = scheduleReview(item, grade);
+  // Never earlier than the item's last review: a grade that waited in one
+  // phone's outbox may arrive after a later one from another device, and a
+  // schedule must not run backwards.
+  const last = item.lastReviewAt ? new Date(item.lastReviewAt).getTime() : Number.NEGATIVE_INFINITY;
+  const next = scheduleReview(item, grade, new Date(Math.max(gradedAt.getTime(), last)));
   await upsertReviewItem(scope, next);
   return next;
 }
@@ -423,6 +452,12 @@ export interface AttemptInput {
   isRetype: boolean;
   /** True once the learner has produced the correct German for this step. */
   resolved: boolean;
+  /**
+   * Whether the validator asked for a retype, which is what separates a
+   * forgotten full stop from 'ae' typed for 'ä' — both 'accepted-with-note'.
+   * Absent from older clients; see countsAsRight.
+   */
+  requireRetype?: boolean;
   durationMs?: number;
   reviewTargets?: TargetSpec[];
   /**
@@ -440,8 +475,6 @@ export interface AttemptResult {
   lessonProgress?: LessonProgress;
   mistakeId?: string;
 }
-
-const CREDIT_VERDICTS = new Set<Verdict>(['correct', 'accepted-variant']);
 
 export async function recordAttempt(scope: Scope, input: AttemptInput, now = new Date()): Promise<AttemptResult> {
   const { db, userId } = scope;
@@ -476,7 +509,8 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
     // Daily activity, from which the streak is derived. Time is not added
     // here: the app measures time on task itself and sends it to /api/study,
     // and adding each answer's duration as well counted the same minutes twice.
-    const wasCorrect = CREDIT_VERDICTS.has(input.verdict) && !input.revealed;
+    const right = countsAsRight(input.verdict, input.requireRetype);
+    const wasCorrect = right && !input.revealed;
     await db.run(`INSERT INTO study_days (day, user_id, seconds_active, answers, correct)
        VALUES (?, ?, ?, 1, ?)
        ON CONFLICT (day, user_id) DO UPDATE SET
@@ -484,15 +518,20 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
          answers = study_days.answers + 1,
          correct = study_days.correct + excluded.correct`, day, userId, 0, wasCorrect ? 1 : 0);
 
-    // Step outcome for the lesson mastery rules.
+    // Step outcome for the lesson mastery rules. Only practice is filed here:
+    // a final check is played with the lesson's id too, but its questions are
+    // not practice steps, and counting them dragged the first-try score down
+    // and forced a recovery round after a failed check. Its result is kept by
+    // recordMastery.
     let lessonProgress: LessonProgress | undefined;
-    if (input.lessonId && !input.isRetype) {
+    const filesOutcome = input.context !== 'mastery';
+    if (input.lessonId && filesOutcome && !input.isRetype) {
       await ensureLessonState(scope, input.lessonId, iso);
       const prior = await db.get('SELECT * FROM step_outcomes WHERE lesson_id = ? AND step_id = ? AND user_id = ?', input.lessonId, input.stepId, userId) as Record<string, unknown> | undefined;
 
       const firstTryCorrect = prior
         ? Number(prior.first_try_correct) === 1
-        : CREDIT_VERDICTS.has(input.verdict) && input.hintsUsed === 0 && !input.revealed;
+        : right && input.hintsUsed === 0 && !input.revealed;
 
       await db.run(`INSERT INTO step_outcomes
            (lesson_id, step_id, user_id, attempts, first_try_correct, best_credit, resolved, hints_used, revealed, updated_at)
@@ -514,7 +553,7 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
         input.revealed ? 1 : 0,
         iso,
         firstTryCorrect ? 1 : 0,);
-    } else if (input.lessonId && input.isRetype && input.resolved) {
+    } else if (input.lessonId && filesOutcome && input.isRetype && input.resolved) {
       // A successful retyping closes the step without changing its first-try record.
       await db.run(`UPDATE step_outcomes SET resolved = 1, updated_at = ? WHERE lesson_id = ? AND step_id = ? AND user_id = ?`, iso, input.lessonId, input.stepId, userId);
     }
@@ -523,7 +562,7 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
     let mistakeId: string | undefined;
     if (!input.isRetype && input.categories.length > 0) {
       mistakeId = await upsertMistake(scope, input, iso);
-    } else if (input.isRetype && CREDIT_VERDICTS.has(input.verdict)) {
+    } else if (input.isRetype && right) {
       await creditRetype(scope, input, iso);
     }
 
@@ -549,6 +588,24 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
             difficulty: target.difficulty,
             now,
           });
+        } else if (
+          grade !== 'again' &&
+          input.context !== 'review' &&
+          !isDue(item, now) &&
+          item.lastReviewAt !== undefined &&
+          localDay(new Date(item.lastReviewAt), plausibleOffset(input.tzOffsetMinutes)) === day
+        ) {
+          // At most one step forward per item per day. A lesson, its final
+          // check and a quick redo can ask for the same word a dozen times in
+          // an evening; the first right answer that day is the review, and the
+          // rest are practice. The scheduler already refuses to grow an early
+          // review much, and this keeps the whole sitting from counting as more
+          // than one. A slip ('again') still demotes at any time. A review
+          // round is left out: "Practise early" is the learner asking to be
+          // tested, it picks the soonest items not yet due, and an item left
+          // where it was would be offered again in the next round.
+          reviewItems.push(item);
+          continue;
         }
         const next = scheduleReview(item, grade, now);
         await upsertReviewItem(scope, next);
@@ -806,6 +863,30 @@ export async function listStudyDays({ db, userId }: Scope, limit = 120): Promise
     answers: Number(row.answers),
     correct: Number(row.correct),
   }));
+}
+
+/**
+ * The recent study days, and never fewer than the whole latest streak.
+ *
+ * The dashboard counts the streak itself, from these rows, against the phone's
+ * own calendar (the server's count is on a UTC one, and a snapshot opened
+ * offline a day later must still be recounted). Sending only the 60 most
+ * recent rows capped that count at 60: on day 75 of an unbroken streak the
+ * flame said 60 and stayed there. So the list reaches back to the first day
+ * of the latest run of answered days, however far that is — one short row a
+ * day — and is otherwise the `minimum` most recent.
+ */
+export async function listStudyDaysForStreak(scope: Scope, minimum = 60): Promise<StudyDay[]> {
+  const all = await listStudyDays(scope, Number.MAX_SAFE_INTEGER);
+  const answered = all.filter((row) => row.answers > 0).map((row) => row.day);
+  if (answered.length === 0) return all.slice(0, minimum);
+  // Counting from the latest answered day itself gives the length of the run
+  // that ends there, whichever day it is on the phone.
+  const run = streakOn(answered, answered[0]!);
+  const firstOfRun = new Date(new Date(`${answered[0]}T00:00:00Z`).getTime() - (run - 1) * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  return all.filter((row, index) => index < minimum || row.day >= firstOfRun);
 }
 
 export interface AttemptSummary {

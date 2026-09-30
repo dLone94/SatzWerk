@@ -2,6 +2,7 @@ import type { ErrorCategory, TeachingLanguage } from '../../content/types.ts';
 import type { LessonProgress } from '../../core/progress/lesson.ts';
 import type { RecallGrade, ReviewItem, ReviewKind } from '../../core/srs/scheduler.ts';
 import type { Verdict } from '../../core/validation/validate.ts';
+import { existingPushEndpoint } from '../push/index.ts';
 
 /** Typed client for the SatzWerk API. One place that knows about fetch. */
 
@@ -99,6 +100,13 @@ export interface AttemptPayload {
   revealed: boolean;
   isRetype: boolean;
   resolved: boolean;
+  /**
+   * Whether the validator asked for the answer to be typed again. Sent because
+   * 'accepted-with-note' covers both a forgotten full stop, which is a right
+   * answer, and "ae" for "ä", which is not, and only the validator knows which.
+   * Without it the server treats every note as needing a retype.
+   */
+  requireRetype?: boolean;
   durationMs?: number;
   reviewTargets?: TargetSpec[];
   /**
@@ -192,6 +200,18 @@ export class ApiError extends Error {
 const BASE = '/api';
 
 /**
+ * Sent with every request the app makes.
+ *
+ * The server refuses a write that cannot show it came from the app, because
+ * an ordinary form on any other web page could otherwise post to it — set a
+ * password on a local copy, or wipe the learner's progress. Another page
+ * cannot send a custom header like this one without the server's permission,
+ * which it never gives. Bodyless posts (reset, logout) carry no Content-Type,
+ * so this header is what vouches for them.
+ */
+export const CLIENT_HEADERS = { 'X-Requested-With': 'SatzWerk' } as const;
+
+/**
  * Long enough for a cold start and a migration, short enough that a request
  * which is never coming back becomes an error the app can show. Without this
  * a hung server leaves the app on its loading screen indefinitely, saying
@@ -199,7 +219,20 @@ const BASE = '/api';
  */
 const REQUEST_TIMEOUT_MS = 30_000;
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * For the writes the outbox can hold. Nobody waits on these any more — the
+ * verdict is on screen before they are sent — so giving up sooner would only
+ * hand a stuck request back to the outbox to try again. It stays as long as
+ * any other request for now: a cold function waking a sleeping database can
+ * take longer than ten seconds and still save the write, and until the server
+ * recognises a repeat by its idempotency key, the retry would save it twice.
+ */
+const WRITE_TIMEOUT_MS = REQUEST_TIMEOUT_MS;
+
+/** Header naming a write, the same on every try of it. See `QueuedWrite.id`. */
+export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
+
+async function request<T>(path: string, init?: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   // Named in every failure below. An error that says only "HTTP 404" leaves
   // the one useful fact — *which* request failed — visible in a browser's
   // network panel and nowhere else, so it cannot be reported by whoever hit
@@ -210,8 +243,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     response = await fetch(`${BASE}${path}`, {
       ...init,
       credentials: 'same-origin',
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
       headers: {
+        ...CLIENT_HEADERS,
         ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
         ...init?.headers,
       },
@@ -220,7 +254,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const timedOut = cause instanceof DOMException && cause.name === 'TimeoutError';
     throw new ApiError(
       timedOut
-        ? `${what} did not answer within ${REQUEST_TIMEOUT_MS / 1000} seconds. The server may still be starting up, or it cannot reach its database.`
+        ? `${what} did not answer within ${timeoutMs / 1000} seconds. The server may still be starting up, or it cannot reach its database.`
         : `Could not reach the server for ${what}: ${cause instanceof Error ? cause.message : String(cause)}`,
       0,
     );
@@ -260,6 +294,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const post = <T>(path: string, body?: unknown): Promise<T> =>
   request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
 
+/**
+ * A write the outbox can hold: sent with its key, and given up on sooner.
+ * `key` is optional so a caller that has none still works.
+ */
+const write = <T>(path: string, body: unknown, key: string | undefined): Promise<T> =>
+  request<T>(
+    path,
+    {
+      method: 'POST',
+      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: key ? { [IDEMPOTENCY_HEADER]: key } : undefined,
+    },
+    WRITE_TIMEOUT_MS,
+  );
+
 export interface SessionState {
   /** Whether this deployment asks for a password at all. */
   required: boolean;
@@ -284,8 +333,12 @@ export interface LearnerList {
 
 export const api = {
   learners: () => request<LearnerList>('/learners'),
-  addLearner: (name: string) => post<LearnerList>('/learners', { name }),
-  studyAs: (id: number) => post<LearnerList>('/learners/select', { id }),
+  // With this browser's push endpoint, when it has one, so the phone's
+  // reminders move to the learner who is studying on it now.
+  addLearner: async (name: string) =>
+    post<LearnerList>('/learners', { name, endpoint: await existingPushEndpoint() }),
+  studyAs: async (id: number) =>
+    post<LearnerList>('/learners/select', { id, endpoint: await existingPushEndpoint() }),
   renameLearner: (id: number, name: string) =>
     request<LearnerList>(`/learners/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
 
@@ -304,43 +357,51 @@ export const api = {
   updateProfile: (patch: Partial<Pick<Profile, 'teachingLanguage' | 'dailyTargetMinutes' | 'displayName' | 'onboarded'>>) =>
     request<Profile>('/profile', { method: 'PUT', body: JSON.stringify(patch) }),
 
-  recordAttempt: (payload: AttemptPayload) => post<AttemptResponse>('/attempts', payload),
+  recordAttempt: (payload: AttemptPayload, key?: string) => write<AttemptResponse>('/attempts', payload, key),
 
-  markSectionSeen: (lessonId: string, sectionId: string) =>
-    post<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/sections/${encodeURIComponent(sectionId)}`),
+  markSectionSeen: (lessonId: string, sectionId: string, key?: string) =>
+    write<LessonProgress>(
+      `/lessons/${encodeURIComponent(lessonId)}/sections/${encodeURIComponent(sectionId)}`,
+      undefined,
+      key,
+    ),
 
-  recordMastery: (lessonId: string, accuracy: number, passAccuracy: number) =>
-    post<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/mastery`, { accuracy, passAccuracy }),
+  recordMastery: (lessonId: string, accuracy: number, passAccuracy: number, key?: string) =>
+    write<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/mastery`, { accuracy, passAccuracy }, key),
 
-  recordRecovery: (lessonId: string) =>
-    post<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/recovery`),
+  recordRecovery: (lessonId: string, key?: string) =>
+    write<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/recovery`, undefined, key),
 
-  completeLesson: (lessonId: string) =>
-    post<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/complete`),
+  completeLesson: (lessonId: string, key?: string) =>
+    write<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/complete`, undefined, key),
 
   ensureReviewItems: (targets: TargetSpec[]) =>
     post<{ created: ReviewItem[]; reviewItems: ReviewItem[] }>('/reviews/ensure', { targets }),
 
-  gradeReview: (id: string, grade: RecallGrade) =>
-    post<ReviewItem>(`/reviews/${encodeURIComponent(id)}/grade`, { grade }),
+  /**
+   * `gradedAt` is when the learner graded it. A grade given offline and sent
+   * hours later is scheduled from the moment of recall, not of delivery.
+   */
+  gradeReview: (id: string, grade: RecallGrade, gradedAt?: string, key?: string) =>
+    write<ReviewItem>(`/reviews/${encodeURIComponent(id)}/grade`, { grade, gradedAt }, key),
 
   resolveMistake: (id: string) => post<MistakeRecord[]>(`/mistakes/${encodeURIComponent(id)}/resolve`),
 
   setFavorite: (vocabId: string, favorite: boolean) =>
     post<{ favorites: string[] }>(`/vocabulary/${encodeURIComponent(vocabId)}/favorite`, { favorite }),
 
-  recordCheckpoint: (payload: CheckpointPayload) =>
-    post<{ results: CheckpointResult[] }>('/checkpoints', payload),
+  recordCheckpoint: (payload: CheckpointPayload, key?: string) =>
+    write<{ results: CheckpointResult[] }>('/checkpoints', payload, key),
 
-  recordScenarioRun: (payload: ScenarioRunPayload) =>
-    post<{ scenarioRuns: ScenarioRun[] }>('/scenario-runs', payload),
+  recordScenarioRun: (payload: ScenarioRunPayload, key?: string) =>
+    write<{ scenarioRuns: ScenarioRun[] }>('/scenario-runs', payload, key),
 
   /**
    * `at` is when the time was spent, which is not when it was sent if it
    * waited for a connection — minutes belong to the day they were studied.
    */
-  addStudyTime: (seconds: number, at?: string, tzOffsetMinutes?: number) =>
-    post<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds, at, tzOffsetMinutes }),
+  addStudyTime: (seconds: number, at?: string, tzOffsetMinutes?: number, key?: string) =>
+    write<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds, at, tzOffsetMinutes }, key),
 
   coachStatus: () => request<CoachStatus>('/coach/status'),
 

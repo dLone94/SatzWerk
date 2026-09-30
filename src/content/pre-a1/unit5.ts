@@ -500,7 +500,9 @@ const lesson2: Lesson = {
         {
           prompt: bi('My birthday is in May.', 'През май имам рожден ден.'),
           answer: 'Im Mai habe ich Geburtstag.',
-          alternatives: ['Ich habe im Mai Geburtstag.'],
+          // The Geburtstag card's own example is "Mein Geburtstag ist im Mai.",
+          // glossed with exactly this prompt.
+          alternatives: ['Ich habe im Mai Geburtstag.', 'Mein Geburtstag ist im Mai.'],
           reviewTargets: ['p-im-monat', 'v-der-geburtstag'],
           traps: [
             {
@@ -600,7 +602,7 @@ const lesson2: Lesson = {
         {
           prompt: bi('My birthday is in September.', 'През септември имам рожден ден.'),
           answer: 'Im September habe ich Geburtstag.',
-          alternatives: ['Ich habe im September Geburtstag.'],
+          alternatives: ['Ich habe im September Geburtstag.', 'Mein Geburtstag ist im September.'],
           hints: [],
         },
         {
@@ -977,7 +979,7 @@ const checkpoint: Checkpoint = {
       {
         prompt: bi('My birthday is in May.', 'През май имам рожден ден.'),
         answer: 'Im Mai habe ich Geburtstag.',
-        alternatives: ['Ich habe im Mai Geburtstag.'],
+        alternatives: ['Ich habe im Mai Geburtstag.', 'Mein Geburtstag ist im Mai.'],
         hints: [],
       },
       {

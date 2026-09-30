@@ -45,6 +45,12 @@ export function narrator(text: Bilingual, only?: TeachingLanguage[]): ScenarioBe
  * where the sentence a learner would actually say depends on which household
  * they are in — the language spoken at home, for instance — rather than on
  * their German.
+ *
+ * A model answer that opens with "Ja," "Gut," or "Guten Tag," is showing how
+ * a speaker would say it, not setting the task. Unless the prompt asks for the
+ * yes, the greeting or the thanks, the same sentence without the opener is
+ * listed as an alternative too; otherwise answering exactly what was asked is
+ * graded as a missing word.
  */
 export function you(
   id: string,
@@ -102,8 +108,10 @@ export function registerTrap(answer: string, register: 'du' | 'Sie') {
     feedback:
       register === 'Sie'
         ? {
-            en: 'Right words, wrong person. You are talking to someone behind a counter, so it is "Sie" — that sentence is what you would say to a friend.',
-            bg: 'Правилни думи, грешен човек. Говориш с някого зад гише, значи е „Sie“ — това изречение е за приятел.',
+            // Said to a neighbour on the stairs and a job interviewer as well
+            // as across a counter, so it names the register, not the room.
+            en: 'Right words, wrong person. This is someone you say "Sie" to — that sentence is what you would say to a friend.',
+            bg: 'Правилни думи, грешен човек. На този човек говориш на „Sie“ — това изречение е за приятел.',
           }
         : {
             en: 'This one is "du". "Sie" here sounds like you are addressing a stranger, and you are not.',

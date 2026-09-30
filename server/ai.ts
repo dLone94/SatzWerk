@@ -1,6 +1,7 @@
 import type { Bilingual, ErrorCategory, TeachingLanguage } from '../src/content/types.ts';
 import { LEXICON } from '../src/content/index.ts';
 import { lower, tokenize } from '../src/core/validation/text.ts';
+import type { Db } from './db.ts';
 
 /**
  * The German Coach seam.
@@ -450,4 +451,73 @@ export function createProvider(env: NodeJS.ProcessEnv = process.env): AiProvider
   }
 
   return lazyClaudeProvider({ apiKey, model: env.SATZWERK_AI_MODEL?.trim() || 'claude-opus-5' });
+}
+
+/* ------------------------------------------------------------------ *
+ * A daily allowance of model calls
+ * ------------------------------------------------------------------ */
+
+/**
+ * How many model calls one day may make, for the whole deployment.
+ *
+ * Each call is about half a cent, and nothing limited how many a signed-in
+ * script could make. Counted for the household rather than per learner,
+ * because learners can be added freely and a per-learner count would be one
+ * more learner away from unlimited. Two hundred is far more than a person
+ * studying uses; SATZWERK_AI_DAILY_LIMIT changes it. A spending cap on the API
+ * key itself is still the backstop.
+ */
+export const AI_DAILY_LIMIT = 200;
+
+const LIMIT_REACHED = {
+  en: 'This app has used today’s allowance of explanations. They are back tomorrow; nothing else about your answer has changed.',
+  bg: 'Приложението изчерпа днешния лимит за обяснения. Те се връщат утре; нищо друго по отговора ти не се е променило.',
+};
+function dailyLimit(env: NodeJS.ProcessEnv): number {
+  const configured = Number(env.SATZWERK_AI_DAILY_LIMIT);
+  return Number.isInteger(configured) && configured >= 0 ? configured : AI_DAILY_LIMIT;
+}
+
+/**
+ * Count one call against today's allowance; false when it is used up.
+ *
+ * Kept in the database, like the wrong-password count, because hosted
+ * functions share no memory. The day is UTC: this is a spending limit, not a
+ * study day.
+ */
+async function spendOne(db: Db, env: NodeJS.ProcessEnv): Promise<boolean> {
+  const key = `ai_calls:${new Date().toISOString().slice(0, 10)}`;
+  await db.run(
+    `INSERT INTO meta (key, value) VALUES (?, '1')
+     ON CONFLICT (key) DO UPDATE SET value = CAST(CAST(meta.value AS INTEGER) + 1 AS TEXT)`,
+    key,
+  );
+  // Yesterday's counters are of no further use.
+  await db.run("DELETE FROM meta WHERE key LIKE 'ai_calls:%' AND key < ?", key);
+  const row = await db.get<{ value: string }>('SELECT value FROM meta WHERE key = ?', key);
+  return Number(row?.value ?? 0) <= dailyLimit(env);
+}
+
+/**
+ * The same provider, except that past today's allowance it stops calling the
+ * model: an explanation says why, in the learner's language, and a writing
+ * review is the rule-based one, which is a real review and costs nothing.
+ */
+export function withDailyLimit(provider: AiProvider, db: Db, env: NodeJS.ProcessEnv = process.env): AiProvider {
+  if (!provider.available) return provider;
+  return {
+    name: provider.name,
+    available: true,
+    async explainMistake(input) {
+      if (!(await spendOne(db, env))) return { available: true, error: LIMIT_REACHED };
+      return provider.explainMistake(input);
+    },
+    async evaluateWriting(input) {
+      if (!(await spendOne(db, env))) return ruleBasedWritingReview(input.text);
+      return provider.evaluateWriting(input);
+    },
+    // Neither of these calls a model.
+    generatePractice: (input) => provider.generatePractice(input),
+    converse: (input) => provider.converse(input),
+  };
 }

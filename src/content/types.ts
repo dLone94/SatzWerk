@@ -309,8 +309,12 @@ export interface Exercise extends PathScoped {
   objective: Bilingual;
   steps: ExerciseStep[];
   /**
-   * When true, a meaningful mistake forces the learner to retype the correct
-   * German before they can continue. Defaults to true for phrases and sentences.
+   * Whether the author meant a mistake here to be retyped. Defaults to true
+   * for phrases and sentences, false for word drills.
+   *
+   * The player no longer reads it: every typed answer that leaves a step
+   * unresolved is retyped, word drills included, because the retype is the
+   * only way such a step becomes resolved and a lesson can be finished.
    */
   mandatoryRetype?: boolean;
   grammarIds?: string[];

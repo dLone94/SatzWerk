@@ -52,7 +52,9 @@ function nodeRequest(method: string, url: string, body?: string) {
   };
   request.method = method;
   request.url = url;
-  request.headers = { host: 'satzwerk.test' };
+  // With the header the app puts on every request, without which a write is
+  // refused as possibly cross-site.
+  request.headers = { host: 'satzwerk.test', 'x-requested-with': 'SatzWerk' };
   // Emitted once something is listening, as a real stream would — and 'end'
   // always fires, body or not. A helper that withheld it made a body-less POST
   // hang forever, which is a fault in the helper: no real request behaves that

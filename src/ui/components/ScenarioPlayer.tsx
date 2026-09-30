@@ -78,6 +78,8 @@ export function ScenarioPlayer({ script, onFinish, onExit }: ScenarioPlayerProps
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [firstTryCorrect, setFirstTryCorrect] = useState(0);
   const [answered, setAnswered] = useState(0);
+  /** The partner's newest line, for a screen reader. */
+  const [heard, setHeard] = useState('');
   const liveRef = useRef<HTMLDivElement | null>(null);
 
   const current = segments[cursor];
@@ -88,6 +90,16 @@ export function ScenarioPlayer({ script, onFinish, onExit }: ScenarioPlayerProps
     const spoken = current.lead.filter((beat) => beat.who === 'them');
     const last = spoken[spoken.length - 1];
     if (last && last.who === 'them') tts.speak(last.de);
+    /*
+     * And say it to a screen reader. The new line used to arrive in a fresh
+     * node with nothing listening for it, so a blind learner had to go and
+     * look for what had been said. The region below stays mounted and only
+     * its text changes, which is what gets announced.
+     */
+    setHeard('');
+    const lines = spoken.map((beat) => (beat.who === 'them' ? beat.de : '')).join(' ');
+    const timer = window.setTimeout(() => setHeard(lines), 50);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cursor]);
 
@@ -166,6 +178,9 @@ export function ScenarioPlayer({ script, onFinish, onExit }: ScenarioPlayerProps
 
   return (
     <div className="scenario">
+      <p className="visually-hidden" role="status" aria-live="polite" aria-atomic="true" lang="de">
+        {heard}
+      </p>
       <header className="scenario__head">
         <div>
           <p className="scenario__progress">

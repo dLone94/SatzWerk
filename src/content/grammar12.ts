@@ -115,8 +115,8 @@ const sollenBlocks: Block[] = [
     tone: 'tip',
     title: bi('sollen or müssen?', 'sollen или müssen?'),
     text: bi(
-      'müssen is a necessity you feel yourself: Ich muss arbeiten. sollen is what someone else says you ought to do — a doctor, a rule, your mother. Advice is sollen.',
-      'müssen е необходимост, която сам усещаш: Ich muss arbeiten. sollen е това, което някой друг казва, че е редно — лекар, правило, майка ти. Съветът е sollen.',
+      'müssen is a necessity you feel yourself: Ich muss arbeiten. sollen is what someone else says you ought to do — a doctor, a rule, your mother. Advice is sollen.\n\nWhen the advice is your own ("if you ask me, you should…"), German usually softens it to solltest: Du solltest viel Tee trinken. That form is the Konjunktiv II, which B1 takes apart properly; for now, both sollst and solltest are right.',
+      'müssen е необходимост, която сам усещаш: Ich muss arbeiten. sollen е това, което някой друг казва, че е редно — лекар, правило, майка ти. Съветът е sollen.\n\nКогато съветът е твой („ако питаш мен, трябва да…“), немският обикновено го смекчава до solltest: Du solltest viel Tee trinken. Тази форма е Konjunktiv II, който ще разгледаш подробно в B1; засега и sollst, и solltest са верни.',
     ),
   },
   {

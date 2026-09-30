@@ -231,7 +231,9 @@ const lesson1: Lesson = {
           hints: [bi('Four words. wir takes the -en form.', 'Четири думи. wir взима формата на -en.')],
         },
         {
-          prompt: bi('You (all) are teachers.', 'Вие сте учители.'),
+          // "Вие" at the start of a sentence reads as the polite form, and
+          // then "Sie sind Lehrer." is the natural answer. Say who it is.
+          prompt: bi('You (all, informal) are teachers.', 'Вие сте учители. (на няколко приятели)'),
           answer: 'Ihr seid Lehrer.',
           reviewTargets: ['v-ihr', 'v-der-lehrer'],
           traps: [

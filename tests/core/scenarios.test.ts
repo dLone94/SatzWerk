@@ -126,6 +126,29 @@ describe('scenario scripts', () => {
     expect(missing).toEqual([]);
   });
 
+  /*
+   * "The language is already covered in" sent an A1 restaurant learner to the
+   * family lesson, and A2 learners to B1 lessons on the passive and relative
+   * clauses. A linked lesson can at least never be above the conversation, and
+   * the ones found wrong are pinned to the lessons that teach their language.
+   */
+  it('links only to lessons at or below the conversation’s level', () => {
+    const rank = new Map(CURRICULUM.map((level, index) => [level.id, index]));
+    const above: string[] = [];
+    for (const script of SCENARIO_SCRIPTS) {
+      for (const id of script.lessonIds ?? []) {
+        const lesson = lessonById(id);
+        if (lesson && rank.get(lesson.level)! > rank.get(script.level)!) above.push(`${script.id} -> ${id}`);
+      }
+    }
+    expect(above).toEqual([]);
+    const linked = (id: string) => scriptById(id)?.lessonIds ?? [];
+    expect(linked('sc-restaurant-a1')).toContain('a1-u3-l1');
+    expect(linked('sc-bakery-a1')).toContain('a1-u3-l2');
+    expect(linked('sc-work-a2')).toContain('a1-u4-l1');
+    expect(linked('sc-kita-a2')).toContain('a1-u6-l2');
+  });
+
   it('accepts every canonical answer as fully correct', () => {
     const failures: string[] = [];
     for (const script of SCENARIO_SCRIPTS) {
@@ -290,5 +313,85 @@ describe('scenario status', () => {
       expect(scriptById(script.id)).toBe(script);
     }
     expect(scriptById('sc-nothing-here')).toBeUndefined();
+  });
+});
+
+/** Every scenario answer step, by id. */
+function scenarioStep(id: string) {
+  for (const script of SCENARIO_SCRIPTS) {
+    const found = stepsOf(script).find(({ step }) => step.id === id);
+    if (found) return found.step;
+  }
+  throw new Error(`no scenario step ${id}`);
+}
+
+/** The rule the exercise player uses to count an answer as right. */
+function isClean(given: string, id: string): boolean {
+  const result = validateAnswer(given, scenarioStep(id).answer, opts);
+  return (
+    result.verdict === 'correct' ||
+    result.verdict === 'accepted-variant' ||
+    (result.verdict === 'accepted-with-note' && !result.requireRetype)
+  );
+}
+
+describe('scenario answers without a filler nobody asked for', () => {
+  /*
+   * Many model answers open with "Ja,", "Guten Tag," or "Gut,", and the same
+   * sentence without it used to be a missing-word mistake with no credit. The
+   * prompt "Say that you will stay on the line." rejected "Ich bleibe am
+   * Telefon."; "Thursday works." rejected "Das passt mir gut.". Where the
+   * prompt or the instruction asks for the yes, the greeting or the thanks
+   * ("Yes, for two weeks.", "Greet first"), the turn stays strict; these do
+   * not ask for it.
+   */
+  const WITHOUT_FILLER: Record<string, string[]> = {
+    'sc-bakery-b1-t1-s1': ['Ich glaube, da ist ein Fehler passiert.', 'Da stimmt etwas nicht.'],
+    'sc-restaurant-b1-t1-s1': ['Die Suppe ist leider nicht warm.'],
+    'sc-restaurant-b1-t4-s1': ['Vielen Dank!'],
+    'sc-supermarket-a2-t1-s1': ['Wo ist die Milch?'],
+    'sc-supermarket-a2-t4-s1': ['Vielen Dank!'],
+    'sc-doctor-a1-t1-s1': ['Ich möchte einen Termin machen.', 'Ich hätte gern einen Termin.'],
+    'sc-doctor-a1-t4-s1': ['Das passt mir gut.', 'Das passt.', 'Donnerstag um zehn passt mir.'],
+    'sc-doctor-a2-t2-s1': ['Gestern hatte ich achtunddreißig Grad.', 'Gestern hatte ich 38 Grad.'],
+    'sc-doctor-b1-t1-s1': ['Die Beschwerden sind seitdem nicht besser geworden.'],
+    'sc-doctor-b1-t2-s1': ['Ich nehme seit einer Woche ein Schmerzmittel.', 'Ein Schmerzmittel, seit einer Woche.'],
+    'sc-pharmacy-a1-t4-s1': ['Das nehme ich. Vielen Dank!'],
+    'sc-pharmacy-a2-t1-s1': ['Ich habe ein Rezept.', 'Hier ist mein Rezept.'],
+    'sc-pharmacy-a2-t4-s1': ['Vielen Dank!'],
+    'sc-pharmacy-b1-t4-s1': ['Dann nehme ich das. Vielen Dank für die Beratung!'],
+    'sc-emergency-a1-t3-s1': ['Er antwortet, aber sehr leise.'],
+    'sc-emergency-a1-t4-s1': ['Ich bleibe am Telefon.', 'Ich bleibe dran.'],
+    'sc-emergency-a2-t4-s1': ['Sie antwortet, aber sie hat starke Schmerzen.'],
+    'sc-neighbours-a2-t2-s1': ['Ich bin den ganzen Nachmittag zu Hause.'],
+    'sc-neighbours-a2-t3-s1': ['Jonas, dein Paket ist bei mir. Komm einfach vorbei!'],
+    'sc-buergeramt-a2-t1-s1': ['Ich brauche einen Termin für die Anmeldung.'],
+    'sc-work-a2-t1-s1': ['Ich bin Martin. Ich arbeite in der Buchhaltung.'],
+    'sc-work-b2-t4-s1': ['Ich halte das im Protokoll fest.'],
+    'sc-kita-b1-t4-s1': ['Dann lesen wir ihm öfter vor.', 'Das machen wir.'],
+    'sc-kita-b2-t1-s1': ['Ich wollte das Thema Betreuungsschlüssel ansprechen.'],
+    // "This is your first time." asks for no "Nein".
+    'sc-doctor-a1-t2-s1': ['Ich bin neu hier.', 'Ich war noch nie hier.', 'Zum ersten Mal.'],
+    // "Say that is very kind.": in German that sentence is the thanks.
+    'sc-neighbours-a1-t3-s1': ['Das ist sehr nett!', 'Das ist sehr freundlich!'],
+  };
+
+  it('accepts the sentence without it', () => {
+    const rejected: string[] = [];
+    for (const [id, answers] of Object.entries(WITHOUT_FILLER)) {
+      for (const answer of answers) if (!isClean(answer, id)) rejected.push(`${id}: ${answer}`);
+    }
+    expect(rejected).toEqual([]);
+  });
+
+  it('still asks for the yes where the prompt or the task does', () => {
+    expect(isClean('Seit zwei Wochen.', 'sc-bank-a2-t2-s1')).toBe(false);
+    expect(isClean('Ich möchte einen Tisch reservieren.', 'sc-restaurant-a2-t1-s1')).toBe(false);
+    // The task shown above these prompts reads "Say yes, and give both
+    // reasons" and "Say no", so the yes and the no are part of what is asked.
+    expect(
+      isClean('Ich bin mit dem Service nicht zufrieden, und der Zusatzbeitrag ist gestiegen.', 'sc-bank-b1-t1-s1'),
+    ).toBe(false);
+    expect(isClean('Im Moment nichts.', 'sc-pharmacy-a1-t2-s1')).toBe(false);
   });
 });

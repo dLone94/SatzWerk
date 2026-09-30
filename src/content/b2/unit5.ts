@@ -431,7 +431,7 @@ const lesson2: Lesson = {
         },
         {
           t: 'de',
-          de: 'Ich melde mich nach dem Feierabend.',
+          de: 'Ich melde mich nach Feierabend.',
           gloss: bi('I will be in touch after work.', 'Ще се обадя след работа.'),
           audio: true,
         },
@@ -535,7 +535,9 @@ const lesson2: Lesson = {
           },
           {
             prompt: bi('I will be in touch after work.', 'Ще се обадя след работа.'),
-            answer: 'Ich melde mich nach dem Feierabend.',
+            // Feierabend takes no article after nach, as Mittag and Dienst do not.
+            answer: 'Ich melde mich nach Feierabend.',
+            alternatives: ['Ich melde mich nach dem Feierabend.'],
             reviewTargets: ['v-sich-melden', 'v-der-feierabend'],
             hints: [],
           },
@@ -867,19 +869,21 @@ const checkpoint: Checkpoint = {
       ]),
     ),
     b2(
-      typeIt('cp-b2u5-2', bi('Write out what was said', 'Запиши казаното'), [
+      // The prompts say "in full", as the level checkpoint's do: "write down
+      // what was said" alone invited a transcription, which is then wrong.
+      typeIt('cp-b2u5-2', bi('Write out the full forms', 'Напиши пълните форми'), [
         {
-          prompt: bi('You hear: "Haste mal kurz?"', 'Чуваш: „Haste mal kurz?“'),
+          prompt: bi('You hear: "Haste mal kurz?" — write it out in full.', 'Чуваш: „Haste mal kurz?“ — напиши го изцяло.'),
           answer: 'Hast du mal kurz?',
           hints: [],
         },
         {
-          prompt: bi('You hear: "Ich hab ’ne Frage."', 'Чуваш: „Ich hab ’ne Frage.“'),
+          prompt: bi('You hear: "Ich hab ’ne Frage." — write it out in full.', 'Чуваш: „Ich hab ’ne Frage.“ — напиши го изцяло.'),
           answer: 'Ich habe eine Frage.',
           hints: [],
         },
         {
-          prompt: bi('You hear: "Hab ich nicht gesehen."', 'Чуваш: „Hab ich nicht gesehen.“'),
+          prompt: bi('You hear: "Hab ich nicht gesehen." — write it out in full.', 'Чуваш: „Hab ich nicht gesehen.“ — напиши го изцяло.'),
           answer: 'Das habe ich nicht gesehen.',
           hints: [],
         },

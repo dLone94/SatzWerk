@@ -4,8 +4,15 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { handleRequest } from './api.ts';
 import { createProvider } from './ai.ts';
 import { openDatabase } from './db.ts';
+import { isDatabaseUnavailable, RETRY_AFTER_SECONDS } from './driver.ts';
 import { authState } from './auth.ts';
 import { resolveAuth } from './api.ts';
+import {
+  crossSiteRefusal,
+  isLoopbackAddress,
+  isLoopbackHost,
+  SECURITY_HEADERS,
+} from './security.ts';
 
 /**
  * The SatzWerk server.
@@ -16,6 +23,16 @@ import { resolveAuth } from './api.ts';
  */
 
 const PORT = Number(process.env.PORT ?? 8787);
+/**
+ * This machine only, unless HOST says otherwise.
+ *
+ * Listening on every interface put a passwordless app on the local network:
+ * anyone on the same café or university Wi-Fi could read the learner's
+ * progress, wipe it, or set a password and lock the owner out. HOST=0.0.0.0
+ * opts in, for reaching the app from a phone; a request from another machine
+ * then gets the password setup screen rather than the open app (see below).
+ */
+const HOST = process.env.HOST?.trim() || '127.0.0.1';
 const DIST = resolve('dist');
 const MAX_BODY_BYTES = 256 * 1024;
 
@@ -43,6 +60,7 @@ const MIME: Record<string, string> = {
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json',
   '.mp3': 'audio/mpeg',
   '.map': 'application/json; charset=utf-8',
 };
@@ -73,6 +91,7 @@ function sendJson(
 ): void {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
+    ...SECURITY_HEADERS,
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
     // Matches the hosted adapter, so a check behaves the same either side.
@@ -84,13 +103,24 @@ function sendJson(
 
 function serveStatic(res: ServerResponse, urlPath: string): void {
   if (!existsSync(DIST)) {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.writeHead(404, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('No build found. Run "npm run build", or use "npm run dev" for development.');
     return;
   }
 
+  // A path with broken percent-encoding (a mistyped /lesson/100%) cannot be
+  // decoded, and the URIError used to end the whole process.
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(urlPath);
+  } catch {
+    res.writeHead(400, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Bad request');
+    return;
+  }
+
   // Resolve inside dist only. normalize() strips any ".." traversal attempt.
-  const requested = normalize(decodeURIComponent(urlPath)).replace(/^(\.\.[/\\])+/, '');
+  const requested = normalize(decoded).replace(/^(\.\.[/\\])+/, '');
   let filePath = join(DIST, requested);
   if (!filePath.startsWith(DIST)) filePath = DIST;
 
@@ -99,7 +129,7 @@ function serveStatic(res: ServerResponse, urlPath: string): void {
     filePath = join(DIST, 'index.html');
   }
   if (!existsSync(filePath)) {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.writeHead(404, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Not found');
     return;
   }
@@ -107,13 +137,32 @@ function serveStatic(res: ServerResponse, urlPath: string): void {
   const type = MIME[extname(filePath)] ?? 'application/octet-stream';
   const immutable = filePath.includes(`${join(DIST, 'assets')}`);
   res.writeHead(200, {
+    ...SECURITY_HEADERS,
     'Content-Type': type,
     'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
   });
-  createReadStream(filePath).pipe(res);
+  // A file removed mid-read (a rebuild of dist, say) ends this response
+  // rather than surfacing as an unhandled 'error' event.
+  createReadStream(filePath)
+    .on('error', () => res.destroy())
+    .pipe(res);
 }
 
-const server = createServer(async (req, res) => {
+/*
+ * Nothing a request does may end the process. Every request goes through
+ * handle(), and anything it throws that was not answered already becomes a
+ * 500 here — the self-hosted server is one process for the app and the API,
+ * so an uncaught rejection took both down until somebody restarted it.
+ */
+const server = createServer((req, res) => {
+  handle(req, res).catch((error: unknown) => {
+    console.error('[satzwerk] request failed:', error);
+    if (!res.headersSent) sendJson(res, 500, { error: 'Internal error' });
+    else res.destroy();
+  });
+});
+
+async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', `http://localhost:${PORT}`);
 
   if (!url.pathname.startsWith('/api/')) {
@@ -122,6 +171,24 @@ const server = createServer(async (req, res) => {
       return;
     }
     serveStatic(res, url.pathname);
+    return;
+  }
+
+  const header = (name: string): string | undefined => {
+    const value = req.headers[name];
+    return Array.isArray(value) ? value[0] : value;
+  };
+  const refusal = crossSiteRefusal(req.method ?? 'GET', url.pathname, {
+    'content-type': header('content-type'),
+    'x-requested-with': header('x-requested-with'),
+    origin: header('origin'),
+    referer: header('referer'),
+    host: header('host'),
+  });
+  if (refusal) {
+    // Drained, so the connection can be reused; the body itself is not read.
+    req.resume();
+    sendJson(res, refusal.status, { error: refusal.error });
     return;
   }
 
@@ -139,8 +206,38 @@ const server = createServer(async (req, res) => {
       }
     }
 
+    const auth = await resolveAuth(db);
+    /*
+     * Open (no password, everyone signed in) only for this machine.
+     *
+     * Anything else is answered as a hosted app with no password yet: the
+     * setup screen and no data. That covers another machine reaching an
+     * explicit HOST=0.0.0.0, and a web page that has rebound its own name to
+     * 127.0.0.1 — whose requests arrive from loopback but name that page as
+     * their Host.
+     */
+    const local = isLoopbackAddress(req.socket.remoteAddress) && isLoopbackHost(header('host'));
+    /*
+     * But the setup screen must not be able to finish from there. Setup takes
+     * the first password anybody sends, and a rebound page counts as same-origin
+     * to the browser, so it can send the app's header too: it would choose the
+     * password, lock the owner out on this machine, and then sign in with it.
+     * With no password yet, the password is chosen here (Settings), and other
+     * devices sign in with it afterwards.
+     */
+    if (
+      !local &&
+      authState(auth) === 'open' &&
+      req.method === 'POST' &&
+      url.pathname.replace(/\/+$/, '') === '/api/setup'
+    ) {
+      sendJson(res, 403, {
+        error: 'Choose a password on the computer that runs SatzWerk first (Settings), then sign in here.',
+      });
+      return;
+    }
     const response = await handleRequest(
-      { db, provider, auth: await resolveAuth(db) },
+      { db, provider, auth: local ? auth : { ...auth, hosted: true } },
       {
         method: req.method ?? 'GET',
         path: url.pathname,
@@ -151,6 +248,9 @@ const server = createServer(async (req, res) => {
           // The reminder job carries a bearer token rather than a cookie.
           authorization: req.headers.authorization,
         },
+        // The socket's own address. Forwarded headers are not trusted here:
+        // anyone can send them to a server with no proxy in front of it.
+        clientIp: req.socket.remoteAddress,
         // True when this process itself terminates TLS; otherwise the header
         // above is what a proxy in front of it says.
         ...(('encrypted' in req.socket && req.socket.encrypted) ? { secure: true } : {}),
@@ -159,13 +259,24 @@ const server = createServer(async (req, res) => {
     sendJson(res, response.status, response.body, response.headers ?? {});
   } catch (error) {
     console.error('[satzwerk] request failed:', error);
+    if (isDatabaseUnavailable(error)) {
+      // Held and sent again by the browser, where a 500 would be dropped.
+      sendJson(
+        res,
+        503,
+        { error: `The server cannot reach its database: ${(error as Error).message}` },
+        { 'Retry-After': String(RETRY_AFTER_SECONDS) },
+      );
+      return;
+    }
     sendJson(res, 500, { error: (error as Error).message });
   }
-});
+}
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   const mode = existsSync(DIST) ? 'serving ./dist' : 'API only (run the Vite dev server for the UI)';
-  console.log(`[satzwerk] listening on http://localhost:${PORT} — ${mode}`);
+  const shown = HOST === '127.0.0.1' ? 'localhost' : HOST.includes(':') ? `[${HOST}]` : HOST;
+  console.log(`[satzwerk] listening on http://${shown}:${PORT} — ${mode}`);
   console.log(
     `[satzwerk] database: ${
       db.dialect === 'postgres' ? 'postgres (DATABASE_URL)' : (process.env.SATZWERK_DB ?? 'data/satzwerk.db')
@@ -179,7 +290,9 @@ server.listen(PORT, () => {
   } else if (state === 'setup') {
     console.log('[satzwerk] hosted with no password yet — serving only the setup screen.');
   } else {
-    console.log('[satzwerk] no password set — fine on localhost, setup screen if hosted.');
+    console.log(
+      '[satzwerk] no password set — open on this machine only; choose one in Settings before other devices can sign in.',
+    );
   }
   if (!provider.available) {
     console.log('[satzwerk] German Coach: rule-based checks only, no AI provider configured.');

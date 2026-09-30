@@ -48,7 +48,11 @@ export const A2_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('Last weekend I was in Berlin.', 'Миналия уикенд бях в Берлин.'),
         answer: 'Letztes Wochenende war ich in Berlin.',
-        alternatives: ['Ich war letztes Wochenende in Berlin.'],
+        alternatives: [
+          'Ich war letztes Wochenende in Berlin.',
+          'Letztes Wochenende bin ich in Berlin gewesen.',
+          'Ich bin letztes Wochenende in Berlin gewesen.',
+        ],
         hints: [],
       },
       {
@@ -67,6 +71,7 @@ export const A2_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('I think that German is hard.', 'Мисля, че немският е труден.'),
         answer: 'Ich glaube, dass Deutsch schwer ist.',
+        alternatives: ['Ich denke, dass Deutsch schwer ist.', 'Ich finde, dass Deutsch schwer ist.'],
         hints: [],
       },
       {
@@ -118,6 +123,7 @@ export const A2_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('You should drink a lot of tea.', 'Трябва да пиеш много чай.'),
         answer: 'Du sollst viel Tee trinken.',
+        alternatives: ['Du solltest viel Tee trinken.'],
         hints: [],
       },
       {
@@ -249,7 +255,14 @@ export const A2_LEVEL_CHECKPOINT: Checkpoint = {
         answer:
           'Letztes Wochenende bin ich nach München gefahren. Ich habe Freunde besucht. Ich habe den Zug verpasst, weil der Bus Verspätung hatte. Der nächste Zug war langsamer. Die Reise war schlechter als letztes Jahr.',
         shape: 'sentence',
-        requiredTokens: ['bin', 'habe', 'weil', 'als'],
+        // Any form of both helpers, weil, and any comparative, as the
+        // instruction says.
+        requiredTokens: [
+          'bin|bist|ist|sind|seid',
+          'habe|hast|hat|haben|habt',
+          'weil',
+          'als|besser|mehr|weniger|lieber|schneller|langsamer|schlechter|teurer|billiger|größer|kleiner|länger|kürzer|später|früher|schöner|leichter|einfacher|schwieriger|voller|lauter|ruhiger|wärmer|kälter|anstrengender',
+        ],
         hints: [],
       },
     ]),

@@ -635,16 +635,20 @@ const lesson2: Lesson = {
     multipleChoice('u2l2-ex4', bi('What does "Bitte" mean here?', 'Какво значи „Bitte“ тук?'), [
       {
         prompt: bi(
-          'The cashier hands you your change and says "Bitte schön." What does she mean?',
-          'Касиерката ти подава рестото и казва „Bitte schön.“ Какво има предвид?',
+          'The cashier hands you your change and says "Bitte schön." Which job is bitte doing here?',
+          'Касиерката ти подава рестото и казва „Bitte schön.“ Каква работа върши bitte тук?',
         ),
+        // Each option is German where bitte does one of its three jobs, with
+        // the job named in the learner's own language underneath. The options
+        // used to be English ("Bitte = here you are"), which a Bulgarian
+        // beginner may not be able to read at all.
         choices: [
-          { id: 'a', de: 'Bitte = please', gloss: bi('She is asking you for something.', 'Тя иска нещо от теб.') },
-          { id: 'b', de: 'Bitte = here you are', gloss: bi('She is handing it over.', 'Тя ти го подава.') },
-          { id: 'c', de: 'Bitte = sorry', gloss: bi('She is apologising.', 'Тя се извинява.') },
+          { id: 'a', de: 'Ein Wasser, bitte.', gloss: bi('please: asking for something', 'моля: когато искаш нещо') },
+          { id: 'b', de: 'Hier, bitte.', gloss: bi('here you are: handing something over', 'заповядай: когато подаваш нещо') },
+          { id: 'c', de: 'Danke! — Bitte!', gloss: bi('you’re welcome: answering a thank-you', 'няма защо: отговор на благодаря') },
         ],
         correct: 'b',
-        answer: 'Bitte = here you are',
+        answer: 'Hier, bitte.',
         shape: 'phrase',
         hints: [],
       },
@@ -1312,7 +1316,7 @@ const lesson4: Lesson = {
           hints: [bi('The question word has five letters.', 'Въпросителната дума е от пет букви.')],
         },
         {
-          prompt: bi('You live in Germany.', 'Ти живееш в Германия.'),
+          prompt: bi('You live in Germany. (informal)', 'Ти живееш в Германия.'),
           answer: 'Du wohnst in Deutschland.',
           reviewTargets: ['v-wohnen', 'v-deutschland'],
           traps: [
@@ -1417,7 +1421,7 @@ const lesson4: Lesson = {
           hints: [],
         },
         {
-          prompt: bi('You live in Germany.', 'Ти живееш в Германия.'),
+          prompt: bi('You live in Germany. (informal)', 'Ти живееш в Германия.'),
           answer: 'Du wohnst in Deutschland.',
           hints: [],
         },
@@ -1475,6 +1479,7 @@ const checkpoint: Checkpoint = {
       {
         prompt: bi('Ask an official for their name.', 'Попитай служител за името му.'),
         answer: 'Wie heißen Sie?',
+        alternatives: ['Wie ist Ihr Name?'],
         hints: [],
       },
       {
@@ -1496,7 +1501,7 @@ const checkpoint: Checkpoint = {
         hints: [],
       },
       {
-        prompt: bi('You live in Germany.', 'Ти живееш в Германия.'),
+        prompt: bi('You live in Germany. (informal)', 'Ти живееш в Германия.'),
         answer: 'Du wohnst in Deutschland.',
         hints: [],
       },

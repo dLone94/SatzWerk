@@ -626,7 +626,7 @@ const lesson2: Lesson = {
         },
         {
           t: 'de',
-          de: 'Da habe ich einen Einwand: der Zeitplan ist zu eng.',
+          de: 'Da habe ich einen Einwand: Der Zeitplan ist zu eng.',
           gloss: bi('I have an objection there: the schedule is too tight.', 'Тук имам възражение: графикът е твърде стегнат.'),
           audio: true,
         },
@@ -718,6 +718,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('I would suggest that we check the figures first.', 'Бих предложил първо да проверим числата.'),
             answer: 'Ich würde vorschlagen, dass wir zuerst die Zahlen prüfen.',
+            alternatives: ['Ich würde vorschlagen, dass wir die Zahlen zuerst prüfen.'],
             reviewTargets: ['p-vorschlag-dass', 'v-vorschlagen'],
             hints: [],
             traps: [
@@ -827,6 +828,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('I would suggest that we check the figures first.', 'Бих предложил първо да проверим числата.'),
             answer: 'Ich würde vorschlagen, dass wir zuerst die Zahlen prüfen.',
+            alternatives: ['Ich würde vorschlagen, dass wir die Zahlen zuerst prüfen.'],
             hints: [],
           },
           {
@@ -1043,6 +1045,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('Carrying the project out takes three months.', 'Провеждането на проекта отнема три месеца.'),
             answer: 'Die Durchführung des Projekts dauert drei Monate.',
+            alternatives: ['Die Durchführung des Projekts dauert 3 Monate.'],
             reviewTargets: ['p-nominalisierung-genitiv', 'v-die-durchfuehrung'],
             hints: [],
             traps: [
@@ -1103,7 +1106,12 @@ const lesson3: Lesson = {
           ),
           answer:
             'Der Bericht wurde rechtzeitig eingereicht. Die Umsetzung der Anforderungen dauert länger als geplant.',
-          requiredTokens: ['wurde', 'Umsetzung'],
+          // A passive in any tense, and one of the -ung nouns this unit uses;
+          // the checker matches word beginnings, so it cannot test the suffix.
+          requiredTokens: [
+            'wurde|wurden|worden|wird|werden',
+            'Umsetzung|Durchführung|Einführung|Planung|Prüfung|Erledigung|Fertigstellung|Bearbeitung|Entwicklung|Lieferung|Überarbeitung|Abstimmung|Auswertung|Vorbereitung|Schulung|Umstellung|Verbesserung|Änderung|Erweiterung',
+          ],
           shape: 'sentence',
           hints: [],
         },
@@ -1114,6 +1122,8 @@ const lesson3: Lesson = {
         {
           instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
           answer: 'Die Durchführung des Projekts dauert drei Monate.',
+          // A number heard can be written either way; nothing in the audio says which.
+          alternatives: ['Die Durchführung des Projekts dauert 3 Monate.'],
           shape: 'sentence',
           hints: [],
         },
@@ -1134,6 +1144,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('Carrying the project out takes three months.', 'Провеждането на проекта отнема три месеца.'),
             answer: 'Die Durchführung des Projekts dauert drei Monate.',
+            alternatives: ['Die Durchführung des Projekts dauert 3 Monate.'],
             hints: [],
           },
           {
@@ -1237,6 +1248,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I would suggest that we check the figures first.', 'Бих предложил първо да проверим числата.'),
           answer: 'Ich würde vorschlagen, dass wir zuerst die Zahlen prüfen.',
+          alternatives: ['Ich würde vorschlagen, dass wir die Zahlen zuerst prüfen.'],
           hints: [],
         },
         {
@@ -1256,6 +1268,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('Carrying the project out takes three months.', 'Провеждането на проекта отнема три месеца.'),
           answer: 'Die Durchführung des Projekts dauert drei Monate.',
+          alternatives: ['Die Durchführung des Projekts dauert 3 Monate.'],
           hints: [],
         },
         {
@@ -1276,6 +1289,8 @@ const checkpoint: Checkpoint = {
         {
           instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
           answer: 'Die Durchführung des Projekts dauert drei Monate.',
+          // A number heard can be written either way; nothing in the audio says which.
+          alternatives: ['Die Durchführung des Projekts dauert 3 Monate.'],
           shape: 'sentence',
           hints: [],
         },

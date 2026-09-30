@@ -434,6 +434,9 @@ const lesson2: Lesson = {
           {
             prompt: bi('You should drink a lot of tea.', 'Трябва да пиеш много чай.'),
             answer: 'Du sollst viel Tee trinken.',
+            // solltest is how German usually gives advice in its own voice (see the
+            // callout in g-sollen), so it is at least as right as sollst.
+            alternatives: ['Du solltest viel Tee trinken.'],
             reviewTargets: ['v-sollen', 'p-du-sollst'],
             hints: [bi('Modal second, other verb last.', 'Модалният втори, другият глагол последен.')],
             traps: [
@@ -508,6 +511,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('You should drink a lot of tea.', 'Трябва да пиеш много чай.'),
             answer: 'Du sollst viel Tee trinken.',
+            alternatives: ['Du solltest viel Tee trinken.'],
             hints: [],
           },
           {
@@ -634,20 +638,28 @@ const lesson3: Lesson = {
         bi('What hurts', 'Какво те боли'),
         [
           {
-            prompt: bi('I have back pain.', 'Боли ме гърбът.'),
+            // "Боли ме гърбът" fits both German shapes; this step drills the
+            // -schmerzen one, so the Bulgarian says "I have pains", as the
+            // English does.
+            prompt: bi('I have back pain.', 'Имам болки в гърба.'),
             answer: 'Ich habe Rückenschmerzen.',
+            // Both constructions are right for a pain; the other one is credited and
+            // the -schmerzen form this step is about is shown.
+            alternatives: ['Mein Rücken tut weh.', 'Mir tut der Rücken weh.'],
             reviewTargets: ['v-der-ruecken'],
             hints: [bi('One word.', 'Една дума.')],
           },
           {
             prompt: bi('My tooth hurts.', 'Боли ме зъбът.'),
             answer: 'Mein Zahn tut weh.',
+            alternatives: ['Mir tut der Zahn weh.', 'Ich habe Zahnschmerzen.'],
             reviewTargets: ['v-der-zahn'],
             hints: [],
           },
           {
             prompt: bi('My leg hurts.', 'Боли ме кракът.'),
             answer: 'Mein Bein tut weh.',
+            alternatives: ['Mir tut das Bein weh.'],
             reviewTargets: ['v-das-bein'],
             hints: [],
           },
@@ -683,6 +695,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('You should rest. (formal)', 'Трябва да си почивате.'),
             answer: 'Sie sollen sich ausruhen.',
+            alternatives: ['Sie sollten sich ausruhen.'],
             hints: [],
           },
         ],
@@ -732,6 +745,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('I have back pain.', 'Боли ме гърбът.'),
             answer: 'Ich habe Rückenschmerzen.',
+            alternatives: ['Mein Rücken tut weh.', 'Mir tut der Rücken weh.'],
             hints: [],
           },
           {
@@ -799,6 +813,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('You should drink a lot of tea.', 'Трябва да пиеш много чай.'),
           answer: 'Du sollst viel Tee trinken.',
+          alternatives: ['Du solltest viel Tee trinken.'],
           hints: [],
         },
         {
@@ -818,6 +833,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I have back pain.', 'Боли ме гърбът.'),
           answer: 'Ich habe Rückenschmerzen.',
+          alternatives: ['Mein Rücken tut weh.', 'Mir tut der Rücken weh.'],
           hints: [],
         },
         {

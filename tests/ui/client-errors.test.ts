@@ -70,3 +70,39 @@ describe('an API error', () => {
     await expect(api.state()).rejects.toMatchObject({ status: 401 });
   });
 });
+
+/*
+ * A write given up on after 10 seconds was sent again by the outbox, and a
+ * cold server that had in fact saved the first copy saved the second too: the
+ * server does not yet recognise a repeat by its idempotency key. Until it
+ * does, a write waits as long as any other request before it is retried.
+ */
+describe('a write on a slow server', () => {
+  it('is waited for as long as any other request', async () => {
+    answerWith(JSON.stringify({ attemptId: 1 }), { status: 200, headers: { 'content-type': 'application/json' } });
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    try {
+      await api.state().catch(() => undefined);
+      await api.recordAttempt(
+        {
+          context: 'lesson',
+          stepId: 's1',
+          expected: 'Hallo',
+          given: 'Hallo',
+          verdict: 'correct',
+          credit: 1,
+          categories: [],
+          hintsUsed: 0,
+          revealed: false,
+          isRetype: false,
+          resolved: true,
+        },
+        'key-1',
+      );
+      const [read, write] = timeout.mock.calls.map(([ms]) => ms);
+      expect(write).toBe(read);
+    } finally {
+      timeout.mockRestore();
+    }
+  });
+});

@@ -27,25 +27,25 @@ const PASSWORD = 'a-long-enough-password';
 const SECRET = 'test-session-secret';
 
 describe('password hashing', () => {
-  it('accepts the right password and rejects everything else', () => {
+  it('accepts the right password and rejects everything else', async () => {
     const stored = hashPassword(PASSWORD);
-    expect(verifyPassword(PASSWORD, stored)).toBe(true);
-    expect(verifyPassword('wrong', stored)).toBe(false);
-    expect(verifyPassword('', stored)).toBe(false);
-    expect(verifyPassword(PASSWORD + ' ', stored)).toBe(false);
+    expect(await verifyPassword(PASSWORD, stored)).toBe(true);
+    expect(await verifyPassword('wrong', stored)).toBe(false);
+    expect(await verifyPassword('', stored)).toBe(false);
+    expect(await verifyPassword(PASSWORD + ' ', stored)).toBe(false);
   });
 
-  it('never stores the password itself, and salts each hash', () => {
+  it('never stores the password itself, and salts each hash', async () => {
     const a = hashPassword(PASSWORD);
     const b = hashPassword(PASSWORD);
     expect(a).not.toContain(PASSWORD);
     expect(a).not.toBe(b);
-    expect(verifyPassword(PASSWORD, b)).toBe(true);
+    expect(await verifyPassword(PASSWORD, b)).toBe(true);
   });
 
-  it('rejects a malformed stored hash instead of throwing', () => {
+  it('rejects a malformed stored hash instead of throwing', async () => {
     for (const bad of ['', 'nonsense', 'scrypt$only-two', 'bcrypt$salt$hash']) {
-      expect(verifyPassword(PASSWORD, bad)).toBe(false);
+      expect(await verifyPassword(PASSWORD, bad)).toBe(false);
     }
   });
 });
@@ -69,6 +69,17 @@ describe('sessions', () => {
     expect(readSession(SECRET, 'not-a-token')).toBeNull();
   });
 
+  /*
+   * timingSafeEqual throws when the two buffers differ in byte length, and the
+   * check before it compared string lengths. Forty-three 'é' match the length
+   * of a real signature in characters and not in bytes, so the compare threw
+   * and the request answered 500 instead of "not signed in".
+   */
+  it('rejects a signature of the right length in characters but not in bytes', () => {
+    const [body] = createSession(SECRET, 1).split('.');
+    expect(readSession(SECRET, `${body}.${'é'.repeat(43)}`)).toBeNull();
+  });
+
   it('rejects an expired token', () => {
     const issued = new Date('2026-01-01T00:00:00Z');
     const token = createSession(SECRET, 1, issued);
@@ -88,6 +99,19 @@ describe('cookies', () => {
     });
     expect(parseCookies(undefined)).toEqual({});
     expect(parseCookies('novalue')).toEqual({});
+  });
+
+  /*
+   * Cookies are shared by every app on the host, localhost ports included, so
+   * another app's 'discount=100%' arrives here too. Decoding it threw
+   * URIError, and every request — /api/session among them — answered 500, so
+   * the app could not even show its sign-in screen.
+   */
+  it('keeps going past somebody else’s cookie that is not percent-encoded', () => {
+    expect(parseCookies('other_app=100%; satzwerk_learner=2')).toMatchObject({
+      other_app: '100%',
+      satzwerk_learner: '2',
+    });
   });
 
   it('is HttpOnly and SameSite, and only Secure over HTTPS', () => {
@@ -197,6 +221,14 @@ describe('the API behind the login', () => {
     await db.close();
   });
 
+  it('shows the login screen even with a malformed cookie from another app', async () => {
+    const db = await openDatabase({ path: ':memory:' });
+    const session = await open(db, '/api/session', 'GET', undefined, 'other_app=100%; satzwerk_learner=1');
+    expect(session.status).toBe(200);
+    expect(session.body).toMatchObject({ required: true, signedIn: false });
+    await db.close();
+  });
+
   it('signs in with the right password and then allows the app', async () => {
     const db = await openDatabase({ path: ':memory:' });
     const bad = await open(db, '/api/login', 'POST', { password: 'nope' });
@@ -266,7 +298,7 @@ describe('the API behind the login', () => {
     const stored = await store.getPasswordHash(db);
     expect(stored).toBeTruthy();
     expect(stored).not.toContain(PASSWORD);
-    expect(verifyPassword(PASSWORD, stored!)).toBe(true);
+    expect(await verifyPassword(PASSWORD, stored!)).toBe(true);
 
     // And now the deployment behaves like any password-protected one.
     const resolved = await resolveAuth(db, { DATABASE_URL: 'postgresql://x' } as NodeJS.ProcessEnv);
@@ -310,7 +342,7 @@ describe('the API behind the login', () => {
     const after = await resolveAuth(db, env);
     expect(authState(after)).toBe('required');
     expect(after.passwordSource).toBe('database');
-    expect(verifyPassword(PASSWORD, after.passwordHash!)).toBe(true);
+    expect(await verifyPassword(PASSWORD, after.passwordHash!)).toBe(true);
 
     // And the session secret is stable across resolves, or every resolve would
     // silently sign the learner out.
@@ -365,11 +397,59 @@ describe('the API behind the login', () => {
       ).status,
     ).toBe(200);
 
-    // And the old session is dead, because changing the password rotates the
-    // signing secret. Anything else that was signed in is signed out.
+    // And the old session is dead, because sessions are signed with a key
+    // bound to the password hash. Anything else that was signed in is signed out.
     expect((await handleRequest(next, { method: 'GET', path: '/api/state', headers: { cookie } })).status).toBe(401);
     await db.close();
   });
+
+  /*
+   * With SATZWERK_SESSION_SECRET set and the password kept in the database,
+   * changing the password rotated the database secret and signed the new
+   * cookie with it — but every request is checked against the environment's
+   * secret. The person who had just changed it was signed out on their next
+   * tap, and every other device, a stolen one included, stayed signed in.
+   */
+  for (const withEnvSecret of [true, false]) {
+    it(`ends every other session on a password change${withEnvSecret ? ', with the secret in the environment' : ''}`, async () => {
+      const db = await openDatabase({ path: ':memory:' });
+      await store.setPasswordHash(db, hashPassword(PASSWORD));
+      const env = {
+        DATABASE_URL: 'postgresql://x',
+        ...(withEnvSecret ? { SATZWERK_SESSION_SECRET: 'an-environment-secret' } : {}),
+      } as NodeJS.ProcessEnv;
+      const request = async (options: { method: string; path: string; body?: unknown; cookie?: string }) =>
+        handleRequest(
+          { db, provider: unavailableProvider, auth: await resolveAuth(db, env) },
+          {
+            method: options.method,
+            path: options.path,
+            body: options.body,
+            headers: options.cookie ? { cookie: options.cookie } : undefined,
+          },
+        );
+      const cookieFrom = (response: { headers?: Record<string, string> }) =>
+        /(satzwerk_session=[^;]+)/.exec(response.headers!['set-cookie']!)![1]!;
+      const login = async () =>
+        cookieFrom(await request({ method: 'POST', path: '/api/login', body: { password: PASSWORD } }));
+
+      const phone = await login();
+      const laptop = await login();
+      const changed = await request({
+        method: 'POST',
+        path: '/api/password',
+        body: { currentPassword: PASSWORD, newPassword: 'a-brand-new-password' },
+        cookie: phone,
+      });
+      expect(changed.status).toBe(200);
+      const fresh = cookieFrom(changed);
+
+      expect((await request({ method: 'GET', path: '/api/state', cookie: fresh })).status, 'the changer').toBe(200);
+      expect((await request({ method: 'GET', path: '/api/state', cookie: laptop })).status, 'another device').toBe(401);
+      expect((await request({ method: 'GET', path: '/api/state', cookie: phone })).status, 'the old cookie').toBe(401);
+      await db.close();
+    });
+  }
 
   it('refuses to change a password that comes from the environment', async () => {
     const db = await openDatabase({ path: ':memory:' });

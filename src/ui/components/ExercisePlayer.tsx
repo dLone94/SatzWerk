@@ -4,6 +4,7 @@ import type { CefrLevel, Exercise, ExerciseStep } from '../../content/types.ts';
 import { buildFeedback, type FeedbackMessage } from '../../core/feedback/explain.ts';
 import {
   adapt,
+  firstLetterCue,
   firstWordCue,
   initialAdaptation,
   presentationFor,
@@ -144,18 +145,30 @@ export function ExercisePlayer({
 }: ExercisePlayerProps) {
   const { lang, t, say, lexicon, describeNoun, submitAttempt, tts } = useApp();
 
+  /*
+   * The round is the one the player was opened with.
+   *
+   * Review and the mistake bank build their exercises from live lists, and
+   * every answer changes those lists: the item just answered stops being due,
+   * a wrong answer adds a mistake. Following the prop re-indexed a running
+   * round under the cursor, so the next word slid under the verdict and was
+   * skipped, and the retype was checked against a question nobody could see.
+   * A caller that means a new round mounts a new player (a new `key`).
+   */
+  const [round] = useState(() => ({ exercises, onlyStepIds }));
+
   const playables = useMemo<Playable[]>(() => {
     const out: Playable[] = [];
-    for (const exercise of exercises) {
+    for (const exercise of round.exercises) {
       if (exercise.only && !exercise.only.includes(lang)) continue;
       for (const step of exercise.steps) {
         if (step.only && !step.only.includes(lang)) continue;
-        if (onlyStepIds && !onlyStepIds.includes(step.id)) continue;
+        if (round.onlyStepIds && !round.onlyStepIds.includes(step.id)) continue;
         out.push({ exercise, step });
       }
     }
     return out;
-  }, [exercises, lang, onlyStepIds]);
+  }, [round, lang]);
 
   const [cursor, setCursor] = useState(0);
   const [value, setValue] = useState('');
@@ -173,6 +186,22 @@ export function ExercisePlayer({
   const [firstTryCorrect, setFirstTryCorrect] = useState(0);
   const [busy, setBusy] = useState(false);
   const [replaysUsed, setReplaysUsed] = useState(0);
+  /** How many of the hints on screen the support ladder opened by itself. */
+  const [autoHints, setAutoHints] = useState(0);
+  /** What the learner submitted, kept after the field is cleared for a retype. */
+  const [submitted, setSubmitted] = useState('');
+  /** Read out by the live region below; see `announce`. */
+  const [announcement, setAnnouncement] = useState('');
+  /*
+   * The round is over and `onFinish` has been called.
+   *
+   * The caller usually saves something before it moves on, and on a phone
+   * waking the database that takes seconds. The last question used to sit
+   * there cleared and answerable meanwhile, and answering it again finished
+   * the round twice. Once finished, the player takes no more answers.
+   */
+  const [finished, setFinished] = useState(false);
+  const finishedRef = useRef(false);
 
   const inputRef = useRef<AnswerInputHandle | null>(null);
   const continueRef = useRef<HTMLButtonElement | null>(null);
@@ -183,9 +212,21 @@ export function ExercisePlayer({
   /** Whether this step was answered cleanly, for the placement bands. */
   const wasClean = useRef(false);
 
-  const current = playables[cursor];
+  const current = finished ? undefined : playables[cursor];
   const total = playables.length;
-  const presentation = presentationFor(support.support);
+  /*
+   * No adaptive support where there are no hints.
+   *
+   * A final check, a checkpoint and the placement check measure what the
+   * learner can do alone. The ladder used to run there too, so two slips put
+   * the first word of the answer on screen (for a one-word answer, the whole
+   * answer) and a few more handed over every word as chips, all counted as
+   * right first time. An authored word bank is part of the question and stays.
+   */
+  const presentation = presentationFor(allowHints ? support.support : 'full-production');
+  // `hintsShown` counts every hint on screen; only the ones the learner opened
+  // are theirs to pay for.
+  const learnerHints = Math.max(0, hintsShown - autoHints);
 
   // While a question is on screen the phone's tab bar steps aside, so the
   // question has the whole height and a stray tap cannot leave the lesson.
@@ -196,7 +237,9 @@ export function ExercisePlayer({
   useEffect(() => {
     if (!current) return;
     startedAt.current = Date.now();
-    setHintsShown(allowHints ? Math.min(presentation.hintsUnlocked, current.step.hints.length) : 0);
+    const opened = allowHints ? Math.min(presentation.hintsUnlocked, current.step.hints.length) : 0;
+    setHintsShown(opened);
+    setAutoHints(opened);
     setReplaysUsed(0);
     const seed = current.step.scaffold ? splitScaffold(current.step.scaffold).seed : '';
     if (seed) setValue(seed);
@@ -262,7 +305,27 @@ export function ExercisePlayer({
     return tokens.length > 1 ? shuffle(tokens, current.step.id) : null;
   }, [current, presentation.showWordBank]);
 
+  /*
+   * Say the verdict to a screen reader.
+   *
+   * The feedback panel used to arrive in one piece, live region and text
+   * together, while focus jumped to Continue, so the verdict was never read
+   * out. The region below is on screen for the player's whole life and only
+   * its text changes, which is what a screen reader listens for. It is
+   * emptied first, so the same verdict twice in a row is still news.
+   */
+  const announce = useCallback(
+    (message: FeedbackMessage, wrong: boolean) => {
+      const parts = [say(message.headline), ...message.lines.slice(0, 1).map((line) => say(line))];
+      if (wrong && message.correction) parts.push(`${t('feedbackExpected')}: ${message.correction}`);
+      setAnnouncement('');
+      window.setTimeout(() => setAnnouncement(parts.join(' ')), 50);
+    },
+    [say, t],
+  );
+
   const advance = useCallback(() => {
+    if (finishedRef.current) return;
     if (current && accepted.current) {
       onStepDone?.({
         stepId: current.step.id,
@@ -271,6 +334,16 @@ export function ExercisePlayer({
       });
       accepted.current = '';
       wasClean.current = false;
+    }
+    if (cursor + 1 >= total) {
+      finishedRef.current = true;
+      setFinished(true);
+      onFinish({
+        total,
+        firstTryCorrect,
+        accuracy: total > 0 ? firstTryCorrect / total : 0,
+      });
+      return;
     }
     setValue('');
     setPhase('answer');
@@ -283,14 +356,8 @@ export function ExercisePlayer({
     setUsedBank([]);
     setSupportNote(null);
     setReplaysUsed(0);
-    if (cursor + 1 >= total) {
-      onFinish({
-        total,
-        firstTryCorrect,
-        accuracy: total > 0 ? firstTryCorrect / total : 0,
-      });
-      return;
-    }
+    setSubmitted('');
+    setAnnouncement('');
     // Focused inside the tap on Continue as well as after the render: iOS only
     // opens the keyboard for focus given during the tap itself.
     inputRef.current?.focus();
@@ -316,7 +383,7 @@ export function ExercisePlayer({
   );
 
   const submit = useCallback(async () => {
-    if (!current || busy) return;
+    if (!current || busy || finishedRef.current) return;
     const { exercise, step } = current;
 
     // Open writing is never marked simply "wrong".
@@ -340,7 +407,7 @@ export function ExercisePlayer({
           verdict: 'accepted-variant',
           credit: 1,
           categories: [],
-          hintsUsed: hintsShown,
+          hintsUsed: learnerHints,
           revealed: false,
           isRetype: false,
           resolved: true,
@@ -354,17 +421,25 @@ export function ExercisePlayer({
       wasClean.current = true;
       setFirstTryCorrect((count) => count + 1);
       setPhase('feedback');
-      setFeedback({
+      const done: FeedbackMessage = {
         tone: 'success',
         headline: { en: t('exerciseFreeWritingOk'), bg: t('exerciseFreeWritingOk') },
         lines: [],
         correction: step.answer.accepted[0] ?? '',
         askRetype: false,
-      });
+      };
+      setFeedback(done);
+      announce(done, false);
       return;
     }
 
-    const validation = validateAnswer(value, step.answer, { lexicon });
+    // Where the answer stands (a gap that opens the sentence) and what kind of
+    // task it is decide how a capital or the word order is judged.
+    const validation = validateAnswer(value, step.answer, {
+      lexicon,
+      scaffold: step.scaffold,
+      exerciseKind: exercise.kind,
+    });
     if (validation.verdict === 'empty') {
       setFeedback(buildFeedback(validation, { lexicon, describeNoun }));
       setResult(validation);
@@ -373,15 +448,25 @@ export function ExercisePlayer({
     }
 
     const message = buildFeedback(validation, { lexicon, describeNoun });
-    const credit = validation.credit * hintPenalty(hintsShown, revealed);
-    const mustRetype = exercise.mandatoryRetype !== false && validation.requireRetype;
+    const credit = validation.credit * hintPenalty(learnerHints, revealed);
+    /*
+     * Every answer that leaves the step unresolved is retyped.
+     *
+     * Word drills (articles, conjugations) are marked `mandatoryRetype: false`
+     * because a single word is quick to see and remember. But the retype is
+     * also the only way a step becomes resolved, so skipping it left a wrong
+     * article unresolved for good: the lesson stayed unfinished after a
+     * perfect final check, with nothing saying why. A one-word retype costs a
+     * second; a lesson that cannot be finished costs the learner the lesson.
+     */
+    const mustRetype = validation.requireRetype;
     // A note that asks for nothing (a forgotten full stop) is still a right
     // answer; one that asks for a retype (ae for ä) is not.
     const clean =
       (validation.verdict === 'correct' ||
         validation.verdict === 'accepted-variant' ||
         (validation.verdict === 'accepted-with-note' && !validation.requireRetype)) &&
-      hintsShown === 0 &&
+      learnerHints === 0 &&
       !revealed;
     const resolved = !validation.requireRetype && validation.credit > 0;
 
@@ -398,10 +483,13 @@ export function ExercisePlayer({
         verdict: validation.verdict,
         credit,
         categories: validation.categories,
-        hintsUsed: hintsShown,
+        hintsUsed: learnerHints,
         revealed,
         isRetype: false,
         resolved,
+        // The same flag `clean` rests on, so the server counts this answer
+        // right exactly when the player does.
+        requireRetype: validation.requireRetype,
         durationMs: Date.now() - startedAt.current,
         reviewTargets: targetsFor(step),
       });
@@ -412,18 +500,23 @@ export function ExercisePlayer({
     if (clean) setFirstTryCorrect((count) => count + 1);
     wasClean.current = clean;
 
-    // Adapt the amount of support for the steps that follow.
-    const outcome = clean ? 'clean' : validation.credit > 0 ? 'partial' : 'wrong';
-    const nextSupport = adapt(support, outcome);
-    if (nextSupport.support !== support.support) {
-      setSupportNote(
-        presentationFor(nextSupport.support).hintsUnlocked > presentation.hintsUnlocked ? 'up' : 'down',
-      );
+    // Adapt the amount of support for the steps that follow, only where
+    // support is offered at all.
+    if (allowHints) {
+      const outcome = clean ? 'clean' : validation.credit > 0 ? 'partial' : 'wrong';
+      const nextSupport = adapt(support, outcome);
+      if (nextSupport.support !== support.support) {
+        setSupportNote(
+          presentationFor(nextSupport.support).hintsUnlocked > presentation.hintsUnlocked ? 'up' : 'down',
+        );
+      }
+      setSupport(nextSupport);
     }
-    setSupport(nextSupport);
 
     setResult(validation);
     setFeedback(message);
+    setSubmitted(value);
+    announce(message, validation.verdict !== 'correct');
     // What the learner said. When a retype is coming, the retype replaces it.
     accepted.current = validation.credit > 0 ? value : validation.target;
     if (mustRetype) {
@@ -439,22 +532,28 @@ export function ExercisePlayer({
     value,
     lexicon,
     describeNoun,
-    hintsShown,
+    learnerHints,
     revealed,
     support,
     presentation.hintsUnlocked,
+    allowHints,
     context,
     lessonId,
     say,
     submitAttempt,
     targetsFor,
     t,
+    announce,
   ]);
 
   const submitRetype = useCallback(async () => {
-    if (!current || busy || !result) return;
+    if (!current || busy || !result || finishedRef.current) return;
     const { exercise, step } = current;
-    const check = validateAnswer(value, step.answer, { lexicon });
+    const check = validateAnswer(value, step.answer, {
+      lexicon,
+      scaffold: step.scaffold,
+      exerciseKind: exercise.kind,
+    });
     // "Sufficiently accurate": the right words, at most a punctuation slip.
     if (check.credit < 0.9) {
       setRetypeNudge(true);
@@ -474,7 +573,7 @@ export function ExercisePlayer({
         verdict: check.verdict,
         credit: check.credit,
         categories: [],
-        hintsUsed: hintsShown,
+        hintsUsed: learnerHints,
         revealed,
         isRetype: true,
         resolved: true,
@@ -486,10 +585,10 @@ export function ExercisePlayer({
     accepted.current = value;
     setRetypeNudge(false);
     setPhase('feedback');
-  }, [current, busy, result, value, lexicon, context, lessonId, say, submitAttempt, hintsShown, revealed]);
+  }, [current, busy, result, value, lexicon, context, lessonId, say, submitAttempt, learnerHints, revealed]);
 
   const skip = useCallback(async () => {
-    if (!current || busy) return;
+    if (!current || busy || finishedRef.current) return;
     const { exercise, step } = current;
     setBusy(true);
     try {
@@ -504,7 +603,7 @@ export function ExercisePlayer({
         verdict: 'empty',
         credit: 0,
         categories: [],
-        hintsUsed: hintsShown,
+        hintsUsed: learnerHints,
         revealed,
         isRetype: false,
         resolved: true,
@@ -516,7 +615,7 @@ export function ExercisePlayer({
     accepted.current = step.answer.accepted[0] ?? '';
     wasClean.current = false;
     advance();
-  }, [current, busy, context, lessonId, say, submitAttempt, hintsShown, revealed, advance]);
+  }, [current, busy, context, lessonId, say, submitAttempt, learnerHints, revealed, advance]);
 
   /*
    * Show the answer — and leave the typing to the learner.
@@ -536,10 +635,25 @@ export function ExercisePlayer({
     inputRef.current?.focus();
   }, [current]);
 
+  // The live region lives outside every branch, so it is never remounted.
+  const liveRegion = (
+    <p className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+      {announcement}
+    </p>
+  );
+
   if (!current) {
+    // Never a dead end: an empty round, or one whose caller has not moved on
+    // yet, still has a way out.
     return (
       <div className="player player--empty">
+        {liveRegion}
         <p>{t('exerciseDone')}</p>
+        {onExit ? (
+          <button type="button" className="btn btn--ghost btn--sm" onClick={onExit}>
+            {exitLabel ?? t('lessonBackToLesson')}
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -577,6 +691,7 @@ export function ExercisePlayer({
 
   return (
     <div className="player">
+      {liveRegion}
       <header className="player__head">
         {hideProgress ? (
           <div className="player__progress" />
@@ -647,14 +762,18 @@ export function ExercisePlayer({
            * untouched, and both are a press away.
            */
           <div className="task__audio-only">
+            {/* The text is the answer here, so it stays out of the buttons'
+                names too: a screen reader would otherwise read it out. */}
             <AudioButton
               text={step.audio!.text}
+              concealText
               disabled={replaysLeft === 0}
               onPlay={() => setReplaysUsed((used) => used + 1)}
             />
             <AudioButton
               text={step.audio!.text}
               slow
+              concealText
               disabled={replaysLeft === 0}
               onPlay={() => setReplaysUsed((used) => used + 1)}
             />
@@ -675,7 +794,11 @@ export function ExercisePlayer({
 
         {!hideText && step.prompt ? (
           <p className="task__prompt" lang={lang === 'bg' ? 'bg' : 'en'}>
-            {lang === 'bg' ? `„${say(step.prompt)}“` : say(step.prompt)}
+            {/* As on the English path, no quotation marks of its own: many
+                prompts are instructions ("Слушай. Коя дума чу?"), not
+                sentences to translate, and a prompt that quotes German
+                ended up with quotes inside quotes. */}
+            {say(step.prompt)}
           </p>
         ) : null}
 
@@ -688,9 +811,7 @@ export function ExercisePlayer({
 
         {presentation.showFirstWord && phase === 'answer' && !isChoice && !isFree ? (
           <p className="task__cue" lang="de">
-            {presentation.showFirstLetters
-              ? firstWordCue(step.answer.accepted[0] ?? '')
-              : `${(step.answer.accepted[0] ?? '').split(/\s+/)[0]} …`}
+            {supportCue(step.answer.accepted[0] ?? '', presentation.showFirstLetters)}
           </p>
         ) : null}
 
@@ -770,7 +891,9 @@ export function ExercisePlayer({
               capitalizeSentences={(step.answer.shape === 'sentence' || isFree) && !scaffold?.before}
               tone={tone}
               focusKey={`${step.id}-${phase}`}
-              describedBy="player-keyhint"
+              // While retyping, the field is described by the verdict and the
+              // correction, which is where focus lands after a wrong answer.
+              describedBy={phase === 'retype' ? 'player-verdict player-retype-target' : 'player-keyhint'}
             />
           </>
         )}
@@ -853,13 +976,8 @@ export function ExercisePlayer({
       </div>
 
       {feedback ? (
-        <div
-          ref={feedbackRef}
-          className={`feedback feedback--${feedback.tone}`}
-          role="status"
-          aria-live="polite"
-        >
-          <p className="feedback__headline">
+        <div ref={feedbackRef} className={`feedback feedback--${feedback.tone}`}>
+          <p className="feedback__headline" id="player-verdict">
             <VerdictMark tone={feedback.tone} />
             {say(feedback.headline)}
           </p>
@@ -868,7 +986,7 @@ export function ExercisePlayer({
             <dl className="feedback__compare">
               <dt>{t(isChoice ? 'feedbackYourChoice' : 'feedbackYourAnswer')}</dt>
               <dd lang="de" className="feedback__given">
-                {result.diff.length > 0 ? <TokenDiff result={result} /> : value}
+                {result.diff.length > 0 ? <TokenDiff result={result} /> : submitted}
               </dd>
               <dt>{t('feedbackExpected')}</dt>
               <dd lang="de" className="feedback__expected">
@@ -903,9 +1021,12 @@ export function ExercisePlayer({
             anticipate. It renders nothing at all with no provider configured.
           */}
           {result && result.verdict !== 'correct' && result.verdict !== 'empty' ? (
+            // What was submitted, not the field: a retype clears the field,
+            // and the model was being asked to explain an empty answer.
             <ExplainWhy
+              key={step.id}
               expected={feedback.correction}
-              given={value}
+              given={submitted}
               categories={result.categories}
               level={level}
             />
@@ -914,7 +1035,7 @@ export function ExercisePlayer({
           {phase === 'retype' ? (
             <div className="feedback__retype">
               <p className="feedback__retype-label">{t('exerciseRetype')}</p>
-              <p className="feedback__retype-target" lang="de">
+              <p className="feedback__retype-target" id="player-retype-target" lang="de">
                 {feedback.correction}
               </p>
               {retypeNudge ? <p className="task__warn">{t('exerciseRetypeLocked')}</p> : null}
@@ -940,7 +1061,13 @@ export function ExercisePlayer({
 
           {phase === 'feedback' ? (
             <div className="task__controls">
-              <button ref={continueRef} type="button" className="btn btn--primary" onClick={advance}>
+              <button
+                ref={continueRef}
+                type="button"
+                className="btn btn--primary"
+                onClick={advance}
+                aria-describedby="player-verdict"
+              >
                 {t('exerciseContinue')}
               </button>
               <span className="task__keyhint">{t('exerciseEnterToContinue')}</span>
@@ -964,7 +1091,7 @@ export function ExercisePlayer({
 
   /** Submitting a multiple-choice option runs it through the same validator. */
   async function submitChoice(chosen: string): Promise<void> {
-    if (!current) return;
+    if (!current || finishedRef.current) return;
     const validation = validateAnswer(chosen, current.step.answer, { lexicon });
     const message = buildFeedback(validation, { lexicon, describeNoun });
     setBusy(true);
@@ -978,9 +1105,9 @@ export function ExercisePlayer({
         expected: validation.target,
         given: chosen,
         verdict: validation.verdict,
-        credit: validation.credit * hintPenalty(hintsShown, false),
+        credit: validation.credit * hintPenalty(learnerHints, false),
         categories: validation.categories,
-        hintsUsed: hintsShown,
+        hintsUsed: learnerHints,
         revealed: false,
         isRetype: false,
         resolved: true,
@@ -990,13 +1117,28 @@ export function ExercisePlayer({
     } finally {
       setBusy(false);
     }
-    if (validation.verdict === 'correct' && hintsShown === 0) {
+    if (validation.verdict === 'correct' && learnerHints === 0) {
       setFirstTryCorrect((count) => count + 1);
     }
     setResult(validation);
     setFeedback(message);
+    setSubmitted(chosen);
+    announce(message, validation.verdict !== 'correct');
     setPhase('feedback');
   }
+}
+
+/*
+ * The cue the support ladder shows above the field.
+ *
+ * "The first word" of a one-word answer is the answer, and the cue used to
+ * print it: "heißt …" above an empty box, copied and marked right first time.
+ * A one-word answer gets its first letter and a blank per letter instead.
+ */
+function supportCue(answer: string, letters: boolean): string {
+  const words = answer.split(/\s+/).filter(Boolean);
+  if (words.length <= 1) return firstLetterCue(answer, 1);
+  return letters ? firstWordCue(answer) : `${words[0]} …`;
 }
 
 /** Beyond this many questions a segment is too thin to read; a bar takes over. */

@@ -568,6 +568,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('We often cook together.', 'Често готвим заедно.'),
             answer: 'Wir kochen oft zusammen.',
+            alternatives: ['Oft kochen wir zusammen.'],
             reviewTargets: ['v-kochen', 'v-oft'],
             hints: [],
           },
@@ -610,7 +611,7 @@ const lesson2: Lesson = {
           hints: [],
         },
         {
-          prompt: bi('The film starts at eight.', 'Филмът започва в осем.'),
+          prompt: bi('Work starts at eight.', 'Работата започва в осем.'),
           scaffold: 'Die Arbeit fängt um acht ___.',
           answer: 'an',
           shape: 'word',
@@ -664,6 +665,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('I get up at six o’clock.', 'Ставам в шест часа.'),
             answer: 'Ich stehe um sechs Uhr auf.',
+            alternatives: ['Um sechs Uhr stehe ich auf.'],
             hints: [],
           },
           {
@@ -776,6 +778,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('I have to work today.', 'Днес трябва да работя.'),
             answer: 'Ich muss heute arbeiten.',
+            alternatives: ['Heute muss ich arbeiten.'],
             reviewTargets: ['v-muessen', 'p-ich-muss'],
             hints: [bi('The second verb goes last.', 'Вторият глагол отива най-накрая.')],
             traps: [
@@ -806,6 +809,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('We want to do the shopping today.', 'Днес искаме да пазаруваме.'),
             answer: 'Wir wollen heute einkaufen.',
+            alternatives: ['Heute wollen wir einkaufen.'],
             reviewTargets: ['v-wollen', 'v-einkaufen'],
             hints: [bi('einkaufen stays in one piece at the end.', 'einkaufen остава цял в края.')],
           },
@@ -983,6 +987,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I get up at seven o’clock.', 'Ставам в седем часа.'),
           answer: 'Ich stehe um sieben Uhr auf.',
+          alternatives: ['Um sieben Uhr stehe ich auf.'],
           hints: [],
         },
         {
@@ -1003,6 +1008,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I have to work today.', 'Днес трябва да работя.'),
           answer: 'Ich muss heute arbeiten.',
+          alternatives: ['Heute muss ich arbeiten.'],
           hints: [],
         },
         {

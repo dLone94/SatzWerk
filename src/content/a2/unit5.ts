@@ -727,7 +727,13 @@ const lesson3: Lesson = {
           answer:
             'Ich bin nach München gefahren. Ich habe den Zug verpasst, weil der Bus Verspätung hatte. Der nächste Zug war langsamer. Die Reise war schlechter als letztes Jahr.',
           shape: 'sentence',
-          requiredTokens: ['weil', 'verpasst', 'als'],
+          // Any Perfekt, weil, and any comparative, as the instruction says; the
+          // checker matches word beginnings, so the forms are listed.
+          requiredTokens: [
+            'weil',
+            'habe|hast|hat|haben|habt|bin|bist|ist|sind|seid',
+            'als|besser|mehr|weniger|lieber|schneller|langsamer|schlechter|teurer|billiger|größer|kleiner|länger|kürzer|später|früher|schöner|leichter|einfacher|schwieriger|voller|lauter|ruhiger|wärmer|kälter|anstrengender',
+          ],
           hints: [],
         },
       ]),

@@ -2,6 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createProvider } from './ai.ts';
 import { handleRequest, healthReport, resolveAuth } from './api.ts';
 import { openDatabase, type Db } from './db.ts';
+import { isDatabaseUnavailable, RETRY_AFTER_SECONDS } from './driver.ts';
+import { crossSiteRefusal, SECURITY_HEADERS, type GuardHeaders } from './security.ts';
 
 /**
  * The whole API as one Vercel function.
@@ -91,6 +93,20 @@ interface Incoming {
   authorization?: string;
   /** The raw body, already read. Empty for GET and HEAD. */
   text: string;
+  /** What `crossSiteRefusal` reads: where a write came from, and what it carries. */
+  guard: GuardHeaders;
+  /** The client's address as the platform reports it, for the wrong-password count. */
+  clientIp?: string;
+}
+
+const GUARD_HEADERS = ['content-type', 'x-requested-with', 'origin', 'referer', 'host', 'x-forwarded-host'];
+
+/**
+ * The caller's address. Vercel sets both of these itself and overwrites
+ * whatever the client sent, so on the platform they can be believed.
+ */
+function clientAddress(read: (name: string) => string | undefined): string | undefined {
+  return read('x-real-ip') ?? read('x-forwarded-for')?.split(',')[0]?.trim();
 }
 
 /**
@@ -98,6 +114,11 @@ interface Incoming {
  * arrived or how it will be sent.
  */
 async function answer(request: Incoming): Promise<Answer> {
+  // Before the body is parsed: a form post from another site is turned away
+  // without anything in it being looked at. See crossSiteRefusal.
+  const refusal = crossSiteRefusal(request.method, request.path, request.guard);
+  if (refusal) return reply(refusal.status, { error: refusal.error });
+
   try {
     let body: unknown;
     if (request.text.length > 0) {
@@ -119,9 +140,17 @@ async function answer(request: Incoming): Promise<Answer> {
     try {
       db = await withTimeout(database(), DB_OPEN_TIMEOUT_MS, 'Opening the database');
     } catch (error) {
+      // An open that timed out may still finish later; close it if it does,
+      // rather than leaving a pool nobody will ever use.
+      const stale = cached;
       cached = undefined;
+      stale?.then((late) => late.close()).catch(() => {});
       console.error('[satzwerk] database unavailable:', error);
-      return reply(503, { error: explain(error as Error) });
+      return {
+        status: 503,
+        body: { error: explain(error as Error) },
+        headers: { 'retry-after': String(RETRY_AFTER_SECONDS) },
+      };
     }
 
     provider ??= createProvider();
@@ -137,14 +166,26 @@ async function answer(request: Incoming): Promise<Answer> {
           authorization: request.authorization,
         },
         secure: request.secure,
+        ...(request.clientIp ? { clientIp: request.clientIp } : {}),
       },
     );
     return { status: response.status, body: response.body, headers: response.headers ?? {} };
   } catch (error) {
-    // A failed open would otherwise be cached as a rejected promise and every
-    // later request would fail with it, including after the fault is fixed.
-    cached = undefined;
+    // The open handle is kept. A failed open is already dropped above; after
+    // that, one bad request says nothing about the handle, and throwing it
+    // away reopened the database (and leaked the old pool) for every request
+    // that failed, including ones anybody could send without a password. A
+    // pool whose connection died opens a new one by itself on the next query.
     console.error('[satzwerk] request failed:', error);
+    if (isDatabaseUnavailable(error)) {
+      // A 503, which the browser holds and sends again, rather than a 500,
+      // which it treats as a refusal and drops.
+      return {
+        status: 503,
+        body: { error: explain(error as Error) },
+        headers: { 'retry-after': String(RETRY_AFTER_SECONDS) },
+      };
+    }
     return reply(500, { error: (error as Error).message });
   }
 }
@@ -182,6 +223,7 @@ function reply(status: number, body: unknown): Answer {
  * carrying it came from here and nothing else can claim otherwise.
  */
 const BASE_HEADERS = {
+  ...SECURITY_HEADERS,
   'content-type': 'application/json; charset=utf-8',
   'cache-control': 'no-store',
   'x-satzwerk': 'api',
@@ -223,6 +265,7 @@ function requestedPath(url: URL): string {
 async function fromWeb(request: Request): Promise<Incoming> {
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
+  const read = (name: string): string | undefined => request.headers.get(name) ?? undefined;
   return {
     method,
     path: requestedPath(url),
@@ -232,6 +275,9 @@ async function fromWeb(request: Request): Promise<Incoming> {
     forwardedProto: request.headers.get('x-forwarded-proto') ?? undefined,
     authorization: request.headers.get('authorization') ?? undefined,
     text: method === 'GET' || method === 'HEAD' ? '' : await request.text(),
+    // A Web Request always knows its own host, from its URL.
+    guard: { ...Object.fromEntries(GUARD_HEADERS.map((name) => [name, read(name)])), host: read('host') ?? url.host },
+    clientIp: clientAddress(read),
   };
 }
 
@@ -259,6 +305,8 @@ async function fromNode(request: IncomingMessage): Promise<Incoming> {
     forwardedProto,
     authorization: header('authorization'),
     text,
+    guard: Object.fromEntries(GUARD_HEADERS.map((name) => [name, header(name)])),
+    clientIp: clientAddress(header),
   };
 }
 

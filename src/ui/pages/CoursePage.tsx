@@ -75,7 +75,7 @@ function LevelPath({ level, currentLessonId }: { level: Level; currentLessonId?:
         <div className="level-progress">
           <Meter value={complete.length} max={authored.length} label={level.label} />
           <span>
-            {complete.length} / {authored.length} {t('of')} {t('statLessonsDone').toLowerCase()}
+            {t('levelLessonsDone', { done: complete.length, total: authored.length })}
           </span>
         </div>
       ) : null}
@@ -111,7 +111,7 @@ function LevelPath({ level, currentLessonId }: { level: Level; currentLessonId?:
           <p className="planned-notice">{t('plannedNotice')}</p>
           <div className="grid grid--2">
             <div>
-              <h4 className="mini-head">{t('levelTopics')}</h4>
+              <h3 className="mini-head">{t('levelTopics')}</h3>
               <ul className="pill-list">
                 {level.outline?.topics.map((topic, index) => (
                   <li key={index}>{say(topic)}</li>
@@ -119,7 +119,7 @@ function LevelPath({ level, currentLessonId }: { level: Level; currentLessonId?:
               </ul>
             </div>
             <div>
-              <h4 className="mini-head">{t('levelGrammar')}</h4>
+              <h3 className="mini-head">{t('levelGrammar')}</h3>
               <ul className="pill-list">
                 {level.outline?.grammar.map((item, index) => (
                   <li key={index}>{say(item)}</li>
@@ -129,7 +129,7 @@ function LevelPath({ level, currentLessonId }: { level: Level; currentLessonId?:
           </div>
           {outline ? (
             <>
-              <h4 className="mini-head">{t('plannedUnits')}</h4>
+              <h3 className="mini-head">{t('plannedUnits')}</h3>
               <ol className="planned-units">
                 {outline.plannedUnits.map((unit, index) => (
                   <li key={index}>{say(unit)}</li>
@@ -147,7 +147,7 @@ function LevelPath({ level, currentLessonId }: { level: Level; currentLessonId?:
       */}
       {level.units.length > 0 && (outline?.plannedUnits.length ?? 0) > 0 ? (
         <div className="planned-rest">
-          <h4 className="mini-head">{t('plannedUnits')}</h4>
+          <h3 className="mini-head">{t('plannedUnits')}</h3>
           <ol className="planned-units" start={level.units.length + 1}>
             {outline!.plannedUnits.map((unit, index) => (
               <li key={index}>{say(unit)}</li>

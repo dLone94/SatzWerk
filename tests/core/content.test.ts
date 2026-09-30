@@ -345,7 +345,23 @@ describe('authored answers are consistent with the validator', () => {
           continue;
         }
         const correct = step.choices.find((choice) => choice.id === step.correctChoiceId);
-        if (!correct) failures.push(`${step.id}: correctChoiceId does not exist`);
+        if (!correct) {
+          failures.push(`${step.id}: correctChoiceId does not exist`);
+          continue;
+        }
+        // The player grades the tapped option's text against the answer, so
+        // the right option has to pass and every other one has to fail. A1
+        // once asked "Zusammen oder getrennt?" with English options and the
+        // answer "zusammen": the correct tap was marked wrong every time.
+        if (validateAnswer(correct.de, step.answer, opts).credit !== 1) {
+          failures.push(`${step.id}: the correct option "${correct.de}" does not match the answer`);
+        }
+        for (const choice of step.choices) {
+          if (choice.id === correct.id) continue;
+          if (validateAnswer(choice.de, step.answer, opts).credit === 1) {
+            failures.push(`${step.id}: the wrong option "${choice.de}" is graded as right`);
+          }
+        }
       }
     }
     expect(failures).toEqual([]);

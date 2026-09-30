@@ -17,7 +17,7 @@ const A1 = script({
   register: 'Sie',
   partner: bi('the waiter', 'сервитьорът'),
   goal: bi('Order a drink and a meal, then get the bill.', 'Поръчай напитка и ядене, после поискай сметката.'),
-  lessonIds: ['a1-u1-l1'],
+  lessonIds: ['a1-u3-l1', 'a1-u3-l2'],
   outro: bi(
     'Ordering is four sentences and none of them are hard. The one that catches people out is the last: in Germany the bill comes when you ask for it, and not a minute before.',
     'Поръчването е четири изречения и нито едно не е трудно. Това, което изненадва хората, е последното: в Германия сметката идва, когато я поискаш, и нито минута по-рано.',
@@ -242,7 +242,13 @@ const A2 = script({
           ),
           prompt: bi('Saturday, eight in the evening, four people.', 'Събота, осем вечерта, четирима души.'),
           answer: 'Am Samstag um acht Uhr, für vier Personen.',
-          alternatives: ['Für Samstag um acht Uhr, für vier Personen.', 'Samstag um acht, vier Personen.'],
+          alternatives: [
+            'Für Samstag um acht Uhr, für vier Personen.',
+            'Samstag um acht, vier Personen.',
+            'Am Samstag um 8 Uhr, für vier Personen.',
+            'Am Samstag um 20 Uhr, für vier Personen.',
+            'Am Samstag um 20 Uhr, für 4 Personen.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-samstag', 'v-um', 'v-person'],
           hints: [
@@ -275,7 +281,13 @@ const A2 = script({
           ),
           prompt: bi('Nine o’clock works.', 'Девет часа става.'),
           answer: 'Dann nehmen wir neun Uhr.',
-          alternatives: ['Dann kommen wir um neun.', 'Um neun, bitte.'],
+          alternatives: [
+            'Dann kommen wir um neun.',
+            'Um neun, bitte.',
+            'Dann nehmen wir 9 Uhr.',
+            'Dann nehmen wir 21 Uhr.',
+            'Dann kommen wir um 9.',
+          ],
           shape: 'sentence',
           traps: [
             {
@@ -368,7 +380,11 @@ const B1 = script({
           ),
           prompt: bi('The soup is cold.', 'Супата е студена.'),
           answer: 'Entschuldigung, die Suppe ist leider kalt.',
-          alternatives: ['Die Suppe ist leider kalt.', 'Entschuldigung, die Suppe ist leider nicht warm.'],
+          alternatives: [
+            'Die Suppe ist leider kalt.',
+            'Entschuldigung, die Suppe ist leider nicht warm.',
+            'Die Suppe ist leider nicht warm.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-suppe', 'v-kalt'],
           traps: [
@@ -451,7 +467,7 @@ const B1 = script({
           id: 'sc-restaurant-b1-t4-s1',
           prompt: bi('Say that is kind of him.', 'Кажи, че е много любезно от негова страна.'),
           answer: 'Das ist sehr freundlich, vielen Dank!',
-          alternatives: ['Das ist sehr nett, vielen Dank!', 'Oh, vielen Dank!'],
+          alternatives: ['Das ist sehr nett, vielen Dank!', 'Oh, vielen Dank!', 'Vielen Dank!'],
           shape: 'sentence',
           reviewTargets: ['v-freundlich'],
           hints: [bi('"That is very kind" — then thank him.', '„Това е много любезно“ — и после благодари.')],
