@@ -200,6 +200,18 @@ export class ApiError extends Error {
 const BASE = '/api';
 
 /**
+ * Sent with every request the app makes.
+ *
+ * The server refuses a write that cannot show it came from the app, because
+ * an ordinary form on any other web page could otherwise post to it — set a
+ * password on a local copy, or wipe the learner's progress. Another page
+ * cannot send a custom header like this one without the server's permission,
+ * which it never gives. Bodyless posts (reset, logout) carry no Content-Type,
+ * so this header is what vouches for them.
+ */
+export const CLIENT_HEADERS = { 'X-Requested-With': 'SatzWerk' } as const;
+
+/**
  * Long enough for a cold start and a migration, short enough that a request
  * which is never coming back becomes an error the app can show. Without this
  * a hung server leaves the app on its loading screen indefinitely, saying
@@ -220,6 +232,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       credentials: 'same-origin',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: {
+        ...CLIENT_HEADERS,
         ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
         ...init?.headers,
       },

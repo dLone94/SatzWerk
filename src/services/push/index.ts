@@ -16,6 +16,8 @@
  * app, change a setting, or configure the server.
  */
 
+import { CLIENT_HEADERS } from '../api/client.ts';
+
 export type PushState =
   | 'unsupported'
   | 'needs-install'
@@ -180,7 +182,7 @@ export async function enablePush(): Promise<PushStatus> {
   const json = subscription.toJSON() as { endpoint?: string; keys?: Record<string, string> };
   const response = await fetch('/api/push/subscribe', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { ...CLIENT_HEADERS, 'content-type': 'application/json' },
     body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
   });
   if (!response.ok) return { state: 'off' };
@@ -195,7 +197,7 @@ export async function disablePush(): Promise<PushStatus> {
   if (subscription) {
     await fetch('/api/push/unsubscribe', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { ...CLIENT_HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({ endpoint: subscription.endpoint }),
     }).catch(() => undefined);
     await subscription.unsubscribe().catch(() => undefined);

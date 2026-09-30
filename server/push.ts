@@ -88,6 +88,53 @@ export async function moveSubscription(db: Scope['db'], endpoint: string, userId
   await db.run('UPDATE push_subscriptions SET user_id = ? WHERE endpoint = ?', userId, endpoint);
 }
 
+/**
+ * The push services browsers actually use.
+ *
+ * The endpoint comes from the browser, but nothing stopped a request from
+ * naming any URL at all — http://169.254.169.254/…, a port on 127.0.0.1, a host
+ * on the internal network — and the evening job would then send a request to
+ * it from the server. Chrome, Edge's Chromium builds, Opera and Samsung use
+ * Firebase; Safari uses Apple's; Firefox uses Mozilla's; the old Edge used
+ * Windows'. A browser that uses none of these gets no reminders, which is a
+ * small price for the server not being pointed at arbitrary hosts.
+ */
+const PUSH_HOSTS = [
+  /^fcm\.googleapis\.com$/,
+  /^android\.googleapis\.com$/,
+  /^([a-z0-9-]+\.)*push\.apple\.com$/,
+  /^updates\.push\.services\.mozilla\.com$/,
+  /^([a-z0-9-]+\.)*notify\.windows\.com$/,
+];
+const MAX_ENDPOINT_LENGTH = 1024;
+
+function decodedLength(value: string): number {
+  if (!/^[A-Za-z0-9_-]+={0,2}$/.test(value)) return -1;
+  return Buffer.from(value, 'base64url').length;
+}
+
+/** Why a subscription cannot be stored, or null when it can. */
+export function subscriptionProblem(input: { endpoint: string; p256dh: string; auth: string }): string | null {
+  if (input.endpoint.length > MAX_ENDPOINT_LENGTH) return 'endpoint is too long';
+  let url: URL;
+  try {
+    url = new URL(input.endpoint);
+  } catch {
+    return 'endpoint is not a URL';
+  }
+  if (url.protocol !== 'https:' || url.port !== '' || url.username || url.password) {
+    return 'endpoint must be a plain https URL';
+  }
+  if (!PUSH_HOSTS.some((host) => host.test(url.hostname))) return 'endpoint is not a known push service';
+  // A P-256 public key, uncompressed: 65 bytes starting 0x04. The auth secret
+  // is 16 bytes. Anything else cannot be encrypted to.
+  if (decodedLength(input.p256dh) !== 65 || Buffer.from(input.p256dh, 'base64url')[0] !== 0x04) {
+    return 'keys.p256dh is not a P-256 public key';
+  }
+  if (decodedLength(input.auth) !== 16) return 'keys.auth is not a 16-byte secret';
+  return null;
+}
+
 export async function deleteSubscription({ db }: Scope, endpoint: string): Promise<void> {
   // Not scoped by learner: unsubscribing is about this browser, and the
   // endpoint identifies it exactly.
@@ -194,6 +241,37 @@ export type PushSender = (
 ) => Promise<unknown>;
 
 /**
+ * How long one device gets to accept its reminder.
+ *
+ * Push services answer in well under a second. Without a limit, one endpoint
+ * that accepted the connection and then said nothing held up every device and
+ * learner after it until the function was killed at 30 seconds — every
+ * evening, with no error to show for it.
+ */
+export const SEND_TIMEOUT_MS = 5_000;
+
+/**
+ * The real sender. `timeout` makes web-push destroy a socket that goes quiet;
+ * `TTL` lets a push service drop a reminder that could not be delivered within
+ * twelve hours, since "3 items are due" from last week is not worth showing.
+ */
+export function webPushSender(timeoutMs = SEND_TIMEOUT_MS): PushSender {
+  return (subscription, payload) =>
+    webpush.sendNotification(subscription, payload, { timeout: timeoutMs, TTL: 12 * 3600 });
+}
+
+/** The same deadline around any sender, in case one never settles. */
+function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    work,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`did not answer within ${ms / 1000} seconds`)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+/**
  * Send today's reminder, if there is one to send.
  *
  * A push service returns 404 or 410 for an endpoint that no longer exists —
@@ -209,6 +287,8 @@ export async function sendDueReminder(
     env?: NodeJS.ProcessEnv;
     /** Defaults to web-push. Supplied by the tests. */
     send?: PushSender;
+    /** How long each device gets. See SEND_TIMEOUT_MS. */
+    timeoutMs?: number;
   } = {},
 ): Promise<SendReport> {
   const now = options.now ?? new Date();
@@ -226,8 +306,8 @@ export async function sendDueReminder(
   }
 
   webpush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
-  const send: PushSender =
-    options.send ?? ((subscription, payload) => webpush.sendNotification(subscription, payload));
+  const timeoutMs = options.timeoutMs ?? SEND_TIMEOUT_MS;
+  const send: PushSender = options.send ?? webPushSender(timeoutMs);
   const payload = JSON.stringify({
     ...reminderText(dueCount, options.lang ?? 'en'),
     /*
@@ -247,38 +327,50 @@ export async function sendDueReminder(
   let reason: ReminderDecision['reason'] | undefined;
   const errors: string[] = [];
 
+  const due: PushSubscriptionRecord[] = [];
   for (const subscription of subscriptions) {
     const decision = decideReminder(dueCount, subscription, now);
-    if (!decision.send) {
+    if (decision.send) {
+      due.push(subscription);
+    } else {
       skipped += 1;
       reason = decision.reason;
-      continue;
-    }
-    try {
-      await send(
-        {
-          endpoint: subscription.endpoint,
-          keys: { p256dh: subscription.p256dh, auth: subscription.auth },
-        },
-        payload,
-      );
-      await db.run(
-        'UPDATE push_subscriptions SET last_sent_at = ? WHERE endpoint = ?',
-        now.toISOString(),
-        subscription.endpoint,
-      );
-      sent += 1;
-    } catch (error) {
-      const status = (error as { statusCode?: number }).statusCode;
-      if (status === 404 || status === 410) {
-        await deleteSubscription(scope, subscription.endpoint);
-        removed += 1;
-      } else {
-        skipped += 1;
-        errors.push(`${subscription.endpoint}: ${(error as Error).message}`);
-      }
     }
   }
+
+  // All at once rather than one after another, so a slow device costs its
+  // own deadline and nobody else's.
+  await Promise.allSettled(
+    due.map(async (subscription) => {
+      try {
+        await withDeadline(
+          send(
+            {
+              endpoint: subscription.endpoint,
+              keys: { p256dh: subscription.p256dh, auth: subscription.auth },
+            },
+            payload,
+          ),
+          timeoutMs,
+        );
+        await db.run(
+          'UPDATE push_subscriptions SET last_sent_at = ? WHERE endpoint = ?',
+          now.toISOString(),
+          subscription.endpoint,
+        );
+        sent += 1;
+      } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) {
+          await deleteSubscription(scope, subscription.endpoint);
+          removed += 1;
+        } else {
+          skipped += 1;
+          errors.push(`${subscription.endpoint}: ${(error as Error).message}`);
+        }
+      }
+    }),
+  );
 
   return {
     configured: true,

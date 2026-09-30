@@ -42,7 +42,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: { '/api': { target: 'http://localhost:8787', changeOrigin: true } },
+    // 127.0.0.1 rather than localhost: the API listens on IPv4 loopback only,
+    // and localhost can resolve to ::1 first.
+    proxy: { '/api': { target: 'http://127.0.0.1:8787', changeOrigin: true } },
   },
   build: { outDir: 'dist', sourcemap: true },
   test: {

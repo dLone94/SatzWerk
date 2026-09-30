@@ -46,11 +46,13 @@ async function loadHandler() {
 const get = (path: string, cookie?: string) =>
   new Request(`https://satzwerk.test${path}`, cookie ? { headers: { cookie } } : undefined);
 
+// With the header the app puts on every request: a write without it, or a
+// same-origin Origin, is refused as possibly cross-site.
 const send = (method: string, path: string, body: unknown) =>
   new Request(`https://satzwerk.test${path}`, {
     method,
     body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-requested-with': 'SatzWerk' },
   });
 
 describe('the Vercel function', () => {
@@ -151,7 +153,7 @@ describe('the Vercel function', () => {
       new Request('https://satzwerk.test/api/attempts', {
         method: 'POST',
         body: '{not json',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', 'x-requested-with': 'SatzWerk' },
       }),
     );
     expect(response.status).toBe(400);

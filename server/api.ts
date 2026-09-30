@@ -1,6 +1,6 @@
 import { ERROR_CATEGORIES, type ErrorCategory, type TeachingLanguage } from '../src/content/types.ts';
 import type { RecallGrade } from '../src/core/srs/scheduler.ts';
-import { createProvider, type AiProvider } from './ai.ts';
+import { createProvider, withDailyLimit, type AiProvider } from './ai.ts';
 import {
   authState,
   clearedCookie,
@@ -14,9 +14,9 @@ import {
   sessionKey,
   sessionCookie,
   SESSION_COOKIE,
-  verifyPassword,
   type AuthConfig,
 } from './auth.ts';
+import { checkPassword, tooManyTries } from './auth-limit.ts';
 import { plausibleOffset } from '../src/core/progress/days.ts';
 import { findDatabaseUrl, type Db } from './db.ts';
 import * as store from './store.ts';
@@ -26,6 +26,7 @@ import {
   pushConfig,
   saveSubscription,
   sendDueReminder,
+  subscriptionProblem,
 } from './push.ts';
 
 /**
@@ -47,6 +48,8 @@ export interface ApiRequest {
   headers?: Record<string, string | undefined>;
   /** Whether the request arrived over HTTPS, when the adapter knows directly. */
   secure?: boolean;
+  /** Who is asking, as far as the adapter can tell. Keys the wrong-password count. */
+  clientIp?: string;
 }
 
 export interface ApiResponse {
@@ -262,7 +265,8 @@ export function healthReport(env: NodeJS.ProcessEnv = process.env): {
 
 export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promise<ApiResponse> {
   const { db } = ctx;
-  const provider = ctx.provider ?? createProvider();
+  // Every model call counts against a daily allowance. See withDailyLimit.
+  const provider = withDailyLimit(ctx.provider ?? createProvider(), db);
   const { method } = request;
   const path = request.path.replace(/\/+$/, '') || '/';
   const segments = path.split('/').filter(Boolean);
@@ -312,15 +316,19 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
      * learner on a device carries its subscription over).
      */
     const learners = await store.listLearners(db);
-    const reports = [];
-    for (const learner of learners) {
-      const theirs: store.Scope = { db, userId: learner.id };
-      const profile = await store.getProfile(theirs);
-      reports.push({
-        learner: learner.name,
-        ...(await sendDueReminder(theirs, { lang: profile.teachingLanguage })),
-      });
-    }
+    // All learners at once. Each may take up to the send deadline, and one
+    // after another, a handful of learners with a device that never answers
+    // would add up to the function's time limit before the rest were reached.
+    const reports = await Promise.all(
+      learners.map(async (learner) => {
+        const theirs: store.Scope = { db, userId: learner.id };
+        const profile = await store.getProfile(theirs);
+        return {
+          learner: learner.name,
+          ...(await sendDueReminder(theirs, { lang: profile.teachingLanguage })),
+        };
+      }),
+    );
     // The shape of a single report is kept at the top level for the one-learner
     // case, which is every household that has not added anybody: a smoke test
     // and a cron log should not have to learn a new shape to stay readable.
@@ -379,7 +387,9 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       return { status: 409, body: { error: 'No password is set yet.', needsSetup: true } };
     }
     const password = String(asRecord(request.body).password ?? '');
-    if (!password || !verifyPassword(password, auth.passwordHash!)) {
+    const verdict = await checkPassword(db, request.clientIp, password, auth.passwordHash!);
+    if (typeof verdict !== 'boolean') return tooManyTries(verdict);
+    if (!verdict) {
       // Deliberately vague, and the same shape whether or not a password was
       // supplied, so this cannot be used to probe.
       return { status: 401, body: { error: 'That password is not right.' } };
@@ -469,8 +479,10 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     const body = asRecord(request.body);
     const current = String(body.currentPassword ?? '');
     const next = String(body.newPassword ?? '');
-    if (state === 'required' && !verifyPassword(current, auth.passwordHash!)) {
-      return { status: 401, body: { error: 'That password is not right.' } };
+    if (state === 'required') {
+      const verdict = await checkPassword(db, request.clientIp, current, auth.passwordHash!);
+      if (typeof verdict !== 'boolean') return tooManyTries(verdict);
+      if (!verdict) return { status: 401, body: { error: 'That password is not right.' } };
     }
     const problem = passwordProblem(next);
     if (problem) return { status: 400, body: { error: problem } };
@@ -733,6 +745,9 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       const p256dh = String(keys.p256dh ?? '');
       const auth256 = String(keys.auth ?? '');
       if (!endpoint || !p256dh || !auth256) return badRequest('endpoint and keys are required');
+      // Only a real push service, or the evening job would send wherever it was told.
+      const problem = subscriptionProblem({ endpoint, p256dh, auth: auth256 });
+      if (problem) return badRequest(problem);
       await saveSubscription(scope, { endpoint, p256dh, auth: auth256 });
       return ok({ subscribed: true });
     }

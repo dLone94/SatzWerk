@@ -219,7 +219,9 @@ async function fetchProbe(base: string, probe: Probe, cookie?: string): Promise<
     headers: {
       ...bypassHeaders(),
       ...(cookie ? { cookie } : {}),
-      ...(probe.method === 'POST' ? { 'content-type': 'application/json' } : {}),
+      // The app's own header: a write without it (or a same-origin Origin) is
+      // refused as possibly cross-site.
+      ...(probe.method === 'POST' ? { 'content-type': 'application/json', 'x-requested-with': 'SatzWerk' } : {}),
     },
     // `targets` keeps /api/reviews/ensure from failing validation before it has
     // proved the point, which is that the request arrived.
@@ -232,7 +234,7 @@ async function fetchProbe(base: string, probe: Probe, cookie?: string): Promise<
 async function signIn(base: string, password: string): Promise<string | undefined> {
   const response = await fetch(`${base}/api/login`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', ...bypassHeaders() },
+    headers: { 'content-type': 'application/json', 'x-requested-with': 'SatzWerk', ...bypassHeaders() },
     body: JSON.stringify({ password }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });

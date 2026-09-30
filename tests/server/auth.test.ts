@@ -27,25 +27,25 @@ const PASSWORD = 'a-long-enough-password';
 const SECRET = 'test-session-secret';
 
 describe('password hashing', () => {
-  it('accepts the right password and rejects everything else', () => {
+  it('accepts the right password and rejects everything else', async () => {
     const stored = hashPassword(PASSWORD);
-    expect(verifyPassword(PASSWORD, stored)).toBe(true);
-    expect(verifyPassword('wrong', stored)).toBe(false);
-    expect(verifyPassword('', stored)).toBe(false);
-    expect(verifyPassword(PASSWORD + ' ', stored)).toBe(false);
+    expect(await verifyPassword(PASSWORD, stored)).toBe(true);
+    expect(await verifyPassword('wrong', stored)).toBe(false);
+    expect(await verifyPassword('', stored)).toBe(false);
+    expect(await verifyPassword(PASSWORD + ' ', stored)).toBe(false);
   });
 
-  it('never stores the password itself, and salts each hash', () => {
+  it('never stores the password itself, and salts each hash', async () => {
     const a = hashPassword(PASSWORD);
     const b = hashPassword(PASSWORD);
     expect(a).not.toContain(PASSWORD);
     expect(a).not.toBe(b);
-    expect(verifyPassword(PASSWORD, b)).toBe(true);
+    expect(await verifyPassword(PASSWORD, b)).toBe(true);
   });
 
-  it('rejects a malformed stored hash instead of throwing', () => {
+  it('rejects a malformed stored hash instead of throwing', async () => {
     for (const bad of ['', 'nonsense', 'scrypt$only-two', 'bcrypt$salt$hash']) {
-      expect(verifyPassword(PASSWORD, bad)).toBe(false);
+      expect(await verifyPassword(PASSWORD, bad)).toBe(false);
     }
   });
 });
@@ -298,7 +298,7 @@ describe('the API behind the login', () => {
     const stored = await store.getPasswordHash(db);
     expect(stored).toBeTruthy();
     expect(stored).not.toContain(PASSWORD);
-    expect(verifyPassword(PASSWORD, stored!)).toBe(true);
+    expect(await verifyPassword(PASSWORD, stored!)).toBe(true);
 
     // And now the deployment behaves like any password-protected one.
     const resolved = await resolveAuth(db, { DATABASE_URL: 'postgresql://x' } as NodeJS.ProcessEnv);
@@ -342,7 +342,7 @@ describe('the API behind the login', () => {
     const after = await resolveAuth(db, env);
     expect(authState(after)).toBe('required');
     expect(after.passwordSource).toBe('database');
-    expect(verifyPassword(PASSWORD, after.passwordHash!)).toBe(true);
+    expect(await verifyPassword(PASSWORD, after.passwordHash!)).toBe(true);
 
     // And the session secret is stable across resolves, or every resolve would
     // silently sign the learner out.

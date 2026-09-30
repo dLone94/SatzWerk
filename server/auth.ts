@@ -1,11 +1,12 @@
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { findDatabaseUrl } from './db.ts';
 
 /**
  * Keeping a hosted SatzWerk private.
  *
  * On your own machine there is nothing to protect: the app listens on
- * localhost and the database is a file you own. Hosted, it is a public URL,
+ * 127.0.0.1 only (unless HOST says otherwise), answers as open only to
+ * requests from this machine, and the database is a file you own. Hosted, it is a public URL,
  * and `POST /api/reset` deletes everything — so a hosted deployment with no
  * password is not a smaller version of this app, it is a broken one.
  *
@@ -98,13 +99,29 @@ export function hashPassword(password: string): string {
   return `scrypt$${salt}$${derived.toString('hex')}`;
 }
 
-export function verifyPassword(password: string, stored: string): boolean {
+/**
+ * The asynchronous scrypt, so a verification runs on libuv's thread pool.
+ *
+ * `scryptSync` held the event loop for the whole ~100-200ms of every guess, so
+ * twenty wrong passwords sent at once froze every other request on the process
+ * — the learner's own included — for over four seconds. Hashing a new password
+ * stays synchronous: it happens once, behind the setup screen or a session.
+ */
+function deriveKey(password: string, salt: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scrypt(password, salt, SCRYPT_KEYLEN, SCRYPT_PARAMS, (error, derived) =>
+      error ? reject(error) : resolve(derived),
+    );
+  });
+}
+
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const parts = stored.split('$');
   if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
   const [, salt, expected] = parts as [string, string, string];
   let derived: Buffer;
   try {
-    derived = scryptSync(password, salt, SCRYPT_KEYLEN, SCRYPT_PARAMS);
+    derived = await deriveKey(password, salt);
   } catch {
     return false;
   }
