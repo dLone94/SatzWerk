@@ -84,6 +84,19 @@ export async function openPostgres(url: string): Promise<Db> {
   return chooseTransport(url) === 'http' ? openNeon(url) : openStandard(url);
 }
 
+/**
+ * A pooled connection the database closed while nobody was using it.
+ *
+ * A restart, a failover, Neon's maintenance or an administrator can end an
+ * idle connection, and the pool reports it as an 'error' event. With no
+ * listener Node treats that event as uncaught and the whole process exits.
+ * The pool has already thrown the dead client away by the time it says so,
+ * and the next query opens a new one, so there is nothing to do but note it.
+ */
+function idleConnectionLost(error: Error): void {
+  console.error('[satzwerk] idle database connection lost:', error.message);
+}
+
 /* ------------------------------------------------------------------ *
  * Neon, over HTTP
  * ------------------------------------------------------------------ */
@@ -101,6 +114,7 @@ async function openNeon(url: string): Promise<Db> {
   const pooled = async (): Promise<Lease> => {
     if (!pool) {
       const created = new Pool({ connectionString: url });
+      created.on('error', idleConnectionLost);
       pool = {
         checkout: async () => {
           const client = (await created.connect()) as unknown as Session & { release: () => void };
@@ -157,6 +171,7 @@ async function openStandard(url: string): Promise<Db> {
     max: 1,
     idleTimeoutMillis: 10_000,
   });
+  pool.on('error', idleConnectionLost);
   return build({
     // A single statement is what `pool.query` is for: it checks a connection
     // out, runs the statement and gives it straight back.
@@ -174,7 +189,17 @@ async function openStandard(url: string): Promise<Db> {
      */
     lease: async () => {
       const client = await pool.connect();
-      return { session: client as unknown as Session, release: () => client.release() };
+      // The pool stops listening to a client while it is checked out, so a
+      // connection dropped between two statements of a transaction would be
+      // an uncaught 'error' too. The statement in flight still fails with it.
+      client.on('error', idleConnectionLost);
+      return {
+        session: client as unknown as Session,
+        release: () => {
+          client.off('error', idleConnectionLost);
+          client.release();
+        },
+      };
     },
     close: () => pool.end(),
   });

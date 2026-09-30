@@ -395,3 +395,33 @@ describeParity('upgrading a Postgres database that already has progress in it', 
     expect((await store.getLessonProgress(scopeOf(db), 'pre-a1-u1-l1')).mastery.passed).toBe(true);
   }, 30_000);
 });
+
+/**
+ * A connection Postgres drops while it sits idle in the pool.
+ *
+ * A restart, a failover, Neon's maintenance or an administrator can close a
+ * pooled connection nobody is using. `pg` reports that as an 'error' event on
+ * the pool, and with nothing listening Node treats it as uncaught and exits:
+ * `npm start` went down until somebody restarted it, and a warm Vercel
+ * instance died under the next request.
+ */
+describeParity('a pooled connection that Postgres closes', () => {
+  it('is dropped quietly, and the next query opens a fresh one', async () => {
+    const db = await openDatabase({ databaseUrl: POSTGRES_URL! });
+    const admin = await openDatabase({ databaseUrl: POSTGRES_URL! });
+    const uncaught: unknown[] = [];
+    const listener = (error: unknown) => uncaught.push(error);
+    process.on('uncaughtException', listener);
+    try {
+      const own = await db.get<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+      await admin.get('SELECT pg_terminate_backend(?)', own!.pid);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(uncaught).toEqual([]);
+      expect(await db.get<{ one: number }>('SELECT 1 AS one')).toEqual({ one: 1 });
+    } finally {
+      process.off('uncaughtException', listener);
+      await admin.close();
+      await db.close();
+    }
+  }, 30_000);
+});
