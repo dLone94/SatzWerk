@@ -1,6 +1,6 @@
 import { bi } from '../authoring.ts';
 import type { ScenarioScript } from '../types.ts';
-import { registerTrap, script, them, you } from './authoring.ts';
+import { script, them, you } from './authoring.ts';
 
 /**
  * At the doctor, and at the pharmacy.
