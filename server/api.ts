@@ -24,6 +24,7 @@ import {
   pushConfig,
   saveSubscription,
   sendDueReminder,
+  subscriptionProblem,
 } from './push.ts';
 
 /**
@@ -703,6 +704,9 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       const p256dh = String(keys.p256dh ?? '');
       const auth256 = String(keys.auth ?? '');
       if (!endpoint || !p256dh || !auth256) return badRequest('endpoint and keys are required');
+      // Only a real push service, or the evening job would send wherever it was told.
+      const problem = subscriptionProblem({ endpoint, p256dh, auth: auth256 });
+      if (problem) return badRequest(problem);
       await saveSubscription(scope, { endpoint, p256dh, auth: auth256 });
       return ok({ subscribed: true });
     }
