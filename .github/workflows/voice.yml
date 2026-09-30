@@ -38,7 +38,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
+      # The branch as it is now, not as it was at the push that queued this
+      # run. A run that waited behind another started from the older commit,
+      # recorded the same phrases again and could not rebase its clips onto
+      # the ones already committed.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
 
       - uses: actions/setup-node@v4
         with:
