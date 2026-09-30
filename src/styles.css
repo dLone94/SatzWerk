@@ -2645,13 +2645,6 @@ textarea.answer-field {
   width: 5.5rem;
 }
 
-/* 16px at least: iPhone Safari zooms into a smaller field when it is tapped,
-   and stays zoomed. The labels around them keep their small caption size. */
-.filters__select select,
-.onboarding__custom input {
-  font-size: max(1rem, 16px);
-}
-
 /* ---------------- Misc ---------------- */
 
 .empty {
@@ -5970,6 +5963,14 @@ a:hover {
   background: var(--paper);
   color: var(--ink);
   font: inherit;
+}
+
+/* 16px at least: iPhone Safari zooms into a smaller field when it is tapped,
+   and stays zoomed. The labels around them keep their small caption size.
+   After the rule above, and as specific, so its `font: inherit` loses. */
+.filters__select select,
+.onboarding__custom input[type='number'] {
+  font-size: max(1rem, 16px);
 }
 
 .main input:focus,
