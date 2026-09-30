@@ -8,6 +8,7 @@ import {
   lessonExercises,
 } from '../../src/content/index.ts';
 import type { ExerciseStep } from '../../src/content/types.ts';
+import { VOCABULARY } from '../../src/content/vocabulary.ts';
 import { checkFreeWriting, validateAnswer } from '../../src/core/validation/validate.ts';
 
 /**
@@ -507,6 +508,19 @@ describe('register traps say what is actually wrong', () => {
       }
     }
     expect(counter).toEqual([]);
+  });
+});
+
+describe('a word is displayed as German only', () => {
+  /*
+   * "finden (= to think)" was the display of a B1 opinion word, and display
+   * is what the word page plays, what the recorded voice read out (English
+   * gloss and all), and what the pronunciation check compares with, so a
+   * correctly spoken "finden" was judged a missing word.
+   */
+  it('keeps glosses out of every display', () => {
+    const glossed = VOCABULARY.filter((entry) => /[(=]/.test(entry.display)).map((entry) => `${entry.id}: ${entry.display}`);
+    expect(glossed).toEqual([]);
   });
 });
 
