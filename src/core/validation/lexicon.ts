@@ -295,8 +295,18 @@ export function extendLexicon(base: GermanLexicon, entries: LexiconSeed[]): Germ
       participles.add(lower(entry.participle));
     }
 
-    if (entry.wordType === 'verb') inflect(`verb:${head}`, presentForms(head));
-    if (entry.wordType === 'adjective') inflect(`adjective:${head}`, adjectiveForms(head));
+    // A generated form that is already a function word is not this word:
+    // the regular forms of "sein" include "seit", which is a preposition.
+    const own = (forms: string[]) =>
+      forms.filter(
+        (form) =>
+          !base.articles.has(form) &&
+          !base.pronouns.has(form) &&
+          !base.prepositions.has(form) &&
+          !base.conjunctions.has(form),
+      );
+    if (entry.wordType === 'verb') inflect(`verb:${head}`, own(presentForms(head)));
+    if (entry.wordType === 'adjective') inflect(`adjective:${head}`, own(adjectiveForms(head)));
 
     if (entry.wordType === 'noun') {
       nouns.add(head);

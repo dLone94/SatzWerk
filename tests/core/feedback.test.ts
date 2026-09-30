@@ -170,6 +170,22 @@ describe('the article explanation', () => {
     expect(en.join(' ')).toContain('"Meine Eltern"');
     expect(bg.join(' ')).toContain('множествено число');
   });
+
+  // With no gender line before it, the article line opened with a "So"
+  // ("Затова") that followed from nothing.
+  it('starts with "So" only after the gender line', () => {
+    for (const [given, answer] of [
+      ['Ich habe kein Bruder.', 'Ich habe keinen Bruder.'],
+      ['Ich kenne deinem Vater.', 'Ich kenne deinen Vater.'],
+    ]) {
+      const { en, bg } = explain(given!, spec(answer!));
+      expect(en.join(' '), given).not.toMatch(/(^| )So here/);
+      expect(bg.join(' '), given).not.toContain('Затова');
+      expect(en.join(' '), given).toContain('Here German uses');
+    }
+    const { en } = explain('Das Tisch ist groß.', spec('Der Tisch ist groß.'));
+    expect(en.join(' ')).toContain('So here German uses');
+  });
 });
 
 /*

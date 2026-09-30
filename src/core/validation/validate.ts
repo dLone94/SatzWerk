@@ -539,6 +539,9 @@ const FRONTING_ADVERBS = new Set([
   'deswegen', 'außerdem', 'damals', 'früher', 'zusammen', 'gern', 'lieber', 'sofort', 'gleich',
 ]);
 
+/** Nouns that name a part of the day, and belong to the time word before them. */
+const PARTS_OF_DAY = new Set(['morgen', 'vormittag', 'mittag', 'nachmittag', 'abend', 'nacht', 'früh']);
+
 /**
  * Is `moved` a whole phrase of the answer, so that it can stand in front of
  * the verb with the words `before` and `behind` it staying where they were?
@@ -565,8 +568,14 @@ function frontsCleanly(moved: string[], before: string[], behind: string[], lexi
       lower(word) === 'wie');
   if (leftOpen(before[before.length - 1])) return false;
   // Nor may the next word still belong to it ("Um acht | Uhr"), or a
-  // genitive hang on either side ("das Hauptthema | der Woche").
-  if (behind[0] !== undefined && isNounWord(behind[0]) && !lexicon.prepositions.has(lower(behind[0]))) return false;
+  // genitive hang on either side ("das Hauptthema | der Woche"). After a
+  // listed adverb only a part of the day does ("heute | Abend"); any other
+  // noun is an object of its own ("Gestern habe ich Fußball gespielt").
+  const next = behind[0];
+  if (next !== undefined && isNounWord(next) && !lexicon.prepositions.has(lower(next))) {
+    const adverb = moved.length === 1 && FRONTING_ADVERBS.has(head!);
+    if (!adverb || PARTS_OF_DAY.has(lower(next)) || /^\d+$/.test(next)) return false;
+  }
   const genitive = (word: string | undefined) => word !== undefined && GENITIVE_OPENERS.has(lower(word));
   if (genitive(behind[0])) return false;
   const beforeLast = before[before.length - 1];
@@ -729,9 +738,10 @@ function onlyFirstLetterCase(
   const first = lower(eTokens[0] ?? '');
   const single = eTokens.length < 2;
   const raised = e === lower(e);
-  // At the start of a sentence "sie ist Ärztin" cannot say which it means, so
-  // only a lone word, or a capital added to a lowercase one, is held to it.
-  if (CASE_MEANS_PERSON.has(first) && (single || raised)) return false;
+  // At the start of a sentence "sie ist Ärztin" or "___ Bruder heißt Tom."
+  // cannot say which it means, so only a word typed on its own, or a capital
+  // added to a lowercase one, is held to it.
+  if (CASE_MEANS_PERSON.has(first) && ((single && place.standalone) || raised)) return false;
   // Nouns are never written in lower case, so an added capital cannot be one.
   if (raised) return true;
   if (isNoun(lexicon, first)) return false;
@@ -1060,6 +1070,9 @@ const WHOLE_WORD_ONLY = new Set([
   'am', 'im', 'an', 'in', 'zu', 'ich', 'du', 'er', 'sie', 'wir', 'ihr',
 ]);
 
+/** Short separable prefixes, which a required word may name on its whole verb. */
+const SHORT_PREFIXES = new Set(['ab', 'auf', 'aus', 'bei', 'ein', 'vor', 'weg', 'los', 'her', 'hin']);
+
 /**
  * Open writing is never marked simply "wrong". We check only that the learner
  * actually produced German and used the elements the task asked for; judging
@@ -1073,11 +1086,18 @@ export function checkFreeWriting(given: string, spec: AnswerSpec, minWords = 3):
   const fold = (word: string) =>
     toDigraphs(lower(word)).replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u').replace(/ss/g, 's');
   const folded = tokens.map(fold);
-  // A longer required word may carry an ending ("habe" in "haben", "war" in
-  // "waren", "Geburtstag" in "Geburtstags"). A short function word may not:
-  // "wo" is not in "wohne", "um" not in "umziehen", "es" not in "essen".
-  const matches = (tok: string, option: string) =>
-    tok === option || (!WHOLE_WORD_ONLY.has(option) && tok.startsWith(option));
+  // A longer required word may carry anything after it ("habe" in "haben",
+  // "Geburtstag" in "Geburtstagsparty"). A short one may carry only an ending
+  // ("war" in "waren"), since "war" also begins "warte" and "warum" and "bin"
+  // begins "binde"; a separable prefix may still head its verb ("auf" in
+  // "aufstehen"). The listed function words may not: "wo" is not in "wohne",
+  // "um" not in "umziehen", "es" not in "essen".
+  const matches = (tok: string, option: string) => {
+    if (tok === option) return true;
+    if (WHOLE_WORD_ONLY.has(option) || !tok.startsWith(option)) return false;
+    if (option.length >= 4 || SHORT_PREFIXES.has(option)) return true;
+    return /^(e|en|n|s|st|t|es|er|et)$/.test(tok.slice(option.length));
+  };
   // "heiße|Name|bin": any one of them will do, for tasks with more than one
   // right way to say it ("Ich heiße Teo", "Mein Name ist Teo", "Ich bin Teo").
   const missingRequired = (spec.requiredTokens ?? []).filter(

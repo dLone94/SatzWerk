@@ -329,6 +329,18 @@ describe('open writing that asks for particular words', () => {
     expect(checkFreeWriting('Ich komme immer spät.', require('Im')).satisfied).toBe(false);
   });
 
+  // The list above named only some short words, so "war" was still found in
+  // "warte" and "warum", and "bin" in "binde".
+  it('takes a short required word only as itself or with an ending', () => {
+    const require = (token: string) => ({ accepted: [''], shape: 'sentence' as const, requiredTokens: [token] });
+    expect(checkFreeWriting('Ich warte auf den Bus und warum nicht.', require('war')).satisfied).toBe(false);
+    expect(checkFreeWriting('Ich binde meine Schuhe zu.', require('bin')).satisfied).toBe(false);
+    expect(checkFreeWriting('Du warst gestern im Kino.', require('war')).satisfied).toBe(true);
+    expect(checkFreeWriting('Ich bin Teo.', require('bin')).satisfied).toBe(true);
+    // A separable prefix is still found on its verb: "Ich muss früh aufstehen."
+    expect(checkFreeWriting('Ich muss früh aufstehen.', require('auf')).satisfied).toBe(true);
+  });
+
   it('still takes an inflected form of a longer required word', () => {
     const require = (token: string) => ({ accepted: [''], shape: 'sentence' as const, requiredTokens: [token] });
     expect(checkFreeWriting('Wir haben Pizza gegessen.', require('habe')).satisfied).toBe(true);
@@ -433,6 +445,15 @@ describe('the first letter of an answer that opens a sentence', () => {
     note(validateAnswer('mein', word(['Mein']), { ...opts, scaffold: '___ Baby schläft.' }));
     note(validateAnswer('als', word(['Als']), { ...opts, scaffold: '___ ich zehn war, kam ich aufs Gymnasium.' }));
     note(validateAnswer('wer', word(['Wer']), { ...opts, scaffold: 'Hallo! ___ ist das?' }));
+  });
+
+  // A lone Ihr or Sie was held to its capital even in a gap that opens the
+  // sentence, where a capital cannot tell "your" from "her": "ihr" typed on a
+  // phone in "___ Bruder heißt Tom." was almost-right, with a retype.
+  it('lets a lowercase ihr or sie in a gap at the start of the sentence through', () => {
+    note(validateAnswer('ihr', word(['Ihr']), { ...opts, scaffold: '___ Bruder heißt Tom.' }));
+    note(validateAnswer('ihre', word(['Ihre']), { ...opts, scaffold: '___ Schwester heißt Anna.' }));
+    note(validateAnswer('sie', word(['Sie']), { ...opts, scaffold: '___ kommen aus Bulgarien?' }));
   });
 
   it('still wants the capital on a noun, singular or plural', () => {
@@ -637,6 +658,47 @@ describe('the verb in second place after a fronted phrase', () => {
       expect(r.categories, given).toEqual(['word-order']);
       expect(r.credit, given).toBe(0);
     }
+  });
+
+  // Generating the regular forms of "sein" made "seit" a form of it, so the
+  // fronted "Seit zwei Jahren" looked like it held a verb and was refused.
+  it('accepts a phrase with seit moved to the front', () => {
+    const withSein = extendLexicon(taught, [
+      { german: 'sein', wordType: 'verb' },
+      { german: 'Jahr', wordType: 'noun', gender: 'n', plural: 'die Jahre' },
+      { german: 'Berlin', wordType: 'noun' },
+    ]);
+    const r = validateAnswer('Seit zwei Jahren wohne ich in Berlin.', sentence(['Ich wohne seit zwei Jahren in Berlin.']), {
+      lexicon: withSein,
+    });
+    expect(r.verdict).toBe('accepted-variant');
+    const mixed = validateAnswer('Ich wohne sein Montag hier.', sentence(['Ich wohne seit Montag hier.']), {
+      lexicon: withSein,
+    });
+    expect(mixed.categories).not.toContain('verb-conjugation');
+  });
+
+  // A time word moved to the front was refused whenever a noun followed it,
+  // because "Um acht | Uhr" must not be split: "Gestern habe ich Fußball
+  // gespielt." was a word-order mistake.
+  it('accepts a time word moved to the front before a noun object', () => {
+    const more = extendLexicon(taught, [
+      { german: 'Fußball', wordType: 'noun', gender: 'm' },
+      { german: 'Mutter', wordType: 'noun', gender: 'f' },
+      { german: 'Suppe', wordType: 'noun', gender: 'f' },
+      { german: 'kochen', wordType: 'verb' },
+    ]);
+    for (const [given, answer] of [
+      ['Gestern habe ich Fußball gespielt.', 'Ich habe gestern Fußball gespielt.'],
+      ['Heute kocht meine Mutter Suppe.', 'Meine Mutter kocht heute Suppe.'],
+    ]) {
+      const r = validateAnswer(given!, sentence([answer!]), { lexicon: more });
+      expect(r.verdict, given).toBe('accepted-variant');
+    }
+    const split = validateAnswer('Morgen wohne ich in Hamburg.', sentence(['Ich wohne morgen in Hamburg.']), {
+      lexicon: more,
+    });
+    expect(split.verdict).toBe('accepted-variant');
   });
 
   it('keeps the order the lesson asks for when it fronts the time itself', () => {

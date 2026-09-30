@@ -157,7 +157,8 @@ function explainCategory(
       const lines: Bilingual[] = [];
       // A noun used only in the plural (die Eltern) has no gender to learn.
       const pluralOnly = info?.plural !== undefined && lower(info.plural) === lower(info.display);
-      if (result.categories.includes('gender') || category === 'gender') {
+      const namesGender = result.categories.includes('gender') || category === 'gender';
+      if (namesGender) {
         lines.push(
           pluralOnly
             ? bi(`"${noun}" is plural: ${info!.display}.`, `„${noun}“ е в множествено число: ${info!.display}.`)
@@ -167,11 +168,17 @@ function explainCategory(
               ),
         );
       }
+      // "So" follows from the gender line; on its own the line starts plainly.
       lines.push(
-        bi(
-          `So here German uses "${expected} ${noun}", not "${given} ${noun}".`,
-          `Затова тук на немски се използва „${expected} ${noun}“, а не „${given} ${noun}“.`,
-        ),
+        namesGender
+          ? bi(
+              `So here German uses "${expected} ${noun}", not "${given} ${noun}".`,
+              `Затова тук на немски се използва „${expected} ${noun}“, а не „${given} ${noun}“.`,
+            )
+          : bi(
+              `Here German uses "${expected} ${noun}", not "${given} ${noun}".`,
+              `Тук на немски се използва „${expected} ${noun}“, а не „${given} ${noun}“.`,
+            ),
       );
       // Right gender, wrong case: say that the article changes with the case.
       const nominative = pluralOnly ? undefined : nominativeOf(expected, gender);
