@@ -141,6 +141,42 @@ describe('the local server', () => {
     expect(JSON.parse(status.body)).toMatchObject({ needsSetup: true });
   });
 
+  it('does not let a rebound page choose the password', async () => {
+    // The setup screen above is not harmless on its own: POST /api/setup is
+    // open to whoever calls it first, and a rebound page is same-origin as far
+    // as the browser knows, so it can send the app's header too. It used to
+    // set a password there and get a session back, which locked the owner out
+    // on this machine and then let the page sign in and read everything.
+    const { request } = await import('node:http');
+    const body = JSON.stringify({ password: 'chosen-by-a-website' });
+    const setup = await new Promise<number>((resolve, reject) => {
+      const req = request(
+        {
+          host: '127.0.0.1',
+          port,
+          method: 'POST',
+          path: '/api/setup',
+          headers: {
+            host: `rebound.example:${port}`,
+            origin: `http://rebound.example:${port}`,
+            'content-type': 'application/json',
+            'content-length': Buffer.byteLength(body),
+            'x-requested-with': 'SatzWerk',
+          },
+        },
+        (res) => {
+          res.resume();
+          res.on('end', () => resolve(res.statusCode ?? 0));
+        },
+      );
+      req.on('error', reject);
+      req.end(body);
+    });
+    expect(setup).toBe(403);
+    // Still open here, with no password.
+    expect(await (await fetch(local('/api/session'))).json()).toMatchObject({ required: false, signedIn: true });
+  });
+
   it('sends the security headers with the app and with the API', async () => {
     for (const path of ['/', '/api/session']) {
       const response = await fetch(local(path));

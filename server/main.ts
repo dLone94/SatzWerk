@@ -187,6 +187,25 @@ const server = createServer(async (req, res) => {
      * their Host.
      */
     const local = isLoopbackAddress(req.socket.remoteAddress) && isLoopbackHost(header('host'));
+    /*
+     * But the setup screen must not be able to finish from there. Setup takes
+     * the first password anybody sends, and a rebound page counts as same-origin
+     * to the browser, so it can send the app's header too: it would choose the
+     * password, lock the owner out on this machine, and then sign in with it.
+     * With no password yet, the password is chosen here (Settings), and other
+     * devices sign in with it afterwards.
+     */
+    if (
+      !local &&
+      authState(auth) === 'open' &&
+      req.method === 'POST' &&
+      url.pathname.replace(/\/+$/, '') === '/api/setup'
+    ) {
+      sendJson(res, 403, {
+        error: 'Choose a password on the computer that runs SatzWerk first (Settings), then sign in here.',
+      });
+      return;
+    }
     const response = await handleRequest(
       { db, provider, auth: local ? auth : { ...auth, hosted: true } },
       {
@@ -232,7 +251,7 @@ server.listen(PORT, HOST, () => {
     console.log('[satzwerk] hosted with no password yet — serving only the setup screen.');
   } else {
     console.log(
-      '[satzwerk] no password set — open on this machine; any other machine gets the setup screen.',
+      '[satzwerk] no password set — open on this machine only; choose one in Settings before other devices can sign in.',
     );
   }
   if (!provider.available) {
