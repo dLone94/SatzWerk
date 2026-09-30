@@ -238,6 +238,12 @@ export const UI = {
     'Още не е взета. Нищо не е загубено — прегледай раздела отново или опитай пак.',
   ),
   checkpointAgain: s('Try it again', 'Опитай отново'),
+  // A checkpoint's own rule: how many questions, and how many may go wrong.
+  checkpointIntroUnit: s('{n} questions from this unit, without hints.', '{n} въпроса от раздела, без подсказки.'),
+  checkpointIntroLevel: s('{n} questions from the whole level, without hints.', '{n} въпроса от цялото ниво, без подсказки.'),
+  checkpointSlips: s('Up to {n} mistakes are allowed.', 'Позволени са до {n} грешки.'),
+  checkpointSlipsOne: s('{n} mistake is allowed.', 'Позволена е {n} грешка.'),
+  checkpointSlipsNone: s('Every answer has to be right.', 'Всички отговори трябва да са верни.'),
   lessonRequirements: s('To complete this lesson', 'За да завършиш урока'),
   lessonCompleted: s('Lesson completed', 'Урокът е завършен'),
   lessonSections: s('Teaching sections', 'Учебни раздели'),
@@ -262,6 +268,30 @@ export const UI = {
     'Not passed yet. Have another look at the material and try again — nothing is lost.',
     'Още не е издържана. Прегледай материала и опитай пак — нищо не е загубено.',
   ),
+  lessonSavingResult: s('Saving your result…', 'Резултатът се записва…'),
+  // A passed check with exercises still open: what is left, and the way to it.
+  lessonStepsLeft: s(
+    'Final check passed. {n} exercises still need a right answer before the lesson is finished.',
+    'Финалната проверка е издържана. Още {n} упражнения чакат верен отговор, преди урокът да е завършен.',
+  ),
+  lessonStepsLeftOne: s(
+    'Final check passed. {n} exercise still needs a right answer before the lesson is finished.',
+    'Финалната проверка е издържана. Още {n} упражнение чака верен отговор, преди урокът да е завършен.',
+  ),
+  lessonFinishRemaining: s('Finish the {n} remaining exercises', 'Довърши оставащите {n} упражнения'),
+  lessonFinishRemainingOne: s('Finish the {n} remaining exercise', 'Довърши оставащото {n} упражнение'),
+  // A passed check with every exercise done but a teaching section unread.
+  lessonSectionsLeft: s(
+    'Final check passed. {n} teaching sections still need reading before the lesson is finished.',
+    'Финалната проверка е издържана. Остават още {n} непрочетени учебни раздела, за да завършиш урока.',
+  ),
+  lessonSectionsLeftOne: s(
+    'Final check passed. {n} teaching section still needs reading before the lesson is finished.',
+    'Финалната проверка е издържана. Остава още {n} непрочетен учебен раздел, за да завършиш урока.',
+  ),
+  lessonReadRemaining: s('Read {n} more sections', 'Прочети още {n} раздела'),
+  lessonReadRemainingOne: s('Read {n} more section', 'Прочети още {n} раздел'),
+  lessonFinishLesson: s('Finish the lesson', 'Завърши урока'),
   lessonRecovery: s('Quick redo', 'Бързо повторение'),
   lessonRecoveryIntro: s(
     'These were tricky the first time. One more go at just these, then the final check.',
@@ -359,6 +389,8 @@ export const UI = {
     'Напиши поправката, за да продължиш.',
   ),
   exerciseTypeAnswer: s('Type your answer in German', 'Напиши отговора си на немски'),
+  // Read out in place of the gap in a fill-in sentence: "blank Kind ist klein."
+  exerciseBlank: s('blank', 'празно'),
   exerciseEnterToSubmit: s('Enter to check', 'Enter за проверка'),
   // Free writing needs newlines, so Enter cannot submit there.
   exerciseCtrlEnterToSubmit: s('Ctrl+Enter to check', 'Ctrl+Enter за проверка'),
@@ -681,6 +713,9 @@ export const UI = {
   coachCheck: s('Check my German', 'Провери немския ми'),
   coachChecksApplied: s('Checks applied', 'Приложени проверки'),
   coachFindings: s('Findings', 'Бележки'),
+  // Read out after a check; the findings themselves follow on the page.
+  coachFindingsCount: s('{n} findings. They are listed below.', '{n} бележки. Изброени са по-долу.'),
+  coachFindingsCountOne: s('{n} finding. It is listed below.', '{n} бележка. Посочена е по-долу.'),
   coachNoFindings: s(
     'None of the checks found a problem. That is not the same as "this is perfect" — the checks are limited.',
     'Никоя от проверките не откри проблем. Това не значи „това е съвършено“ — проверките са ограничени.',

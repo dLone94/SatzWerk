@@ -199,6 +199,7 @@ export function AudioButton({
   slow = false,
   compact = false,
   disabled = false,
+  concealText = false,
   onPlay,
 }: {
   text: string;
@@ -206,10 +207,16 @@ export function AudioButton({
   compact?: boolean;
   /** Dictation spends a replay budget; a spent button stays visible but dead. */
   disabled?: boolean;
+  /**
+   * Leave the text out of the button's name. For listening tasks, where the
+   * text is the answer and a screen reader would read it out.
+   */
+  concealText?: boolean;
   onPlay?: () => void;
 }) {
   const { tts, t } = useApp();
   if (!tts.available) return null;
+  const action = slow ? t('exercisePlaySlow') : t('exercisePlayAudio');
   return (
     <button
       type="button"
@@ -221,7 +228,7 @@ export function AudioButton({
         tts.speak(text, { rate: slow ? SLOW_RATE : NORMAL_RATE });
         onPlay?.();
       }}
-      aria-label={`${slow ? t('exercisePlaySlow') : t('exercisePlayAudio')}: ${text}`}
+      aria-label={concealText ? action : `${action}: ${text}`}
       title={slow ? t('exercisePlaySlow') : t('exercisePlayAudio')}
     >
       <Icon name={slow ? 'slow' : 'speaker'} size={compact ? 18 : 20} />
