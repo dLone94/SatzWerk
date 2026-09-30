@@ -1,6 +1,6 @@
 import { ERROR_CATEGORIES, type ErrorCategory, type TeachingLanguage } from '../src/content/types.ts';
 import type { RecallGrade } from '../src/core/srs/scheduler.ts';
-import { createProvider, type AiProvider } from './ai.ts';
+import { createProvider, withDailyLimit, type AiProvider } from './ai.ts';
 import {
   authState,
   clearedCookie,
@@ -244,7 +244,8 @@ export function healthReport(env: NodeJS.ProcessEnv = process.env): {
 
 export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promise<ApiResponse> {
   const { db } = ctx;
-  const provider = ctx.provider ?? createProvider();
+  // Every model call counts against a daily allowance. See withDailyLimit.
+  const provider = withDailyLimit(ctx.provider ?? createProvider(), db);
   const { method } = request;
   const path = request.path.replace(/\/+$/, '') || '/';
   const segments = path.split('/').filter(Boolean);

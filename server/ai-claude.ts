@@ -1,4 +1,4 @@
-import type { ErrorCategory, TeachingLanguage } from '../src/content/types.ts';
+import { CEFR_ORDER, ERROR_CATEGORIES, type ErrorCategory, type TeachingLanguage } from '../src/content/types.ts';
 import type {
   AiProvider,
   CoachFinding,
@@ -222,6 +222,29 @@ const EXPLANATION_SCHEMA = {
   },
 } as const;
 
+/*
+ * What a prompt may carry.
+ *
+ * Every field that reaches the model is bounded here, where the prompt is
+ * built, rather than trusted to whoever called. `expected`, `given` and `text`
+ * were trimmed by the API, but `level` and `categories` were not, so a single
+ * request could put a 200,000 character "level" or twenty thousand categories
+ * in front of the model: a thousand times the intended half a cent.
+ */
+const LEVELS: ReadonlySet<string> = new Set(CEFR_ORDER);
+const KNOWN_CATEGORIES: ReadonlySet<string> = new Set(ERROR_CATEGORIES);
+const MAX_CATEGORIES = 6;
+
+function promptLevel(level: string | undefined): string {
+  const candidate = String(level ?? '').trim().toLowerCase();
+  return LEVELS.has(candidate) ? candidate : 'pre-a1';
+}
+
+function promptCategories(categories: readonly unknown[]): string[] {
+  const known = categories.map(String).filter((category) => KNOWN_CATEGORIES.has(category));
+  return [...new Set(known)].slice(0, MAX_CATEGORIES);
+}
+
 export function explainPrompt(input: {
   expected: string;
   given: string;
@@ -229,13 +252,14 @@ export function explainPrompt(input: {
   language: TeachingLanguage;
   level?: string;
 }): ClaudeRequest {
-  const categories = input.categories.length > 0 ? input.categories.join(', ') : 'not classified';
+  const known = promptCategories(Array.isArray(input.categories) ? input.categories : []);
+  const categories = known.length > 0 ? known.join(', ') : 'not classified';
   return {
     system: `${VOICE[input.language]}\n\n${DISCIPLINE}`,
     user: [
-      `Level: ${(input.level ?? 'pre-a1').toUpperCase()}`,
-      `The learner was asked to produce: ${input.expected}`,
-      `They wrote: ${input.given}`,
+      `Level: ${promptLevel(input.level).toUpperCase()}`,
+      `The learner was asked to produce: ${input.expected.slice(0, 500)}`,
+      `They wrote: ${input.given.slice(0, 500)}`,
       // The validator has already classified this. Passing its verdict keeps
       // the explanation about the same error the app just marked, rather than
       // a second opinion that contradicts the mark the learner was given.
@@ -306,10 +330,10 @@ Rules:
 - Each message is one or two sentences and names the rule.
 - Never invent German.`,
     user: [
-      `Level: ${input.level.toUpperCase()}`,
+      `Level: ${promptLevel(input.level).toUpperCase()}`,
       '',
       'The learner wrote:',
-      input.text,
+      input.text.slice(0, 4000),
       '',
       'Deterministic checks have already reported these, so do not repeat them:',
       already,
