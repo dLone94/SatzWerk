@@ -7,7 +7,7 @@ import {
   lessonExercises,
 } from '../../src/content/index.ts';
 import type { ExerciseStep } from '../../src/content/types.ts';
-import { validateAnswer } from '../../src/core/validation/validate.ts';
+import { checkFreeWriting, validateAnswer } from '../../src/core/validation/validate.ts';
 
 /**
  * A2, B1 and B2 content that used to grade correct German as a mistake.
@@ -333,6 +333,69 @@ describe('answers that contradicted their own prompt or the course', () => {
       }),
     ).toEqual([]);
     expect(step('b2u5l2-ex3-s4').answer.accepted[0]).toBe('Ich melde mich nach Feierabend.');
+  });
+});
+
+describe('free writing asks for what the task says', () => {
+  /*
+   * Free writing will not move on until every required word is there, and
+   * the required words went beyond the instructions: "ask whether it can be
+   * repaired" refused "Kann die Heizung repariert werden?" for want of
+   * "kaputt" and "reparieren"; "a Perfekt" had to be "verpasst"; "one -bar
+   * adjective" had to be "machbar" (absehbar, from the same lesson, failed);
+   * "a genitive preposition" had to be "Aufgrund"; "a sein-participle" had to
+   * use "bin". And two model answers, shown to the learner afterwards, did
+   * not do what their own task asked.
+   */
+  const writing = [
+    ...availableLessons().flatMap((lesson) => lessonExercises(lesson)),
+    ...allCheckpoints().flatMap((checkpoint) => checkpoint.exercises),
+  ].filter((exercise) => exercise.kind === 'freeWriting' && ['a2', 'b1', 'b2'].includes(exercise.level));
+
+  it('lets every model answer through its own check', () => {
+    const out: string[] = [];
+    for (const exercise of writing) {
+      for (const entry of exercise.steps) {
+        const result = checkFreeWriting(entry.answer.accepted[0]!, entry.answer);
+        if (!result.satisfied) out.push(`${entry.id}: missing ${result.missingRequired.join(', ')}`);
+      }
+    }
+    expect(writing.length).toBeGreaterThan(5);
+    expect(out).toEqual([]);
+  });
+
+  it('lets through a text that does what the instruction asks in other words', () => {
+    const texts: Record<string, string> = {
+      'a2u2l3-ex5-s1':
+        'Die Heizung funktioniert nicht. Ich rufe an, weil es in der Wohnung kalt ist. Kann die Heizung repariert werden?',
+      'a2u5l3-ex5-s1':
+        'Wir sind nach Hamburg gefahren. Das Auto ist stehen geblieben, weil es sehr alt war. Wir haben lange gewartet. Im Sommer war die Fahrt besser.',
+      'a2u1l3-ex5-s1':
+        'Letztes Wochenende war ich in Köln. Wir haben viel gegessen. Wir sind ins Kino gegangen. Es war schön.',
+      'a2-lcp-8-s1':
+        'Letztes Wochenende sind wir nach Wien gefahren. Wir haben ein Museum besucht. Das Hotel war laut, weil die Straße voll war. Im Mai war es besser. Es hat trotzdem Spaß gemacht.',
+      'b2u1l3-ex4-s1':
+        'Die Tests sind abgeschlossen worden. Die Durchführung der Schulung dauert länger als geplant.',
+      'b2u3l3-ex4-s1':
+        'Die Reform wurde beschlossen. Sie hat Auswirkungen auf viele Familien. Die Folgen sind noch nicht absehbar.',
+      'b2u4l3-ex3-s1':
+        'Ich schreibe Ihnen wegen der beschädigten Lieferung. Trotz zweier Anrufe hat sich nichts geändert. Ich bitte um Ersatz bis zum 15. Mai. Andernfalls trete ich vom Kauf zurück.',
+    };
+    const out: string[] = [];
+    for (const [id, text] of Object.entries(texts)) {
+      const result = checkFreeWriting(text, step(id).answer);
+      if (!result.satisfied) out.push(`${id}: missing ${result.missingRequired.join(', ')}`);
+    }
+    expect(out).toEqual([]);
+  });
+
+  it('shows model answers that do what their task asks', () => {
+    // "Use at least one relative clause."
+    expect(step('b1u1l3-ex4-s1').answer.accepted[0]).toMatch(/, (der|die|das) /);
+    // A damaged delivery and two phone calls, not a letter nobody sent.
+    const complaint = step('b2u4l3-ex3-s1').answer.accepted[0]!;
+    expect(complaint).not.toContain('Ihr Schreiben');
+    expect(complaint).toMatch(/Anruf/);
   });
 });
 

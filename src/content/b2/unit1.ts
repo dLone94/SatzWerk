@@ -1105,7 +1105,12 @@ const lesson3: Lesson = {
           ),
           answer:
             'Der Bericht wurde rechtzeitig eingereicht. Die Umsetzung der Anforderungen dauert länger als geplant.',
-          requiredTokens: ['wurde', 'Umsetzung'],
+          // A passive in any tense, and one of the -ung nouns this unit uses;
+          // the checker matches word beginnings, so it cannot test the suffix.
+          requiredTokens: [
+            'wurde|wurden|worden|wird|werden',
+            'Umsetzung|Durchführung|Einführung|Planung|Prüfung|Erledigung|Fertigstellung|Bearbeitung|Entwicklung|Lieferung|Überarbeitung|Abstimmung|Auswertung|Vorbereitung|Schulung|Umstellung|Verbesserung|Änderung|Erweiterung',
+          ],
           shape: 'sentence',
           hints: [],
         },

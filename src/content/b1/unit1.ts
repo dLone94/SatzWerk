@@ -1152,7 +1152,7 @@ const lesson3: Lesson = {
             'Write two or three sentences to the property management: there has been mould in the bathroom for three weeks, and you would like it repaired. Use at least one relative clause.',
             'Напиши две-три изречения до домоуправлението: от три седмици в банята има мухъл и искаш да бъде отстранен. Използвай поне едно относително изречение.',
           ),
-          answer: 'Im Bad ist seit drei Wochen Schimmel an der Wand. Ich bitte Sie, das bald zu reparieren.',
+          answer: 'Im Bad ist seit drei Wochen Schimmel an der Wand, der immer größer wird. Ich bitte Sie, das bald zu reparieren.',
           requiredTokens: ['Schimmel'],
           shape: 'sentence',
           hints: [

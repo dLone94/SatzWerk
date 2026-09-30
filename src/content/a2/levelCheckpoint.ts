@@ -255,7 +255,14 @@ export const A2_LEVEL_CHECKPOINT: Checkpoint = {
         answer:
           'Letztes Wochenende bin ich nach München gefahren. Ich habe Freunde besucht. Ich habe den Zug verpasst, weil der Bus Verspätung hatte. Der nächste Zug war langsamer. Die Reise war schlechter als letztes Jahr.',
         shape: 'sentence',
-        requiredTokens: ['bin', 'habe', 'weil', 'als'],
+        // Any form of both helpers, weil, and any comparative, as the
+        // instruction says.
+        requiredTokens: [
+          'bin|bist|ist|sind|seid',
+          'habe|hast|hat|haben|habt',
+          'weil',
+          'als|besser|mehr|weniger|lieber|schneller|langsamer|schlechter|teurer|billiger|größer|kleiner|länger|kürzer|später|früher|schöner|leichter|einfacher|schwieriger|voller|lauter|ruhiger|wärmer|kälter|anstrengender',
+        ],
         hints: [],
       },
     ]),

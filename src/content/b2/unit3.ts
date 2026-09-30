@@ -955,7 +955,11 @@ const lesson3: Lesson = {
           ),
           answer:
             'Die Reform wurde im Dezember beschlossen. Sie hat Auswirkungen auf alle Mieter. Ob der Zeitplan machbar ist, ist noch offen.',
-          requiredTokens: ['Auswirkungen', 'machbar'],
+          // "one -bar adjective", not only machbar.
+          requiredTokens: [
+            'Auswirkungen',
+            'machbar|absehbar|umsetzbar|bezahlbar|finanzierbar|vorhersehbar|durchführbar|realisierbar|erreichbar|vertretbar|lösbar|denkbar|brauchbar',
+          ],
           shape: 'sentence',
           hints: [],
         },

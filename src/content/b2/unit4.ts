@@ -867,10 +867,13 @@ const lesson3: Lesson = {
             'Доставка е пристигнала повредена, а две обаждания не са променили нищо. Напиши четири реда: защо пишеш, какъв е дефектът, каква мярка искаш и до кога, и каква е последицата. Използвай bitte um и предлог с родителен падеж.',
           ),
           answer:
-            'Bezug nehmend auf Ihr Schreiben vom 3. Mai teile ich Ihnen mit, dass die Lieferung beschädigt angekommen ist. Aufgrund der Verzögerung bitte ich um eine Rückerstattung des Kaufpreises bis zum 15. März. Sollte ich bis dahin nichts hören, behalte ich mir weitere Schritte vor.',
+            'Ich schreibe Ihnen wegen meiner Bestellung vom 3. Mai: Die Lieferung ist beschädigt angekommen. Trotz zweier Anrufe hat sich bisher nichts geändert. Ich bitte um eine Rückerstattung des Kaufpreises bis zum 31. Mai. Sollte ich bis dahin nichts hören, behalte ich mir weitere Schritte vor.',
           // Single words only: the checker matches token by token, so a
           // two-word requirement could never be satisfied.
-          requiredTokens: ['bitte', 'Aufgrund'],
+          requiredTokens: [
+            'bitte',
+            'aufgrund|trotz|wegen|während|innerhalb|außerhalb|hinsichtlich|bezüglich|infolge|anlässlich|statt|anstatt|mangels',
+          ],
           shape: 'sentence',
           hints: [],
         },

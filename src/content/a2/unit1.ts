@@ -780,7 +780,9 @@ const lesson3: Lesson = {
           answer:
             'Letztes Wochenende war ich zu Hause. Ich habe viel gelesen. Am Sonntag bin ich zum Park gegangen. Es war super.',
           shape: 'sentence',
-          requiredTokens: ['war', 'habe', 'bin'],
+          // Any form of the two helpers: "we went" is as much a sein-participle
+          // as "I went".
+          requiredTokens: ['war', 'habe|hast|hat|haben|habt', 'bin|bist|ist|sind|seid'],
           hints: [],
         },
       ]),
