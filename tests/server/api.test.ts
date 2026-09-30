@@ -258,6 +258,38 @@ describe('review queue', () => {
   });
 
   /*
+   * The once-a-day rule kept "Practise early" from doing anything on its second
+   * round: it offers the soonest items that are not yet due, and an item already
+   * answered that day was left exactly where it was, so the same ten came back
+   * every time. A review round is the learner asking to be tested; the
+   * scheduler's early-review rule already keeps it from growing the interval.
+   */
+  it('moves an item practised early back in the queue, even twice in one day', async () => {
+    const right = {
+      ...(wrongAttempt as unknown as store.AttemptInput),
+      given: 'eine',
+      verdict: 'correct' as const,
+      credit: 1,
+      categories: [],
+      resolved: true,
+      tzOffsetMinutes: 0,
+    };
+    await store.recordAttempt(scopeOf(db), right, new Date('2026-03-02T08:00:00Z'));
+    const morning = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
+
+    const early = { ...right, context: 'review' as const, lessonId: undefined, stepId: 'review-1' };
+    await store.recordAttempt(scopeOf(db), early, new Date('2026-03-02T12:00:00Z'));
+    const noon = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
+    expect(new Date(noon.dueAt).getTime()).toBeGreaterThan(new Date(morning.dueAt).getTime());
+    expect(noon.intervalDays).toBe(morning.intervalDays);
+
+    await store.recordAttempt(scopeOf(db), early, new Date('2026-03-02T18:00:00Z'));
+    const evening = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
+    expect(new Date(evening.dueAt).getTime()).toBeGreaterThan(new Date(noon.dueAt).getTime());
+    expect(evening.intervalDays).toBe(morning.intervalDays);
+  });
+
+  /*
    * A grade given offline waits in the outbox and used to be scheduled from
    * the moment it arrived: graded Monday, delivered Wednesday, due two days
    * later than it should be, and different from what the phone had shown.
