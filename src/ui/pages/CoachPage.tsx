@@ -19,13 +19,25 @@ export function CoachPage() {
   const [result, setResult] = useState<WritingEvaluation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /*
+   * What a screen reader hears after a check. The results used to appear
+   * with no live region at all, so pressing the button seemed to do nothing.
+   * This region is there from the start and only its text changes; it is
+   * emptied first, so the same outcome twice is still news.
+   */
+  const [announcement, setAnnouncement] = useState('');
 
   const check = async () => {
     if (text.trim().length === 0) return;
     setBusy(true);
     setError(null);
+    setAnnouncement('');
     try {
-      setResult(await api.reviewWriting(text, lang, 'pre-a1'));
+      const evaluation = await api.reviewWriting(text, lang, 'pre-a1');
+      setResult(evaluation);
+      const summary =
+        evaluation.findings.length === 0 ? t('coachNoFindings') : t('coachFindingsCount', { n: evaluation.findings.length });
+      window.setTimeout(() => setAnnouncement(summary), 50);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -59,7 +71,14 @@ export function CoachPage() {
             {t('coachCheck')}
           </button>
         </div>
-        {error ? <p className="task__warn">{error}</p> : null}
+        {error ? (
+          <p className="task__warn" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <p className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+          {announcement}
+        </p>
       </Card>
 
       {result ? (

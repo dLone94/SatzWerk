@@ -11,6 +11,7 @@ import {
   applyMastery,
   applyRecoveryRound,
   emptyLessonProgress,
+  markSectionSeen,
   recordStepOutcome,
   type LessonProgress,
   type StepOutcome,
@@ -122,6 +123,7 @@ function Harness({
       return next;
     },
     recordRecovery: async (id) => put(applyRecoveryRound(of(id), NOW)),
+    markSectionSeen: async (id, sectionId) => put(markSectionSeen(of(id), sectionId)),
     completeLesson: async (id) => {
       calls.completed.push(id);
       put(applyCompletion(of(id), NOW));
@@ -320,6 +322,66 @@ describe('a step that does not ask for a retype', () => {
 
     await play(user, L2.exercises, { right: () => true, done: () => Boolean(document.querySelector('.done-hero')) });
     expect(document.querySelector('.done-hero')).not.toBeNull();
+    expect(calls.mastery).toHaveLength(1);
+    expect(calls.completed).toEqual([L2.id]);
+  });
+});
+
+describe('replaying a finished lesson', () => {
+  /*
+   * Once a check had been passed, every later practice run took the "finish
+   * what is open" way out. Replaying a lesson that was already complete then
+   * skipped the final check and threw confetti over the practice score.
+   */
+  it('still ends with the final check', async () => {
+    const user = userEvent.setup();
+    const calls = newCalls();
+    const complete = applyCompletion(
+      { ...allButCheck(L1), mastery: { attempts: 1, bestAccuracy: 1, passed: true } },
+      NOW,
+    );
+    render(<Harness lessonId={L1.id} initial={complete} calls={calls} />);
+    await user.click(screen.getByRole('button', { name: tr('lessonReplay', 'en') }));
+    await play(user, L1.exercises, {
+      right: () => true,
+      done: () => phase() === tr('lessonMastery', 'en') || Boolean(document.querySelector('.done-hero')),
+    });
+    expect(document.querySelector('.done-hero')).toBeNull();
+    expect(phase()).toBe(tr('lessonMastery', 'en'));
+    expect(calls.completed).toEqual([]);
+  });
+});
+
+describe('a passed check with a teaching section unread', () => {
+  /*
+   * Every exercise answered and the check passed, but one section never
+   * opened: the lesson was not finished, and the screen said nothing about
+   * why and offered only the way to Today.
+   */
+  it('says so, and leads to the section and on to the finish', async () => {
+    const user = userEvent.setup();
+    const calls = newCalls();
+    const unread = L2.sections[2]!;
+    const initial = {
+      ...allButCheck(L2),
+      sectionsSeen: L2.sections.filter((section) => section.id !== unread.id).map((section) => section.id),
+    };
+    render(<Harness lessonId={L2.id} initial={initial} calls={calls} />);
+    await user.click(screen.getByRole('button', { name: tr('lessonMastery', 'en') }));
+    await play(user, L2.mastery.exercises, { right: () => true, done: () => calls.mastery.length > 0 });
+
+    await screen.findByText(tr('lessonSectionsLeft', 'en', { n: 1 }));
+    expect(document.querySelector('.done-hero')).toBeNull();
+    await user.click(screen.getByRole('button', { name: tr('lessonReadRemaining', 'en', { n: 1 }) }));
+    expect(screen.getByText(unread.title.en)).toBeInTheDocument();
+
+    for (let i = 0; i < 10; i++) {
+      const next = screen.queryByRole('button', { name: tr('lessonNextSection', 'en') });
+      if (!next) break;
+      await user.click(next);
+    }
+    await user.click(screen.getByRole('button', { name: tr('lessonFinishLesson', 'en') }));
+    await waitFor(() => expect(document.querySelector('.done-hero')).not.toBeNull());
     expect(calls.mastery).toHaveLength(1);
     expect(calls.completed).toEqual([L2.id]);
   });

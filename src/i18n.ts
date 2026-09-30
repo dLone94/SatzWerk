@@ -280,6 +280,18 @@ export const UI = {
   ),
   lessonFinishRemaining: s('Finish the {n} remaining exercises', 'Довърши оставащите {n} упражнения'),
   lessonFinishRemainingOne: s('Finish the {n} remaining exercise', 'Довърши оставащото {n} упражнение'),
+  // A passed check with every exercise done but a teaching section unread.
+  lessonSectionsLeft: s(
+    'Final check passed. {n} teaching sections still need reading before the lesson is finished.',
+    'Финалната проверка е издържана. Остават още {n} непрочетени учебни раздела, за да завършиш урока.',
+  ),
+  lessonSectionsLeftOne: s(
+    'Final check passed. {n} teaching section still needs reading before the lesson is finished.',
+    'Финалната проверка е издържана. Остава още {n} непрочетен учебен раздел, за да завършиш урока.',
+  ),
+  lessonReadRemaining: s('Read {n} more sections', 'Прочети още {n} раздела'),
+  lessonReadRemainingOne: s('Read {n} more section', 'Прочети още {n} раздел'),
+  lessonFinishLesson: s('Finish the lesson', 'Завърши урока'),
   lessonRecovery: s('Quick redo', 'Бързо повторение'),
   lessonRecoveryIntro: s(
     'These were tricky the first time. One more go at just these, then the final check.',
@@ -701,6 +713,9 @@ export const UI = {
   coachCheck: s('Check my German', 'Провери немския ми'),
   coachChecksApplied: s('Checks applied', 'Приложени проверки'),
   coachFindings: s('Findings', 'Бележки'),
+  // Read out after a check; the findings themselves follow on the page.
+  coachFindingsCount: s('{n} findings. They are listed below.', '{n} бележки. Изброени са по-долу.'),
+  coachFindingsCountOne: s('{n} finding. It is listed below.', '{n} бележка. Посочена е по-долу.'),
   coachNoFindings: s(
     'None of the checks found a problem. That is not the same as "this is perfect" — the checks are limited.',
     'Никоя от проверките не откри проблем. Това не значи „това е съвършено“ — проверките са ограничени.',

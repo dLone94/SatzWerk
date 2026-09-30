@@ -67,6 +67,14 @@ function LessonView() {
   const [recoverySteps, setRecoverySteps] = useState<string[]>([]);
   /** A result is being saved; a second one must not be sent meanwhile. */
   const saving = useRef(false);
+  /**
+   * This practice run is to finish what a passed check left open. Decided
+   * when the run starts: replaying a lesson that was already complete still
+   * ends with the check.
+   */
+  const finishingOpen = useRef(false);
+  /** The sections are being read to finish a lesson whose check is passed. */
+  const [readingToFinish, setReadingToFinish] = useState(false);
 
   const sections = useMemo<TeachingSection[]>(
     () => (lesson ? lesson.sections.filter((section) => !section.only || section.only.includes(lang)) : []),
@@ -89,11 +97,11 @@ function LessonView() {
       if (!lesson) return;
       const latest = lessonProgress(lesson.id);
       /*
-       * The check is already passed: this run was to finish what was left
+       * The check is already passed and this run was to finish what was left
        * open. Finishing it finishes the lesson; sitting the same check again
        * would prove nothing new.
        */
-      if (latest.mastery.passed) {
+      if (finishingOpen.current && latest.mastery.passed) {
         const done = isLessonComplete(lesson, latest);
         setMasteryPassed(true);
         setFinished(done);
@@ -148,6 +156,24 @@ function LessonView() {
     [lesson, recordMastery, completeLesson],
   );
 
+  /** The last unread section is read, and the check was passed before. */
+  const onReadingFinish = useCallback(async () => {
+    if (!lesson || saving.current) return;
+    const done = isLessonComplete(lesson, lessonProgress(lesson.id));
+    setReadingToFinish(false);
+    setFinished(done);
+    if (done) {
+      saving.current = true;
+      setStage('saving');
+      try {
+        await completeLesson(lesson.id);
+      } finally {
+        saving.current = false;
+      }
+    }
+    setStage('done');
+  }, [lesson, lessonProgress, completeLesson]);
+
   if (!lesson) {
     return (
       <div className="page">
@@ -176,6 +202,8 @@ function LessonView() {
     const all = allStepIds(lesson);
     const open = all.filter((id) => !progress.practice[id]?.resolved);
     setResumeSteps(open.length > 0 && open.length < all.length ? open : undefined);
+    finishingOpen.current = progress.mastery.passed && !complete;
+    setReadingToFinish(false);
     setStage('practice');
   };
   const allSectionsSeen = lesson.sections.every((item) => progress.sectionsSeen.includes(item.id));
@@ -310,6 +338,10 @@ function LessonView() {
             >
               {t('lessonNextSection')}
             </button>
+          ) : readingToFinish ? (
+            <button type="button" className="btn btn--primary" onClick={() => void onReadingFinish()} autoFocus>
+              {t('lessonFinishLesson')}
+            </button>
           ) : (
             <button type="button" className="btn btn--primary" onClick={startPractice} autoFocus>
               {exercisesLabel}
@@ -382,6 +414,11 @@ function LessonView() {
     // left unfinished. Say how many, and lead straight to them.
     const openSteps = allStepIds(lesson).filter((id) => !progress.practice[id]?.resolved).length;
     const finishOpen = Boolean(masteryPassed) && !complete && openSteps > 0;
+    // Or, with every exercise done, a teaching section never opened: the
+    // screen used to say nothing and offer only the way to Today.
+    const unreadSections = lesson.sections.filter((item) => !progress.sectionsSeen.includes(item.id)).length;
+    const firstUnread = sections.findIndex((item) => !progress.sectionsSeen.includes(item.id));
+    const finishReading = Boolean(masteryPassed) && !complete && !finishOpen && unreadSections > 0 && firstUnread >= 0;
     return (
       <div className="page">
         <Card title={t('lessonMastery')} tone="accent">
@@ -401,6 +438,8 @@ function LessonView() {
               <p className="done-note">{t('lessonCompleted')}</p>
             ) : finishOpen ? (
               <p className="done-note done-note--warn">{t('lessonStepsLeft', { n: openSteps })}</p>
+            ) : finishReading ? (
+              <p className="done-note done-note--warn">{t('lessonSectionsLeft', { n: unreadSections })}</p>
             ) : null
           ) : (
             <p className="done-note done-note--warn">{t('lessonMasteryFailed')}</p>
@@ -415,6 +454,19 @@ function LessonView() {
             {finishOpen ? (
               <button type="button" className="btn btn--primary" onClick={startPractice} autoFocus>
                 {t('lessonFinishRemaining', { n: openSteps })}
+              </button>
+            ) : finishReading ? (
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => {
+                  setSectionIndex(firstUnread);
+                  setReadingToFinish(true);
+                  setStage('sections');
+                }}
+                autoFocus
+              >
+                {t('lessonReadRemaining', { n: unreadSections })}
               </button>
             ) : masteryPassed ? (
               <Link className="btn btn--primary" to="/">
@@ -484,6 +536,7 @@ function LessonView() {
               }
               const unread = lesson.sections.findIndex((item) => !progress.sectionsSeen.includes(item.id));
               setSectionIndex(unread > 0 && !complete ? unread : 0);
+              setReadingToFinish(false);
               setStage('sections');
             }}
             autoFocus
