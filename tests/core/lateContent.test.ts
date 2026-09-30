@@ -399,6 +399,21 @@ describe('free writing asks for what the task says', () => {
   });
 });
 
+describe('the B2 Unit 5 checkpoint says to write the full form', () => {
+  /*
+   * The prompt was only 'You hear: "Haste mal kurz?"', under "Write out what
+   * was said" / "Запиши казаното", so a learner who wrote down what was said
+   * was marked wrong for it. The level checkpoint says "write it out in full"
+   * for the same task.
+   */
+  it('asks for the full form in both languages', () => {
+    for (const id of ['cp-b2u5-2-s1', 'cp-b2u5-2-s2', 'cp-b2u5-2-s3']) {
+      expect(step(id).prompt!.en, id).toContain('write it out in full');
+      expect(step(id).prompt!.bg, id).toContain('напиши го изцяло');
+    }
+  });
+});
+
 describe('figures written as digits', () => {
   /*
    * The B2 lesson on reporting figures writes "um 10 %" and "30 %" in its own
