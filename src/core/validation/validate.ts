@@ -1,5 +1,12 @@
 import type { AnswerSpec, Bilingual, ErrorCategory, ExerciseKind } from '../../content/types.ts';
-import { FREE_VARIANTS, isFunctionWord, isNoun, verbLemmas, type GermanLexicon } from './lexicon.ts';
+import {
+  FREE_VARIANTS,
+  isFunctionWord,
+  isNoun,
+  sharedInflection,
+  verbLemmas,
+  type GermanLexicon,
+} from './lexicon.ts';
 import {
   compareUmlauts,
   editDistance,
@@ -741,6 +748,15 @@ export function categorizePair(
 
   // German special letters typed as digraphs inside one word.
   if (compareUmlauts(given, expected) === 'digraph-for-umlaut') return ['umlaut'];
+
+  // Two forms of one taught verb or adjective differ in their ending, which is
+  // grammar however close the letters are: "kennt" for "kenne", "schnelle"
+  // for "schnellen". Not for a noun, whose "ending" may be the word itself.
+  if (!isNoun(lexicon, le) && !isNoun(lexicon, lg)) {
+    const shared = sharedInflection(lexicon, le, lg);
+    if (shared === 'verb') return ['verb-conjugation'];
+    if (shared === 'adjective') return ['adjective-ending'];
+  }
 
   // Anything that is a grammatical choice is never downgraded to a typo.
   if (isFunctionWord(lexicon, expected) || isFunctionWord(lexicon, given)) return ['vocabulary'];

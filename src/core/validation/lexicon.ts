@@ -37,6 +37,13 @@ export interface GermanLexicon {
    * capital-letter checks need to know one when they see it.
    */
   nouns: Set<string>;
+  /**
+   * Lowercased forms of the course's verbs and adjectives, each to the words
+   * it can be a form of: "kennt" and "kenne" both lead to kennen, "schnelle"
+   * and "schnellen" to schnell. Two forms of one word differ in their ending,
+   * which is grammar, never a typo.
+   */
+  inflections: Map<string, string[]>;
   /** Lowercased singular noun to its plural (bare, no article). */
   pluralOf: Map<string, string>;
   /** Lowercased plural noun to its singular. */
@@ -70,6 +77,21 @@ const ARTICLE_GENDER: Array<[string, Gender[]]> = [
   ['ihre', ['f']],
   ['unser', ['m', 'n']],
   ['unsere', ['f']],
+  // The case forms of kein and the possessives. Without them "deinem" for
+  // "deinen" was one letter off a word the validator did not know, and was
+  // forgiven as a spelling slip. -en marks the masculine accusative, -em the
+  // masculine or neuter dative, -er the feminine dative, -es the genitive.
+  ...(['kein', 'mein', 'dein', 'sein', 'ihr', 'unser', 'euer'] as const).flatMap((stem) => {
+    const base = stem === 'euer' ? 'eur' : stem;
+    const forms: Array<[string, Gender[]]> = [
+      [`${base}en`, ['m']],
+      [`${base}em`, ['m', 'n']],
+      [`${base}er`, ['f']],
+      [`${base}es`, ['m', 'n']],
+    ];
+    if (stem === 'euer') forms.push(['euer', ['m', 'n']], ['eure', ['f']]);
+    return forms;
+  }),
 ];
 
 const PRONOUNS = [
@@ -209,6 +231,7 @@ export function createBaseLexicon(): GermanLexicon {
     knownWords,
     nounGender: new Map(),
     nouns: new Set(),
+    inflections: new Map(),
     pluralOf: new Map(),
     singularOf: new Map(),
   };
@@ -236,6 +259,15 @@ export function extendLexicon(base: GermanLexicon, entries: LexiconSeed[]): Germ
   const singularOf = new Map(base.singularOf);
   const knownWords = new Set(base.knownWords);
   const nouns = new Set(base.nouns);
+  const inflections = new Map<string, string[]>();
+  for (const [form, words] of base.inflections) inflections.set(form, [...words]);
+  const inflect = (word: string, forms: string[]) => {
+    for (const form of forms) {
+      const list = inflections.get(form);
+      if (!list) inflections.set(form, [word]);
+      else if (!list.includes(word)) list.push(word);
+    }
+  };
 
   for (const entry of entries) {
     const head = lower(entry.german);
@@ -246,6 +278,9 @@ export function extendLexicon(base: GermanLexicon, entries: LexiconSeed[]): Germ
     // validator calls a perfectly good participle a typo, because nothing in
     // the course had ever named it as a word.
     if (entry.participle) knownWords.add(lower(entry.participle));
+
+    if (entry.wordType === 'verb') inflect(`verb:${head}`, presentForms(head));
+    if (entry.wordType === 'adjective') inflect(`adjective:${head}`, adjectiveForms(head));
 
     if (entry.wordType === 'noun') {
       nouns.add(head);
@@ -261,7 +296,49 @@ export function extendLexicon(base: GermanLexicon, entries: LexiconSeed[]): Germ
     }
   }
 
-  return { ...base, nounGender, nouns, pluralOf, singularOf, knownWords };
+  return { ...base, nounGender, nouns, inflections, pluralOf, singularOf, knownWords };
+}
+
+const SEPARABLE_PREFIXES = [
+  'zurück', 'statt', 'fest', 'fern', 'nach', 'weg', 'los', 'auf', 'aus', 'ein', 'mit', 'vor', 'her', 'hin',
+  'ab', 'an', 'zu',
+];
+
+/**
+ * The regular present-tense forms of a verb, without claiming which person
+ * each one is: a strong verb such as nehmen (nimmt) has forms this does not
+ * produce, and a few it produces are not real, but every one it produces ends
+ * the way a form of this verb could. A separable verb ("anrufen") also gives
+ * the forms of its main part ("rufe … an").
+ */
+function presentForms(infinitive: string): string[] {
+  const verb = infinitive.split(/\s+/).pop() ?? '';
+  const stem = verb.endsWith('en') ? verb.slice(0, -2) : verb.endsWith('n') ? verb.slice(0, -1) : '';
+  if (stem.length < 2) return [];
+  const forms = [verb, `${stem}e`, `${stem}st`, `${stem}t`, `${stem}est`, `${stem}et`];
+  const prefix = SEPARABLE_PREFIXES.find((p) => verb.startsWith(p) && verb.length - p.length >= 4);
+  if (prefix) forms.push(...presentForms(verb.slice(prefix.length)));
+  return forms;
+}
+
+/** An adjective with each of its endings: schnell, schnelle, schnellen … */
+function adjectiveForms(adjective: string): string[] {
+  if (/\s/.test(adjective) || adjective.length < 3) return [];
+  const stems = [adjective.endsWith('e') ? adjective.slice(0, -1) : adjective];
+  // dunkel → dunkle, teuer → teure.
+  if (/e[lr]$/.test(adjective)) stems.push(adjective.replace(/e([lr])$/, '$1'));
+  return [adjective, ...stems.flatMap((stem) => ['e', 'en', 'em', 'er', 'es'].map((ending) => stem + ending))];
+}
+
+/**
+ * The part of speech two different forms share, when both are forms of the
+ * same taught verb or adjective.
+ */
+export function sharedInflection(lexicon: GermanLexicon, a: string, b: string): 'verb' | 'adjective' | undefined {
+  const first = lexicon.inflections.get(lower(a)) ?? [];
+  const second = new Set(lexicon.inflections.get(lower(b)) ?? []);
+  const shared = first.find((word) => second.has(word));
+  return shared ? (shared.split(':')[0] as 'verb' | 'adjective') : undefined;
 }
 
 export function isFunctionWord(lexicon: GermanLexicon, token: string): boolean {

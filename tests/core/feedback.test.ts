@@ -171,3 +171,22 @@ describe('the article explanation', () => {
     expect(bg.join(' ')).toContain('множествено число');
   });
 });
+
+/*
+ * A wrong ending on a verb or an adjective the small lexicon did not list was
+ * a "spelling slip". Now it is grammar, and the line has to say so.
+ */
+describe('the ending explanations', () => {
+  it('explains an adjective ending, quoting both forms', () => {
+    const { result, en, bg } = explain('Ich nehme den schnelle Zug.', spec('Ich nehme den schnellen Zug.'));
+    expect(result.categories).toEqual(['adjective-ending']);
+    expect(en.join(' ')).toContain('"schnellen", not "schnelle"');
+    expect(bg.join(' ')).toContain('schnellen');
+  });
+
+  it('names the verb of an ending the lexicon learnt from the vocabulary', () => {
+    const { result, en } = explain('Ich kennt deinen Vater.', spec('Ich kenne deinen Vater.'));
+    expect(result.categories).toEqual(['verb-conjugation']);
+    expect(en.join(' ')).toContain('"kennen"');
+  });
+});

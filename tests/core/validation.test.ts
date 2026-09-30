@@ -525,6 +525,71 @@ describe('gern and gerne', () => {
   });
 });
 
+/*
+ * The lexicon knew fifteen verbs and only the bare possessives, and nothing
+ * about adjective endings, so a wrong ending on any other word one letter off
+ * was graded a spelling slip with credit: "Ich kennt deinen Vater.", "Ich
+ * kenne deinem Vater.", "Ich nehme den schnelle Zug." — the grammar the
+ * lessons teach, several of them in final checks.
+ */
+describe('a wrong ending is grammar, not a typo', () => {
+  const taught = extendLexicon(lexicon, [
+    { german: 'kennen', wordType: 'verb' },
+    { german: 'besuchen', wordType: 'verb' },
+    { german: 'anrufen', wordType: 'verb' },
+    { german: 'schnell', wordType: 'adjective' },
+    { german: 'müde', wordType: 'adjective' },
+    { german: 'Vater', wordType: 'noun', gender: 'm', plural: 'die Väter' },
+    { german: 'Zug', wordType: 'noun', gender: 'm', plural: 'die Züge' },
+    { german: 'Wasser', wordType: 'noun', gender: 'n' },
+  ]);
+  const with_ = { lexicon: taught };
+
+  it('files a verb ending as a conjugation mistake, with no credit', () => {
+    for (const [given, answer] of [
+      ['Ich kennt deinen Vater.', 'Ich kenne deinen Vater.'],
+      ['Wir besuche den Vater.', 'Wir besuchen den Vater.'],
+      ['Er ruft an.', 'Er rufe an.'],
+    ]) {
+      const r = validateAnswer(given!, sentence([answer!]), with_);
+      expect(r.categories, given).toEqual(['verb-conjugation']);
+      expect(r.credit, given).toBe(0);
+    }
+  });
+
+  it('files an inflected possessive as an article mistake', () => {
+    const r = validateAnswer('Ich kenne deinem Vater.', sentence(['Ich kenne deinen Vater.']), with_);
+    expect(r.categories).toContain('article');
+    expect(r.credit).toBe(0);
+    const kein = validateAnswer('Ich habe keinem Vater.', sentence(['Ich habe keinen Vater.']), with_);
+    expect(kein.categories).toContain('article');
+  });
+
+  it('files an adjective ending as an adjective-ending mistake', () => {
+    for (const [given, answer] of [
+      ['Ich nehme den schnelle Zug.', 'Ich nehme den schnellen Zug.'],
+      ['Ich bin müder.', 'Ich bin müde.'],
+    ]) {
+      const r = validateAnswer(given!, sentence([answer!]), with_);
+      expect(r.categories, given).toEqual(['adjective-ending']);
+      expect(r.credit, given).toBe(0);
+    }
+  });
+
+  it('still lets a real typo through as spelling', () => {
+    for (const [given, answer] of [
+      ['Ich nehme den schnelen Zug.', 'Ich nehme den schnellen Zug.'],
+      ['Ich trinke Wasse.', 'Ich trinke Wasser.'],
+      ['Ich kene deinen Vater.', 'Ich kenne deinen Vater.'],
+      ['Mein Vatter ist hier.', 'Mein Vater ist hier.'],
+    ]) {
+      const r = validateAnswer(given!, sentence([answer!]), with_);
+      expect(r.categories, given).toEqual(['spelling']);
+      expect(r.credit, given).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe('sie at the start of a sentence', () => {
   it('is a missing capital, not a pronoun mistake', () => {
     const r = validateAnswer('sie ist Ärztin.', sentence(['Sie ist Ärztin.']), opts);

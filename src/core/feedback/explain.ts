@@ -196,7 +196,12 @@ function explainCategory(
         ];
       }
       const analysis = ctx.lexicon.verbForms.get(lower(expected))?.[0];
-      const lemma = analysis?.lemma;
+      const lemma =
+        analysis?.lemma ??
+        ctx.lexicon.inflections
+          .get(lower(expected))
+          ?.find((word) => word.startsWith('verb:'))
+          ?.slice('verb:'.length);
       return [
         bi(
           lemma
@@ -208,6 +213,18 @@ function explainCategory(
         ),
       ];
     }
+
+    case 'adjective-ending':
+      return [
+        bi(
+          change
+            ? `The adjective ending is wrong: "${expected}", not "${given}". The ending follows the article, the gender and the case.`
+            : 'Check the adjective ending: it follows the article, the gender and the case.',
+          change
+            ? `Окончанието на прилагателното е грешно: „${expected}“, а не „${given}“. Окончанието зависи от члена, рода и падежа.`
+            : 'Провери окончанието на прилагателното: то зависи от члена, рода и падежа.',
+        ),
+      ];
 
     case 'verb-tense':
       if (!change) return [bi('Right verb, wrong tense.', 'Правилен глагол, но грешно време.')];
