@@ -799,11 +799,24 @@ describe('the day an answer belongs to', () => {
    */
   const BERLIN = 120;
 
+  /*
+   * The stamps are counted back from today rather than written as fixed dates.
+   * The server re-stamps anything older than fourteen days to its own clock, so
+   * the fixed September dates these tests used to send quietly turned into
+   * "today" a fortnight later and the whole suite went red with no code
+   * changed. Midnight UTC five days ago is the Monday of the story below.
+   */
+  const DAY_MS = 86_400_000;
+  const monday = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()) - 5 * DAY_MS;
+  const stamp = (days: number, time: string) =>
+    `${new Date(monday + days * DAY_MS).toISOString().slice(0, 10)}T${time}Z`;
+  const dayOf = (days: number) => new Date(monday + days * DAY_MS).toISOString().slice(0, 10);
+
   it('files it under the learner’s own calendar day', async () => {
     for (const [step, at] of [
-      ['mon', '2026-09-14T19:00:00Z'],
-      ['tue', '2026-09-14T22:30:00Z'],
-      ['wed', '2026-09-16T19:00:00Z'],
+      ['mon', stamp(0, '19:00:00')],
+      ['tue', stamp(0, '22:30:00')],
+      ['wed', stamp(2, '19:00:00')],
     ] as const) {
       const response = await call('POST', '/api/attempts', {
         ...wrongAttempt,
@@ -815,34 +828,42 @@ describe('the day an answer belongs to', () => {
     }
 
     const days = (await store.listStudyDays(scopeOf(db))).map((day) => day.day).sort();
-    expect(days).toEqual(['2026-09-14', '2026-09-15', '2026-09-16']);
+    expect(days).toEqual([dayOf(0), dayOf(1), dayOf(2)]);
     expect(
-      await store.computeStreak(scopeOf(db), new Date('2026-09-16T19:00:00Z'), BERLIN),
+      await store.computeStreak(scopeOf(db), new Date(stamp(2, '19:00:00')), BERLIN),
       'three evenings running is a streak of three',
     ).toBe(3);
   });
 
   it('falls back to UTC when the browser says nothing', async () => {
-    await call('POST', '/api/attempts', { ...wrongAttempt, at: '2026-09-14T22:30:00Z' });
-    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual(['2026-09-14']);
+    await call('POST', '/api/attempts', { ...wrongAttempt, at: stamp(0, '22:30:00') });
+    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual([dayOf(0)]);
   });
 
   it('ignores an offset no part of the world has', async () => {
     await call('POST', '/api/attempts', {
       ...wrongAttempt,
-      at: '2026-09-14T22:30:00Z',
+      at: stamp(0, '22:30:00'),
       tzOffsetMinutes: 60 * 400,
     });
-    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual(['2026-09-14']);
+    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual([dayOf(0)]);
   });
 
   it('counts minutes studied under the same calendar', async () => {
     await handleRequest(ctx(), {
       method: 'POST',
       path: '/api/study',
-      body: { seconds: 300, at: '2026-09-14T22:30:00Z', tzOffsetMinutes: BERLIN },
+      body: { seconds: 300, at: stamp(0, '22:30:00'), tzOffsetMinutes: BERLIN },
     });
-    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual(['2026-09-15']);
+    expect((await store.listStudyDays(scopeOf(db))).map((day) => day.day)).toEqual([dayOf(1)]);
+  });
+
+  it('files a stamp older than a fortnight under today instead', async () => {
+    const before = new Date().toISOString().slice(0, 10);
+    await call('POST', '/api/attempts', { ...wrongAttempt, at: stamp(-20, '12:00:00') });
+    const after = new Date().toISOString().slice(0, 10);
+    const [day] = (await store.listStudyDays(scopeOf(db))).map((row) => row.day);
+    expect([before, after]).toContain(day);
   });
 });
 
