@@ -12,6 +12,7 @@ import {
 } from '../../src/core/progress/lesson.ts';
 import { openDatabase, SCHEMA_VERSION, type Db } from '../../server/db.ts';
 import * as store from '../../server/store.ts';
+import { streakOn } from '../../src/core/progress/days.ts';
 import { ruleBasedWritingReview, unavailableProvider } from '../../server/ai.ts';
 
 /** Every store call belongs to somebody; in these tests it is the first learner. */
@@ -414,6 +415,31 @@ describe('statistics are derived from real activity', () => {
     expect(stats.accuracy).toBe(0);
     expect(stats.retypedCorrections).toBe(1);
     expect(stats.totalAnswers).toBe(2);
+  });
+
+  /*
+   * The dashboard recounts the streak from the study days the state carries,
+   * against the phone's own calendar — and the state carried the 60 most
+   * recent rows. On day 75 of an unbroken streak the flame said 60, and it
+   * stayed at 60 however long the learner kept going.
+   */
+  it('sends enough study days for the dashboard to count a long streak', async () => {
+    const today = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
+    for (let n = 0; n < 75; n += 1) {
+      const day = new Date(today - n * 86_400_000).toISOString().slice(0, 10);
+      await db.run(
+        'INSERT INTO study_days (day, user_id, seconds_active, answers, correct) VALUES (?, 1, 60, 3, 2)',
+        day,
+      );
+    }
+    for (const response of [
+      await call('GET', '/api/state'),
+      await call('POST', '/api/study', { seconds: 30 }),
+    ]) {
+      const { studyDays } = response.body as { studyDays: Array<{ day: string; answers: number }> };
+      const answered = studyDays.filter((day) => day.answers > 0).map((day) => day.day);
+      expect(streakOn(answered, new Date(today).toISOString().slice(0, 10))).toBe(75);
+    }
   });
 
   it('counts a streak only over days with real answers', async () => {

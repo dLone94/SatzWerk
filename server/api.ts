@@ -166,7 +166,7 @@ export async function fullState(scope: store.Scope) {
     store.listMistakes(scope),
     store.listFavorites(scope),
     store.getStats(scope),
-    store.listStudyDays(scope, 60),
+    store.listStudyDaysForStreak(scope, 60),
     store.listCheckpointResults(scope),
     store.listScenarioRuns(scope),
   ]);
@@ -623,7 +623,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       attemptTime(body.at, new Date()),
       plausibleOffset(body.tzOffsetMinutes),
     );
-    return ok({ stats: await store.getStats(scope), studyDays: await store.listStudyDays(scope, 60) });
+    return ok({ stats: await store.getStats(scope), studyDays: await store.listStudyDaysForStreak(scope, 60) });
   }
 
   if (route.length === 1 && route[0] === 'attempts-recent' && method === 'GET') {

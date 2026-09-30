@@ -861,6 +861,30 @@ export async function listStudyDays({ db, userId }: Scope, limit = 120): Promise
   }));
 }
 
+/**
+ * The recent study days, and never fewer than the whole latest streak.
+ *
+ * The dashboard counts the streak itself, from these rows, against the phone's
+ * own calendar (the server's count is on a UTC one, and a snapshot opened
+ * offline a day later must still be recounted). Sending only the 60 most
+ * recent rows capped that count at 60: on day 75 of an unbroken streak the
+ * flame said 60 and stayed there. So the list reaches back to the first day
+ * of the latest run of answered days, however far that is — one short row a
+ * day — and is otherwise the `minimum` most recent.
+ */
+export async function listStudyDaysForStreak(scope: Scope, minimum = 60): Promise<StudyDay[]> {
+  const all = await listStudyDays(scope, Number.MAX_SAFE_INTEGER);
+  const answered = all.filter((row) => row.answers > 0).map((row) => row.day);
+  if (answered.length === 0) return all.slice(0, minimum);
+  // Counting from the latest answered day itself gives the length of the run
+  // that ends there, whichever day it is on the phone.
+  const run = streakOn(answered, answered[0]!);
+  const firstOfRun = new Date(new Date(`${answered[0]}T00:00:00Z`).getTime() - (run - 1) * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  return all.filter((row, index) => index < minimum || row.day >= firstOfRun);
+}
+
 export interface AttemptSummary {
   stepId: string;
   expected: string;

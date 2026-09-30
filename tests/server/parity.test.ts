@@ -159,6 +159,7 @@ async function scenario(db: Db) {
     sections: progress.sectionsSeen,
     mastery: progress.mastery,
     studyDays: await store.listStudyDays(scopeOf(db), 5),
+    studyDaysForStreak: await store.listStudyDaysForStreak(scopeOf(db), 1),
     checkpoints: (await store.listCheckpointResults(scopeOf(db))).map((c) => ({
       checkpointId: c.checkpointId,
       passed: c.passed,
