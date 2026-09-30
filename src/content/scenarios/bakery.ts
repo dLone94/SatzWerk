@@ -507,6 +507,9 @@ const B1 = script({
           alternatives: [
             'Entschuldigung, ich glaube, hier ist ein Fehler passiert.',
             'Entschuldigung, da stimmt etwas nicht.',
+            'Ich glaube, da ist ein Fehler passiert.',
+            'Ich glaube, hier ist ein Fehler passiert.',
+            'Da stimmt etwas nicht.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-entschuldigung', 'v-glauben', 'v-passieren'],

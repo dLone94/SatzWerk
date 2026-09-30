@@ -45,6 +45,12 @@ export function narrator(text: Bilingual, only?: TeachingLanguage[]): ScenarioBe
  * where the sentence a learner would actually say depends on which household
  * they are in — the language spoken at home, for instance — rather than on
  * their German.
+ *
+ * A model answer that opens with "Ja," "Gut," or "Guten Tag," is showing how
+ * a speaker would say it, not setting the task. Unless the prompt asks for the
+ * yes, the greeting or the thanks, the same sentence without the opener is
+ * listed as an alternative too; otherwise answering exactly what was asked is
+ * graded as a missing word.
  */
 export function you(
   id: string,

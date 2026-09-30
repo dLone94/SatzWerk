@@ -368,7 +368,11 @@ const B1 = script({
           ),
           prompt: bi('The soup is cold.', 'Супата е студена.'),
           answer: 'Entschuldigung, die Suppe ist leider kalt.',
-          alternatives: ['Die Suppe ist leider kalt.', 'Entschuldigung, die Suppe ist leider nicht warm.'],
+          alternatives: [
+            'Die Suppe ist leider kalt.',
+            'Entschuldigung, die Suppe ist leider nicht warm.',
+            'Die Suppe ist leider nicht warm.',
+          ],
           shape: 'sentence',
           reviewTargets: ['v-suppe', 'v-kalt'],
           traps: [
@@ -451,7 +455,7 @@ const B1 = script({
           id: 'sc-restaurant-b1-t4-s1',
           prompt: bi('Say that is kind of him.', 'Кажи, че е много любезно от негова страна.'),
           answer: 'Das ist sehr freundlich, vielen Dank!',
-          alternatives: ['Das ist sehr nett, vielen Dank!', 'Oh, vielen Dank!'],
+          alternatives: ['Das ist sehr nett, vielen Dank!', 'Oh, vielen Dank!', 'Vielen Dank!'],
           shape: 'sentence',
           reviewTargets: ['v-freundlich'],
           hints: [bi('"That is very kind" — then thank him.', '„Това е много любезно“ — и после благодари.')],

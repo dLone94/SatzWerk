@@ -49,6 +49,9 @@ const BUERGERAMT_A2 = script({
           alternatives: [
             'Guten Tag, ich hätte gern einen Termin für die Anmeldung.',
             'Guten Tag, ich möchte mich anmelden und brauche einen Termin.',
+            'Ich brauche einen Termin für die Anmeldung.',
+            'Ich hätte gern einen Termin für die Anmeldung.',
+            'Ich möchte mich anmelden und brauche einen Termin.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-das-buergeramt', 'v-die-anmeldung', 'v-termin'],

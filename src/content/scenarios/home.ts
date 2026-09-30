@@ -577,6 +577,8 @@ const NEIGHBOURS_A2 = script({
           alternatives: [
             'Alles klar, ich bin heute Nachmittag zu Hause.',
             'Kein Problem, ich bin den ganzen Nachmittag da.',
+            'Ich bin den ganzen Nachmittag zu Hause.',
+            'Ich bin heute Nachmittag zu Hause.',
           ],
           shape: 'sentence',
           reviewTargets: ['v-zu-hause'],
@@ -609,6 +611,7 @@ const NEIGHBOURS_A2 = script({
           alternatives: [
             'Hallo Jonas, dein Paket ist bei mir. Komm einfach vorbei!',
             'Dein Paket liegt bei mir. Komm einfach vorbei!',
+            'Jonas, dein Paket ist bei mir. Komm einfach vorbei!',
           ],
           shape: 'sentence',
           reviewTargets: ['v-vorbeikommen'],

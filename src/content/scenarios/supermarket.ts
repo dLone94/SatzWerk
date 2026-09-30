@@ -143,7 +143,7 @@ const A2 = script({
           ),
           prompt: bi('You cannot find the milk.', 'Не намираш млякото.'),
           answer: 'Entschuldigung, wo finde ich die Milch?',
-          alternatives: ['Wo finde ich die Milch?', 'Entschuldigung, wo ist die Milch?'],
+          alternatives: ['Wo finde ich die Milch?', 'Entschuldigung, wo ist die Milch?', 'Wo ist die Milch?'],
           shape: 'sentence',
           reviewTargets: ['v-milch', 'v-finden'],
           hints: [
@@ -239,7 +239,7 @@ const A2 = script({
           id: 'sc-supermarket-a2-t4-s1',
           prompt: bi('Say that helped.', 'Кажи, че това е помогнало.'),
           answer: 'Alles klar, vielen Dank!',
-          alternatives: ['Super, vielen Dank!', 'Danke, das hilft mir!'],
+          alternatives: ['Super, vielen Dank!', 'Danke, das hilft mir!', 'Vielen Dank!'],
           shape: 'phrase',
           reviewTargets: ['v-helfen'],
           hints: [bi('"Alles klar" is the everyday "got it".', '„Alles klar“ е всекидневното „ясно“.')],
