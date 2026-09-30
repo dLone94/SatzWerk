@@ -335,3 +335,61 @@ describe('answers that contradicted their own prompt or the course', () => {
     expect(step('b2u5l2-ex3-s4').answer.accepted[0]).toBe('Ich melde mich nach Feierabend.');
   });
 });
+
+describe('figures written as digits', () => {
+  /*
+   * The B2 lesson on reporting figures writes "um 10 %" and "30 %" in its own
+   * table, and then marked "um 10 Prozent" and "um 10 %" as vocabulary
+   * mistakes; at B1 "um 10 Uhr" and "5 Euro" were wrong too. Where a B1 or B2
+   * answer spells out a percentage, an amount of euros or a clock time, the
+   * digits are right as well (and a heard number can be written either way).
+   */
+  const WORDS: Record<string, string> = {
+    fünf: '5',
+    zehn: '10',
+    zwölf: '12',
+    sechzehn: '16',
+    dreißig: '30',
+    neunhundert: '900',
+  };
+  const figure = new RegExp(`\\b(${Object.keys(WORDS).join('|')}) (Prozent|Euro|Uhr)\\b`);
+
+  it('accepts the digits wherever a percentage, a price or a time is spelled out', () => {
+    const exercises = [
+      ...availableLessons().flatMap((lesson) => lessonExercises(lesson)),
+      ...allCheckpoints()
+        .filter((checkpoint) => checkpoint.scope !== 'placement')
+        .flatMap((checkpoint) => checkpoint.exercises),
+    ].filter(
+      (exercise) =>
+        ['b1', 'b2'].includes(exercise.level) &&
+        ['type', 'dictation', 'partialRecall'].includes(exercise.kind),
+    );
+    const out: string[] = [];
+    let checked = 0;
+    for (const exercise of exercises) {
+      for (const entry of exercise.steps) {
+        const answer = entry.answer.accepted[0]!;
+        const match = figure.exec(answer);
+        if (!match || entry.scaffold) continue;
+        const digits = answer.replace(figure, `${WORDS[match[1]!]} ${match[2]}`);
+        const forms = match[2] === 'Prozent' ? [digits, digits.replace(' Prozent', ' %')] : [digits];
+        for (const form of forms) {
+          checked += 1;
+          if (!isRight(form, entry.id)) out.push(`${entry.id}: ${form}`);
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(5);
+    expect(out).toEqual([]);
+  });
+
+  it('accepts the number spelled out where the answer has digits', () => {
+    expect(
+      rejected({
+        'b2u3l2-ex3-s3': ['Die Miete beträgt durchschnittlich neunhundert Euro.'],
+        'b2u3l2-ex4-s2': ['Die Miete beträgt durchschnittlich neunhundert Euro.'],
+      }),
+    ).toEqual([]);
+  });
+});

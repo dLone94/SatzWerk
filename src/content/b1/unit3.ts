@@ -933,6 +933,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('The co-payment is five euros.', 'Доплащането е пет евро.'),
             answer: 'Die Zuzahlung beträgt fünf Euro.',
+            alternatives: ['Die Zuzahlung beträgt 5 Euro.'],
             reviewTargets: ['v-die-zuzahlung'],
             hints: [],
           },

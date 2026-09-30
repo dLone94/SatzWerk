@@ -599,6 +599,13 @@ const lesson2: Lesson = {
           {
             prompt: bi('The number of applications has fallen by twelve percent.', 'Броят на заявленията е намалял с дванайсет процента.'),
             answer: 'Die Zahl der Anträge ist um zwölf Prozent gesunken.',
+            // The lesson's own table writes figures as digits and %, so those are right
+            // too; only the spoken form is the one being taught.
+            alternatives: [
+              'Die Zahl der Anträge ist um 12 Prozent gesunken.',
+              'Die Zahl der Anträge ist um 12 % gesunken.',
+              'Die Zahl der Anträge ist um 12% gesunken.',
+            ],
             reviewTargets: ['p-statistik-um', 'v-sinken'],
             hints: [],
             traps: [
@@ -615,18 +622,29 @@ const lesson2: Lesson = {
           {
             prompt: bi('Rents have risen by ten percent.', 'Наемите са се покачили с десет процента.'),
             answer: 'Die Mieten sind um zehn Prozent gestiegen.',
+            alternatives: [
+              'Die Mieten sind um 10 Prozent gestiegen.',
+              'Die Mieten sind um 10 % gestiegen.',
+              'Die Mieten sind um 10% gestiegen.',
+            ],
             reviewTargets: ['v-steigen'],
             hints: [],
           },
           {
             prompt: bi('The rent is on average 900 euros.', 'Наемът възлиза средно на 900 евро.'),
             answer: 'Die Miete beträgt durchschnittlich 900 Euro.',
+            alternatives: ['Die Miete beträgt durchschnittlich neunhundert Euro.'],
             reviewTargets: ['v-betragen', 'v-durchschnittlich'],
             hints: [],
           },
           {
             prompt: bi('The share amounts to just under thirty percent.', 'Делът възлиза на близо трийсет процента.'),
             answer: 'Der Anteil beträgt knapp dreißig Prozent.',
+            alternatives: [
+              'Der Anteil beträgt knapp 30 Prozent.',
+              'Der Anteil beträgt knapp 30 %.',
+              'Der Anteil beträgt knapp 30%.',
+            ],
             reviewTargets: ['v-der-anteil'],
             hints: [],
           },
@@ -645,12 +663,19 @@ const lesson2: Lesson = {
         {
           instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
           answer: 'Die Zahl der Anträge ist um zwölf Prozent gesunken.',
+          // A number heard can be written either way; nothing in the audio says which.
+          alternatives: [
+            'Die Zahl der Anträge ist um 12 Prozent gesunken.',
+            'Die Zahl der Anträge ist um 12 % gesunken.',
+            'Die Zahl der Anträge ist um 12% gesunken.',
+          ],
           shape: 'sentence',
           hints: [],
         },
         {
           instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
           answer: 'Die Miete beträgt durchschnittlich 900 Euro.',
+          alternatives: ['Die Miete beträgt durchschnittlich neunhundert Euro.'],
           shape: 'sentence',
           hints: [],
         },
@@ -665,11 +690,21 @@ const lesson2: Lesson = {
           {
             prompt: bi('Rents have risen by ten percent.', 'Наемите са се покачили с десет процента.'),
             answer: 'Die Mieten sind um zehn Prozent gestiegen.',
+            alternatives: [
+              'Die Mieten sind um 10 Prozent gestiegen.',
+              'Die Mieten sind um 10 % gestiegen.',
+              'Die Mieten sind um 10% gestiegen.',
+            ],
             hints: [],
           },
           {
             prompt: bi('The number of applications has fallen by twelve percent.', 'Броят на заявленията е намалял с дванайсет процента.'),
             answer: 'Die Zahl der Anträge ist um zwölf Prozent gesunken.',
+            alternatives: [
+              'Die Zahl der Anträge ist um 12 Prozent gesunken.',
+              'Die Zahl der Anträge ist um 12 % gesunken.',
+              'Die Zahl der Anträge ist um 12% gesunken.',
+            ],
             hints: [],
           },
         ]),
@@ -1045,6 +1080,11 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('The number of applications has fallen by twelve percent.', 'Броят на заявленията е намалял с дванайсет процента.'),
           answer: 'Die Zahl der Anträge ist um zwölf Prozent gesunken.',
+          alternatives: [
+            'Die Zahl der Anträge ist um 12 Prozent gesunken.',
+            'Die Zahl der Anträge ist um 12 % gesunken.',
+            'Die Zahl der Anträge ist um 12% gesunken.',
+          ],
           hints: [],
         },
         {
@@ -1079,6 +1119,11 @@ const checkpoint: Checkpoint = {
         {
           instruction: bi('Type what you hear.', 'Напиши каквото чуваш.'),
           answer: 'Die Zahl der Anträge ist um zwölf Prozent gesunken.',
+          alternatives: [
+            'Die Zahl der Anträge ist um 12 Prozent gesunken.',
+            'Die Zahl der Anträge ist um 12 % gesunken.',
+            'Die Zahl der Anträge ist um 12% gesunken.',
+          ],
           shape: 'sentence',
           hints: [],
         },

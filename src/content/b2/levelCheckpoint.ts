@@ -93,6 +93,11 @@ export const B2_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('The number of applications has fallen by twelve percent.', 'Броят на заявленията е намалял с дванайсет процента.'),
         answer: 'Die Zahl der Anträge ist um zwölf Prozent gesunken.',
+        alternatives: [
+          'Die Zahl der Anträge ist um 12 Prozent gesunken.',
+          'Die Zahl der Anträge ist um 12 % gesunken.',
+          'Die Zahl der Anträge ist um 12% gesunken.',
+        ],
         hints: [],
       },
       {

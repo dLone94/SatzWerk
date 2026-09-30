@@ -956,6 +956,11 @@ const lesson3: Lesson = {
           {
             prompt: bi('I have an appointment at ten.', 'Имам час в десет.'),
             answer: 'Ich habe einen Termin um zehn Uhr.',
+            alternatives: [
+              'Ich habe einen Termin um 10 Uhr.',
+              'Ich habe um zehn Uhr einen Termin.',
+              'Ich habe um 10 Uhr einen Termin.',
+            ],
             reviewTargets: ['v-termin'],
             hints: [],
           },
