@@ -405,6 +405,34 @@ describeParity('upgrading a Postgres database that already has progress in it', 
  * `npm start` went down until somebody restarted it, and a warm Vercel
  * instance died under the next request.
  */
+/**
+ * Two instances marking sections of one lesson at the same moment. Each read
+ * the list, added its section and wrote the whole list back, so the later
+ * write dropped the other's section — 17 times in 40 in a measured run. An
+ * in-process lock cannot cover this, because on Vercel the two requests can
+ * land on different instances; only the database can.
+ */
+describeParity('two instances marking sections at once', () => {
+  it('keeps every section', async () => {
+    const one = await openDatabase({ databaseUrl: POSTGRES_URL! });
+    const two = await openDatabase({ databaseUrl: POSTGRES_URL! });
+    try {
+      for (let round = 0; round < 10; round += 1) {
+        const lesson = `race-${Date.now()}-${round}`;
+        await Promise.all([
+          store.markSectionSeen(scopeOf(one), lesson, 'a'),
+          store.markSectionSeen(scopeOf(two), lesson, 'b'),
+        ]);
+        const seen = (await store.getLessonProgress(scopeOf(one), lesson)).sectionsSeen;
+        expect([...seen].sort(), `round ${round}`).toEqual(['a', 'b']);
+      }
+    } finally {
+      await one.close();
+      await two.close();
+    }
+  }, 60_000);
+});
+
 describeParity('a pooled connection that Postgres closes', () => {
   it('is dropped quietly, and the next query opens a fresh one', async () => {
     const db = await openDatabase({ databaseUrl: POSTGRES_URL! });

@@ -363,6 +363,29 @@ describe('lesson progress', () => {
     expect((response.body as { lessonProgress?: LessonProgress }).lessonProgress?.lessonId).toBe('pre-a1-u1-l1');
   });
 
+  /*
+   * Marking a section read, then marking the next, reads the list, adds one
+   * and writes the whole list back. Two of those overlapping — sections
+   * tapped through quickly, or two instances on Vercel — each wrote back its
+   * own list, and the later one dropped the earlier section.
+   */
+  it('keeps both sections when two are marked at the same moment', async () => {
+    await Promise.all([
+      store.markSectionSeen(scopeOf(db), 'pre-a1-u2-l1', 'u2l1-intro'),
+      store.markSectionSeen(scopeOf(db), 'pre-a1-u2-l1', 'u2l1-vocab'),
+    ]);
+    const progress = await store.getLessonProgress(scopeOf(db), 'pre-a1-u2-l1');
+    expect([...progress.sectionsSeen].sort()).toEqual(['u2l1-intro', 'u2l1-vocab']);
+  });
+
+  it('counts both recovery rounds when two arrive at the same moment', async () => {
+    await Promise.all([
+      store.recordRecoveryRound(scopeOf(db), 'pre-a1-u2-l1'),
+      store.recordRecoveryRound(scopeOf(db), 'pre-a1-u2-l1'),
+    ]);
+    expect((await store.getLessonProgress(scopeOf(db), 'pre-a1-u2-l1')).recoveryRounds).toBe(2);
+  });
+
   it('never un-passes a mastery check that was already passed', async () => {
     await call('POST', '/api/lessons/x/mastery', { accuracy: 1, passAccuracy: 0.7 });
     await call('POST', '/api/lessons/x/mastery', { accuracy: 0.2, passAccuracy: 0.7 });

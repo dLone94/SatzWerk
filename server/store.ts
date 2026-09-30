@@ -234,18 +234,30 @@ async function ensureLessonState({ db, userId }: Scope, lessonId: string, now: s
      ON CONFLICT (lesson_id, user_id) DO UPDATE SET last_active_at = excluded.last_active_at`, lessonId, userId, now, now);
 }
 
+/*
+ * The writes below read the lesson row, work out the new value and write it
+ * back, so two of them overlapping used to lose one: two sections tapped
+ * through quickly each wrote back their own list, and the later dropped the
+ * earlier. Each now runs in a transaction that starts with the upsert in
+ * ensureLessonState. In one process the transaction gate runs them one at a
+ * time; on Postgres that upsert also locks the row until COMMIT, so a request
+ * on another instance waits for it and then reads what it wrote.
+ */
+
 export async function markSectionSeen(scope: Scope, lessonId: string, sectionId: string): Promise<LessonProgress> {
   const { db, userId } = scope;
   const now = new Date().toISOString();
-  await ensureLessonState(scope, lessonId, now);
-  const current = await getLessonProgress(scope, lessonId);
-  if (!current.sectionsSeen.includes(sectionId)) {
-    const next = [...current.sectionsSeen, sectionId];
-    await db.run('UPDATE lesson_state SET sections_seen = ?, last_active_at = ? WHERE lesson_id = ? AND user_id = ?', JSON.stringify(next),
-      now,
-      lessonId,
-      userId,);
-  }
+  await db.transaction(async () => {
+    await ensureLessonState(scope, lessonId, now);
+    const current = await getLessonProgress(scope, lessonId);
+    if (!current.sectionsSeen.includes(sectionId)) {
+      const next = [...current.sectionsSeen, sectionId];
+      await db.run('UPDATE lesson_state SET sections_seen = ?, last_active_at = ? WHERE lesson_id = ? AND user_id = ?', JSON.stringify(next),
+        now,
+        lessonId,
+        userId,);
+    }
+  });
   return await getLessonProgress(scope, lessonId);
 }
 
@@ -257,38 +269,44 @@ export async function recordMastery(
 ): Promise<LessonProgress> {
   const { db, userId } = scope;
   const now = new Date().toISOString();
-  await ensureLessonState(scope, lessonId, now);
-  // The rule is `applyMastery` in the pure core, because the browser has to be
-  // able to answer "did I pass?" from a tunnel, with no database to ask.
-  const next = applyMastery(await getLessonProgress(scope, lessonId), accuracy, passAccuracy, now);
-  await db.run(`UPDATE lesson_state
-     SET mastery_attempts = ?, mastery_best_accuracy = ?, mastery_passed = ?, last_active_at = ?
-     WHERE lesson_id = ? AND user_id = ?`, next.mastery.attempts,
-    next.mastery.bestAccuracy,
-    next.mastery.passed ? 1 : 0,
-    now,
-    lessonId,
-    userId,);
+  await db.transaction(async () => {
+    await ensureLessonState(scope, lessonId, now);
+    // The rule is `applyMastery` in the pure core, because the browser has to be
+    // able to answer "did I pass?" from a tunnel, with no database to ask.
+    const next = applyMastery(await getLessonProgress(scope, lessonId), accuracy, passAccuracy, now);
+    await db.run(`UPDATE lesson_state
+       SET mastery_attempts = ?, mastery_best_accuracy = ?, mastery_passed = ?, last_active_at = ?
+       WHERE lesson_id = ? AND user_id = ?`, next.mastery.attempts,
+      next.mastery.bestAccuracy,
+      next.mastery.passed ? 1 : 0,
+      now,
+      lessonId,
+      userId,);
+  });
   return await getLessonProgress(scope, lessonId);
 }
 
 export async function recordRecoveryRound(scope: Scope, lessonId: string): Promise<LessonProgress> {
   const { db, userId } = scope;
   const now = new Date().toISOString();
-  await ensureLessonState(scope, lessonId, now);
-  const next = applyRecoveryRound(await getLessonProgress(scope, lessonId), now);
-  await db.run('UPDATE lesson_state SET recovery_rounds = ?, last_active_at = ? WHERE lesson_id = ? AND user_id = ?', next.recoveryRounds, now, lessonId, userId);
+  await db.transaction(async () => {
+    await ensureLessonState(scope, lessonId, now);
+    const next = applyRecoveryRound(await getLessonProgress(scope, lessonId), now);
+    await db.run('UPDATE lesson_state SET recovery_rounds = ?, last_active_at = ? WHERE lesson_id = ? AND user_id = ?', next.recoveryRounds, now, lessonId, userId);
+  });
   return await getLessonProgress(scope, lessonId);
 }
 
 export async function completeLesson(scope: Scope, lessonId: string): Promise<LessonProgress> {
   const { db, userId } = scope;
   const now = new Date().toISOString();
-  await ensureLessonState(scope, lessonId, now);
-  const next = applyCompletion(await getLessonProgress(scope, lessonId), now);
-  await db.run(`UPDATE lesson_state
-     SET completed_at = ?, last_active_at = ?
-     WHERE lesson_id = ? AND user_id = ?`, next.completedAt ?? now, now, lessonId, userId);
+  await db.transaction(async () => {
+    await ensureLessonState(scope, lessonId, now);
+    const next = applyCompletion(await getLessonProgress(scope, lessonId), now);
+    await db.run(`UPDATE lesson_state
+       SET completed_at = ?, last_active_at = ?
+       WHERE lesson_id = ? AND user_id = ?`, next.completedAt ?? now, now, lessonId, userId);
+  });
   return await getLessonProgress(scope, lessonId);
 }
 
