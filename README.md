@@ -41,6 +41,12 @@ npm run preview
 
 Then open <http://localhost:5173> (dev) or <http://localhost:8787> (preview).
 
+The server listens on this machine only (127.0.0.1), and with no password it
+is open only to requests from this machine. To reach it from a phone on the
+same Wi-Fi, start it with `HOST=0.0.0.0` — and choose a password first, because
+any other device that reaches it gets the password setup screen, and whoever
+fills that in first sets the password.
+
 ```bash
 npm test          # 224 tests
 npm run typecheck # tsc, no emit

@@ -6,6 +6,12 @@ import { createProvider } from './ai.ts';
 import { openDatabase } from './db.ts';
 import { authState } from './auth.ts';
 import { resolveAuth } from './api.ts';
+import {
+  crossSiteRefusal,
+  isLoopbackAddress,
+  isLoopbackHost,
+  SECURITY_HEADERS,
+} from './security.ts';
 
 /**
  * The SatzWerk server.
@@ -16,6 +22,16 @@ import { resolveAuth } from './api.ts';
  */
 
 const PORT = Number(process.env.PORT ?? 8787);
+/**
+ * This machine only, unless HOST says otherwise.
+ *
+ * Listening on every interface put a passwordless app on the local network:
+ * anyone on the same café or university Wi-Fi could read the learner's
+ * progress, wipe it, or set a password and lock the owner out. HOST=0.0.0.0
+ * opts in, for reaching the app from a phone; a request from another machine
+ * then gets the password setup screen rather than the open app (see below).
+ */
+const HOST = process.env.HOST?.trim() || '127.0.0.1';
 const DIST = resolve('dist');
 const MAX_BODY_BYTES = 256 * 1024;
 
@@ -43,6 +59,7 @@ const MIME: Record<string, string> = {
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json',
   '.mp3': 'audio/mpeg',
   '.map': 'application/json; charset=utf-8',
 };
@@ -73,6 +90,7 @@ function sendJson(
 ): void {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
+    ...SECURITY_HEADERS,
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
     // Matches the hosted adapter, so a check behaves the same either side.
@@ -84,7 +102,7 @@ function sendJson(
 
 function serveStatic(res: ServerResponse, urlPath: string): void {
   if (!existsSync(DIST)) {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.writeHead(404, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('No build found. Run "npm run build", or use "npm run dev" for development.');
     return;
   }
@@ -99,7 +117,7 @@ function serveStatic(res: ServerResponse, urlPath: string): void {
     filePath = join(DIST, 'index.html');
   }
   if (!existsSync(filePath)) {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.writeHead(404, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Not found');
     return;
   }
@@ -107,6 +125,7 @@ function serveStatic(res: ServerResponse, urlPath: string): void {
   const type = MIME[extname(filePath)] ?? 'application/octet-stream';
   const immutable = filePath.includes(`${join(DIST, 'assets')}`);
   res.writeHead(200, {
+    ...SECURITY_HEADERS,
     'Content-Type': type,
     'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
   });
@@ -125,6 +144,24 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  const header = (name: string): string | undefined => {
+    const value = req.headers[name];
+    return Array.isArray(value) ? value[0] : value;
+  };
+  const refusal = crossSiteRefusal(req.method ?? 'GET', url.pathname, {
+    'content-type': header('content-type'),
+    'x-requested-with': header('x-requested-with'),
+    origin: header('origin'),
+    referer: header('referer'),
+    host: header('host'),
+  });
+  if (refusal) {
+    // Drained, so the connection can be reused; the body itself is not read.
+    req.resume();
+    sendJson(res, refusal.status, { error: refusal.error });
+    return;
+  }
+
   try {
     let body: unknown;
     if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
@@ -139,8 +176,19 @@ const server = createServer(async (req, res) => {
       }
     }
 
+    const auth = await resolveAuth(db);
+    /*
+     * Open (no password, everyone signed in) only for this machine.
+     *
+     * Anything else is answered as a hosted app with no password yet: the
+     * setup screen and no data. That covers another machine reaching an
+     * explicit HOST=0.0.0.0, and a web page that has rebound its own name to
+     * 127.0.0.1 — whose requests arrive from loopback but name that page as
+     * their Host.
+     */
+    const local = isLoopbackAddress(req.socket.remoteAddress) && isLoopbackHost(header('host'));
     const response = await handleRequest(
-      { db, provider, auth: await resolveAuth(db) },
+      { db, provider, auth: local ? auth : { ...auth, hosted: true } },
       {
         method: req.method ?? 'GET',
         path: url.pathname,
@@ -151,6 +199,9 @@ const server = createServer(async (req, res) => {
           // The reminder job carries a bearer token rather than a cookie.
           authorization: req.headers.authorization,
         },
+        // The socket's own address. Forwarded headers are not trusted here:
+        // anyone can send them to a server with no proxy in front of it.
+        clientIp: req.socket.remoteAddress,
         // True when this process itself terminates TLS; otherwise the header
         // above is what a proxy in front of it says.
         ...(('encrypted' in req.socket && req.socket.encrypted) ? { secure: true } : {}),
@@ -163,9 +214,10 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   const mode = existsSync(DIST) ? 'serving ./dist' : 'API only (run the Vite dev server for the UI)';
-  console.log(`[satzwerk] listening on http://localhost:${PORT} — ${mode}`);
+  const shown = HOST === '127.0.0.1' ? 'localhost' : HOST.includes(':') ? `[${HOST}]` : HOST;
+  console.log(`[satzwerk] listening on http://${shown}:${PORT} — ${mode}`);
   console.log(
     `[satzwerk] database: ${
       db.dialect === 'postgres' ? 'postgres (DATABASE_URL)' : (process.env.SATZWERK_DB ?? 'data/satzwerk.db')
@@ -179,7 +231,9 @@ server.listen(PORT, () => {
   } else if (state === 'setup') {
     console.log('[satzwerk] hosted with no password yet — serving only the setup screen.');
   } else {
-    console.log('[satzwerk] no password set — fine on localhost, setup screen if hosted.');
+    console.log(
+      '[satzwerk] no password set — open on this machine; any other machine gets the setup screen.',
+    );
   }
   if (!provider.available) {
     console.log('[satzwerk] German Coach: rule-based checks only, no AI provider configured.');

@@ -13,9 +13,9 @@ import {
   readSession,
   sessionCookie,
   SESSION_COOKIE,
-  verifyPassword,
   type AuthConfig,
 } from './auth.ts';
+import { checkPassword, tooManyTries } from './auth-limit.ts';
 import { plausibleOffset } from '../src/core/progress/days.ts';
 import { findDatabaseUrl, type Db } from './db.ts';
 import * as store from './store.ts';
@@ -45,6 +45,8 @@ export interface ApiRequest {
   headers?: Record<string, string | undefined>;
   /** Whether the request arrived over HTTPS, when the adapter knows directly. */
   secure?: boolean;
+  /** Who is asking, as far as the adapter can tell. Keys the wrong-password count. */
+  clientIp?: string;
 }
 
 export interface ApiResponse {
@@ -353,7 +355,9 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       return { status: 409, body: { error: 'No password is set yet.', needsSetup: true } };
     }
     const password = String(asRecord(request.body).password ?? '');
-    if (!password || !verifyPassword(password, auth.passwordHash!)) {
+    const verdict = await checkPassword(db, request.clientIp, password, auth.passwordHash!);
+    if (typeof verdict === 'number') return tooManyTries(verdict);
+    if (!verdict) {
       // Deliberately vague, and the same shape whether or not a password was
       // supplied, so this cannot be used to probe.
       return { status: 401, body: { error: 'That password is not right.' } };
@@ -441,8 +445,10 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     const body = asRecord(request.body);
     const current = String(body.currentPassword ?? '');
     const next = String(body.newPassword ?? '');
-    if (state === 'required' && !verifyPassword(current, auth.passwordHash!)) {
-      return { status: 401, body: { error: 'That password is not right.' } };
+    if (state === 'required') {
+      const verdict = await checkPassword(db, request.clientIp, current, auth.passwordHash!);
+      if (typeof verdict === 'number') return tooManyTries(verdict);
+      if (!verdict) return { status: 401, body: { error: 'That password is not right.' } };
     }
     const problem = passwordProblem(next);
     if (problem) return { status: 400, body: { error: problem } };

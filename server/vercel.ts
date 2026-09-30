@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createProvider } from './ai.ts';
 import { handleRequest, healthReport, resolveAuth } from './api.ts';
 import { openDatabase, type Db } from './db.ts';
+import { crossSiteRefusal, SECURITY_HEADERS, type GuardHeaders } from './security.ts';
 
 /**
  * The whole API as one Vercel function.
@@ -91,6 +92,20 @@ interface Incoming {
   authorization?: string;
   /** The raw body, already read. Empty for GET and HEAD. */
   text: string;
+  /** What `crossSiteRefusal` reads: where a write came from, and what it carries. */
+  guard: GuardHeaders;
+  /** The client's address as the platform reports it, for the wrong-password count. */
+  clientIp?: string;
+}
+
+const GUARD_HEADERS = ['content-type', 'x-requested-with', 'origin', 'referer', 'host', 'x-forwarded-host'];
+
+/**
+ * The caller's address. Vercel sets both of these itself and overwrites
+ * whatever the client sent, so on the platform they can be believed.
+ */
+function clientAddress(read: (name: string) => string | undefined): string | undefined {
+  return read('x-real-ip') ?? read('x-forwarded-for')?.split(',')[0]?.trim();
 }
 
 /**
@@ -98,6 +113,11 @@ interface Incoming {
  * arrived or how it will be sent.
  */
 async function answer(request: Incoming): Promise<Answer> {
+  // Before the body is parsed: a form post from another site is turned away
+  // without anything in it being looked at. See crossSiteRefusal.
+  const refusal = crossSiteRefusal(request.method, request.path, request.guard);
+  if (refusal) return reply(refusal.status, { error: refusal.error });
+
   try {
     let body: unknown;
     if (request.text.length > 0) {
@@ -137,6 +157,7 @@ async function answer(request: Incoming): Promise<Answer> {
           authorization: request.authorization,
         },
         secure: request.secure,
+        ...(request.clientIp ? { clientIp: request.clientIp } : {}),
       },
     );
     return { status: response.status, body: response.body, headers: response.headers ?? {} };
@@ -182,6 +203,7 @@ function reply(status: number, body: unknown): Answer {
  * carrying it came from here and nothing else can claim otherwise.
  */
 const BASE_HEADERS = {
+  ...SECURITY_HEADERS,
   'content-type': 'application/json; charset=utf-8',
   'cache-control': 'no-store',
   'x-satzwerk': 'api',
@@ -223,6 +245,7 @@ function requestedPath(url: URL): string {
 async function fromWeb(request: Request): Promise<Incoming> {
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
+  const read = (name: string): string | undefined => request.headers.get(name) ?? undefined;
   return {
     method,
     path: requestedPath(url),
@@ -232,6 +255,9 @@ async function fromWeb(request: Request): Promise<Incoming> {
     forwardedProto: request.headers.get('x-forwarded-proto') ?? undefined,
     authorization: request.headers.get('authorization') ?? undefined,
     text: method === 'GET' || method === 'HEAD' ? '' : await request.text(),
+    // A Web Request always knows its own host, from its URL.
+    guard: { ...Object.fromEntries(GUARD_HEADERS.map((name) => [name, read(name)])), host: read('host') ?? url.host },
+    clientIp: clientAddress(read),
   };
 }
 
@@ -259,6 +285,8 @@ async function fromNode(request: IncomingMessage): Promise<Incoming> {
     forwardedProto,
     authorization: header('authorization'),
     text,
+    guard: Object.fromEntries(GUARD_HEADERS.map((name) => [name, header(name)])),
+    clientIp: clientAddress(header),
   };
 }
 
