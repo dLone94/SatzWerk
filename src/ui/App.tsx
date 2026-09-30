@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useApp } from '../state/AppState.tsx';
 import { CoachPage } from './pages/CoachPage.tsx';
@@ -21,11 +22,15 @@ import { MorePage, MORE_ROUTES } from './pages/MorePage.tsx';
 import { SyncBanner } from './components/SyncBanner.tsx';
 import { Icon } from './components/icons.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
+import { arrivedAt } from '../services/offline/register.ts';
 
 export function App() {
   const { ready, error, offline, sync, session, profile, reload, t, reviewItems, learners, studyingAs } =
     useApp();
   const location = useLocation();
+  // A new build found while a checkpoint or conversation was open waits for
+  // the learner to leave it; this is how the watcher hears that they have.
+  useEffect(() => arrivedAt(location.pathname), [location.pathname]);
 
   if (!ready) {
     // Three shimmering lines rather than the word "Loading" alone: on a phone

@@ -35,12 +35,23 @@ export function registerServiceWorker(): void {
 }
 
 /**
- * Long enough away that reloading interrupts nothing: the learner put the
- * phone down, not glanced at a message. A lesson left half-way resumes at its
- * first unfinished step, and anything unsent is in the outbox, so a reload
- * after this long costs nothing.
+ * Long enough away that the learner put the phone down, not glanced at a
+ * message. Checking sooner would fetch the file list on every app switch.
  */
 const AWAY_MS = 10 * 60_000;
+
+/**
+ * The screens a reload costs nothing on: nothing on them lives only in
+ * memory. Anything unsent is in the outbox, which survives a reload. A lesson
+ * would resume at its first unfinished step, but its URL does not say whether
+ * the overview or a half-typed answer is showing, so it is not on the list;
+ * neither are a checkpoint, a review round, a Real Life conversation or
+ * Settings, whose progress and forms are held in memory and would be lost.
+ */
+const RESTING = new Set(['/', '/course', '/more', '/real-life']);
+
+/** The reload a new build is waiting on, until the learner reaches a resting screen. */
+let reloadWhenFree: (() => void) | null = null;
 
 /**
  * Pick up a new build when an app left open comes back to the front.
@@ -50,7 +61,10 @@ const AWAY_MS = 10 * 60_000;
  * memory for days: it went on running the build it started with. So when the
  * app comes back after a while away, the current build's file list is asked
  * for, and if the script this page is running is no longer in it, the page
- * reloads. Without a signal nothing happens; the old build still works.
+ * reloads — at once on a resting screen, otherwise the next time the learner
+ * arrives on one (see `arrivedAt`), so a checkpoint left open for a phone call
+ * is still there afterwards. Without a signal nothing happens; the old build
+ * still works.
  *
  * Returns a function that stops watching (for tests).
  */
@@ -64,11 +78,28 @@ export function watchForNewBuild(reload: () => void = () => window.location.relo
     if (hiddenAt === 0 || Date.now() - hiddenAt < AWAY_MS) return;
     hiddenAt = 0;
     void newBuildIsOut().then((changed) => {
-      if (changed) reload();
+      if (!changed) return;
+      if (RESTING.has(window.location.pathname)) reload();
+      else reloadWhenFree = reload;
     });
   };
   document.addEventListener('visibilitychange', onVisibility);
-  return () => document.removeEventListener('visibilitychange', onVisibility);
+  return () => {
+    document.removeEventListener('visibilitychange', onVisibility);
+    reloadWhenFree = null;
+  };
+}
+
+/**
+ * Told by the router on every change of screen. If a new build was found
+ * while something was open, this is where the page reloads onto it: the
+ * learner has just left whatever it was for a screen with nothing to lose.
+ */
+export function arrivedAt(pathname: string): void {
+  if (!reloadWhenFree || !RESTING.has(pathname)) return;
+  const reload = reloadWhenFree;
+  reloadWhenFree = null;
+  reload();
 }
 
 async function newBuildIsOut(): Promise<boolean> {
