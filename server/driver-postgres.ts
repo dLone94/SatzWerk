@@ -117,8 +117,18 @@ async function openNeon(url: string): Promise<Db> {
       created.on('error', idleConnectionLost);
       pool = {
         checkout: async () => {
-          const client = (await created.connect()) as unknown as Session & { release: () => void };
-          return { session: client, release: () => client.release() };
+          const client = (await created.connect()) as unknown as Session &
+            Pick<import('node:events').EventEmitter, 'on' | 'off'> & { release: () => void };
+          // As with `pg` below: a checked-out client is not the pool's to
+          // watch, and a transaction holds one across several statements.
+          client.on('error', idleConnectionLost);
+          return {
+            session: client,
+            release: () => {
+              client.off('error', idleConnectionLost);
+              client.release();
+            },
+          };
         },
         end: () => created.end(),
       };
