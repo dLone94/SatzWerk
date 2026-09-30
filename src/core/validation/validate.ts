@@ -1,5 +1,5 @@
 import type { AnswerSpec, Bilingual, ErrorCategory, ExerciseKind } from '../../content/types.ts';
-import { isFunctionWord, isNoun, verbLemmas, type GermanLexicon } from './lexicon.ts';
+import { FREE_VARIANTS, isFunctionWord, isNoun, verbLemmas, type GermanLexicon } from './lexicon.ts';
 import {
   compareUmlauts,
   editDistance,
@@ -219,9 +219,34 @@ export function validateAnswer(
     best = best ? better(best, result) : result;
   }
 
+  // "gerne" where the lesson says "gern" is the same word: good German, at
+  // full credit, with the taught form shown. Not in a dictation, where the
+  // recording says which one.
+  if (best && VERDICT_RANK[best.verdict] < VERDICT_RANK['accepted-variant'] && options.exerciseKind !== 'dictation') {
+    for (const answer of [...spec.accepted, ...(spec.alternatives ?? [])]) {
+      for (const variant of freeVariantsOf(answer)) {
+        best = better(best, compareAgainst(raw, variant, spec, options, true));
+      }
+    }
+  }
+
   const result = best ?? emptyResult(target);
   // Always steer the learner to the taught form, even after an accepted variant.
   return { ...result, target };
+}
+
+/** The answer with each word of a FREE_VARIANTS pair swapped for its partner. */
+function freeVariantsOf(answer: string): string[] {
+  const out: string[] = [];
+  for (const pair of FREE_VARIANTS) {
+    for (const [from, to] of [pair, [pair[1], pair[0]]] as const) {
+      // Whole words only: "gern" inside "gernen" or "Gernot" is not the word.
+      const word = new RegExp(`(?<![\\p{L}])${from}(?![\\p{L}])`, 'giu');
+      if (!word.test(answer)) continue;
+      out.push(answer.replace(word, (found) => (found[0] === found[0]!.toUpperCase() ? to[0]!.toUpperCase() + to.slice(1) : to)));
+    }
+  }
+  return out;
 }
 
 /**

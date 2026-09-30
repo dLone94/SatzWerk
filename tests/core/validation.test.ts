@@ -466,6 +466,42 @@ describe('the first letter of an answer that opens a sentence', () => {
  * start of a sentence a capital cannot tell Sie from sie, so the lowercase
  * first letter there is only the phone's missing capital.
  */
+/*
+ * "gerne" is the same word as "gern" and just as standard ("Ich hätte gerne
+ * einen Termin."), but no step listed it, so it was graded a spelling slip:
+ * almost-right, a retype, and not clean in a final check.
+ */
+describe('gern and gerne', () => {
+  it('accepts gerne where the lesson teaches gern, at full credit', () => {
+    const r = validateAnswer('Ich trinke gerne Tee.', sentence(['Ich trinke gern Tee.']), opts);
+    expect(r.verdict).toBe('accepted-variant');
+    expect(r.credit).toBe(1);
+    expect(r.target).toBe('Ich trinke gern Tee.');
+    const gap = validateAnswer('gerne', word(['gern']), { ...opts, scaffold: 'Ich trinke ___ Tee.' });
+    expect(gap.verdict).toBe('accepted-variant');
+    const first = validateAnswer('Gerne!', word(['Gern!']), opts);
+    expect(first.credit).toBe(1);
+  });
+
+  it('works the other way round, and on an alternative', () => {
+    expect(validateAnswer('Ich hätte gern einen Termin.', sentence(['Ich hätte gerne einen Termin.']), opts).credit).toBe(1);
+    const spec = sentence(['Ich trinke Tee.'], { alternatives: ['Ich trinke gern Tee.'] });
+    expect(validateAnswer('Ich trinke gerne Tee.', spec, opts).credit).toBe(1);
+  });
+
+  it('still hears gern in a dictation, where the recording says it', () => {
+    const r = validateAnswer('Ich trinke gerne Tee.', sentence(['Ich trinke gern Tee.']), {
+      ...opts,
+      exerciseKind: 'dictation',
+    });
+    expect(r.credit).toBeLessThan(1);
+  });
+
+  it('does not stretch to other words', () => {
+    expect(validateAnswer('Ich trinke gernen Tee.', sentence(['Ich trinke gern Tee.']), opts).credit).toBeLessThan(1);
+  });
+});
+
 describe('sie at the start of a sentence', () => {
   it('is a missing capital, not a pronoun mistake', () => {
     const r = validateAnswer('sie ist Ärztin.', sentence(['Sie ist Ärztin.']), opts);

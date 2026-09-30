@@ -275,6 +275,13 @@ export function isFunctionWord(lexicon: GermanLexicon, token: string): boolean {
   );
 }
 
+/**
+ * Pairs of words that are the same word, equally standard, where the course
+ * teaches one of them: "gerne" is "gern" with an optional -e. Kept to the
+ * pairs that really mean the same — lang/lange or heut/heute do not.
+ */
+export const FREE_VARIANTS: ReadonlyArray<readonly [string, string]> = [['gern', 'gerne']];
+
 /** A noun the course teaches, in the singular or the plural. */
 export function isNoun(lexicon: GermanLexicon, token: string): boolean {
   const key = lower(token);
