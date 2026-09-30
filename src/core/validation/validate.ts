@@ -726,6 +726,16 @@ export interface FreeWritingResult {
 }
 
 /**
+ * Short required words that must be typed as themselves: each begins many
+ * other words, so a match on the start of a word would find the wrong one.
+ * Folded as checkFreeWriting folds them.
+ */
+const WHOLE_WORD_ONLY = new Set([
+  'wo', 'wer', 'was', 'wie', 'wann', 'es', 'als', 'um', 'ne', 'mit',
+  'am', 'im', 'an', 'in', 'zu', 'ich', 'du', 'er', 'sie', 'wir', 'ihr',
+]);
+
+/**
  * Open writing is never marked simply "wrong". We check only that the learner
  * actually produced German and used the elements the task asked for; judging
  * the content itself is the German Coach's job (see services/ai).
@@ -738,6 +748,11 @@ export function checkFreeWriting(given: string, spec: AnswerSpec, minWords = 3):
   const fold = (word: string) =>
     toDigraphs(lower(word)).replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u').replace(/ss/g, 's');
   const folded = tokens.map(fold);
+  // A longer required word may carry an ending ("habe" in "haben", "war" in
+  // "waren", "Geburtstag" in "Geburtstags"). A short function word may not:
+  // "wo" is not in "wohne", "um" not in "umziehen", "es" not in "essen".
+  const matches = (tok: string, option: string) =>
+    tok === option || (!WHOLE_WORD_ONLY.has(option) && tok.startsWith(option));
   // "heiße|Name|bin": any one of them will do, for tasks with more than one
   // right way to say it ("Ich heiße Teo", "Mein Name ist Teo", "Ich bin Teo").
   const missingRequired = (spec.requiredTokens ?? []).filter(
@@ -745,7 +760,7 @@ export function checkFreeWriting(given: string, spec: AnswerSpec, minWords = 3):
       !req
         .split('|')
         .map(fold)
-        .some((option) => folded.some((tok) => tok === option || tok.startsWith(option))),
+        .some((option) => folded.some((tok) => matches(tok, option))),
   );
   return {
     wordCount: tokens.length,

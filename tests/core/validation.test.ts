@@ -312,6 +312,29 @@ describe('open writing that asks for particular words', () => {
   it('still notices when none of them is there', () => {
     expect(checkFreeWriting('Hallo und tschüss Teo.', intro).missingRequired).toEqual(['heiße|Name|bin']);
   });
+
+  /*
+   * A required word matched any word that started with it, so "wohne" counted
+   * as the question word "wo", "umziehen" as "um … zu", "essen" as "es" and
+   * "also" as "als": the task was marked done without the grammar it asked for.
+   */
+  it('does not count a longer word that only starts with a short required word', () => {
+    const require = (token: string) => ({ accepted: [''], shape: 'sentence' as const, requiredTokens: [token] });
+    const questions = require('wer|was|wo|woher|wohin|wann|wie|warum');
+    expect(checkFreeWriting('Ich wohne in Wien.', questions).satisfied).toBe(false);
+    expect(checkFreeWriting('Wo wohnst du?', questions).satisfied).toBe(true);
+    expect(checkFreeWriting('Ich möchte umziehen, bald.', require('um')).satisfied).toBe(false);
+    expect(checkFreeWriting('Heute essen wir Pizza.', require('es')).satisfied).toBe(false);
+    expect(checkFreeWriting('Ich war also müde.', require('als')).satisfied).toBe(false);
+    expect(checkFreeWriting('Ich komme immer spät.', require('Im')).satisfied).toBe(false);
+  });
+
+  it('still takes an inflected form of a longer required word', () => {
+    const require = (token: string) => ({ accepted: [''], shape: 'sentence' as const, requiredTokens: [token] });
+    expect(checkFreeWriting('Wir haben Pizza gegessen.', require('habe')).satisfied).toBe(true);
+    expect(checkFreeWriting('Wir waren im Kino.', require('war')).satisfied).toBe(true);
+    expect(checkFreeWriting('Ich plane meine Geburtstagsparty.', require('Geburtstag')).satisfied).toBe(true);
+  });
 });
 
 /*
