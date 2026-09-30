@@ -616,18 +616,16 @@ const lesson2: Lesson = {
           {
             prompt: bi('I hope to get an appointment soon.', 'Надявам се скоро да получа час.'),
             answer: 'Ich hoffe, bald einen Termin zu bekommen.',
+            /*
+             * The dass clause was a trap filed as a word-order mistake, at no
+             * credit, while its own feedback called it grammatically correct.
+             * It is correct: with the same subject in both halves the
+             * infinitive is lighter, not obligatory. Credited, with the
+             * infinitive shown as the form this lesson is about.
+             */
+            alternatives: ['Ich hoffe, dass ich bald einen Termin bekomme.'],
             reviewTargets: ['p-zu-infinitiv'],
             hints: [],
-            traps: [
-              {
-                answer: 'Ich hoffe, dass ich bald einen Termin bekomme.',
-                category: 'word-order',
-                feedback: bi(
-                  'Grammatically correct, but heavy — and German only needs dass when the two halves have different subjects. Here both are "ich", so the infinitive is the natural form: Ich hoffe, bald einen Termin zu bekommen.',
-                  'Граматично е вярно, но е тежко — а немският иска dass само когато двете части имат различни подлози. Тук и двете са „ich“, затова естественото е инфинитивът: Ich hoffe, bald einen Termin zu bekommen. Българското „да получа“ те кара да спрегнеш глагола; на немски той не се мени.',
-                ),
-              },
-            ],
           },
           {
             prompt: bi('It is important to register in good time.', 'Важно е да се регистрираш навреме.'),
@@ -750,6 +748,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('I hope to get an appointment soon.', 'Надявам се скоро да получа час.'),
             answer: 'Ich hoffe, bald einen Termin zu bekommen.',
+            alternatives: ['Ich hoffe, dass ich bald einen Termin bekomme.'],
             hints: [],
           },
           {
