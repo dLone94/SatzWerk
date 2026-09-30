@@ -78,6 +78,16 @@ export async function saveSubscription(
   );
 }
 
+/**
+ * Hand the subscription of this browser to another learner, when the phone
+ * is handed to them. Only the one endpoint moves; other devices keep theirs.
+ * Without this the phone kept the reminders of the previous learner, and the
+ * Settings of the new one showed reminders as on with nothing to say otherwise.
+ */
+export async function moveSubscription(db: Scope['db'], endpoint: string, userId: number): Promise<void> {
+  await db.run('UPDATE push_subscriptions SET user_id = ? WHERE endpoint = ?', userId, endpoint);
+}
+
 export async function deleteSubscription({ db }: Scope, endpoint: string): Promise<void> {
   // Not scoped by learner: unsubscribing is about this browser, and the
   // endpoint identifies it exactly.

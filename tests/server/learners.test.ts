@@ -74,6 +74,33 @@ describe('who is studying', () => {
     expect((await handleRequest(ctx(), { method: 'POST', path: '/api/learners/select', body: { id: 99 } })).status).toBe(400);
   });
 
+  /*
+   * A phone that turned reminders on as one learner and was then handed to
+   * somebody else kept the first learner's reminders: the subscription stayed
+   * with whoever was studying when it was saved, and the new learner's
+   * Settings showed reminders as on, with no hint anything was wrong.
+   */
+  it('moves this phone’s reminders to whoever is studying on it now', async () => {
+    const phone = 'https://push.example/phone';
+    await as(1, 'POST', '/api/push/subscribe', { endpoint: phone, keys: { p256dh: 'k', auth: 'a' } });
+    const owner = async () =>
+      (await db.get<{ user_id: number }>('SELECT user_id FROM push_subscriptions WHERE endpoint = ?', phone))!.user_id;
+
+    await as(1, 'POST', '/api/learners', { name: 'Anna', endpoint: phone });
+    expect(await owner()).toBe(2);
+
+    await as(2, 'POST', '/api/learners/select', { id: 1, endpoint: phone });
+    expect(await owner()).toBe(1);
+
+    // Only this phone's: another device's subscription stays where it is.
+    const laptop = 'https://push.example/laptop';
+    await as(1, 'POST', '/api/push/subscribe', { endpoint: laptop, keys: { p256dh: 'k', auth: 'a' } });
+    await as(1, 'POST', '/api/learners/select', { id: 2, endpoint: phone });
+    expect(
+      (await db.get<{ user_id: number }>('SELECT user_id FROM push_subscriptions WHERE endpoint = ?', laptop))!.user_id,
+    ).toBe(1);
+  });
+
   it('falls back to the first learner when the cookie is nonsense', async () => {
     // A stale cookie from a learner who was removed, or a hand-edited one.
     const response = await handleRequest(ctx(), {

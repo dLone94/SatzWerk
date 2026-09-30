@@ -22,6 +22,7 @@ import { findDatabaseUrl, type Db } from './db.ts';
 import * as store from './store.ts';
 import {
   deleteSubscription,
+  moveSubscription,
   pushConfig,
   saveSubscription,
   sendDueReminder,
@@ -112,6 +113,15 @@ const GRADES = new Set<string>(['again', 'hard', 'good', 'easy']);
  */
 function ok<T>(body: T extends Promise<unknown> ? never : T): ApiResponse {
   return { status: 200, body };
+}
+
+/**
+ * The browser sends its push endpoint, when it has one, with a switch of
+ * learner, so this phone's reminders go to whoever is studying on it now.
+ */
+async function followedByReminders(db: Db, body: unknown, learnerId: number): Promise<void> {
+  const endpoint = asRecord(body).endpoint;
+  if (typeof endpoint === 'string' && endpoint.length > 0) await moveSubscription(db, endpoint, learnerId);
 }
 
 function decodable(segment: string): boolean {
@@ -298,7 +308,8 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
      * A cron has no cookie, so there is no "who is studying" to read here —
      * and there should not be: a household's evening reminder is everybody's.
      * Each learner's due count comes from their own reviews and goes to the
-     * subscriptions registered while they were the one studying.
+     * subscriptions of the devices they are the one studying on (a switch of
+     * learner on a device carries its subscription over).
      */
     const learners = await store.listLearners(db);
     const reports = [];
@@ -414,6 +425,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       const name = String(asRecord(request.body).name ?? '').trim();
       if (!name) return badRequest('A learner needs a name.');
       const learner = await store.createLearner(db, name);
+      await followedByReminders(db, request.body, learner.id);
       // Created, and immediately studying as them: adding somebody is
       // something you do in order to hand them the phone.
       return {
@@ -425,6 +437,7 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     if (route.length === 2 && method === 'POST' && route[1] === 'select') {
       const id = Number(asRecord(request.body).id);
       if (!(await store.getLearner(db, id))) return badRequest('No such learner.');
+      await followedByReminders(db, request.body, id);
       return {
         status: 200,
         body: { learners: await store.listLearners(db), studyingAs: id },

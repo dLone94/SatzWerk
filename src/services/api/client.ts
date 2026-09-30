@@ -2,6 +2,7 @@ import type { ErrorCategory, TeachingLanguage } from '../../content/types.ts';
 import type { LessonProgress } from '../../core/progress/lesson.ts';
 import type { RecallGrade, ReviewItem, ReviewKind } from '../../core/srs/scheduler.ts';
 import type { Verdict } from '../../core/validation/validate.ts';
+import { existingPushEndpoint } from '../push/index.ts';
 
 /** Typed client for the SatzWerk API. One place that knows about fetch. */
 
@@ -284,8 +285,12 @@ export interface LearnerList {
 
 export const api = {
   learners: () => request<LearnerList>('/learners'),
-  addLearner: (name: string) => post<LearnerList>('/learners', { name }),
-  studyAs: (id: number) => post<LearnerList>('/learners/select', { id }),
+  // With this browser's push endpoint, when it has one, so the phone's
+  // reminders move to the learner who is studying on it now.
+  addLearner: async (name: string) =>
+    post<LearnerList>('/learners', { name, endpoint: await existingPushEndpoint() }),
+  studyAs: async (id: number) =>
+    post<LearnerList>('/learners/select', { id, endpoint: await existingPushEndpoint() }),
   renameLearner: (id: number, name: string) =>
     request<LearnerList>(`/learners/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
 

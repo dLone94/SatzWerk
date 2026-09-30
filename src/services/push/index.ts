@@ -72,6 +72,23 @@ async function serverKey(): Promise<string | null> {
   }
 }
 
+/**
+ * The endpoint this browser already holds a subscription with, if any.
+ *
+ * Sent with a switch of learner so the phone's reminders follow whoever is
+ * studying on it now. Asks the person nothing: reading an existing
+ * subscription needs no prompt and no tap, and any failure is simply "none".
+ */
+export async function existingPushEndpoint(): Promise<string | undefined> {
+  if (!pushApiPresent()) return undefined;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    return (await registration?.pushManager.getSubscription())?.endpoint ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function readPushStatus(): Promise<PushStatus> {
   if (!pushApiPresent()) {
     return { state: looksLikeIos() && !isStandalone() ? 'needs-install' : 'unsupported' };
