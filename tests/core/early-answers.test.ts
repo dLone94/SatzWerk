@@ -181,6 +181,20 @@ describe('answers the lessons teach', () => {
     expect(failures).toEqual([]);
   });
 
+  it('does not give full credit for the order the course calls a demand', () => {
+    // "Ich will einen Kaffee, bitte." was listed as a right answer to "I would
+    // like a coffee, please." in the lesson, and then copied into both
+    // checkpoints to keep the prompts consistent. The course itself says it
+    // sounds like a demand and is wrong at a counter, so the lesson explains
+    // it and the checkpoints, which give no hints, give it no credit.
+    for (const id of ['a1u3l1-ex2-s1', 'cp-a1u3-1-s1', 'a1-lcp-3-s1']) {
+      const result = validateAnswer('Ich will einen Kaffee, bitte.', stepById(id).answer, opts);
+      expect(result.credit, id).toBeLessThan(1);
+    }
+    const lesson = validateAnswer('Ich will einen Kaffee, bitte.', stepById('a1u3l1-ex2-s1').answer, opts);
+    expect(lesson.trapFeedback?.en).toMatch(/möchte/);
+  });
+
   it('accepts the sentences the lessons and word cards teach', () => {
     const cases: Array<[string, string]> = [
       // The Geburtstag card's own example, glossed "My birthday is in May."
@@ -303,6 +317,15 @@ describe('level checkpoints check what they say', () => {
     // It still asks for a modal: a day without one is not what the task set.
     const noModal = 'Ich stehe um sieben Uhr auf. Ich esse ein Brot. Ich gehe zum Büro. Am Abend sehe ich fern.';
     expect(checkFreeWriting(noModal, step.answer).missingRequired.length).toBe(1);
+    // And it still asks for a separable verb. A bare "an" matched Anna,
+    // andere and Antwort, so a day with no separable verb at all passed.
+    const noSeparable = 'Ich heiße Anna. Ich möchte Kaffee. Ich fahre mit dem Bus. Am Abend lese ich.';
+    expect(checkFreeWriting(noSeparable, step.answer).missingRequired.length).toBe(1);
+    // anfangen still counts, split or whole.
+    for (const start of ['Die Arbeit fängt um acht an.', 'Ich muss um acht anfangen.']) {
+      const day = `Ich esse ein Brot. Ich kann gut kochen. Ich gehe zum Büro. ${start} Am Abend lese ich.`;
+      expect(checkFreeWriting(day, step.answer).missingRequired, start).toEqual([]);
+    }
   });
 
   it('takes Entschuldigung as the polite opener in free writing', () => {

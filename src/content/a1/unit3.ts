@@ -227,10 +227,19 @@ const lesson1: Lesson = {
           {
             prompt: bi('I would like a coffee, please.', 'Бих искал едно кафе, моля.'),
             answer: 'Ich möchte einen Kaffee, bitte.',
-            alternatives: ['Ich will einen Kaffee, bitte.'],
             reviewTargets: ['v-moechten', 'p-ich-moechte'],
             hints: [bi('Kaffee is masculine and it is the object.', 'Kaffee е мъжки род и е допълнение.')],
             traps: [
+              // Correct German, but the course teaches it as the rude order at
+              // a counter, so it is explained here rather than accepted.
+              {
+                answer: 'Ich will einen Kaffee, bitte.',
+                category: 'vocabulary',
+                feedback: bi(
+                  'Ich will … is correct German but sounds like a demand; in a café say Ich möchte …',
+                  'Ich will … е правилен немски, но звучи като заповед; в кафене се казва Ich möchte …',
+                ),
+              },
               {
                 answer: 'Ich möchte ein Kaffee, bitte.',
                 category: 'case',
@@ -867,7 +876,6 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I would like a coffee, please.', 'Бих искал едно кафе, моля.'),
           answer: 'Ich möchte einen Kaffee, bitte.',
-          alternatives: ['Ich will einen Kaffee, bitte.'],
           hints: [],
         },
         {

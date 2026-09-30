@@ -118,7 +118,6 @@ export const A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('I would like a coffee, please.', 'Бих искал едно кафе, моля.'),
         answer: 'Ich möchte einen Kaffee, bitte.',
-        alternatives: ['Ich will einen Kaffee, bitte.'],
         hints: [],
       },
       {
@@ -343,9 +342,10 @@ export const A1_LEVEL_CHECKPOINT: Checkpoint = {
           'Ich stehe um sieben Uhr auf. Ich muss heute arbeiten. Ich esse ein Brot. Ich fahre mit dem Bus zum Büro. Am Abend sehe ich fern.',
         shape: 'sentence',
         // What the instruction names, and no more: any modal, and mit or zum.
-        // The separable verbs are matched by their split-off part; ein and ab
-        // are left out because they would match "ein Brot" and "Abend".
-        requiredTokens: ['auf|fern|an', 'muss|müss|kann|könn|will|woll|möcht|darf|dürf|soll', 'mit|zum|zur', 'Abend'],
+        // The separable verbs are matched by their split-off part, except
+        // anfangen: a bare "an" (like ein and ab) matches Anna, andere and
+        // Abend, so it is matched by fang instead ("fängt … an", "anfangen").
+        requiredTokens: ['auf|fern|anfang|fang|fäng', 'muss|müss|kann|könn|will|woll|möcht|darf|dürf|soll', 'mit|zum|zur', 'Abend'],
         hints: [],
       },
       {
