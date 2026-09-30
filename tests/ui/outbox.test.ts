@@ -86,7 +86,7 @@ describe('the outbox', () => {
       if (calls === 2) throw new ApiError('Could not reach the server', 0);
     });
 
-    expect(outcome).toEqual({ sent: 1, rejected: 0, remaining: 2 });
+    expect(outcome).toEqual({ sent: 1, rejected: 0, remaining: 2, stopped: 'unreachable' });
     expect(outbox.snapshot().queued.map(textOf)).toEqual(['zwei', 'drei']);
   });
 
@@ -146,6 +146,21 @@ describe('what counts as "the server was not there"', () => {
     // answer is good; the moment is bad.
     expect(outbox.isUnreachable(new ApiError('Bad gateway', 502))).toBe(true);
     expect(outbox.isUnreachable(new ApiError('Service unavailable', 503))).toBe(true);
+  });
+
+  it('holds a write the server failed on, and drops only what it said no to', () => {
+    // A 500 used to count as a refusal. A database connection dropped
+    // mid-query, or SQLite locked for a moment, answered 500 — and a good
+    // answer was thrown away as "refused", never to reach the database.
+    expect(outbox.isRetryable(new ApiError('Connection terminated unexpectedly', 500))).toBe(true);
+    expect(outbox.isRetryable(new ApiError('database is locked', 500))).toBe(true);
+    expect(outbox.isRetryable(new ApiError('Service unavailable', 503))).toBe(true);
+    expect(outbox.isRetryable(new ApiError('Too many requests', 429))).toBe(true);
+    expect(outbox.isRetryable(new ApiError('Could not reach the server', 0))).toBe(true);
+    // A 4xx is the server saying this write will never be accepted.
+    expect(outbox.isRetryable(new ApiError('stepId is required', 400))).toBe(false);
+    expect(outbox.isRetryable(new ApiError('No such lesson', 404))).toBe(false);
+    expect(outbox.isRetryable(new ApiError('Not signed in', 401))).toBe(false);
   });
 
   it('does not hold an answer the server actively refused', () => {
@@ -290,5 +305,159 @@ describe('the last two writes', () => {
       kinds.push(write.kind);
     });
     expect(kinds).toEqual(['reviewGrade', 'studyTime']);
+  });
+});
+
+/*
+ * A temporary server failure threw the answer away.
+ *
+ * Any exception on the server becomes a 500, including a Neon connection
+ * dropped mid-query and SQLite's "database is locked". The queue treated every
+ * 500 as a refusal: the answer came out of the queue as "refused" and never
+ * reached the database, although a retry a few seconds later would have
+ * worked.
+ */
+describe('a server error that is the server\'s fault', () => {
+  it('keeps the answer and everything behind it for the next try', async () => {
+    outbox.enqueue(attempt('s1', 'eins'));
+    outbox.enqueue(attempt('s2', 'zwei'));
+
+    const outcome = await outbox.flush(async () => {
+      throw new ApiError('Connection terminated unexpectedly', 500);
+    });
+
+    expect(outcome).toMatchObject({ sent: 0, rejected: 0, remaining: 2, stopped: 'unreachable' });
+    expect(outbox.snapshot().queued.map(textOf)).toEqual(['eins', 'zwei']);
+    expect(outbox.snapshot().rejected).toEqual([]);
+  });
+});
+
+/*
+ * An expired session threw every queued answer away.
+ *
+ * A session lasts thirty days, and a password change elsewhere ends it early.
+ * If anything was waiting at that moment, each item met a 401 on the next
+ * flush, was moved to "refused" and was gone for good — and signing in again
+ * brought none of it back.
+ */
+describe('a session that has ended', () => {
+  it('keeps the queue whole and says the learner has to sign in', async () => {
+    outbox.enqueue(attempt('s1', 'eins'));
+    outbox.enqueue(attempt('s2', 'zwei'));
+    outbox.enqueue({ kind: 'mastery', lessonId: 'l1', accuracy: 1, passAccuracy: 0.8 });
+
+    const outcome = await outbox.flush(async () => {
+      throw new ApiError('Not signed in.', 401);
+    });
+
+    expect(outcome).toMatchObject({ sent: 0, rejected: 0, remaining: 3, stopped: 'signedOut' });
+    expect(outbox.queuedCount()).toBe(3);
+    expect(outbox.snapshot().rejected).toEqual([]);
+
+    // Signed in again: everything goes, in order.
+    const sent: string[] = [];
+    await outbox.flush(async (write) => {
+      sent.push(write.kind === 'attempt' ? write.payload.given : write.kind);
+    });
+    expect(sent).toEqual(['eins', 'zwei', 'mastery']);
+  });
+});
+
+/*
+ * Each write carries one id for every try, so a resend of a request whose
+ * answer was lost can be recognised as the same write.
+ */
+describe('the key each write is sent with', () => {
+  it('is the id it was queued under, the same on every try', async () => {
+    outbox.enqueue(attempt('s1', 'eins'), 'write-1');
+    const keys: string[] = [];
+    await outbox.flush(async (_write, id) => {
+      keys.push(id);
+      throw new ApiError('Could not reach the server', 0);
+    });
+    await outbox.flush(async (_write, id) => {
+      keys.push(id);
+    });
+    expect(keys).toEqual(['write-1', 'write-1']);
+  });
+
+  it('is made fresh for each write', () => {
+    expect(outbox.newWriteId()).not.toBe(outbox.newWriteId());
+  });
+});
+
+/*
+ * A store that starts refusing part-way through.
+ *
+ * When `setItem` began to throw (a quota filled by something else), the new
+ * queue was kept in memory — but the next read preferred the older copy still
+ * in the store, so the answer just enqueued vanished although `enqueue` had
+ * said it was kept.
+ */
+describe('when the store fills up part-way through', () => {
+  it('still counts and sends what was held after the quota ran out', async () => {
+    outbox.enqueue(attempt('s1', 'eins'));
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+    });
+    try {
+      expect(outbox.enqueue(attempt('s2', 'zwei'))).toBe(true);
+      expect(outbox.isDurable()).toBe(false);
+      expect(outbox.answersWaiting()).toBe(2);
+
+      const sent: string[] = [];
+      const send = async (write: outbox.PendingWrite) => {
+        if (write.kind === 'attempt') sent.push(write.payload.given);
+      };
+      expect((await outbox.flush(send)).remaining).toBe(0);
+      // And a second pass does not send the stale stored copy again.
+      await outbox.flush(send);
+      expect(sent).toEqual(['eins', 'zwei']);
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+});
+
+/*
+ * Two tabs, one queue.
+ *
+ * The \`online\` event fires in every open tab at the same moment. Each tab read
+ * the same queue from localStorage and sent it before either had removed
+ * anything, so every waiting answer was saved twice.
+ */
+describe('two tabs sending at once', () => {
+  it('sends each write once', async () => {
+    // A small stand-in for the browser's Web Locks: one holder at a time.
+    let tail: Promise<unknown> = Promise.resolve();
+    const locks = {
+      request: (_name: string, work: () => Promise<unknown>) => {
+        const run = tail.then(work);
+        tail = run.catch(() => undefined);
+        return run;
+      },
+    };
+    Object.defineProperty(navigator, 'locks', { value: locks, configurable: true });
+
+    try {
+      outbox.enqueue(attempt('s1', 'eins'));
+      outbox.enqueue(attempt('s2', 'zwei'));
+
+      // A second tab: the same storage, its own copy of the module.
+      vi.resetModules();
+      const otherTab = (await import('../../src/services/api/outbox.ts')) as typeof outbox;
+
+      const sent: string[] = [];
+      const slowly = async (write: outbox.PendingWrite) => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        if (write.kind === 'attempt') sent.push(write.payload.given);
+      };
+      await Promise.all([outbox.flush(slowly), otherTab.flush(slowly)]);
+
+      expect(sent).toEqual(['eins', 'zwei']);
+      expect(outbox.queuedCount()).toBe(0);
+    } finally {
+      Reflect.deleteProperty(navigator, 'locks');
+    }
   });
 });

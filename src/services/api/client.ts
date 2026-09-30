@@ -199,7 +199,19 @@ const BASE = '/api';
  */
 const REQUEST_TIMEOUT_MS = 30_000;
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * For the writes the outbox can hold. Nobody waits on these any more — the
+ * verdict is on screen before they are sent — so a request stuck on a weak
+ * signal only holds up the queue behind it. Giving up sooner hands it back to
+ * the outbox, which tries again; the idempotency key it carries is how the
+ * server can tell a copy that did arrive from a new write.
+ */
+const WRITE_TIMEOUT_MS = 10_000;
+
+/** Header naming a write, the same on every try of it. See `QueuedWrite.id`. */
+export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
+
+async function request<T>(path: string, init?: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   // Named in every failure below. An error that says only "HTTP 404" leaves
   // the one useful fact — *which* request failed — visible in a browser's
   // network panel and nowhere else, so it cannot be reported by whoever hit
@@ -210,7 +222,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     response = await fetch(`${BASE}${path}`, {
       ...init,
       credentials: 'same-origin',
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
       headers: {
         ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
         ...init?.headers,
@@ -220,7 +232,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const timedOut = cause instanceof DOMException && cause.name === 'TimeoutError';
     throw new ApiError(
       timedOut
-        ? `${what} did not answer within ${REQUEST_TIMEOUT_MS / 1000} seconds. The server may still be starting up, or it cannot reach its database.`
+        ? `${what} did not answer within ${timeoutMs / 1000} seconds. The server may still be starting up, or it cannot reach its database.`
         : `Could not reach the server for ${what}: ${cause instanceof Error ? cause.message : String(cause)}`,
       0,
     );
@@ -259,6 +271,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 const post = <T>(path: string, body?: unknown): Promise<T> =>
   request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
+
+/**
+ * A write the outbox can hold: sent with its key, and given up on sooner.
+ * `key` is optional so a caller that has none still works.
+ */
+const write = <T>(path: string, body: unknown, key: string | undefined): Promise<T> =>
+  request<T>(
+    path,
+    {
+      method: 'POST',
+      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: key ? { [IDEMPOTENCY_HEADER]: key } : undefined,
+    },
+    WRITE_TIMEOUT_MS,
+  );
 
 export interface SessionState {
   /** Whether this deployment asks for a password at all. */
@@ -304,43 +331,51 @@ export const api = {
   updateProfile: (patch: Partial<Pick<Profile, 'teachingLanguage' | 'dailyTargetMinutes' | 'displayName' | 'onboarded'>>) =>
     request<Profile>('/profile', { method: 'PUT', body: JSON.stringify(patch) }),
 
-  recordAttempt: (payload: AttemptPayload) => post<AttemptResponse>('/attempts', payload),
+  recordAttempt: (payload: AttemptPayload, key?: string) => write<AttemptResponse>('/attempts', payload, key),
 
-  markSectionSeen: (lessonId: string, sectionId: string) =>
-    post<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/sections/${encodeURIComponent(sectionId)}`),
+  markSectionSeen: (lessonId: string, sectionId: string, key?: string) =>
+    write<LessonProgress>(
+      `/lessons/${encodeURIComponent(lessonId)}/sections/${encodeURIComponent(sectionId)}`,
+      undefined,
+      key,
+    ),
 
-  recordMastery: (lessonId: string, accuracy: number, passAccuracy: number) =>
-    post<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/mastery`, { accuracy, passAccuracy }),
+  recordMastery: (lessonId: string, accuracy: number, passAccuracy: number, key?: string) =>
+    write<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/mastery`, { accuracy, passAccuracy }, key),
 
-  recordRecovery: (lessonId: string) =>
-    post<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/recovery`),
+  recordRecovery: (lessonId: string, key?: string) =>
+    write<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/recovery`, undefined, key),
 
-  completeLesson: (lessonId: string) =>
-    post<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/complete`),
+  completeLesson: (lessonId: string, key?: string) =>
+    write<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/complete`, undefined, key),
 
   ensureReviewItems: (targets: TargetSpec[]) =>
     post<{ created: ReviewItem[]; reviewItems: ReviewItem[] }>('/reviews/ensure', { targets }),
 
-  gradeReview: (id: string, grade: RecallGrade) =>
-    post<ReviewItem>(`/reviews/${encodeURIComponent(id)}/grade`, { grade }),
+  /**
+   * `gradedAt` is when the learner graded it. A grade given offline and sent
+   * hours later is scheduled from the moment of recall, not of delivery.
+   */
+  gradeReview: (id: string, grade: RecallGrade, gradedAt?: string, key?: string) =>
+    write<ReviewItem>(`/reviews/${encodeURIComponent(id)}/grade`, { grade, gradedAt }, key),
 
   resolveMistake: (id: string) => post<MistakeRecord[]>(`/mistakes/${encodeURIComponent(id)}/resolve`),
 
   setFavorite: (vocabId: string, favorite: boolean) =>
     post<{ favorites: string[] }>(`/vocabulary/${encodeURIComponent(vocabId)}/favorite`, { favorite }),
 
-  recordCheckpoint: (payload: CheckpointPayload) =>
-    post<{ results: CheckpointResult[] }>('/checkpoints', payload),
+  recordCheckpoint: (payload: CheckpointPayload, key?: string) =>
+    write<{ results: CheckpointResult[] }>('/checkpoints', payload, key),
 
-  recordScenarioRun: (payload: ScenarioRunPayload) =>
-    post<{ scenarioRuns: ScenarioRun[] }>('/scenario-runs', payload),
+  recordScenarioRun: (payload: ScenarioRunPayload, key?: string) =>
+    write<{ scenarioRuns: ScenarioRun[] }>('/scenario-runs', payload, key),
 
   /**
    * `at` is when the time was spent, which is not when it was sent if it
    * waited for a connection — minutes belong to the day they were studied.
    */
-  addStudyTime: (seconds: number, at?: string, tzOffsetMinutes?: number) =>
-    post<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds, at, tzOffsetMinutes }),
+  addStudyTime: (seconds: number, at?: string, tzOffsetMinutes?: number, key?: string) =>
+    write<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds, at, tzOffsetMinutes }, key),
 
   coachStatus: () => request<CoachStatus>('/coach/status'),
 

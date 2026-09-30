@@ -67,7 +67,6 @@ export function App() {
    * Only what is true, and what is waiting.
    */
   if (error && offline) {
-    const waiting = sync.pending + sync.other;
     return (
       <div className="boot boot--offline">
         <span className="boot__icon" aria-hidden="true">
@@ -75,7 +74,11 @@ export function App() {
         </span>
         <h1>{t('offlineTitle')}</h1>
         <p>{t('offlineBody')}</p>
-        {waiting > 0 ? <p className="boot__waiting">{t('offlineWaiting', { n: waiting })}</p> : null}
+        {/* Answers are counted as answers, and nothing else is: a lesson
+            result is named for what it is, and study minutes are not the
+            learner's work at all, so they are not counted here. */}
+        {sync.pending > 0 ? <p className="boot__waiting">{t('offlineWaiting', { n: sync.pending })}</p> : null}
+        {sync.other > 0 ? <p className="boot__waiting">{t('offlineOther', { n: sync.other })}</p> : null}
         <button type="button" className="btn btn--primary" onClick={() => void reload()}>
           {t('retry')}
         </button>

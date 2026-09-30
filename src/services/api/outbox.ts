@@ -60,7 +60,12 @@ const MAX_REJECTED = 20;
  */
 export type PendingWrite =
   | { kind: 'attempt'; payload: AttemptPayload }
-  | { kind: 'reviewGrade'; id: string; grade: RecallGrade }
+  /*
+   * `gradedAt` is when the learner graded it, which is not when it was sent if
+   * it waited for a connection: the review schedule counts from the moment of
+   * recall. Optional because grades queued before it existed carry none.
+   */
+  | { kind: 'reviewGrade'; id: string; grade: RecallGrade; gradedAt?: string }
   | { kind: 'studyTime'; seconds: number; at: string; tzOffsetMinutes?: number }
   | { kind: 'sectionSeen'; lessonId: string; sectionId: string }
   | { kind: 'recovery'; lessonId: string }
@@ -70,7 +75,12 @@ export type PendingWrite =
   | { kind: 'scenarioRun'; payload: ScenarioRunPayload };
 
 export interface QueuedWrite {
-  /** Local, so the same write is never sent twice from two tabs. */
+  /**
+   * Made once, when the write happens, and sent with every try as its
+   * idempotency key: a request that reached the server but whose answer was
+   * lost on the way back is sent again, and the key is how the server can
+   * tell the second copy from a new answer.
+   */
   id: string;
   write: PendingWrite;
 }
@@ -126,6 +136,11 @@ function storage(): Storage | null {
 function read(): OutboxState {
   const store = storage();
   if (!store) return memory;
+  // Once a write to the store has failed, the copy in it is out of date: it
+  // lacks whatever was held since. Reading it back made an answer enqueued
+  // after a full quota vanish while `enqueue` said it was kept. Memory is the
+  // truth until a write to the store succeeds again.
+  if (!durable) return memory;
   try {
     const raw = store.getItem(KEY);
     if (raw === null) return durable ? carriedOver(store) : memory;
@@ -194,6 +209,8 @@ function write(state: OutboxState): void {
   if (!store) return;
   try {
     store.setItem(KEY, JSON.stringify(state));
+    // The store holds everything memory does again, so it can be trusted.
+    durable = true;
   } catch {
     // Quota exhausted, or site data blocked. The session carries on against
     // memory; only a reload would lose what is held.
@@ -235,6 +252,20 @@ function nextId(): string {
   return `${Date.now().toString(36)}-${counter.toString(36)}`;
 }
 
+/**
+ * An id for a write, made before its first send so a direct send and every
+ * later retry of it carry the same one. Random rather than counted, because
+ * the server keeps them per learner and two phones must not collide.
+ */
+export function newWriteId(): string {
+  try {
+    if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+  } catch {
+    // An insecure context has no randomUUID; the counted id below will do.
+  }
+  return `${nextId()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function snapshot(): OutboxState {
   return read();
 }
@@ -254,10 +285,10 @@ export function answersWaiting(): number {
  * room for the newest, which loses a sentence somebody typed without ever
  * saying so.
  */
-export function enqueue(write_: PendingWrite): boolean {
+export function enqueue(write_: PendingWrite, id: string = newWriteId()): boolean {
   const state = read();
   if (state.queued.length >= MAX_QUEUED) return false;
-  write({ ...state, queued: [...state.queued, { id: nextId(), write: write_ }] });
+  write({ ...state, queued: [...state.queued, { id, write: write_ }] });
   return true;
 }
 
@@ -301,11 +332,47 @@ export interface FlushOutcome {
   rejected: number;
   /** Still waiting — the server went away again, or was never there. */
   remaining: number;
+  /**
+   * Why the pass stopped early, when it did: the server could not take the
+   * write right now, or the session has ended and the learner has to sign in
+   * again before anything more can be sent. Absent when every write planned
+   * for the pass was dealt with.
+   */
+  stopped?: 'unreachable' | 'signedOut';
 }
 
-/** Send what is waiting, oldest first. Safe to call when nothing is. */
+/**
+ * Send what is waiting, oldest first. Safe to call when nothing is.
+ *
+ * `send` gets the write's id to pass on as its idempotency key. `onSent` hears
+ * about each accepted write after it has left the queue, so whatever it does
+ * with the server's answer sees only what is still waiting behind it.
+ */
 export async function flush(
-  send: (write: PendingWrite) => Promise<unknown>,
+  send: (write: PendingWrite, id: string) => Promise<unknown>,
+  onSent?: (write: PendingWrite, result: unknown) => void,
+): Promise<FlushOutcome> {
+  return exclusively(() => pass(send, onSent));
+}
+
+/**
+ * One tab at a time.
+ *
+ * The `online` event fires in every open tab at once, and each used to read
+ * the same queue and send it: two tabs, every answer saved twice. Inside the
+ * lock, the second tab re-reads the queue after the first has emptied it and
+ * finds nothing to send. A browser without Web Locks (older Safari, the test
+ * environment) runs the pass unguarded, as before.
+ */
+async function exclusively<T>(work: () => Promise<T>): Promise<T> {
+  const locks = (globalThis.navigator as Navigator | undefined)?.locks;
+  if (!locks || typeof locks.request !== 'function') return work();
+  return locks.request('satzwerk.outbox', () => work()) as Promise<T>;
+}
+
+async function pass(
+  send: (write: PendingWrite, id: string) => Promise<unknown>,
+  onSent?: (write: PendingWrite, result: unknown) => void,
 ): Promise<FlushOutcome> {
   let sent = 0;
   let rejected = 0;
@@ -321,24 +388,34 @@ export async function flush(
     // Gone already: another tab, or a flush that overlapped this one.
     if (!item) continue;
 
+    let result: unknown;
     try {
-      await send(item.write);
-      sent += 1;
-      drop(id);
+      result = await send(item.write, item.id);
     } catch (cause) {
-      if (isUnreachable(cause)) {
+      if (isRetryable(cause) || needsSignIn(cause)) {
         // Stop rather than skip. Order is not a nicety: the review schedule is
         // computed from one attempt to the next, so sending Tuesday's answer
-        // after Wednesday's would schedule the wrong thing.
-        return { sent, rejected, remaining: read().queued.length };
+        // after Wednesday's would schedule the wrong thing. A 401 is held the
+        // same way: signing in again is all it takes for the server to accept
+        // it, so throwing it away would lose work for an expired cookie.
+        return {
+          sent,
+          rejected,
+          remaining: read().queued.length,
+          stopped: needsSignIn(cause) ? 'signedOut' : 'unreachable',
+        };
       }
-      // A server that refuses an answer — a 400 it will never accept, a 401
-      // after sign-out — would wedge every later answer behind it if it were
-      // retried forever. So it comes out of the queue, with the reason kept
-      // for the app to report. It is never dropped in silence.
+      // A server that refuses a write outright — a 400 it will never accept —
+      // would wedge every later answer behind it if it were retried forever.
+      // So it comes out of the queue, with the reason kept for the app to
+      // report. It is never dropped in silence.
       rejected += 1;
       drop(id, cause instanceof Error ? cause.message : String(cause));
+      continue;
     }
+    sent += 1;
+    drop(id);
+    onSent?.(item.write, result);
   }
 
   return { sent, rejected, remaining: read().queued.length };
@@ -362,9 +439,8 @@ function drop(id: string, reason?: string): void {
 
 /**
  * Whether a failure means "the server was not there" rather than "the server
- * said no". Only the first is worth queueing: a request the server actively
- * rejected will be rejected again in an hour, and holding it would be a promise
- * the app cannot keep.
+ * said something". This is the question the start screen asks: a tunnel gets
+ * the offline screen, anything else an error.
  *
  * `ApiError` uses status 0 for a fetch that never got an answer — a dropped
  * connection or the request timing out. A 502/503/504 is a server that is
@@ -376,4 +452,29 @@ export function isUnreachable(cause: unknown): boolean {
   // A fetch rejection that never reached our own error type — jsdom and some
   // browsers throw a plain TypeError.
   return cause instanceof TypeError;
+}
+
+/**
+ * Whether a write that failed this way should be held and tried again.
+ *
+ * Wider than `isUnreachable`: a 500 is the server failing, not the write being
+ * wrong. A database connection dropped mid-query, a pool that timed out, a
+ * SQLite file locked for a moment — each came back as a 500, and each threw a
+ * good answer away as "refused". Only a 4xx is the server saying this write
+ * will never be accepted; everything from the server's own side is held.
+ * (A 408 or 429 is the server asking to be asked later, so it is held too.)
+ */
+export function isRetryable(cause: unknown): boolean {
+  if (isUnreachable(cause)) return true;
+  if (!(cause instanceof ApiError)) return false;
+  return cause.status >= 500 || cause.status === 408 || cause.status === 429;
+}
+
+/**
+ * A 401: the session has ended — thirty days passed, or the password was
+ * changed on another device. The write is fine; it needs the learner signed
+ * in again, and then it is sent.
+ */
+export function needsSignIn(cause: unknown): boolean {
+  return cause instanceof ApiError && cause.status === 401;
 }
