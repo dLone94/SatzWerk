@@ -21,7 +21,7 @@ const WORK_A2 = script({
   register: 'du',
   partner: bi('Lisa from marketing', 'Лиза от маркетинга'),
   goal: bi('First day: say what you do, and get somebody to help you.', 'Първи ден: кажи какво работиш и накарай някого да ти помогне.'),
-  lessonIds: ['a2-u4-l1'],
+  lessonIds: ['a1-u4-l1'],
   outro: bi(
     'She opened with du, so du it stayed. The verb to watch is helfen: it takes a dative, which is why it is mir and never mich.',
     'Тя започна с „du“, значи остана „du“. Глаголът за внимание е „helfen“: иска дателен падеж, затова е „mir“ и никога „mich“.',
@@ -456,7 +456,7 @@ const KITA_A2 = script({
   register: 'Sie',
   partner: bi('the Kita office', 'канцеларията на детската градина'),
   goal: bi('Phone in that your child is ill and will not be coming.', 'Обади се, че детето ти е болно и няма да дойде.'),
-  lessonIds: ['a2-u5-l2'],
+  lessonIds: ['a1-u6-l2', 'a2-u4-l1'],
   outro: bi(
     'A German Kita expects this call before nine, every time, even for one day. It is four sentences and it is the one piece of parent German you will use most.',
     'Немската градина очаква това обаждане преди девет, всеки път, дори за един ден. Четири изречения са и са частта от родителския немски, която ще използваш най-често.',

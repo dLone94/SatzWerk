@@ -139,7 +139,7 @@ const A1 = script({
     'Order two rolls and a coffee, and pay for them.',
     'Поръчай две хлебчета и едно кафе и плати.',
   ),
-  lessonIds: ['a1-u1-l1'],
+  lessonIds: ['a1-u3-l2', 'a1-u3-l1'],
   outro: bi(
     'You ordered two different things, answered a question you did not choose, and paid. That is a complete transaction in German.',
     'Поръча две различни неща, отговори на въпрос, който не си избрал, и плати. Това е завършена сделка на немски.',

@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CURRICULUM, VOCABULARY, allUnits } from '../../content/index.ts';
 import type { Gender, WordType } from '../../content/types.ts';
-import { UI, WORD_TYPE_LABELS } from '../../i18n.ts';
+import { TOPIC_LABELS, UI, WORD_TYPE_LABELS } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Icon } from '../components/icons.tsx';
 import { AudioButton, EmptyState } from '../components/bits.tsx';
-import { buildVocabViews, type VocabView } from '../selectors.ts';
+import { buildVocabViews, vocabMatches, type VocabView } from '../selectors.ts';
 
 type Tab = 'all' | 'learning' | 'known' | 'due' | 'favorites' | 'mistakes' | 'new';
 
@@ -36,12 +36,20 @@ export function VocabularyPage() {
     [reviewItems, mistakes, favorites],
   );
 
-  const topics = useMemo(() => [...new Set(VOCABULARY.flatMap((entry) => entry.tags))].sort(), []);
+  // Named in the teaching language and sorted by the name shown; a tag with
+  // no name yet shows as itself rather than disappearing.
+  const topicLabel = (tag: string) => TOPIC_LABELS[tag]?.[lang] ?? tag.replace(/-/g, ' ');
+  const topics = useMemo(
+    () =>
+      [...new Set(VOCABULARY.flatMap((entry) => entry.tags))].sort((a, b) =>
+        (TOPIC_LABELS[a]?.[lang] ?? a).localeCompare(TOPIC_LABELS[b]?.[lang] ?? b, lang),
+      ),
+    [lang],
+  );
   const wordTypes = useMemo(() => [...new Set(VOCABULARY.map((entry) => entry.wordType))].sort(), []);
   const units = useMemo(() => allUnits().filter((candidate) => candidate.lessons.length > 0), []);
 
   const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
     return views.filter((view) => {
       const { entry } = view;
 
@@ -58,15 +66,8 @@ export function VocabularyPage() {
       if (wordType && entry.wordType !== wordType) return false;
       if (gender && entry.gender !== gender) return false;
 
-      if (needle.length === 0) return true;
       // Search German, English and Bulgarian at once.
-      return (
-        entry.german.toLowerCase().includes(needle) ||
-        entry.display.toLowerCase().includes(needle) ||
-        entry.translation.en.toLowerCase().includes(needle) ||
-        entry.translation.bg.toLowerCase().includes(needle) ||
-        (entry.plural ?? '').toLowerCase().includes(needle)
-      );
+      return vocabMatches(entry, query);
     });
   }, [views, tab, query, level, unit, topic, wordType, gender]);
 
@@ -88,7 +89,7 @@ export function VocabularyPage() {
         <input
           type="search"
           value={query}
-          placeholder={t('vocabSearch')}
+          placeholder={t('vocabSearchShort')}
           onChange={(event) => setQuery(event.target.value)}
         />
       </label>
@@ -134,7 +135,7 @@ export function VocabularyPage() {
           <Select label={t('vocabFilterTopic')} value={topic} onChange={setTopic}>
             {topics.map((candidate) => (
               <option key={candidate} value={candidate}>
-                {candidate}
+                {topicLabel(candidate)}
               </option>
             ))}
           </Select>

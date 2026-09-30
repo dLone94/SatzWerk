@@ -3,7 +3,7 @@ import { allCheckpoints, availableLessons, lessonsInOrder } from '../../src/cont
 import type { LessonProgress, StepOutcome } from '../../src/core/progress/lesson.ts';
 import { createReviewItem, type ReviewItem } from '../../src/core/srs/scheduler.ts';
 import type { CheckpointResult, MistakeRecord } from '../../src/services/api/client.ts';
-import { buildQueue, buildVocabViews, mistakeMatchesVocab, nextAction } from '../../src/ui/selectors.ts';
+import { buildQueue, buildVocabViews, mistakeMatchesVocab, nextAction, vocabMatches } from '../../src/ui/selectors.ts';
 import { vocabById } from '../../src/content/index.ts';
 
 /**
@@ -170,5 +170,28 @@ describe('the review queue', () => {
     expect(entry!.label).not.toBe(grammar);
     expect(entry!.title).toBeDefined();
     expect(entry!.german).toBe(false);
+  });
+});
+
+describe('vocabulary search', () => {
+  /*
+   * The first lesson says ae, oe, ue and ss are fine on a keyboard without
+   * German letters, and the checker accepts them — but the search found
+   * nothing for "strasse", "tschuess" or "Madchen".
+   */
+  const find = (query: string) =>
+    buildVocabViews([], [], [])
+      .filter((view) => vocabMatches(view.entry, query))
+      .map((view) => view.entry.german);
+
+  it('finds German words typed without umlauts or ß', () => {
+    for (const query of ['strasse', 'Straße', 'STRASSE']) expect(find(query)).toContain('Straße');
+    for (const query of ['tschuess', 'tschuss', 'Tschüss']) expect(find(query)).toContain('Tschüss');
+    for (const query of ['Maedchen', 'madchen', 'Mädchen']) expect(find(query)).toContain('Mädchen');
+  });
+
+  it('still searches the translations, Cyrillic untouched', () => {
+    expect(find('girl')).toContain('Mädchen');
+    expect(find('момиче')).toContain('Mädchen');
   });
 });

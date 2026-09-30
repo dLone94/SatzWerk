@@ -22,7 +22,7 @@ import { tr } from '../../src/i18n.ts';
 import { nullTtsProvider } from '../../src/services/tts/index.ts';
 import { createSpeechRecogniser } from '../../src/services/speech/recogniser.ts';
 import { AppStateContext, type AppStateValue } from '../../src/state/AppState.tsx';
-import { formatDuration } from '../../src/ui/components/bits.tsx';
+import { formatDuration, formatRelativeDate } from '../../src/ui/components/bits.tsx';
 import { CheckpointPage } from '../../src/ui/pages/CheckpointPage.tsx';
 import { CoachPage } from '../../src/ui/pages/CoachPage.tsx';
 import { CoursePage } from '../../src/ui/pages/CoursePage.tsx';
@@ -211,7 +211,8 @@ describe.each(LANGS)('pages render in the %s path', (lang) => {
 
   it('vocabulary', () => {
     mount(<VocabularyPage />, lang);
-    expect(screen.getByPlaceholderText(tr('vocabSearch', lang))).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(tr('vocabSearchShort', lang))).toBeInTheDocument();
+    expect(screen.getByLabelText(tr('vocabSearch', lang))).toBeInTheDocument();
     // Nouns are listed with their article.
     expect(screen.getAllByText('die Tochter').length).toBeGreaterThan(0);
   });
@@ -457,13 +458,14 @@ describe('the dashboard never invents progress', () => {
 
   it('shows no streak before any study day exists', () => {
     mount(<DashboardPage />, 'en');
-    expect(screen.queryByLabelText(/Study streak/)).toBeNull();
+    expect(screen.queryByText(/Study streak/)).toBeNull();
   });
 
   it('reports real figures once there is activity', () => {
     mount(<DashboardPage />, 'en', { stats: active });
     expect(screen.getByText('First-try accuracy').closest('.stat')).toHaveTextContent('75%');
-    expect(screen.getByLabelText('Study streak: 3 days')).toHaveTextContent('3');
+    // Read as words, not as a label on a paragraph, which is never read.
+    expect(screen.getByText('Study streak: 3 days').closest('.today__streak')).toHaveTextContent(/^3/);
     expect(screen.getByText('Time studied').closest('.stat')).toHaveTextContent('15 min');
   });
 
@@ -727,3 +729,237 @@ describe('a big review pile', () => {
   });
 });
 
+
+/*
+ * Found by the audit of the interface, each one a thing a learner met.
+ */
+describe('reading a lesson', () => {
+  const lessonRoute = (lang: TeachingLanguage) =>
+    mount(
+      <Routes>
+        <Route path="/lesson/:lessonId" element={<LessonPage />} />
+      </Routes>,
+      lang,
+      undefined,
+      '/lesson/pre-a1-u2-l3',
+    );
+
+  /*
+   * Next swapped the section in place and left the page scrolled, so the
+   * next section opened at its end, its title above the screen.
+   */
+  it('starts each new section at the top of the page', async () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    const user = userEvent.setup();
+    lessonRoute('en');
+    await user.click(screen.getByRole('button', { name: tr('lessonStart', 'en') }));
+    scrollTo.mockClear();
+    await user.click(screen.getByRole('button', { name: tr('lessonNextSection', 'en') }));
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+    scrollTo.mockRestore();
+  });
+
+  /*
+   * While reading and practising the page had no h1 — the lesson title was a
+   * paragraph — and small headings jumped from h2 to h4.
+   */
+  it('has the lesson title as its heading while reading, and no skipped levels', async () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    const user = userEvent.setup();
+    const { container } = lessonRoute('en');
+    expect(container.querySelector('h4')).toBeNull();
+    await user.click(screen.getByRole('button', { name: tr('lessonStart', 'en') }));
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Introducing yourself');
+    scrollTo.mockRestore();
+  });
+
+  /*
+   * Whether a requirement was met was shown only by a ✓ or ○ hidden from
+   * screen readers, so "Pass the final check" sounded the same either way.
+   */
+  it('says whether each requirement is met, in words', () => {
+    lessonRoute('bg');
+    const items = [...document.querySelectorAll('.requirements li')];
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) expect(item).toHaveTextContent(tr('requirementNotMet', 'bg'));
+  });
+});
+
+describe('the Bulgarian path reads as Bulgarian', () => {
+  /*
+   * Every prompt was wrapped in „…“ — instructions too, and prompts that
+   * already quoted German got quotes inside quotes.
+   */
+  it('shows a prompt as written, without quotation marks of its own', async () => {
+    const { ExercisePlayer } = await import('../../src/ui/components/ExercisePlayer.tsx');
+    const { bi, typeIt } = await import('../../src/content/authoring.ts');
+    const exercise = typeIt('t-q', bi('Q', 'В'), [
+      {
+        id: 't-q-1',
+        prompt: bi('The waiter says: “Zusammen?” What is he asking?', 'Сервитьорът казва: „Zusammen?“ Какво пита?'),
+        answer: 'Zusammen',
+      },
+    ]);
+    const { container } = mount(
+      <ExercisePlayer exercises={[exercise]} context="lesson" level="pre-a1" onFinish={() => {}} />,
+      'bg',
+    );
+    expect(container.querySelector('.task__prompt')?.textContent).toBe('Сервитьорът казва: „Zusammen?“ Какво пита?');
+  });
+
+  /*
+   * "0 / 18 от завършени урока" — a fraction, "of", then a lowercased label —
+   * read as "0 / 18 of lessons completed" in English as well.
+   */
+  it('counts a level’s lessons in one sentence', () => {
+    mount(<CoursePage />, 'bg');
+    expect(document.querySelector('.level-progress')).toHaveTextContent(/Завършени 0 от \d+ урока/);
+  });
+
+  it('calls the review page what its tab calls it', () => {
+    expect(tr('reviewTitle', 'bg')).toBe(tr('navReview', 'bg'));
+  });
+
+  /*
+   * The Topic filter listed the raw tags — "time-of-day", "grammar-word" —
+   * in both paths.
+   */
+  it('names every vocabulary topic', async () => {
+    const { VOCABULARY } = await import('../../src/content/index.ts');
+    const { TOPIC_LABELS } = await import('../../src/i18n.ts');
+    const tags = new Set(VOCABULARY.flatMap((entry) => entry.tags));
+    expect([...tags].filter((tag) => !TOPIC_LABELS[tag])).toEqual([]);
+    mount(<VocabularyPage />, 'bg');
+    const topic = screen.getByLabelText(tr('vocabFilterTopic', 'bg'));
+    expect(topic).toHaveTextContent('части от деня');
+    expect(topic).not.toHaveTextContent('time-of-day');
+  });
+
+  /*
+   * The first learner is stored as "me", and Settings showed that English
+   * placeholder on the Bulgarian path.
+   */
+  it('shows the first learner as Аз, not "me"', () => {
+    mount(<SettingsPage />, 'bg');
+    expect(document.querySelector('.learners__name')).toHaveTextContent('Аз');
+  });
+});
+
+describe('the settings data card', () => {
+  /*
+   * Settings said "Progress deleted." when the reset had failed, right under
+   * the banner saying nothing was deleted.
+   */
+  it('announces a reset only when it happened', async () => {
+    const user = userEvent.setup();
+    const resetAll = vi.fn(async () => undefined);
+    mount(<SettingsPage />, 'en', { resetAll });
+    await user.type(screen.getByLabelText(tr('settingsResetConfirm', 'en')), 'DELETE');
+    await user.click(screen.getByRole('button', { name: tr('settingsReset', 'en') }));
+    expect(resetAll).toHaveBeenCalled();
+    expect(screen.queryByText(tr('settingsResetDone', 'en'))).toBeNull();
+  });
+
+  it('announces it once the server has deleted everything', async () => {
+    const user = userEvent.setup();
+    mount(<SettingsPage />, 'en', { resetAll: vi.fn(async () => true) });
+    await user.type(screen.getByLabelText(tr('settingsResetConfirm', 'en')), 'DELETE');
+    await user.click(screen.getByRole('button', { name: tr('settingsReset', 'en') }));
+    expect(await screen.findByText(tr('settingsResetDone', 'en'))).toBeInTheDocument();
+  });
+
+  /*
+   * It told every learner their progress was in SQLite "on this machine",
+   * which on the hosted app is a server somewhere else entirely.
+   */
+  it('does not claim the progress is on this machine', () => {
+    for (const lang of LANGS) {
+      expect(tr('settingsDataNote', lang)).not.toMatch(/SQLite|this machine|тази машина/);
+    }
+  });
+});
+
+describe('what is shown to a screen reader', () => {
+  /*
+   * The mistake bars were progress bars with no name, reading "100%" for the
+   * biggest of a few counts, and every "Practise this kind" button had the
+   * same name.
+   */
+  it('keeps the mistake bars out of the way and names each practise button', () => {
+    mount(<MistakesPage />, 'en', {
+      mistakes: [
+        {
+          id: 'm1',
+          category: 'article',
+          expected: 'die Tochter',
+          lastGiven: 'der Tochter',
+          stepId: null,
+          lessonId: null,
+          occurrences: 3,
+          correctedCount: 0,
+          firstSeenAt: now,
+          lastSeenAt: now,
+          resolvedAt: null,
+        },
+      ],
+      stats: {
+        totalAnswers: 5,
+        correctAnswers: 2,
+        accuracy: 0.4,
+        totalStudySeconds: 300,
+        studyDays: 1,
+        streak: 1,
+        categoryCounts: [
+          { category: 'article', count: 3 },
+          { category: 'preposition', count: 1 },
+        ],
+        retypedCorrections: 0,
+      },
+    });
+    expect(document.querySelector('.cat-bars [role="progressbar"]')).toBeNull();
+    const label = tr('mistakesPractiseCategory', 'en');
+    expect(screen.getAllByRole('button', { name: new RegExp(`^${label}: `) })).toHaveLength(2);
+  });
+});
+
+describe('the review queue on the page', () => {
+  it('lists a due sentence by its German, not its id', () => {
+    mount(<ReviewPage />, 'en', {
+      reviewItems: [
+        {
+          id: 'r1',
+          kind: 'pattern',
+          refId: 'p-ich-komme-aus',
+          level: 'pre-a1',
+          state: 'learning',
+          ease: 2.5,
+          intervalDays: 0,
+          dueAt: new Date(Date.now() - 60_000).toISOString(),
+          successCount: 1,
+          failureCount: 0,
+          lapses: 0,
+          learningStep: 1,
+          createdAt: now,
+        },
+      ],
+    });
+    expect(screen.queryByText('p-ich-komme-aus')).toBeNull();
+    expect(document.querySelector('.queue__label')).toHaveTextContent('Ich komme aus Bulgarien.');
+  });
+});
+
+describe('relative dates', () => {
+  /*
+   * The second learning step is exactly one day, so nearly every new word
+   * read "in 1 days" / "след 1 дни".
+   */
+  it('says one day in the singular', () => {
+    const at = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString();
+    expect(formatRelativeDate(at(24), 'en')).toBe('in 1 day');
+    expect(formatRelativeDate(at(30), 'bg')).toBe('след 1 ден');
+    expect(formatRelativeDate(at(-26), 'en')).toBe('1 day ago');
+    expect(formatRelativeDate(at(-26), 'bg')).toBe('преди 1 ден');
+    expect(formatRelativeDate(at(48), 'en')).toBe('in 2 days');
+    expect(formatRelativeDate(at(48), 'bg')).toBe('след 2 дни');
+  });
+});

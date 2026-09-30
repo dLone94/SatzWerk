@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { Block, ContentStatus, VocabEntry } from '../../content/types.ts';
 import { NORMAL_RATE, SLOW_RATE } from '../../services/tts/index.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { WORD_TYPE_LABELS } from '../../i18n.ts';
+import { WORD_TYPE_LABELS, tr } from '../../i18n.ts';
 import { Icon, type IconName } from './icons.tsx';
 
 /** Small shared building blocks: buttons, badges, meters, block rendering. */
@@ -63,6 +63,14 @@ export function speakable(cell: string): string | null {
   return said;
 }
 
+/**
+ * The first learner is stored as "me", a placeholder rather than a name, and
+ * it was shown as the English word on the Bulgarian path too.
+ */
+export function learnerName(name: string, t: (key: 'learnerMe') => string): string {
+  return name === 'me' ? t('learnerMe') : name;
+}
+
 export function RichText({ text }: { text: string }) {
   const paragraphs = text.split(/\n{2,}/).filter((paragraph) => paragraph.trim().length > 0);
   if (paragraphs.length <= 1) return <>{withLineBreaks(text, 'rt')}</>;
@@ -118,13 +126,27 @@ export function Meter({
   max = 1,
   label,
   tone = 'accent',
+  decorative = false,
 }: {
   value: number;
   max?: number;
   label?: string;
   tone?: 'accent' | 'muted' | 'good';
+  /**
+   * A bar drawn beside a number that is already printed, comparing it with
+   * its neighbours. Not a progress bar: announced as one, it had no name and
+   * read "100%" for the biggest of a few counts.
+   */
+  decorative?: boolean;
 }) {
   const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+  if (decorative) {
+    return (
+      <div className={`meter meter--${tone}`} aria-hidden="true">
+        <span className="meter__fill" style={{ width: `${pct}%` }} />
+      </div>
+    );
+  }
   return (
     <div
       className={`meter meter--${tone}`}
@@ -326,7 +348,7 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
           case 'callout':
             return (
               <aside key={key} className={`callout callout--${block.tone}`}>
-                {block.title && say(block.title) ? <h4>{say(block.title)}</h4> : null}
+                {block.title && say(block.title) ? <h3>{say(block.title)}</h3> : null}
                 <p>
                   <RichText text={say(block.text)} />
                 </p>
@@ -466,13 +488,9 @@ export function formatRelativeDate(iso: string, lang: 'en' | 'bg'): string {
         ? `преди ${hours} ${unit}`
         : `${hours} ${unit} ago`;
   }
+  // Days need a singular — the second learning step is exactly one day, so
+  // "in 1 days" / "след 1 дни" was on nearly every new word. Minutes and hours
+  // are abbreviations and read right for any number.
   const days = Math.round(hours / 24);
-  const unit = lang === 'bg' ? 'дни' : 'days';
-  return diffMinutes > 0
-    ? lang === 'bg'
-      ? `след ${days} ${unit}`
-      : `in ${days} ${unit}`
-    : lang === 'bg'
-      ? `преди ${days} ${unit}`
-      : `${days} ${unit} ago`;
+  return tr(diffMinutes > 0 ? 'relInDays' : 'relDaysAgo', lang, { n: days });
 }

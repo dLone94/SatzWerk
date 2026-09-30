@@ -21,7 +21,7 @@ const BUERGERAMT_A2 = script({
     'Get an appointment for registering your address, when the online calendar is empty.',
     'Вземи час за адресна регистрация, когато онлайн календарът е празен.',
   ),
-  lessonIds: ['b1-u2-l1'],
+  lessonIds: ['a1-u6-l1'],
   outro: bi(
     'The useful part was not the appointment. It was the list at the end: three documents, and now you know them before you are standing at the counter without one.',
     'Полезното не беше часът. Беше списъкът накрая: три документа, и сега ги знаеш, преди да си застанал на гишето без един от тях.',

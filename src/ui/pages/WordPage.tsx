@@ -178,7 +178,7 @@ export function WordPage() {
 
         {entry.collocations && entry.collocations.length > 0 ? (
           <>
-            <h4 className="mini-head">{t('wordCollocations')}</h4>
+            <h3 className="mini-head">{t('wordCollocations')}</h3>
             <ul className="collocations">
               {entry.collocations.map((collocation, index) => (
                 <li key={index}>
@@ -193,7 +193,7 @@ export function WordPage() {
 
         {related.length > 0 ? (
           <>
-            <h4 className="mini-head">{t('wordRelated')}</h4>
+            <h3 className="mini-head">{t('wordRelated')}</h3>
             <ul className="pill-list">
               {related.map((candidate) =>
                 candidate ? (

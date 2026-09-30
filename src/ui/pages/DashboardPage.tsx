@@ -73,9 +73,12 @@ export function DashboardPage() {
           </h1>
         </div>
         {stats.streak > 0 ? (
-          <p className="today__streak" aria-label={t('todayStreak', { n: stats.streak })}>
+          // A paragraph cannot be named, so the label on it was never read:
+          // the words are in the text, for a screen reader only.
+          <p className="today__streak">
             <Icon name="flame" size={18} />
             <span aria-hidden="true">{stats.streak}</span>
+            <span className="visually-hidden">{t('todayStreak', { n: stats.streak })}</span>
           </p>
         ) : null}
       </header>

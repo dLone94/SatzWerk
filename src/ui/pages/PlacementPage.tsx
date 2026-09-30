@@ -101,7 +101,7 @@ export function PlacementPage() {
               : t('placementCaveat', { asked: result.asked })}
           </p>
 
-          <h4 className="mini-head">{t('placementBands')}</h4>
+          <h3 className="mini-head">{t('placementBands')}</h3>
           <ul className="bands">
             {result.bands
               .filter((band) => band.asked > 0)

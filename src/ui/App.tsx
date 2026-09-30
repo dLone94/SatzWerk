@@ -1,4 +1,5 @@
-import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { NavLink, Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { useApp } from '../state/AppState.tsx';
 import { CoachPage } from './pages/CoachPage.tsx';
 import { CheckpointPage } from './pages/CheckpointPage.tsx';
@@ -20,12 +21,36 @@ import { WordPage } from './pages/WordPage.tsx';
 import { MorePage, MORE_ROUTES } from './pages/MorePage.tsx';
 import { SyncBanner } from './components/SyncBanner.tsx';
 import { Icon } from './components/icons.tsx';
+import { learnerName } from './components/bits.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
 
 export function App() {
   const { ready, error, offline, sync, session, profile, reload, t, reviewItems, learners, studyingAs } =
     useApp();
   const location = useLocation();
+
+  /*
+   * The "No connection" screen promises to load by itself once there is a
+   * connection again, and nothing did: the listeners that notice the signal
+   * coming back only start once progress has loaded. So while this screen is
+   * up it listens itself — for the browser saying it is online, and for the
+   * app being brought back to the front, which on an iPhone is often the
+   * first sign the train is out of the tunnel.
+   */
+  const waitingForSignal = Boolean(error) && offline;
+  useEffect(() => {
+    if (!waitingForSignal) return;
+    const retry = () => void reload();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') retry();
+    };
+    window.addEventListener('online', retry);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('online', retry);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [waitingForSignal, reload]);
 
   if (!ready) {
     // Three shimmering lines rather than the word "Loading" alone: on a phone
@@ -90,7 +115,9 @@ export function App() {
           <Icon name="alert" size={30} />
         </span>
         <h1>{t('errorTitle')}</h1>
-        <p>{t('errorOffline')}</p>
+        {/* The server answered — with an error — so asking whether it is
+            running was both a developer's question and the wrong one. */}
+        <p>{t('errorServer')}</p>
         <pre className="boot__detail">{error}</pre>
         <button type="button" className="btn btn--primary" onClick={() => void reload()}>
           {t('retry')}
@@ -108,8 +135,9 @@ export function App() {
 
   return (
     <div className="shell">
+      <ScrollToTop />
       <a className="skip-link" href="#main">
-        Skip to content
+        {t('skipToContent')}
       </a>
 
       <header className="topbar">
@@ -126,7 +154,7 @@ export function App() {
           {/* Only once there is somebody to be confused with. */}
           {learners.length > 1 ? (
             <NavLink to="/settings" className="topbar__who" title={t('learnersTitle')}>
-              {learners.find((learner) => learner.id === studyingAs)?.name ?? ''}
+              {learnerName(learners.find((learner) => learner.id === studyingAs)?.name ?? '', t)}
             </NavLink>
           ) : null}
           <LanguageToggle />
@@ -135,7 +163,7 @@ export function App() {
 
       {/* The first-run question has the screen to itself: no tabs to wander
           off into before the app knows which language to explain in. */}
-      <nav className="nav" aria-label={t('navCourse')} hidden={location.pathname === '/welcome'}>
+      <nav className="nav" aria-label={t('navMain')} hidden={location.pathname === '/welcome'}>
         <NavItem to="/" label={t('navToday')} icon="today" />
         <NavItem to="/session" label={t('navSession')} icon="round" />
         <NavItem to="/course" label={t('navCourse')} icon="course" />
@@ -226,16 +254,34 @@ function NavItem({
   );
 }
 
+/**
+ * A new page opens at its top. The router keeps the old scroll position, so a
+ * word tapped far down the vocabulary list opened its own page part-way down,
+ * the word and its audio above the screen. Back and forward are left alone:
+ * there the browser's own position is the one the learner expects.
+ */
+export function ScrollToTop() {
+  const { pathname } = useLocation();
+  const navigation = useNavigationType();
+  useEffect(() => {
+    if (navigation !== 'POP') window.scrollTo(0, 0);
+  }, [pathname, navigation]);
+  return null;
+}
+
 function LanguageToggle() {
-  const { profile, setTeachingLanguage } = useApp();
+  const { profile, setTeachingLanguage, t } = useApp();
   return (
-    <div className="lang-toggle" role="group" aria-label="Teaching language">
+    <div className="lang-toggle" role="group" aria-label={t('settingsLanguage')}>
       {(['en', 'bg'] as const).map((code) => (
         <button
           key={code}
           type="button"
           className={`lang-toggle__btn${profile.teachingLanguage === code ? ' is-active' : ''}`}
           aria-pressed={profile.teachingLanguage === code}
+          // Each language named in itself, as a language picker should be.
+          aria-label={code === 'en' ? 'English' : 'Български'}
+          lang={code}
           onClick={() => void setTeachingLanguage(code)}
         >
           {code === 'en' ? 'EN' : 'БГ'}

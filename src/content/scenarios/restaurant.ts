@@ -17,7 +17,7 @@ const A1 = script({
   register: 'Sie',
   partner: bi('the waiter', 'сервитьорът'),
   goal: bi('Order a drink and a meal, then get the bill.', 'Поръчай напитка и ядене, после поискай сметката.'),
-  lessonIds: ['a1-u1-l1'],
+  lessonIds: ['a1-u3-l1', 'a1-u3-l2'],
   outro: bi(
     'Ordering is four sentences and none of them are hard. The one that catches people out is the last: in Germany the bill comes when you ask for it, and not a minute before.',
     'Поръчването е четири изречения и нито едно не е трудно. Това, което изненадва хората, е последното: в Германия сметката идва, когато я поискаш, и нито минута по-рано.',

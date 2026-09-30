@@ -16,6 +16,7 @@ import type { Bilingual, Exercise, ExerciseStep, Lesson, TeachingLanguage, Vocab
 import { allStepIds, isLessonComplete, lessonRequirements, type LessonProgress } from '../core/progress/lesson.ts';
 import type { SessionSources } from '../core/progress/session.ts';
 import { dueItems, dueReason, orderQueue, type ReviewItem } from '../core/srs/scheduler.ts';
+import { toDigraphs } from '../core/validation/text.ts';
 import { CATEGORY_LABELS } from '../i18n.ts';
 import type { CheckpointResult, MistakeRecord } from '../services/api/client.ts';
 import { buildMistakePractice, buildReviewExercises } from './reviewBuilder.ts';
@@ -110,6 +111,49 @@ export function mistakeMatchesVocab(mistake: MistakeRecord, entry: VocabEntry): 
     if (word.every((token, offset) => answer[start + offset] === token)) return true;
   }
   return false;
+}
+
+/*
+ * Vocabulary search, as forgiving as the answer checker.
+ *
+ * The first lesson tells a learner without a German keyboard that ae, oe, ue
+ * and ss are fine, and the checker accepts them — but the search did not, so
+ * "strasse", "tschuess" and "Madchen" found nothing. German fields are folded
+ * two ways, to digraphs (ä → ae) and to bare letters (ä → a), and the query is
+ * folded the same way. The Bulgarian translation is left alone: taking marks
+ * off Cyrillic would turn й into и.
+ */
+const toBare = (text: string) =>
+  text.replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss');
+
+const searchFields = new WeakMap<VocabEntry, { digraph: string[]; bare: string[]; plain: string[] }>();
+function fieldsOf(entry: VocabEntry) {
+  let fields = searchFields.get(entry);
+  if (!fields) {
+    const german = [entry.german, entry.display, entry.plural ?? '', entry.translation.en].map((field) =>
+      field.toLowerCase(),
+    );
+    fields = {
+      digraph: german.map(toDigraphs),
+      bare: german.map(toBare),
+      plain: [...german, entry.translation.bg.toLowerCase()],
+    };
+    searchFields.set(entry, fields);
+  }
+  return fields;
+}
+
+export function vocabMatches(entry: VocabEntry, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (needle.length === 0) return true;
+  const fields = fieldsOf(entry);
+  const digraph = toDigraphs(needle);
+  const bare = toBare(needle);
+  return (
+    fields.plain.some((field) => field.includes(needle)) ||
+    fields.digraph.some((field) => field.includes(digraph)) ||
+    fields.bare.some((field) => field.includes(bare))
+  );
 }
 
 export interface LessonView {
