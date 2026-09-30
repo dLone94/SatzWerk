@@ -47,6 +47,14 @@ const KEY_V1 = 'satzwerk.outbox.v1';
  */
 export const MAX_QUEUED = 500;
 
+/**
+ * How many times in a row a write may meet a plain 500 before it is given up
+ * as refused. A database that is away answers 503 and is waited for without
+ * limit; a 500 that comes back every time is a bug in the handler that this
+ * write trips, and holding it forever would block every answer behind it.
+ */
+export const MAX_SERVER_ERRORS = 5;
+
 /** Kept so a refusal can be reported; older ones fall off the end. */
 const MAX_REJECTED = 20;
 
@@ -83,6 +91,8 @@ export interface QueuedWrite {
    */
   id: string;
   write: PendingWrite;
+  /** How many sends of it have met a 500 so far; absent until one has. */
+  tries?: number;
 }
 
 export interface RejectedAttempt {
@@ -392,6 +402,15 @@ async function pass(
     try {
       result = await send(item.write, item.id);
     } catch (cause) {
+      const reason = cause instanceof Error ? cause.message : String(cause);
+      if (cause instanceof ApiError && cause.status === 500 && countFailure(id) >= MAX_SERVER_ERRORS) {
+        // The same write has failed the same way every time. It is refused
+        // with the server's message, like a 400, so the answers behind it can
+        // go on; a hiccup rarely lasts this many tries.
+        rejected += 1;
+        drop(id, reason);
+        continue;
+      }
       if (isRetryable(cause) || needsSignIn(cause)) {
         // Stop rather than skip. Order is not a nicety: the review schedule is
         // computed from one attempt to the next, so sending Tuesday's answer
@@ -410,7 +429,7 @@ async function pass(
       // So it comes out of the queue, with the reason kept for the app to
       // report. It is never dropped in silence.
       rejected += 1;
-      drop(id, cause instanceof Error ? cause.message : String(cause));
+      drop(id, reason);
       continue;
     }
     sent += 1;
@@ -419,6 +438,24 @@ async function pass(
   }
 
   return { sent, rejected, remaining: read().queued.length };
+}
+
+/**
+ * Count one more 500 against a queued write and return the new count. Saved
+ * with the queue, so the count survives a reload rather than starting over.
+ */
+function countFailure(id: string): number {
+  const state = read();
+  let tries = 0;
+  write({
+    ...state,
+    queued: state.queued.map((item) => {
+      if (item.id !== id) return item;
+      tries = (item.tries ?? 0) + 1;
+      return { ...item, tries };
+    }),
+  });
+  return tries;
 }
 
 /**

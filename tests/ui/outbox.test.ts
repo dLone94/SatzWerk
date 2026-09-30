@@ -330,6 +330,43 @@ describe('a server error that is the server\'s fault', () => {
     expect(outbox.snapshot().queued.map(textOf)).toEqual(['eins', 'zwei']);
     expect(outbox.snapshot().rejected).toEqual([]);
   });
+
+  // Held with no limit, one write the server always failed on — a real bug in
+  // the handler, not a hiccup — blocked every answer behind it for good: the
+  // "waiting" count grew until the queue was full, and then answers were lost.
+  it('gives up on a write that fails every time, and sends what is behind it', async () => {
+    outbox.enqueue(attempt('s1', 'kaputt'));
+    outbox.enqueue(attempt('s2', 'zwei'));
+    const sent: string[] = [];
+    const send = async (write: outbox.PendingWrite) => {
+      const given = write.kind === 'attempt' ? write.payload.given : write.kind;
+      if (given === 'kaputt') throw new ApiError('Cannot read properties of undefined', 500);
+      sent.push(given);
+    };
+
+    for (let pass = 1; pass < outbox.MAX_SERVER_ERRORS; pass += 1) {
+      expect(await outbox.flush(send)).toMatchObject({ sent: 0, stopped: 'unreachable' });
+    }
+    expect(outbox.queuedCount()).toBe(2);
+
+    const outcome = await outbox.flush(send);
+    expect(outcome).toEqual({ sent: 1, rejected: 1, remaining: 0 });
+    expect(sent).toEqual(['zwei']);
+    expect(outbox.snapshot().rejected.map((item) => item.reason)).toEqual([
+      'Cannot read properties of undefined',
+    ]);
+  });
+
+  it('holds a server that is away for as long as it takes', async () => {
+    outbox.enqueue(attempt('s1', 'eins'));
+    for (let pass = 0; pass < outbox.MAX_SERVER_ERRORS * 2; pass += 1) {
+      await outbox.flush(async () => {
+        throw new ApiError('Service unavailable', 503);
+      });
+    }
+    expect(outbox.queuedCount()).toBe(1);
+    expect(outbox.snapshot().rejected).toEqual([]);
+  });
 });
 
 /*

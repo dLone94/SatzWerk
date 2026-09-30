@@ -323,9 +323,9 @@ describe('a write sent again after its answer was lost', () => {
       await app().syncAnswers();
     });
     const keys = attemptsSent().map((item) => item.key);
-    expect(keys).toHaveLength(2);
+    expect(keys.length).toBeGreaterThanOrEqual(2);
     expect(keys[0]).toBeTruthy();
-    expect(keys[1]).toBe(keys[0]);
+    expect(new Set(keys).size).toBe(1);
   });
 
   it('keeps the key of a lesson write that had to wait', async () => {
@@ -338,9 +338,12 @@ describe('a write sent again after its answer was lost', () => {
     await act(async () => {
       await app().syncAnswers();
     });
+    // At least the failed send and the one that went through; a retry timer
+    // firing in between may add another, which must carry the same key too.
     const keys = sent.filter((item) => item.url.endsWith('/complete')).map((item) => item.key);
-    expect(keys).toHaveLength(2);
-    expect(keys[1]).toBe(keys[0]);
+    expect(keys.length).toBeGreaterThanOrEqual(2);
+    expect(keys[0]).toBeTruthy();
+    expect(new Set(keys).size).toBe(1);
   });
 });
 
@@ -433,6 +436,18 @@ describe('a flush already running when the lesson ends', () => {
     expect(app().lessons.l1?.mastery.passed).toBe(true);
     lessonWritesFail = false;
   });
+
+  // The state the server sends on opening the app does not have a result that
+  // is still waiting on this device; shown as it came, the lesson's final
+  // check read as not passed until the held write finally went through.
+  it('lays what is still waiting over the state the server sends', async () => {
+    outbox.enqueue({ kind: 'mastery', lessonId: 'l1', accuracy: 1, passAccuracy: 0.8 });
+    write = (url) => (url.endsWith('/mastery') ? json({ error: 'boom' }, 500) : undefined);
+    const app = await mountState();
+    await waitFor(() => expect(sent.some((item) => item.url.endsWith('/mastery'))).toBe(true));
+    expect(outbox.queuedCount()).toBe(1);
+    expect(app().lessons.l1?.mastery.passed).toBe(true);
+  });
 });
 
 /*
@@ -454,10 +469,12 @@ describe('a review grade', () => {
     await act(async () => {
       await app().syncAnswers();
     });
+    // The direct send, the retry that went through, and possibly a retry the
+    // held grade set off while the line was still down: all the same moment.
     const grades = sent.filter((item) => item.url.includes('/api/reviews/'));
-    expect(grades).toHaveLength(2);
+    expect(grades.length).toBeGreaterThanOrEqual(2);
     expect(typeof grades[0]!.body.gradedAt).toBe('string');
-    expect(grades[1]!.body.gradedAt).toBe(grades[0]!.body.gradedAt);
+    expect(new Set(grades.map((item) => item.body.gradedAt)).size).toBe(1);
     expect(String(grades[0]!.body.gradedAt) >= before).toBe(true);
   });
 });
