@@ -11,3 +11,6 @@ data/
 .env
 .env.local
 .vercel
+
+# Browser verification reports and screenshots
+artifacts/

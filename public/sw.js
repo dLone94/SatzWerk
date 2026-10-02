@@ -73,12 +73,12 @@ const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon-192.png', '/i
 async function builtAssets() {
   try {
     const response = await fetch('/asset-manifest.json', { cache: 'no-cache' });
-    if (!response.ok) return [];
+    if (!response.ok) return null;
     const manifest = await response.json();
-    return Array.isArray(manifest.files) ? manifest.files : [];
+    return Array.isArray(manifest.files) ? manifest : null;
   } catch {
     // A dev server has no manifest, and that is not an error there.
-    return [];
+    return null;
   }
 }
 
@@ -88,7 +88,8 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE);
-      const urls = [...SHELL, ...(await builtAssets())];
+      const manifest = await builtAssets();
+      const urls = [...SHELL, ...(manifest?.precache ?? manifest?.files ?? [])];
       // Individually, because one missing icon must not leave the whole app
       // uncached — the point of this is that opening it works.
       await Promise.all(urls.map((url) => cache.add(url).catch(() => undefined)));
@@ -254,7 +255,8 @@ async function keepPage(response) {
  * a dev server with no list, sweeping could remove the only copy of the app.
  */
 async function refreshBuild() {
-  const files = await builtAssets();
+  const manifest = await builtAssets();
+  const files = manifest?.files ?? [];
   if (files.length === 0) return;
   try {
     const cache = await caches.open(CACHE);
@@ -266,10 +268,10 @@ async function refreshBuild() {
       if (current.has(path) || path.startsWith('/audio/')) continue;
       if (path.startsWith('/assets/') || (await isPage(cache, key))) await cache.delete(key);
     }
-    // So the next time there is no signal the whole build is here, not only
-    // the parts this visit happened to load.
+    // Keep the startup graph without fetching every unvisited lesson.
+    // All current chunks remain eligible for on-demand caching.
     await Promise.all(
-      files.filter((path) => !held.has(path)).map((path) => cache.add(path).catch(() => undefined)),
+      (manifest.precache ?? files).filter((path) => !held.has(path)).map((path) => cache.add(path).catch(() => undefined)),
     );
   } catch {
     // A sweep that fails leaves the cache as it was, which still works.
@@ -396,4 +398,26 @@ self.addEventListener('notificationclick', (event) => {
       if (self.clients.openWindow) await self.clients.openWindow(target);
     })(),
   );
+});
+
+// A level download only accepts paths from our own build manifest. It cannot
+// be used to cache API responses, arbitrary URLs or another site's content.
+self.addEventListener('message', event => {
+  if (event.data?.type !== 'SAVE_LEVEL' || !event.ports[0]) return;
+  const port = event.ports[0];
+  event.waitUntil((async () => {
+    try {
+      const manifest = await builtAssets();
+      const group = manifest?.groups?.[event.data.level];
+      if (!group || !Array.isArray(group.files)) throw new Error('No level in this build');
+      const cache = await caches.open(CACHE);
+      for (const path of group.files) {
+        if (!path.startsWith('/assets/') || !manifest.files.includes(path)) throw new Error('Invalid asset');
+        if (!await cache.match(path)) await cache.add(path);
+      }
+      port.postMessage({ ok: true });
+    } catch {
+      port.postMessage({ ok: false });
+    }
+  })());
 });

@@ -1,29 +1,34 @@
-import { useEffect, useRef } from 'react';
-import { NavLink, Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useRef } from 'react';
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { useApp } from '../state/AppState.tsx';
-import { CoachPage } from './pages/CoachPage.tsx';
-import { CheckpointPage } from './pages/CheckpointPage.tsx';
-import { CoursePage } from './pages/CoursePage.tsx';
+
 import { DashboardPage } from './pages/DashboardPage.tsx';
-import { LessonPage } from './pages/LessonPage.tsx';
-import { LoginPage } from './pages/LoginPage.tsx';
-import { MistakesPage } from './pages/MistakesPage.tsx';
-import { OnboardingPage } from './pages/OnboardingPage.tsx';
-import { PlacementPage } from './pages/PlacementPage.tsx';
-import { RealLifePage } from './pages/RealLifePage.tsx';
-import { ScenarioPage } from './pages/ScenarioPage.tsx';
-import { ReviewPage } from './pages/ReviewPage.tsx';
-import { SessionPage } from './pages/SessionPage.tsx';
-import { SettingsPage } from './pages/SettingsPage.tsx';
-import { SetupPage } from './pages/SetupPage.tsx';
-import { VocabularyPage } from './pages/VocabularyPage.tsx';
-import { WordPage } from './pages/WordPage.tsx';
+
 import { MorePage, MORE_ROUTES } from './pages/MorePage.tsx';
 import { SyncBanner } from './components/SyncBanner.tsx';
 import { Icon } from './components/icons.tsx';
 import { learnerName } from './components/bits.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
 import { arrivedAt } from '../services/offline/register.ts';
+
+import { RouteContent, RouteLoading } from './components/RouteContent.tsx';
+
+const CoachPage = lazy(() => import('./pages/CoachPage.tsx').then(module => ({ default: module.CoachPage })));
+const CheckpointPage = lazy(() => import('./pages/CheckpointPage.tsx').then(module => ({ default: module.CheckpointPage })));
+const CoursePage = lazy(() => import('./pages/CoursePage.tsx').then(module => ({ default: module.CoursePage })));
+const LessonPage = lazy(() => import('./pages/LessonPage.tsx').then(module => ({ default: module.LessonPage })));
+const LoginPage = lazy(() => import('./pages/LoginPage.tsx').then(module => ({ default: module.LoginPage })));
+const MistakesPage = lazy(() => import('./pages/MistakesPage.tsx').then(module => ({ default: module.MistakesPage })));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage.tsx').then(module => ({ default: module.OnboardingPage })));
+const PlacementPage = lazy(() => import('./pages/PlacementPage.tsx').then(module => ({ default: module.PlacementPage })));
+const RealLifePage = lazy(() => import('./pages/RealLifePage.tsx').then(module => ({ default: module.RealLifePage })));
+const ScenarioPage = lazy(() => import('./pages/ScenarioPage.tsx').then(module => ({ default: module.ScenarioPage })));
+const ReviewPage = lazy(() => import('./pages/ReviewPage.tsx').then(module => ({ default: module.ReviewPage })));
+const SessionPage = lazy(() => import('./pages/SessionPage.tsx').then(module => ({ default: module.SessionPage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage.tsx').then(module => ({ default: module.SettingsPage })));
+const SetupPage = lazy(() => import('./pages/SetupPage.tsx').then(module => ({ default: module.SetupPage })));
+const VocabularyPage = lazy(() => import('./pages/VocabularyPage.tsx').then(module => ({ default: module.VocabularyPage })));
+const WordPage = lazy(() => import('./pages/WordPage.tsx').then(module => ({ default: module.WordPage })));
 
 /** How often the "No connection" screen tries again on its own. */
 const OFFLINE_RETRY_MS = 15_000;
@@ -96,10 +101,10 @@ export function App() {
   // page. Setup comes first: until a password exists there is nothing to log
   // in to.
   if (session.needsSetup) {
-    return <SetupPage />;
+    return <Suspense fallback={<RouteLoading />}><SetupPage /></Suspense>;
   }
   if (session.required && !session.signedIn) {
-    return <LoginPage />;
+    return <Suspense fallback={<RouteLoading />}><LoginPage /></Suspense>;
   }
 
   /*
@@ -155,16 +160,17 @@ export function App() {
   }
 
   const dueCount = dueItems(reviewItems).length;
+  const name = learnerName(learners.find(learner => learner.id === studyingAs)?.name ?? '', t);
 
   return (
-    <div className="shell">
+    <div className={`shell${location.pathname === '/welcome' ? ' shell--welcome' : ''}`}>
       <ScrollToTop />
       <a className="skip-link" href="#main">
         {t('skipToContent')}
       </a>
 
       <header className="topbar">
-        <div className="topbar__brand">
+        <Link to="/" className="topbar__brand" aria-label={t('appName')}>
           <span className="topbar__logo" aria-hidden="true">
             SW
           </span>
@@ -172,14 +178,14 @@ export function App() {
             <p className="topbar__name">{t('appName')}</p>
             <p className="topbar__tag">{t('tagline')}</p>
           </div>
-        </div>
+        </Link>
+        <div className="topbar__context"><p>{t('studioLabel')}</p><span>{t('tagline')}</span></div>
         <div className="topbar__right">
-          {/* Only once there is somebody to be confused with. */}
-          {learners.length > 1 ? (
-            <NavLink to="/settings" className="topbar__who" title={t('learnersTitle')}>
-              {learnerName(learners.find((learner) => learner.id === studyingAs)?.name ?? '', t)}
-            </NavLink>
-          ) : null}
+          <StudyIndicator />
+          <NavLink to="/settings" className="topbar__who" title={t('learnersTitle')}>
+            <span className="topbar__avatar" aria-hidden="true">{name.slice(0, 2).toUpperCase()}</span>
+            <span className="topbar__learner">{name}</span>
+          </NavLink>
           <LanguageToggle />
         </div>
       </header>
@@ -187,16 +193,18 @@ export function App() {
       {/* The first-run question has the screen to itself: no tabs to wander
           off into before the app knows which language to explain in. */}
       <nav className="nav" aria-label={t('navMain')} hidden={location.pathname === '/welcome'}>
+        <p className="nav__section">{t('studioLearn')}</p>
         <NavItem to="/" label={t('navToday')} icon="today" />
         <NavItem to="/session" label={t('navSession')} icon="round" />
         <NavItem to="/course" label={t('navCourse')} icon="course" />
         <NavItem to="/review" label={t('navReview')} icon="review" badge={dueCount > 0 ? dueCount : undefined} />
         {/* Wide screens: all of them. A phone hides these and shows More. */}
-        <NavItem to="/vocabulary" label={t('navVocabulary')} secondary />
-        <NavItem to="/mistakes" label={t('navMistakes')} secondary />
-        <NavItem to="/real-life" label={t('navRealLife')} secondary />
-        <NavItem to="/coach" label={t('navCoach')} secondary />
-        <NavItem to="/settings" label={t('navSettings')} secondary />
+        <p className="nav__section nav__section--explore">{t('studioExplore')}</p>
+        <NavItem to="/vocabulary" icon="book" label={t('navVocabulary')} secondary />
+        <NavItem to="/mistakes" icon="target" label={t('navMistakes')} secondary />
+        <NavItem to="/real-life" icon="chat" label={t('navRealLife')} secondary />
+        <NavItem to="/coach" icon="pen" label={t('navCoach')} secondary />
+        <NavItem to="/settings" icon="gear" label={t('navSettings')} secondary />
         <NavLink
           to="/more"
           className={() =>
@@ -212,12 +220,13 @@ export function App() {
           </span>
           <span className="nav__label">{t('navMore')}</span>
         </NavLink>
+        <div className="nav__foot"><span lang="de">Ein bisschen,<br />jeden Tag.</span><p>{t('studioDaily')}</p><span className="nav__foot-mark" aria-hidden="true">✳</span></div>
       </nav>
 
       <SyncBanner />
 
       <main id="main" className="main">
-        <Routes>
+        <RouteContent><Routes>
           <Route path="/welcome" element={<OnboardingPage />} />
           <Route path="/" element={<DashboardPage />} />
           <Route path="/session" element={<SessionPage />} />
@@ -235,11 +244,19 @@ export function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/more" element={<MorePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        </Routes></RouteContent>
       </main>
 
     </div>
   );
+}
+
+function StudyIndicator() {
+  const { t, studyStatus = 'ready' } = useApp();
+  return <span className={`study-indicator study-indicator--${studyStatus}`} title={t('studyTimeNote')}>
+    <span aria-hidden="true" />
+    {t(studyStatus === 'active' ? 'studyActive' : studyStatus === 'paused' ? 'studyPaused' : 'studyReady')}
+  </span>;
 }
 
 function NavItem({
@@ -253,7 +270,7 @@ function NavItem({
   label: string;
   badge?: number;
   /** Shown on a phone, where the tabs sit under the thumb. */
-  icon?: 'today' | 'round' | 'course' | 'review';
+  icon?: import('./components/icons.tsx').IconName;
   /** Folded into More on a phone. */
   secondary?: boolean;
 }) {
@@ -287,7 +304,23 @@ export function ScrollToTop() {
   const { pathname } = useLocation();
   const navigation = useNavigationType();
   useEffect(() => {
-    if (navigation !== 'POP') window.scrollTo(0, 0);
+    if (navigation !== 'POP') {
+      window.scrollTo(0, 0);
+      // A client-side route does not give keyboard or screen-reader users
+      // the new-document focus a normal navigation would. Start at its title.
+      const focusTitle = () => {
+        const heading = document.querySelector<HTMLElement>('#main h1');
+        if (!heading) return false;
+        heading.tabIndex = -1;
+        heading.focus({ preventScroll: true });
+        return true;
+      };
+      if (!focusTitle()) {
+        const observer = new MutationObserver(() => { if (focusTitle()) observer.disconnect(); });
+        observer.observe(document.body, { childList: true, subtree: true });
+        return () => observer.disconnect();
+      }
+    }
   }, [pathname, navigation]);
   return null;
 }

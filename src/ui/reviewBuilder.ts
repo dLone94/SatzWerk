@@ -1,4 +1,4 @@
-import { patternById, vocabById } from '../content/index.ts';
+import { patternById, vocabById } from '../content/browser.ts';
 import { bi, dictation, exercise, typeIt } from '../content/authoring.ts';
 import type { Exercise, VocabEntry } from '../content/types.ts';
 import type { ReviewItem } from '../core/srs/scheduler.ts';

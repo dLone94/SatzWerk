@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CURRICULUM, SCENARIOS, lessonById, scriptAnswerCount, scriptById } from '../../content/index.ts';
+import { CURRICULUM, SCENARIOS, lessonById, scriptAnswerCount, scriptById } from '../../content/browser.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { ScenarioPlayer } from '../components/ScenarioPlayer.tsx';
 import type { PlayerSummary } from '../components/ExercisePlayer.tsx';
@@ -59,7 +59,7 @@ function ScenarioView() {
 
   if (stage === 'playing') {
     return (
-      <div className="page page--player">
+      <div className="page page--player" data-study-active="true">
         <h1 className="page__title">{say(scenario.title)}</h1>
         <ScenarioPlayer
           key={runId}

@@ -41,9 +41,9 @@ export interface SessionStats {
  * The fallback pace, in seconds per answer.
  *
  * Used only until the learner has answered enough for their own average to
- * mean something. Twenty seconds is the measured middle of this course's own
- * exercise shapes: reading a prompt, typing a German sentence, reading the
- * verdict, and retyping it when it was wrong — which the app requires.
+ * mean something. Twenty seconds is a provisional design estimate for reading
+ * a prompt, typing a sentence and reading the verdict. It is not a measured
+ * course-wide benchmark; real learner data replaces it when available.
  *
  * It is deliberately on the generous side. A session that runs short is a
  * pleasant surprise; one that runs long breaks the promise on its own label.

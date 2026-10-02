@@ -132,7 +132,14 @@ describe('how API URLs reach the function', () => {
 
   it('keeps the static fallback from swallowing API paths', () => {
     const spa = vercelJson().rewrites.find((rule) => rule.destination === '/index.html');
-    expect(spa?.source).toBe('/((?!api/).*)');
+    const matches = new RegExp(`^${spa!.source}$`);
+    for (const path of ['/', '/course', '/lesson/pre-a1-u1-l1', '/vocabulary/v-das-wasser']) {
+      expect(matches.test(path), path).toBe(true);
+    }
+    for (const path of ['/api', '/api/health', '/api/lessons/a/sections/b', '/assets/missing.js',
+      '/audio/de/missing.mp3', '/asset-manifest.json', '/missing.woff2', '/manifest.webmanifest']) {
+      expect(matches.test(path), path).toBe(false);
+    }
   });
 
   it('keeps the entrypoints thin, so what they answer is all they decide', () => {

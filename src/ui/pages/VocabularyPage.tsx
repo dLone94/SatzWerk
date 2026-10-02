@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CURRICULUM, VOCABULARY, allUnits } from '../../content/index.ts';
+import { CURRICULUM, VOCABULARY, allUnits } from '../../content/browser.ts';
 import type { Gender, WordType } from '../../content/types.ts';
 import { TOPIC_LABELS, UI, WORD_TYPE_LABELS } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
@@ -80,7 +80,7 @@ export function VocabularyPage() {
   const activeFilters = [level, unit, topic, wordType, gender].filter(Boolean).length;
 
   return (
-    <div className="page vocab">
+    <div className="page vocab" data-study-active="true">
       <h1 className="page__title">{t('vocabTitle')}</h1>
 
       <label className="searchbar">

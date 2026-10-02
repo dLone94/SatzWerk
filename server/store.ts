@@ -138,25 +138,32 @@ export interface ProfilePatch {
 
 export async function updateProfile(scope: Scope, patch: ProfilePatch): Promise<Profile> {
   const { db, userId } = scope;
-  const current = await getProfile(scope);
-  const next: Profile = {
-    ...current,
-    ...(patch.teachingLanguage ? { teachingLanguage: patch.teachingLanguage } : {}),
-    ...(patch.dailyTargetMinutes !== undefined
-      ? { dailyTargetMinutes: clampTarget(patch.dailyTargetMinutes) }
-      : {}),
-    ...(patch.displayName !== undefined ? { displayName: patch.displayName } : {}),
-    ...(patch.onboarded !== undefined ? { onboarded: patch.onboarded } : {}),
-  };
-  await db.run(`UPDATE profile
-     SET teaching_language = ?, daily_target_minutes = ?, display_name = ?, onboarded = ?, updated_at = ?
-     WHERE user_id = ?`, next.teachingLanguage,
-    next.dailyTargetMinutes,
-    next.displayName,
-    next.onboarded ? 1 : 0,
-    new Date().toISOString(),
-    userId,);
-  return next;
+  // Write only the supplied fields. Reading and replacing the entire row
+  // allowed a simultaneous target change to erase a teaching-language change.
+  const fields: string[] = [];
+  const values: Array<string | number | null> = [];
+  if (patch.teachingLanguage !== undefined) {
+    fields.push('teaching_language = ?');
+    values.push(patch.teachingLanguage);
+  }
+  if (patch.dailyTargetMinutes !== undefined) {
+    fields.push('daily_target_minutes = ?');
+    values.push(clampTarget(patch.dailyTargetMinutes));
+  }
+  if (patch.displayName !== undefined) {
+    fields.push('display_name = ?');
+    values.push(patch.displayName);
+  }
+  if (patch.onboarded !== undefined) {
+    fields.push('onboarded = ?');
+    values.push(patch.onboarded ? 1 : 0);
+  }
+  if (fields.length > 0) {
+    const assignments = fields.join(', ');
+    await db.run(`UPDATE profile SET ${assignments}, updated_at = ? WHERE user_id = ?`,
+      ...values, new Date().toISOString(), userId);
+  }
+  return getProfile(scope);
 }
 
 function clampTarget(minutes: number): number {
@@ -347,12 +354,12 @@ export async function getReviewItem({ db, userId }: Scope, id: string): Promise<
   return row ? rowToReviewItem(row) : undefined;
 }
 
-async function upsertReviewItem({ db, userId }: Scope, item: ReviewItem): Promise<void> {
+async function upsertReviewItem({ db, userId }: Scope, item: ReviewItem, initialise = false): Promise<void> {
   await db.run(`INSERT INTO review_items
        (id, user_id, kind, ref_id, lesson_id, level, state, ease, interval_days, due_at,
         last_review_at, success_count, failure_count, lapses, learning_step, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (id, user_id) DO UPDATE SET
+     ON CONFLICT (id, user_id) DO UPDATE SET ${initialise ? 'id = excluded.id' : `
        state = excluded.state,
        ease = excluded.ease,
        interval_days = excluded.interval_days,
@@ -361,7 +368,7 @@ async function upsertReviewItem({ db, userId }: Scope, item: ReviewItem): Promis
        success_count = excluded.success_count,
        failure_count = excluded.failure_count,
        lapses = excluded.lapses,
-       learning_step = excluded.learning_step`, item.id,
+       learning_step = excluded.learning_step`}`, item.id,
     userId,
     item.kind,
     item.refId,
@@ -405,7 +412,7 @@ export async function ensureReviewItems(scope: Scope, targets: TargetSpec[]): Pr
       lessonId: target.lessonId,
       difficulty: target.difficulty,
     });
-    await upsertReviewItem(scope, item);
+    await upsertReviewItem(scope, item, true);
     created.push(item);
   }
   return created;
@@ -417,15 +424,16 @@ export async function gradeReviewItem(
   grade: RecallGrade,
   gradedAt = new Date(),
 ): Promise<ReviewItem | undefined> {
-  const item = await getReviewItem(scope, id);
-  if (!item) return undefined;
-  // Never earlier than the item's last review: a grade that waited in one
-  // phone's outbox may arrive after a later one from another device, and a
-  // schedule must not run backwards.
-  const last = item.lastReviewAt ? new Date(item.lastReviewAt).getTime() : Number.NEGATIVE_INFINITY;
-  const next = scheduleReview(item, grade, new Date(Math.max(gradedAt.getTime(), last)));
-  await upsertReviewItem(scope, next);
-  return next;
+  return scope.db.transaction(async () => {
+    // Lock before reading on Postgres as well as serializing local calls.
+    await scope.db.run('UPDATE review_items SET id = id WHERE id = ? AND user_id = ?', id, scope.userId);
+    const item = await getReviewItem(scope, id);
+    if (!item) return undefined;
+    const last = item.lastReviewAt ? new Date(item.lastReviewAt).getTime() : Number.NEGATIVE_INFINITY;
+    const next = scheduleReview(item, grade, new Date(Math.max(gradedAt.getTime(), last)));
+    await upsertReviewItem(scope, next);
+    return next;
+  });
 }
 
 /* ------------------------------------------------------------------ *
@@ -577,9 +585,9 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
     if (!input.isRetype) {
       for (const target of input.reviewTargets ?? []) {
         const id = reviewItemId(target.kind, target.refId);
-        let item = await getReviewItem(scope, id);
-        if (!item) {
-          item = createReviewItem({
+        // The no-op conflict update locks an existing item without replacing
+        // its schedule, so two devices cannot grade the same stale state.
+        await upsertReviewItem(scope, createReviewItem({
             id,
             kind: target.kind,
             refId: target.refId,
@@ -587,8 +595,9 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
             lessonId: target.lessonId ?? input.lessonId,
             difficulty: target.difficulty,
             now,
-          });
-        } else if (
+          }), true);
+        const item = (await getReviewItem(scope, id))!;
+        if (
           grade !== 'again' &&
           input.context !== 'review' &&
           !isDue(item, now) &&
@@ -1001,6 +1010,7 @@ export async function resetAll({ db, userId }: Scope): Promise<void> {
     'checkpoint_results',
     'word_flags',
     'scenario_runs',
+    'write_receipts',
   ]) {
     await db.run(`DELETE FROM ${table} WHERE user_id = ?`, userId);
   }
@@ -1026,6 +1036,15 @@ export async function getPasswordHash(db: Db): Promise<string | null> {
 
 export async function setPasswordHash(db: Db, hash: string): Promise<void> {
   await db.run('UPDATE users SET password_hash = ?, password_set_at = ? WHERE id = 1', hash, new Date().toISOString());
+}
+
+/** The first setup request wins, including across separate server instances. */
+export async function setInitialPasswordHash(db: Db, hash: string): Promise<boolean> {
+  const result = await db.run(
+    'UPDATE users SET password_hash = ?, password_set_at = ? WHERE id = 1 AND password_hash IS NULL',
+    hash, new Date().toISOString(),
+  );
+  return result.changes === 1;
 }
 
 /**

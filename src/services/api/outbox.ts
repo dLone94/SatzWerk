@@ -93,6 +93,7 @@ export interface QueuedWrite {
   write: PendingWrite;
   /** How many sends of it have met a 500 so far; absent until one has. */
   tries?: number;
+  queuedAt?: string;
 }
 
 export interface RejectedAttempt {
@@ -298,7 +299,7 @@ export function answersWaiting(): number {
 export function enqueue(write_: PendingWrite, id: string = newWriteId()): boolean {
   const state = read();
   if (state.queued.length >= MAX_QUEUED) return false;
-  write({ ...state, queued: [...state.queued, { id, write: write_ }] });
+  write({ ...state, queued: [...state.queued, { id, write: write_, queuedAt: new Date().toISOString() }] });
   return true;
 }
 
@@ -403,6 +404,12 @@ async function pass(
       result = await send(item.write, item.id);
     } catch (cause) {
       const reason = cause instanceof Error ? cause.message : String(cause);
+      const queuedAt = item.queuedAt ? Date.parse(item.queuedAt) : NaN;
+      console.info(JSON.stringify({ component: 'satzwerk', event: isRetryable(cause) || needsSignIn(cause) ? 'sync_delayed' : 'sync_refused',
+        pending: read().queued.length, status: cause instanceof ApiError ? cause.status : undefined,
+        requestId: cause instanceof ApiError ? cause.requestId : undefined,
+        oldestAgeSeconds: Number.isFinite(queuedAt) ? Math.max(0, Math.floor((Date.now() - queuedAt) / 1000)) : undefined,
+      }));
       if (cause instanceof ApiError && cause.status === 500 && countFailure(id) >= MAX_SERVER_ERRORS) {
         // The same write has failed the same way every time. It is refused
         // with the server's message, like a 400, so the answers behind it can

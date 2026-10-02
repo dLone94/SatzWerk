@@ -85,6 +85,21 @@ function nodeResponse() {
 describe('the API function', () => {
   const file = '../../server/vercel.ts';
 
+  it('carries retry IDs through the Node calling convention', async () => {
+    const handler = await loadHandler(file);
+    const responses = [];
+    for (let index = 0; index < 2; index++) {
+      const request = nodeRequest('POST', '/api/study', JSON.stringify({ seconds: 20 }));
+      request.headers['idempotency-key'] = 'node-study';
+      const response = nodeResponse();
+      await handler(request, response);
+      expect(response.written.status).toBe(200);
+      responses.push(JSON.parse(response.written.body!));
+    }
+    expect(responses[1]).toEqual(responses[0]);
+    expect(responses[0].stats.totalStudySeconds).toBe(20);
+  });
+
   it('answers a Web Request with a Response', async () => {
     const handler = await loadHandler(file);
     const result = (await handler(new Request('https://satzwerk.test/api/health'))) as Response;

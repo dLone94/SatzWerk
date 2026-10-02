@@ -404,6 +404,18 @@ const MIGRATIONS: Migration[] = [
       ALTER TABLE word_flags_v6 RENAME TO word_flags;
     `,
   },
+  {
+    version: 7,
+    name: 'receipts for retried learning writes',
+    sql: `CREATE TABLE write_receipts (
+      user_id INTEGER NOT NULL,
+      write_id TEXT NOT NULL,
+      fingerprint TEXT NOT NULL,
+      response TEXT,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, write_id)
+    );`,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

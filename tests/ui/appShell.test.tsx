@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -123,12 +123,13 @@ describe('the offline start screen', () => {
       mount();
       await screen.findByText(tr('offlineTitle', 'en'));
       mode = 'fine';
-      // As above: the timer starts in an effect, so time is moved on until
-      // the retry has happened.
-      await waitFor(() => {
-        vi.advanceTimersByTime(15_000);
-        expect(screen.getByRole('navigation')).toBeInTheDocument();
+      // Let the effect install its interval and finish the retry's asynchronous
+      // state updates before checking. Advancing inside waitFor repeatedly
+      // raced those updates on a busy runner.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
       });
+      expect(await screen.findByRole('navigation')).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
@@ -274,5 +275,17 @@ describe('where a new page starts', () => {
     scrollTo.mockClear();
     await userEvent.click(screen.getByRole('button', { name: 'back' }));
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('moves keyboard focus to the page title after navigation', async () => {
+    render(
+      <MemoryRouter initialEntries={['/vocabulary']}>
+        <ScrollToTop />
+        <Go to="/course" />
+        <main id="main"><h1>Course</h1></main>
+      </MemoryRouter>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'go' }));
+    expect(screen.getByRole('heading', { name: 'Course' })).toHaveFocus();
   });
 });

@@ -6,6 +6,7 @@ import { AppStateProvider } from './state/AppState.tsx';
 import { registerServiceWorker } from './services/offline/register.ts';
 import './fonts.css';
 import './styles.css';
+import './studio.css';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Missing #root element');

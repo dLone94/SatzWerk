@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { traceRequest, diagnose } from './diagnostics.ts';
 import { createProvider } from './ai.ts';
 import { handleRequest, healthReport, resolveAuth } from './api.ts';
 import { openDatabase, type Db } from './db.ts';
@@ -91,6 +92,7 @@ interface Incoming {
    * one: the endpoint answered every cron with 401.
    */
   authorization?: string;
+  writeId?: string;
   /** The raw body, already read. Empty for GET and HEAD. */
   text: string;
   /** What `crossSiteRefusal` reads: where a write came from, and what it carries. */
@@ -114,6 +116,13 @@ function clientAddress(read: (name: string) => string | undefined): string | und
  * arrived or how it will be sent.
  */
 async function answer(request: Incoming): Promise<Answer> {
+  return traceRequest(request.method, async id => {
+    const result = await answerRequest(request);
+    return { ...result, headers: { ...result.headers, 'x-request-id': id } };
+  }, result => result.status);
+}
+
+async function answerRequest(request: Incoming): Promise<Answer> {
   // Before the body is parsed: a form post from another site is turned away
   // without anything in it being looked at. See crossSiteRefusal.
   const refusal = crossSiteRefusal(request.method, request.path, request.guard);
@@ -145,7 +154,7 @@ async function answer(request: Incoming): Promise<Answer> {
       const stale = cached;
       cached = undefined;
       stale?.then((late) => late.close()).catch(() => {});
-      console.error('[satzwerk] database unavailable:', error);
+      diagnose('database_unavailable');
       return {
         status: 503,
         body: { error: explain(error as Error) },
@@ -164,6 +173,7 @@ async function answer(request: Incoming): Promise<Answer> {
           cookie: request.cookie,
           'x-forwarded-proto': request.forwardedProto,
           authorization: request.authorization,
+          'idempotency-key': request.writeId,
         },
         secure: request.secure,
         ...(request.clientIp ? { clientIp: request.clientIp } : {}),
@@ -176,7 +186,7 @@ async function answer(request: Incoming): Promise<Answer> {
     // away reopened the database (and leaked the old pool) for every request
     // that failed, including ones anybody could send without a password. A
     // pool whose connection died opens a new one by itself on the next query.
-    console.error('[satzwerk] request failed:', error);
+    diagnose(isDatabaseUnavailable(error) ? 'database_unavailable' : 'request_failed');
     if (isDatabaseUnavailable(error)) {
       // A 503, which the browser holds and sends again, rather than a 500,
       // which it treats as a refusal and drops.
@@ -274,6 +284,7 @@ async function fromWeb(request: Request): Promise<Incoming> {
     cookie: request.headers.get('cookie') ?? undefined,
     forwardedProto: request.headers.get('x-forwarded-proto') ?? undefined,
     authorization: request.headers.get('authorization') ?? undefined,
+    writeId: request.headers.get('idempotency-key') ?? undefined,
     text: method === 'GET' || method === 'HEAD' ? '' : await request.text(),
     // A Web Request always knows its own host, from its URL.
     guard: { ...Object.fromEntries(GUARD_HEADERS.map((name) => [name, read(name)])), host: read('host') ?? url.host },
@@ -304,6 +315,7 @@ async function fromNode(request: IncomingMessage): Promise<Incoming> {
     cookie: header('cookie'),
     forwardedProto,
     authorization: header('authorization'),
+    writeId: header('idempotency-key'),
     text,
     guard: Object.fromEntries(GUARD_HEADERS.map((name) => [name, header(name)])),
     clientIp: clientAddress(header),

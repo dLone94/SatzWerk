@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { checkpointById, levelById, unitById } from '../../content/index.ts';
+import { checkpointById, levelById, unitById } from '../../content/browser.ts';
 import type { CefrLevel } from '../../content/types.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Card, EmptyState, ScoreRing } from '../components/bits.tsx';

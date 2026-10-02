@@ -19,6 +19,7 @@ import {
   unauthoredLevels,
 } from '../../src/content/index.ts';
 import type { TeachingLanguage } from '../../src/content/types.ts';
+import { allStepIds, emptyLessonProgress } from '../../src/core/progress/lesson.ts';
 import { tr } from '../../src/i18n.ts';
 import { nullTtsProvider } from '../../src/services/tts/index.ts';
 import { createSpeechRecogniser } from '../../src/services/speech/recogniser.ts';
@@ -98,7 +99,7 @@ function stubState(lang: TeachingLanguage, overrides: Partial<AppStateValue> = {
     learners: [{ id: 1, name: 'me', createdAt: new Date().toISOString() }],
     studyingAs: 1,
     studyAs: async () => 'switched' as const,
-    addLearner: async () => {},
+    addLearner: async () => 'switched' as const,
     renameLearner: async () => {},
     offline: false,
     notice: null,
@@ -143,6 +144,26 @@ function mount(node: ReactElement, lang: TeachingLanguage, overrides?: Partial<A
 }
 
 const LANGS: TeachingLanguage[] = ['en', 'bg'];
+
+it.each(LANGS)('opens a completed unit awaiting its checkpoint and offers a direct jump in %s', lang => {
+  const level = CURRICULUM[0]!;
+  const lessons = Object.fromEntries(level.units.flatMap(unit => unit.lessons).map(lesson => [lesson.id, {
+    ...emptyLessonProgress(lesson.id),
+    sectionsSeen: lesson.sections.map(section => section.id),
+    practice: Object.fromEntries(allStepIds(lesson).map(stepId => [stepId, {
+      stepId, attempts: 1, firstTryCorrect: true, bestCredit: 1, resolved: true, hintsUsed: 0, revealed: false,
+    }])),
+    mastery: { attempts: 1, bestAccuracy: 1, passed: true },
+    completedAt: now,
+  }]));
+  const first = level.units[0]!.checkpoint!;
+  const next = level.units[1]!.checkpoint!;
+  const view = mount(<CoursePage />, lang, { lessons, checkpointResults: [{ checkpointId: first.id, accuracy: 1, passed: true, createdAt: now }] }, '/course?level=pre-a1');
+  expect(screen.getByRole('link', { name: new RegExp(tr('courseJumpCheckpoint', lang)) })).toHaveAttribute('href', `/checkpoint/${next.id}`);
+  expect(view.container.querySelector('.unit-path[open]')).toHaveAttribute('open');
+  expect(view.container.querySelector('.unit-path[open] h3')?.textContent).toContain(level.units[1]!.title[lang]);
+  expect(view.container.querySelectorAll('.unit-path[open]')).toHaveLength(1);
+});
 
 describe.each(LANGS)('pages render in the %s path', (lang) => {
   it('dashboard', () => {

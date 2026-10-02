@@ -81,7 +81,7 @@ function stubState(recogniser: SpeechRecogniser, lang: TeachingLanguage = 'en'):
     learners: [{ id: 1, name: 'me', createdAt: new Date().toISOString() }],
     studyingAs: 1,
     studyAs: async () => 'switched' as const,
-    addLearner: async () => {},
+    addLearner: async () => 'switched' as const,
     renameLearner: async () => {},
     offline: false,
     notice: null,

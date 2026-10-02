@@ -20,6 +20,7 @@ import { checkPassword, tooManyTries } from './auth-limit.ts';
 import { plausibleOffset } from '../src/core/progress/days.ts';
 import { findDatabaseUrl, type Db } from './db.ts';
 import * as store from './store.ts';
+import { isLearningWrite, once } from './idempotency.ts';
 import {
   deleteSubscription,
   moveSubscription,
@@ -369,7 +370,9 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     if (problem) return { status: 400, body: { error: problem } };
 
     const passwordHash = hashPassword(password);
-    await store.setPasswordHash(db, passwordHash);
+    if (!(await store.setInitialPasswordHash(db, passwordHash))) {
+      return { status: 409, body: { error: 'A password is already set.' } };
+    }
     // Signed with the key the next request will check it against, which is
     // bound to the hash just stored.
     const secret = auth.sessionSecret ?? (await store.getOrCreateSessionSecret(db));
@@ -425,6 +428,14 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
    * data it wants does not compile.
    */
   const scope: store.Scope = { db, userId: await resolveLearner(db, request) };
+
+  const writeId = request.headers?.['idempotency-key'];
+  if (writeId !== undefined && isLearningWrite(method, path)) {
+    const headers = { ...request.headers };
+    delete headers['idempotency-key'];
+    return once(scope, writeId, { ...request, path }, (transaction) =>
+      handleRequest({ ...ctx, db: transaction }, { ...request, headers }));
+  }
 
   // Who is here, and who else could be.
   if (route[0] === 'learners') {

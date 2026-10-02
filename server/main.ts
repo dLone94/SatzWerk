@@ -5,6 +5,7 @@ import { handleRequest } from './api.ts';
 import { createProvider } from './ai.ts';
 import { openDatabase } from './db.ts';
 import { isDatabaseUnavailable, RETRY_AFTER_SECONDS } from './driver.ts';
+import { traceRequest, diagnose } from './diagnostics.ts';
 import { authState } from './auth.ts';
 import { resolveAuth } from './api.ts';
 import {
@@ -125,6 +126,15 @@ function serveStatic(res: ServerResponse, urlPath: string): void {
   if (!filePath.startsWith(DIST)) filePath = DIST;
 
   if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
+    // A removed bundle or recording is a missing file, not an app route.
+    // Returning HTML with 200 let the worker cache it forever as JavaScript
+    // or audio after a deployment.
+    if (urlPath.startsWith('/assets/') || urlPath.startsWith('/audio/') ||
+        /\.(?:js|css|json|png|svg|ico|woff2|mp3|webmanifest|map)$/.test(urlPath)) {
+      res.writeHead(404, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end('Not found');
+      return;
+    }
     // Single-page app: unknown paths fall back to index.html.
     filePath = join(DIST, 'index.html');
   }
@@ -155,8 +165,10 @@ function serveStatic(res: ServerResponse, urlPath: string): void {
  * so an uncaught rejection took both down until somebody restarted it.
  */
 const server = createServer((req, res) => {
-  handle(req, res).catch((error: unknown) => {
-    console.error('[satzwerk] request failed:', error);
+  void traceRequest(req.method ?? 'GET', async id => {
+    res.setHeader('X-Request-Id', id);
+    await handle(req, res);
+  }, () => res.statusCode).catch(() => {
     if (!res.headersSent) sendJson(res, 500, { error: 'Internal error' });
     else res.destroy();
   });
@@ -247,6 +259,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           'x-forwarded-proto': req.headers['x-forwarded-proto'] as string | undefined,
           // The reminder job carries a bearer token rather than a cookie.
           authorization: req.headers.authorization,
+          'idempotency-key': header('idempotency-key'),
         },
         // The socket's own address. Forwarded headers are not trusted here:
         // anyone can send them to a server with no proxy in front of it.
@@ -258,7 +271,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     );
     sendJson(res, response.status, response.body, response.headers ?? {});
   } catch (error) {
-    console.error('[satzwerk] request failed:', error);
+    diagnose(isDatabaseUnavailable(error) ? 'database_unavailable' : 'request_failed');
     if (isDatabaseUnavailable(error)) {
       // Held and sent again by the browser, where a 500 would be dropped.
       sendJson(

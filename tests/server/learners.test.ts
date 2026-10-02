@@ -213,6 +213,7 @@ describe('no query may forget whose row it is', () => {
     'checkpoint_results',
     'word_flags',
     'scenario_runs',
+    'write_receipts',
   ];
 
   function statementsIn(file: string): string[] {
@@ -228,6 +229,7 @@ describe('no query may forget whose row it is', () => {
   for (const [file, atLeast] of [
     ['../../server/store.ts', 25],
     ['../../server/push.ts', 3],
+    ['../../server/idempotency.ts', 3],
   ] as const) {
     it(`scopes every learner query in ${file.split('/').pop()}`, () => {
       const statements = statementsIn(file);

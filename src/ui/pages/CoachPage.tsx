@@ -46,7 +46,7 @@ export function CoachPage() {
   };
 
   return (
-    <div className="page">
+    <div className="page" data-study-active="true">
       <h1 className="page__title">{t('coachTitle')}</h1>
       <p className="page__lede">{t('coachSubtitle')}</p>
 

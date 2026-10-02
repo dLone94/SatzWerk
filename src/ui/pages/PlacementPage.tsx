@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CURRICULUM, PLACEMENT_CHECKPOINT, lessonsInOrder } from '../../content/index.ts';
+import { CURRICULUM, PLACEMENT_CHECKPOINT, lessonsInOrder } from '../../content/browser.ts';
 import type { CefrLevel } from '../../content/types.ts';
 import {
   placementResult,

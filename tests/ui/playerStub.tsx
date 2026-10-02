@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import type userEvent from '@testing-library/user-event';
 import { LEXICON, describeNoun } from '../../src/content/index.ts';
 import type { Exercise, ExerciseStep, TeachingLanguage } from '../../src/content/types.ts';
@@ -58,7 +58,7 @@ export function stubState(overrides: Partial<AppStateValue> = {}, lang: Teaching
     learners: [{ id: 1, name: 'me', createdAt: '' }],
     studyingAs: 1,
     studyAs: async () => 'switched' as const,
-    addLearner: async () => {},
+    addLearner: async () => 'switched' as const,
     renameLearner: async () => {},
     notice: null,
     dismissNotice: () => {},
@@ -127,14 +127,25 @@ export async function play(
     if (retyping && box) {
       await user.clear(box);
       await user.type(box, step.answer.accepted[0]!);
-      await user.keyboard('{Enter}');
+      await user.keyboard(kinds.get(id) === 'freeWriting' ? '{Control>}{Enter}{/Control}' : '{Enter}');
+      await waitFor(() => {
+        if (!screen.queryByRole('button', { name: tr('exerciseContinue', 'en') })) {
+          throw new Error('The correction is still being saved');
+        }
+      });
       continue;
     }
     const goRight = kinds.get(id) === 'freeWriting' || options.right(step);
     if (box) {
       await user.clear(box);
       await user.type(box, goRight ? step.answer.accepted[0]! : 'völlig falsch');
-      await user.keyboard('{Enter}');
+      await user.keyboard(kinds.get(id) === 'freeWriting' ? '{Control>}{Enter}{/Control}' : '{Enter}');
+      await waitFor(() => {
+        if (!screen.queryByRole('button', { name: tr('exerciseContinue', 'en') }) &&
+            !document.querySelector('.feedback__retype-label')) {
+          throw new Error('The answer is still being saved');
+        }
+      });
       continue;
     }
     const choice = step.choices?.find((candidate) =>
@@ -142,6 +153,13 @@ export async function play(
     );
     if (!choice) break;
     await user.click(screen.getByText(choice.de));
+    // Choice submission is scheduled with requestAnimationFrame. Do not
+    // click the same choice again before that frame has saved the answer.
+    await waitFor(() => {
+      if (!screen.queryByRole('button', { name: tr('exerciseContinue', 'en') })) {
+        throw new Error('The choice is still being saved');
+      }
+    });
   }
   return asked;
 }

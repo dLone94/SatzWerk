@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as outbox from '../../src/services/api/outbox.ts';
 import { AppStateProvider, useApp } from '../../src/state/AppState.tsx';
@@ -38,6 +38,7 @@ const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 
 const originalFetch = globalThis.fetch;
 let visibility: DocumentVisibilityState = 'visible';
 let clock = Date.now();
+let state: ReturnType<typeof useApp>;
 
 beforeEach(() => {
   outbox.reset();
@@ -62,15 +63,16 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function Ready() {
-  const { ready } = useApp();
-  return <p>{ready ? 'ready' : 'loading'}</p>;
+function Ready({ learning = true }: { learning?: boolean }) {
+  state = useApp();
+  const { ready } = state;
+  return <p data-study-active={ready && learning ? 'true' : undefined}>{ready ? 'ready' : 'loading'}</p>;
 }
 
-async function mount() {
+async function mount(learning = true) {
   const view = render(
     <AppStateProvider>
-      <Ready />
+      <Ready learning={learning} />
     </AppStateProvider>,
   );
   await waitFor(() => expect(view.getByText('ready')).toBeInTheDocument());
@@ -89,6 +91,29 @@ function hide() {
 }
 
 describe('time studied survives putting the phone away', () => {
+  it('does not count browsing account or navigation screens', async () => {
+    await mount(false);
+    clock += 5 * 60_000;
+    hide();
+    expect(keptSeconds()).toBe(0);
+  });
+  it('pauses an idle lesson and resumes after interaction', async () => {
+    await mount();
+    clock += 5 * 60_000;
+    await act(async () => document.dispatchEvent(new Event('pointerdown')));
+    clock += 25_000;
+    hide();
+    expect(keptSeconds()).toBe(145);
+  });
+  it('keeps a partial minute with its learner before a new learner is added', async () => {
+    await mount();
+    clock += 25_000;
+    await act(async () => {
+      expect(await state.addLearner('Papa')).toBe('answers-waiting');
+    });
+    expect(keptSeconds()).toBe(25);
+    expect(state.studyingAs).toBe(1);
+  });
   it('keeps the seconds since the last flush when the app is hidden', async () => {
     await mount();
     clock += 40_000;

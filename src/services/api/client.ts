@@ -191,6 +191,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly requestId?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -224,8 +225,8 @@ const REQUEST_TIMEOUT_MS = 30_000;
  * verdict is on screen before they are sent — so giving up sooner would only
  * hand a stuck request back to the outbox to try again. It stays as long as
  * any other request for now: a cold function waking a sleeping database can
- * take longer than ten seconds and still save the write, and until the server
- * recognises a repeat by its idempotency key, the retry would save it twice.
+ * take longer than ten seconds and still save the write. The server saves an
+ * acknowledgement with each write's idempotency key so a retry is safe.
  */
 const WRITE_TIMEOUT_MS = REQUEST_TIMEOUT_MS;
 
@@ -276,7 +277,7 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = REQUEST_
         response.ok
           ? `${what} returned something that is not JSON: ${firstLine}`
           : `${what} failed with HTTP ${response.status}: ${firstLine || response.statusText}`,
-        response.status,
+        response.status, response.headers.get('x-request-id') ?? undefined,
       );
     }
   }
@@ -286,7 +287,7 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = REQUEST_
       payload && typeof payload === 'object' && 'error' in payload
         ? String((payload as { error: unknown }).error)
         : `${what} failed with ${response.status}`;
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, response.headers.get('x-request-id') ?? undefined);
   }
   return payload as T;
 }

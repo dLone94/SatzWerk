@@ -5,7 +5,7 @@ import {
   lessonById,
   scenarioStatus,
   scriptFor,
-} from '../../content/index.ts';
+} from '../../content/browser.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Card, StatusBadge } from '../components/bits.tsx';
 

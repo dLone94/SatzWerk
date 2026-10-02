@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TeachingLanguage } from '../../content/types.ts';
-import { contentStats, unauthoredLevels } from '../../content/index.ts';
+import { contentStats, unauthoredLevels } from '../../content/browser.ts';
 import { UI, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Icon } from '../components/icons.tsx';

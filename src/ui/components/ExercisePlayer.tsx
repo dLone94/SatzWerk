@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { resolveTarget } from '../../content/index.ts';
+import { resolveTarget } from '../../content/browser.ts';
 import type { CefrLevel, Exercise, ExerciseStep } from '../../content/types.ts';
 import { buildFeedback, type FeedbackMessage } from '../../core/feedback/explain.ts';
 import {
@@ -659,6 +659,11 @@ export function ExercisePlayer({
   }
 
   const { exercise, step } = current;
+  // Review and mistake rounds mix levels. Their generic player level must
+  // not give a B2 word beginner replay limits or beginner AI explanations.
+  const stepLevel = (step.reviewTargets ?? [])
+    .map((id) => resolveTarget(id)?.level)
+    .find((targetLevel) => targetLevel !== undefined) ?? level;
   const scaffold = step.scaffold ? splitScaffold(step.scaffold) : null;
   const hideText = Boolean(step.audio?.hideText);
   /*
@@ -674,7 +679,7 @@ export function ExercisePlayer({
   const budgeted = hideText && exercise.kind === 'dictation';
   // Two replays unless the step says otherwise: enough to catch a word you
   // half-heard, not enough to transcribe by repetition.
-  const replayBudget = step.audio?.replays ?? (level === 'pre-a1' ? BEGINNER_REPLAYS : DEFAULT_REPLAYS);
+  const replayBudget = step.audio?.replays ?? (stepLevel === 'pre-a1' ? BEGINNER_REPLAYS : DEFAULT_REPLAYS);
   const replaysLeft = budgeted ? Math.max(0, replayBudget - replaysUsed) : Number.POSITIVE_INFINITY;
   const isChoice = exercise.kind === 'multipleChoice' || exercise.kind === 'listenChoose';
   const isFree = exercise.kind === 'freeWriting';
@@ -690,7 +695,7 @@ export function ExercisePlayer({
             : 'error';
 
   return (
-    <div className="player">
+    <div className="player" data-study-active="true">
       {liveRegion}
       <header className="player__head">
         {hideProgress ? (
@@ -1028,7 +1033,7 @@ export function ExercisePlayer({
               expected={feedback.correction}
               given={submitted}
               categories={result.categories}
-              level={level}
+              level={stepLevel}
             />
           ) : null}
 

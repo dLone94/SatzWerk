@@ -27,11 +27,10 @@ import type { Checkpoint, Exercise, Lesson, SentencePattern, Unit } from '../typ
  * divergence anywhere in the course. English has dismantled its relative
  * pronouns — *that* covers everything, and English drops the word entirely
  * when it is an object ("the flat I saw"). Bulgarian has kept the whole
- * system: *който/която/което/които* agrees for gender and number exactly as
- * German does, and *когото* exists for the accusative. So the English path is
+ * system: *който/която/което/които* also agrees for gender and number, and *когото* exists for the accusative. So the English path is
  * taught a system it no longer has, while the Bulgarian path is told, plainly,
- * that it already owns nine tenths of this and has exactly one new thing to
- * learn: the verb goes to the end.
+ * to use that familiar agreement while learning German case forms and
+ * verb-final word order. Bulgarian case marking does not transfer wholesale.
  *
  * **Adjective endings after ein** (lesson 2) is the other half of what A2
  * started and openly left unfinished. It is taught as a reason rather than a

@@ -17,15 +17,15 @@ import type { Checkpoint, Exercise, Lesson, SentencePattern, Unit } from '../typ
  *
  * **The genitive prepositions** (lesson 2) are where B1 Unit 4's register
  * lesson comes due. aufgrund, trotz, während, innerhalb and hinsichtlich all
- * demand the case that only survives in writing, and neither English
+ * normally take the genitive in formal standard German, and neither English
  * ("because of the delay") nor Bulgarian („поради забавянето“) marks a case at
  * all — so there is nothing to transfer and the endings have to be built.
  *
  * **Written politeness** (lesson 3) is the interesting one, because both
  * paths have a formal register and both are wrong here in the same direction.
  * English asks by questioning — "Could you possibly let me know" — and
- * Bulgarian asks with „бихте ли“. German does not ask: it states a fact about
- * itself. *Ich bitte um eine Bestätigung* is not brusque, it is standard, and
+ * Bulgarian asks with „бихте ли“. German can ask politely too; this unit teaches a common declarative
+ * request frame. *Ich bitte um eine Bestätigung* is not brusque, it is standard, and
  * the politeness sits in the Konjunktiv II and the fixed frame rather than in
  * hedging.
  */
@@ -396,7 +396,7 @@ const lesson2: Lesson = {
     {
       id: 'b2u4l2-intro',
       kind: 'intro',
-      title: bi('The case that only writing keeps', 'Падежът, който само писането пази'),
+      title: bi('The genitive in formal writing', 'Родителният падеж в официалното писане'),
       blocks: [
         {
           t: 'contrast',
@@ -663,13 +663,13 @@ const lesson3: Lesson = {
     {
       id: 'b2u4l3-intro',
       kind: 'intro',
-      title: bi('German does not ask. It states.', 'Немският не пита. Той съобщава.'),
+      title: bi('A clear, polite written request', 'Ясна, учтива писмена молба'),
       blocks: [
         {
           t: 'p',
           only: ['en'],
           text: bi(
-            'English asks by questioning: "Could you possibly let me know …?" Translated, that comes out either odd or weak.',
+            'English often uses a question: "Could you let me know …?" German questions such as "Könnten Sie mir bitte … mitteilen?" are polite too. In a formal letter, "Ich bitte um …" is another clear, standard option.',
             '',
           ),
         },
@@ -678,7 +678,7 @@ const lesson3: Lesson = {
           only: ['bg'],
           text: bi(
             '',
-            'Българското официално писмо моли с въпрос: „Бихте ли ми потвърдили …“. Немското не пита.',
+            'Българското официално писмо често използва въпрос: „Бихте ли ми потвърдили …“. На немски „Könnten Sie mir bitte … bestätigen?“ също е учтиво. В официално писмо „Ich bitte um …“ е друга ясна, стандартна възможност.',
           ),
         },
         {
@@ -690,8 +690,8 @@ const lesson3: Lesson = {
         {
           t: 'p',
           text: bi(
-            'A statement about what you are doing — asking — rather than a question about what the reader might do. It is standard, not brusque, and it gets an answer.',
-            'Твърдение за това, което ти правиш — молиш — а не въпрос какво евентуално би направил четящият. Това е стандартът, не е рязко и получава отговор.',
+            'A statement about what you are doing — asking — rather than a question about what the reader might do. It is a standard, direct request; a clear request helps the reader understand what you need.',
+            'Твърдение за това, което ти правиш — молиш — а не въпрос какво евентуално би направил четящият. Това е стандартна, пряка молба; ясната формулировка помага на читателя да разбере какво ти е нужно.',
           ),
         },
       ],
@@ -1050,8 +1050,8 @@ export const B2_UNIT_4: Unit = {
   status: 'available',
   title: bi('Formal written German', 'Официален писмен немски'),
   summary: bi(
-    'The letter that gets answered: the noun-and-verb pairs officialdom runs on, the prepositions that still demand a genitive, and the frames German asks with — statements about yourself rather than questions about the reader.',
-    'Писмото, на което отговарят: двойките съществително плюс глагол, с които работи администрацията, предлозите, които още изискват родителен падеж, и рамките, с които немският моли — твърдения за себе си, а не въпроси към четящия.',
+    'A clear formal letter: common noun-and-verb combinations, prepositions with the genitive in formal standard German, and several ways to make a polite request.',
+    'Ясно официално писмо: чести съчетания на съществително и глагол, предлози с родителен падеж в официалния книжовен немски и различни начини за учтива молба.',
   ),
   lessons: [lesson1, lesson2, lesson3],
   checkpoint,

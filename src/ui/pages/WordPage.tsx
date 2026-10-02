@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { lessonById, vocabById } from '../../content/index.ts';
+import { lessonById, vocabById } from '../../content/browser.ts';
 import { UI, WORD_TYPE_LABELS, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Icon } from '../components/icons.tsx';
@@ -57,7 +57,7 @@ export function WordPage() {
           : null;
 
   return (
-    <div className="page">
+    <div className="page" data-study-active="true">
       <nav className="crumbs">
         <Link to="/vocabulary">{t('navVocabulary')}</Link>
       </nav>

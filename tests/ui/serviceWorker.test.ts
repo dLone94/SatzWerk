@@ -72,6 +72,7 @@ function cacheStorage(network: (url: string) => Response | Promise<Response>) {
 }
 
 interface Harness {
+  message: (data: unknown) => Promise<unknown>;
   fire: (type: 'install' | 'activate') => Promise<void>;
   request: (
     input: { method?: string; url: string; mode?: string; headers?: Record<string, string> },
@@ -124,6 +125,13 @@ function load(
   );
 
   return {
+    async message(data) {
+      let result: unknown;
+      const waits: Promise<unknown>[] = [];
+      listeners.get('message')?.({ data, ports: [{ postMessage: (reply: unknown) => { result = reply; } }], waitUntil: (work: Promise<unknown>) => waits.push(work) });
+      await Promise.all(waits);
+      return result;
+    },
     caches: store,
     fetch: fetchStub,
     claimed: () => claimed,
@@ -171,6 +179,21 @@ beforeEach(() => {
 });
 
 describe('what the worker keeps', () => {
+  it('automatically downloads only startup assets and saves one level on request', async () => {
+    const manifest = { files: ['/assets/start.js', '/assets/a1.js', '/assets/b2.js'], precache: ['/assets/start.js'],
+      groups: { a1: { files: ['/assets/a1.js'] }, unsafe: { files: ['/api/state'] } } };
+    const worker = load(url => url.endsWith('/asset-manifest.json') ? ok(JSON.stringify(manifest)) : ok('asset'));
+    await worker.fire('install');
+    await worker.fire('activate');
+    expect(await heldPaths(worker)).toContain('/assets/start.js');
+    expect(await heldPaths(worker)).not.toContain('/assets/a1.js');
+    expect(await worker.message({ type: 'SAVE_LEVEL', level: 'a1' })).toEqual({ ok: true });
+    expect(await heldPaths(worker)).toContain('/assets/a1.js');
+    expect(await heldPaths(worker)).not.toContain('/assets/b2.js');
+    expect(await worker.message({ type: 'SAVE_LEVEL', level: 'unsafe' })).toEqual({ ok: false });
+    expect(await heldPaths(worker)).not.toContain('/api/state');
+    expect(await worker.message({ type: 'SAVE_LEVEL', level: 'missing' })).toEqual({ ok: false });
+  });
   it('precaches the app, including the files this build actually emitted', async () => {
     await sw.fire('install');
     const held = [...sw.caches.stores.values()].flatMap((store) => [...store.keys()]).map((url) => new URL(url).pathname);

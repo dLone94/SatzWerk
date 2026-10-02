@@ -18,7 +18,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "hash-password": "node scripts/hash-password.ts",
-    "smoke": "node scripts/smoke.ts"
+    "smoke": "node scripts/smoke.ts",
+    "catalog": "node scripts/generate-catalog.ts",
+    "prebuild": "npm run catalog",
+    "predev": "npm run catalog",
+    "pretest": "npm run catalog",
+    "diagnostics": "node scripts/diagnostics.ts",
+    "test:browser": "node scripts/browser-check.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
@@ -33,6 +39,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",

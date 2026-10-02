@@ -83,4 +83,24 @@ describe('the self-hosted server', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toContain('SatzWerk');
   });
+
+  it('does not serve or cache HTML as a missing asset', async () => {
+    for (const path of ['/assets/old-build.js', '/audio/de/missing.mp3', '/missing.css', '/sw.js',
+      '/assets/missing.woff2', '/asset-manifest.json']) {
+      const response = await fetch(`${base}${path}`);
+      expect(response.status, path).toBe(404);
+      expect(response.headers.get('content-type')).toContain('text/plain');
+      expect(response.headers.get('cache-control')).toBe('no-store');
+    }
+  });
+
+  it('forwards retry IDs to the API instead of duplicating HTTP writes', async () => {
+    const send = () => fetch(`${base}/api/study`, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'SatzWerk', 'idempotency-key': 'http-study' },
+      body: JSON.stringify({ seconds: 20 }),
+    });
+    const first = await (await send()).json();
+    expect(await (await send()).json()).toEqual(first);
+    expect(first.stats.totalStudySeconds).toBe(20);
+  });
 });

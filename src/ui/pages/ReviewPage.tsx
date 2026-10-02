@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { grammarById } from '../../content/index.ts';
+import { grammarById } from '../../content/browser.ts';
 import type { Exercise } from '../../content/types.ts';
 import { summarizeQueue, type RecallGrade, type ReviewItem } from '../../core/srs/scheduler.ts';
 import { UI, tr } from '../../i18n.ts';

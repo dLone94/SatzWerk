@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { lessonById, practiceForCategory } from '../../content/index.ts';
+import { lessonById, practiceForCategory } from '../../content/browser.ts';
 import type { ErrorCategory, Exercise } from '../../content/types.ts';
 import { CATEGORY_LABELS, UI } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';

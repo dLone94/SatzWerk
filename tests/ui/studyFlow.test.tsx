@@ -96,7 +96,7 @@ function state(overrides: Partial<AppStateValue> = {}): AppStateValue {
     learners: [{ id: 1, name: 'me', createdAt: '' }],
     studyingAs: 1,
     studyAs: async () => 'switched' as const,
-    addLearner: async () => {},
+    addLearner: async () => 'switched' as const,
     renameLearner: async () => {},
     notice: null,
     dismissNotice: () => {},

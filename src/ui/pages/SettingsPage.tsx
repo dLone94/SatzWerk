@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { contentStats, partialLevels, unauthoredLevels } from '../../content/index.ts';
+import { contentStats, partialLevels, unauthoredLevels } from '../../content/browser.ts';
 import type { TeachingLanguage } from '../../content/types.ts';
 import { tr } from '../../i18n.ts';
 import {
@@ -90,6 +90,7 @@ export function SettingsPage() {
         <p className="card__foot">
           {tr('settingsMinutes', lang, { n: profile.dailyTargetMinutes })}
         </p>
+        <p className="card__foot">{t('studyTimeNote')}</p>
       </Card>
 
       <VoiceCard />
@@ -404,8 +405,11 @@ function Learners() {
           event.preventDefault();
           if (!name.trim()) return;
           setBusy(true);
-          void addLearner(name.trim()).finally(() => {
-            setName('');
+          setWaiting(0);
+          void addLearner(name.trim()).then((outcome) => {
+            if (outcome === 'answers-waiting') setWaiting(1);
+            if (outcome === 'switched') setName('');
+          }).finally(() => {
             setBusy(false);
           });
         }}

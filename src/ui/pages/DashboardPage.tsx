@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { contentStats, unitForLesson } from '../../content/index.ts';
+import { contentStats, unitForLesson } from '../../content/browser.ts';
 import { todayHere } from '../../core/progress/days.ts';
 import { estimatedMinutes, planSession } from '../../core/progress/session.ts';
 import { summarizeQueue } from '../../core/srs/scheduler.ts';
@@ -71,6 +71,7 @@ export function DashboardPage() {
           <h1 className="today__greeting" lang="de">
             {germanGreeting()}
           </h1>
+          <p className="today__welcome">{t('studioGreeting')}</p>
         </div>
         {stats.streak > 0 ? (
           // A paragraph cannot be named, so the label on it was never read:
@@ -83,7 +84,9 @@ export function DashboardPage() {
         ) : null}
       </header>
 
+      <div className="today-overview">
       <section className="today-hero" aria-labelledby="today-hero-title">
+        <div className="today-hero__copy">
         <p className="today-hero__eyebrow">
           {action.kind === 'continue-lesson' || action.kind === 'start-lesson'
             ? `${t('todayUpNext')} · ${unit ? say(unit.title) : ''}`
@@ -108,17 +111,28 @@ export function DashboardPage() {
           <span>{actionLabel}</span>
           <Icon name="arrow" />
         </Link>
+        </div>
+        <div className="studio-postcard" aria-hidden="true">
+          <span className="studio-postcard__stamp">DE / SW</span>
+          <span className="studio-postcard__hello" lang="de">Hallo!</span>
+          <span className="studio-postcard__rule" />
+          <span className="studio-postcard__phrase" lang="de">Ein bisschen,<br />jeden Tag.</span>
+          <span className="studio-postcard__spark">✳</span>
+        </div>
       </section>
 
       <div className="today-tiles">
         <div className="today-tile">
+          <span className="today-tile__eyebrow">{t('settingsDailyTarget')}</span>
           <GoalRing done={minutesToday} target={target} />
           <p className="today-tile__main">{t('todayGoal', { target })}</p>
           <p className="today-tile__note">
             {minutesLeft > 0 ? t('todayGoalLeft', { n: minutesLeft }) : t('todayGoalDone')}
           </p>
+          <span className="today-tile__active-note">{t('studioWeekMinutes', { n: minutesToday })}</span>
         </div>
         <Link className="today-tile today-tile--review" to="/review">
+          <Icon name="arrow" size={18} className="today-tile__arrow" />
           <span className="today-tile__icon">
             <Icon name="review" />
           </span>
@@ -132,12 +146,14 @@ export function DashboardPage() {
           </p>
         </Link>
       </div>
+      </div>
 
       {/*
         * The round stays one tap away. The next step above is right about what
         * is most useful, but it hands you a lesson; most evenings the real
         * question is "I have ten minutes", and this is the answer to that.
         */}
+      <div className="today-workbench">
       <Link className="today-round" to="/session">
         <span className="today-round__icon">
           <Icon name="round" />
@@ -152,13 +168,13 @@ export function DashboardPage() {
         </span>
         <Icon name="arrow" size={20} />
       </Link>
+      <WeeklyRhythm />
+      </div>
 
       {unit && unitViews.length > 0 ? (
         <section className="today-unit" aria-labelledby="today-unit-title">
           <div className="today-unit__head">
-            <h2 className="today-unit__title" id="today-unit-title">
-              {say(unit.title)}
-            </h2>
+            <div><p className="section-eyebrow">{t('studioPath')}</p><h2 className="today-unit__title" id="today-unit-title">{say(unit.title)}</h2></div>
             <Link to="/course">{t('todaySeePath')}</Link>
           </div>
           <ol className="stops">
@@ -183,6 +199,20 @@ export function DashboardPage() {
           </ol>
         </section>
       ) : null}
+
+      <section className="studio-explore" aria-labelledby="studio-explore-title">
+        <h2 id="studio-explore-title">{t('studioExploreTitle')}</h2>
+        <div className="studio-explore__grid">
+          <Link className="studio-explore__card studio-explore__card--conversation" to="/real-life">
+            <span className="studio-explore__icon"><Icon name="chat" size={24} /></span>
+            <span><strong>{t('navRealLife')}</strong><span>{t('studioRealLife')}</span></span><Icon name="arrow" size={20} />
+          </Link>
+          <Link className="studio-explore__card" to="/vocabulary">
+            <span className="studio-explore__icon"><Icon name="book" size={24} /></span>
+            <span><strong>{t('navVocabulary')}</strong><span>{t('studioWords')}</span></span><Icon name="arrow" size={20} />
+          </Link>
+        </div>
+      </section>
 
       {mistakes.length > 0 ? (
         <Card
@@ -264,6 +294,32 @@ export function DashboardPage() {
       </details>
     );
   }
+}
+
+function WeeklyRhythm() {
+  const { t, lang, studyDays, profile } = useApp();
+  const now = new Date();
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6 + index, 12);
+    const day = studyDays.find(day => day.day === todayHere(date));
+    return { date, minutes: Math.floor((day?.secondsActive ?? 0) / 60) };
+  });
+  const total = days.reduce((sum, day) => sum + day.minutes, 0);
+  const maximum = Math.max(profile.dailyTargetMinutes, ...days.map(day => day.minutes));
+  const weekday = new Intl.DateTimeFormat(lang === 'bg' ? 'bg-BG' : 'en-GB', { weekday: 'short' });
+  return <section className="weekly-rhythm" aria-labelledby="weekly-rhythm-title">
+    <div className="weekly-rhythm__head"><div><h2 id="weekly-rhythm-title">{t('studioRhythm')}</h2><p>{t('studioWeek')}</p></div>
+      <strong>{t('studioWeekMinutes', { n: total })}</strong></div>
+    <ol className="weekly-rhythm__days">
+      {days.map((day, index) => <li key={todayHere(day.date)} aria-current={index === 6 ? 'date' : undefined}>
+        <span className={`weekly-rhythm__bar${day.minutes >= profile.dailyTargetMinutes ? ' is-complete' : ''}`}
+          style={{ '--day-fill': `${Math.min(100, day.minutes / maximum * 100)}%` } as CSSProperties} aria-hidden="true"><span /></span>
+        <span aria-hidden="true">{weekday.format(day.date)}</span>
+        <span className="visually-hidden">{weekday.format(day.date)}: {t('studioWeekMinutes', { n: day.minutes })}</span>
+      </li>)}
+    </ol>
+    {total === 0 ? <p className="weekly-rhythm__empty">{t('studioWeekEmpty')}</p> : null}
+  </section>;
 }
 
 /** Minutes studied today against the daily target, as a ring. */

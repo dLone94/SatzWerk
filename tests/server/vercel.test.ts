@@ -56,6 +56,16 @@ const send = (method: string, path: string, body: unknown) =>
   });
 
 describe('the Vercel function', () => {
+  it('forwards retry IDs and returns the saved acknowledgement', async () => {
+    const handler = await loadHandler();
+    const request = () => new Request('https://satzwerk.test/api/study', {
+      method: 'POST', body: JSON.stringify({ seconds: 20 }),
+      headers: { 'content-type': 'application/json', 'x-requested-with': 'SatzWerk', 'idempotency-key': 'vercel-study' },
+    });
+    const first = await (await handler(request())).json();
+    expect(await (await handler(request())).json()).toEqual(first);
+    expect(first.stats.totalStudySeconds).toBe(20);
+  });
   it('answers health without touching the database', async () => {
     const handler = await loadHandler();
     const response = await handler(get('/api/health'));

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { lessonById, sectionBlocks, unitForLesson, vocabById } from '../../content/index.ts';
+import { lessonById, sectionBlocks, unitForLesson, vocabById } from '../../content/browser.ts';
 import type { Lesson, TeachingSection } from '../../content/types.ts';
 import {
   allStepIds,
@@ -314,7 +314,7 @@ function LessonView() {
 
   if (stage === 'sections' && section) {
     return (
-      <div className="page">
+      <div className="page" data-study-active="true">
         <PlayerHeader lesson={lesson} phase={t('lessonSections')} />
         <div className="section-progress">
           <Meter value={sectionIndex + 1} max={sections.length} label={t('lessonSections')} />

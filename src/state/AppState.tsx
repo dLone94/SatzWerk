@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Bilingual, TeachingLanguage } from '../content/types.ts';
-import { LEXICON, describeNoun } from '../content/index.ts';
+import { LEXICON, describeNoun } from '../content/browser.ts';
 import {
   applyCompletion,
   applyMastery,
@@ -37,6 +37,8 @@ import {
 import * as outbox from '../services/api/outbox.ts';
 import { createTtsProvider, type TtsProvider } from '../services/tts/index.ts';
 import { createSpeechRecogniser, type SpeechRecogniser } from '../services/speech/recogniser.ts';
+import { trackStudy } from '../services/studyTracker.ts';
+import type { StudyStatus } from '../core/progress/studyClock.ts';
 import { deviceLanguage, markPageLanguage, rememberLanguage } from '../ui/deviceLanguage.ts';
 
 /**
@@ -48,6 +50,7 @@ import { deviceLanguage, markPageLanguage, rememberLanguage } from '../ui/device
  */
 
 export interface AppStateValue {
+  studyStatus?: StudyStatus;
   ready: boolean;
   error: string | null;
   /**
@@ -94,7 +97,7 @@ export interface AppStateValue {
   studyingAs: number;
   /** Hand the app to somebody else. Refuses while answers are waiting to be saved. */
   studyAs: (id: number) => Promise<'switched' | 'answers-waiting' | 'failed'>;
-  addLearner: (name: string) => Promise<void>;
+  addLearner: (name: string) => Promise<'switched' | 'answers-waiting' | 'failed'>;
   renameLearner: (id: number, name: string) => Promise<void>;
 
   /**
@@ -329,6 +332,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const tts = useMemo(() => createTtsProvider(), []);
   const recogniser = useMemo(() => createSpeechRecogniser(), []);
   const pendingSeconds = useRef(0);
+  const [studyStatus, setStudyStatus] = useState<StudyStatus>('ready');
+  const studyAllowed = useRef(false);
+  studyAllowed.current = ready && snapshot !== null && (!session.required || session.signedIn);
+  const flushStudyTime = useRef<() => Promise<void>>(async () => {});
+  const keepStudyTime = useRef<() => void>(() => {});
   /** Answers the queue was too full to take. Counted so they can be owned up to. */
   const lostAnswers = useRef(0);
   /** The flush in flight, so the interval and the `online` event share one. */
@@ -400,73 +408,35 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     void load();
   }, [load]);
 
-  // Track real time on task and flush it periodically, so "time studied" is
-  // measured rather than guessed.
+  // Every minute uses the same durable, learner-owned queue as an answer.
+  // A handover waits for time already in flight as well as unsaved answers.
   useEffect(() => {
-    let last = Date.now();
-    let visible = document.visibilityState === 'visible';
-    /** Credit the time since the last look, if the app was on screen for it. */
-    const accrue = () => {
-      const now = Date.now();
-      if (visible) pendingSeconds.current += Math.min(STUDY_FLUSH_MS, now - last) / 1000;
-      last = now;
-      visible = document.visibilityState === 'visible';
-    };
-    const tick = window.setInterval(accrue, 5_000);
-
-    const flush = window.setInterval(() => {
-      const seconds = Math.round(pendingSeconds.current);
-      if (seconds < 10) return;
-      pendingSeconds.current = 0;
-      const at = new Date().toISOString();
-      const tzOffsetMinutes = -new Date().getTimezoneOffset();
-      const key = outbox.newWriteId();
-      void api
-        .addStudyTime(seconds, at, tzOffsetMinutes, key)
-        .then((result) =>
-          setSnapshot((current) => (current ? { ...current, stats: result.stats, studyDays: result.studyDays } : current)),
-        )
-        .catch((cause: unknown) => {
-          // Time on task used to be dropped on the floor here. It is real
-          // measured time, and it belongs to the day it was spent, so it waits
-          // with everything else rather than vanishing.
-          if (outbox.isRetryable(cause) || outbox.needsSignIn(cause)) {
-            replaying.current = true;
-            outbox.enqueue({ kind: 'studyTime', seconds, at, tzOffsetMinutes }, key);
-          }
-        });
-    }, STUDY_FLUSH_MS);
-
-    // Closing the app, or switching away from it, used to throw away whatever
-    // had not been flushed yet: up to a minute a visit. It goes into the
-    // outbox instead, which sends it with everything else.
+    const tracker = trackStudy({
+      allowed: () => studyAllowed.current,
+      addSeconds: seconds => { pendingSeconds.current += seconds; },
+      status: setStudyStatus,
+    });
     const keep = () => {
-      const seconds = Math.round(pendingSeconds.current);
+      tracker.sample();
+      const seconds = Math.floor(pendingSeconds.current);
       if (seconds < 1) return;
-      pendingSeconds.current = 0;
-      outbox.enqueue({
-        kind: 'studyTime',
-        seconds,
-        at: new Date().toISOString(),
-        tzOffsetMinutes: -new Date().getTimezoneOffset(),
-      });
+      if (outbox.enqueue({ kind: 'studyTime', seconds, at: new Date().toISOString(),
+        tzOffsetMinutes: -new Date().getTimezoneOffset() })) {
+        pendingSeconds.current -= seconds;
+      }
     };
-    const onVisibility = () => {
-      accrue();
-      if (!visible) keep();
-    };
-    const onPageHide = () => {
-      accrue();
-      keep();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('pagehide', onPageHide);
-
+    const hide = () => { if (document.visibilityState !== 'visible') keep(); };
+    keepStudyTime.current = keep;
+    const flush = window.setInterval(() => { keep(); void flushStudyTime.current(); }, STUDY_FLUSH_MS);
+    document.addEventListener('visibilitychange', hide);
+    window.addEventListener('pagehide', keep);
     return () => {
-      window.clearInterval(tick);
+      keep();
+      tracker.stop();
+      keepStudyTime.current = () => {};
       window.clearInterval(flush);
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('pagehide', onPageHide);
+      document.removeEventListener('visibilitychange', hide);
+      window.removeEventListener('pagehide', keep);
     };
   }, []);
 
@@ -818,6 +788,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [refuse, sessionEnded],
   );
 
+  flushStudyTime.current = flushAnswers;
+
   const value = useMemo<AppStateValue>(() => {
     const lessons = indexLessons(snapshot?.lessons ?? []);
 
@@ -892,6 +864,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     };
 
     return {
+      studyStatus,
       ready,
       error,
       offline,
@@ -1008,6 +981,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
        * says why.
        */
       studyAs: async (id) => {
+        // Save the current learner's partial minute before changing the cookie.
+        keepStudyTime.current();
         if (outbox.queuedCount() > 0) {
           await flushAnswers();
           if (outbox.queuedCount() > 0) return 'answers-waiting';
@@ -1025,13 +1000,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       },
 
       addLearner: async (name) => {
-        await reporting('notSavedLearner', async () => {
+        keepStudyTime.current();
+        // Adding a learner selects them immediately, so it needs the same
+        // queue guard as switching to an existing learner.
+        if (outbox.queuedCount() > 0) {
+          await flushAnswers();
+          if (outbox.queuedCount() > 0) return 'answers-waiting';
+        }
+        const added = await reporting('notSavedLearner', async () => {
           const household = await api.addLearner(name);
           setLearners(household.learners);
           setStudyingAs(household.studyingAs);
           setReady(false);
           await load();
+          return true;
         });
+        return added ? 'switched' : 'failed';
       },
 
       renameLearner: async (id, name) => {
@@ -1221,7 +1205,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return true;
         })) === true,
     };
-  }, [ready, error, offline, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, replaceReviewItem, sync, readSync, flushAnswers, heldAfter, learners, studyingAs, notice]);
+  }, [studyStatus, ready, error, offline, session, signIn, choosePassword, changePassword, signOut, profile, snapshot, coach, lang, t, say, tts, recogniser, load, patchSnapshot, mergeLesson, replaceReviewItem, sync, readSync, flushAnswers, heldAfter, learners, studyingAs, notice]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }

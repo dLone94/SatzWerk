@@ -26,10 +26,40 @@ function assetManifest(): Plugin {
         .filter((name) => !name.endsWith('.map'))
         .map((name) => `/${name}`)
         .sort();
+      // Only the startup graph is downloaded automatically. Other chunks are
+      // cached when visited or explicitly saved from the course map.
+      const closure = (names: string[]) => {
+        const found = new Set<string>();
+        const add = (name: string) => {
+          if (found.has(name) || !bundle[name]) return;
+          found.add(name);
+          const item = bundle[name];
+          if (item.type === 'chunk') item.imports.forEach(add);
+        };
+        names.forEach(add);
+        return [...found].map(name => `/${name}`).sort();
+      };
+      const chunks = Object.values(bundle).filter(item => item.type === 'chunk');
+      const entry = chunks.filter(item => item.isEntry).map(item => item.fileName);
+      const stylesAndFonts = Object.keys(bundle).filter(name => /\.(css|woff2)$/.test(name)).map(name => `/${name}`);
+      const precache = [...new Set([...closure(entry), ...stylesAndFonts])].sort();
+      const size = (paths: string[]) => paths.reduce((total, path) => {
+        const item = bundle[path.slice(1)]!;
+        return total + Buffer.byteLength(item.type === 'chunk' ? item.code : item.source);
+      }, 0);
+      const startupBytes = size(precache);
+      const budgetBytes = 2 * 1024 * 1024;
+      if (startupBytes > budgetBytes) this.error(`Offline startup is ${startupBytes} bytes; budget is ${budgetBytes}.`);
+      const learning = chunks.filter(item => /\/(grammar|vocabulary)\.ts$|\/(LessonPage|CheckpointPage)\.tsx$/.test(item.facadeModuleId ?? ''));
+      const groups = Object.fromEntries(['pre-a1', 'a1', 'a2', 'b1', 'b2'].map(id => {
+        const level = chunks.find(item => item.facadeModuleId?.endsWith(`/content/levels/${id}.ts`));
+        const paths = closure([...learning.map(item => item.fileName), ...(level ? [level.fileName] : [])]);
+        return [id, { files: paths, bytes: size(paths) }];
+      }));
       this.emitFile({
         type: 'asset',
         fileName: 'asset-manifest.json',
-        source: JSON.stringify({ files }, null, 2),
+        source: JSON.stringify({ files, precache, startupBytes, budgetBytes, groups }, null, 2),
       });
     },
   };

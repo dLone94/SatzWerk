@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CURRICULUM, LEVEL_OUTLINES } from '../../content/index.ts';
+import { CURRICULUM, LEVEL_OUTLINES } from '../../content/browser.ts';
 import type { CefrLevel, Level, Unit } from '../../content/types.ts';
 import { isLessonComplete } from '../../core/progress/lesson.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Meter, StatusBadge } from '../components/bits.tsx';
 import { Icon } from '../components/icons.tsx';
-import { buildLessonViews } from '../selectors.ts';
+import { saveLevel } from '../../services/offline.ts';
+import { buildLessonViews, nextAction } from '../selectors.ts';
 
 /**
  * The course, as a path.
@@ -16,14 +18,23 @@ import { buildLessonViews } from '../selectors.ts';
  * with nothing to click, as it always was.
  */
 export function CoursePage() {
-  const { t, lessons } = useApp();
+  const { t, say, lessons, reviewItems, mistakes, profile, checkpointResults } = useApp();
   const [params, setParams] = useSearchParams();
 
   // Where you are: the first lesson not finished. Its level opens by default.
   const views = buildLessonViews(lessons);
-  const current = views.find((view) => !view.complete)?.lesson;
+  const action = nextAction(lessons, reviewItems, mistakes, profile.onboarded, checkpointResults);
+  const suggested = action.to.startsWith('/lesson/') ? action.to.slice('/lesson/'.length) : undefined;
+  const current = views.find(view => view.lesson.id === suggested)?.lesson ??
+    views.find(view => view.started && !view.complete)?.lesson ?? views.find(view => !view.complete)?.lesson;
   const chosen = CURRICULUM.find((level) => level.id === params.get('level'));
   const level = chosen ?? CURRICULUM.find((entry) => entry.id === current?.level) ?? CURRICULUM[0]!;
+  const [downloads, setDownloads] = useState<Record<string, 'saving' | 'saved' | 'failed'>>({});
+  const download = downloads[level.id];
+  const completed = (unit: Unit) => unit.lessons.every(lesson => isLessonComplete(lesson, lessons[lesson.id] ?? empty(lesson.id)));
+  const passed = new Set(checkpointResults.filter(result => result.passed).map(result => result.checkpointId));
+  const nextCheckpoint = level.units.filter(completed).map(unit => unit.checkpoint).find(checkpoint => checkpoint && !passed.has(checkpoint.id)) ??
+    (level.units.every(completed) && level.checkpoint && !passed.has(level.checkpoint.id) ? level.checkpoint : undefined);
 
   return (
     <div className="page course">
@@ -49,15 +60,38 @@ export function CoursePage() {
         ))}
       </nav>
 
-      <LevelPath level={level} currentLessonId={current?.id} />
+      {current && current.level === level.id ? (
+        <Link className="course-continue" to={`/lesson/${current.id}`}>
+          <span className="course-continue__icon"><Icon name="play" /></span>
+          <span><strong>{t('courseJump')}</strong><span>{say(current.title)}</span></span>
+          <Icon name="arrow" />
+        </Link>
+      ) : nextCheckpoint ? <Link className="course-continue" to={`/checkpoint/${nextCheckpoint.id}`}>
+        <span className="course-continue__icon"><Icon name="check" /></span>
+        <span><strong>{t('courseJumpCheckpoint')}</strong><span>{say(nextCheckpoint.title)}</span></span>
+        <Icon name="arrow" />
+      </Link> : null}
+      <LevelPath key={level.id} level={level} currentLessonId={current?.id} currentUnitId={nextCheckpoint?.scope === 'unit' ? nextCheckpoint.targetId : undefined} />
+      {'serviceWorker' in navigator ? <aside className="offline-level">
+        <div><strong>{t('offlineLevel')}</strong><p>{t('offlineLevelNote')}</p></div>
+        <button type="button" className="btn btn--secondary" disabled={download === 'saving'} onClick={async () => {
+          const id = level.id;
+          setDownloads(previous => ({ ...previous, [id]: 'saving' }));
+          const saved = await saveLevel(id);
+          setDownloads(previous => ({ ...previous, [id]: saved ? 'saved' : 'failed' }));
+        }}>{t(download === 'saving' ? 'offlineSaving' : download === 'saved' ? 'offlineSaved' : 'offlineLevel')}</button>
+        <span role="status">{download === 'failed' ? t('offlineFailed') : ''}</span>
+      </aside> : null}
     </div>
   );
 }
 
-function LevelPath({ level, currentLessonId }: { level: Level; currentLessonId?: string }) {
+function LevelPath({ level, currentLessonId, currentUnitId }: { level: Level; currentLessonId?: string; currentUnitId?: string }) {
   const { t, say, lessons } = useApp();
   const authored = level.units.flatMap((unit) => unit.lessons).filter((lesson) => lesson.status === 'available');
   const complete = authored.filter((lesson) => isLessonComplete(lesson, lessons[lesson.id] ?? empty(lesson.id)));
+  const currentUnit = level.units.find(unit => unit.lessons.some(lesson => lesson.id === currentLessonId)) ?? level.units.find(unit => unit.id === currentUnitId) ??
+    level.units.find(unit => unit.lessons.some(lesson => !isLessonComplete(lesson, lessons[lesson.id] ?? empty(lesson.id)))) ?? level.units[0];
   const outline = LEVEL_OUTLINES[level.id as Exclude<CefrLevel, 'c1' | 'c2'>];
 
   return (
@@ -90,7 +124,7 @@ function LevelPath({ level, currentLessonId }: { level: Level; currentLessonId?:
       </details>
 
       {level.units.map((unit) => (
-        <UnitPath key={unit.id} unit={unit} currentLessonId={currentLessonId} />
+        <UnitPath key={unit.id} unit={unit} currentLessonId={currentLessonId} defaultOpen={unit.id === currentUnit?.id} />
       ))}
 
       {level.checkpoint ? (
@@ -159,17 +193,14 @@ function LevelPath({ level, currentLessonId }: { level: Level; currentLessonId?:
   );
 }
 
-/** How far each stop leans right, in turn: the line winds instead of dropping. */
-const SWAY = [0, 40, 80, 40];
-const ROW = 92;
-const NODE_X = 30;
-
 type Stop =
   | { kind: 'lesson'; id: string; state: 'done' | 'now' | 'started' | 'todo' | 'planned' }
   | { kind: 'checkpoint'; id: string };
 
-function UnitPath({ unit, currentLessonId }: { unit: Unit; currentLessonId?: string }) {
-  const { t, say, lessons } = useApp();
+function UnitPath({ unit, currentLessonId, defaultOpen }: { unit: Unit; currentLessonId?: string; defaultOpen: boolean }) {
+  const { t, say, lessons, checkpointResults } = useApp();
+  const [open, setOpen] = useState(defaultOpen);
+  const passed = checkpointResults.some(result => result.checkpointId === unit.checkpoint?.id && result.passed);
 
   const stops: Stop[] = unit.lessons.map((lesson) => {
     if (lesson.status !== 'available') return { kind: 'lesson', id: lesson.id, state: 'planned' };
@@ -188,22 +219,12 @@ function UnitPath({ unit, currentLessonId }: { unit: Unit; currentLessonId?: str
 
   const done = stops.filter((stop) => stop.kind === 'lesson' && stop.state === 'done').length;
   const lessonCount = unit.lessons.length;
-  const points = stops.map((_, index) => ({ x: NODE_X + SWAY[index % SWAY.length]!, y: index * ROW + ROW / 2 }));
-  const line = points
-    .map((point, index) => {
-      if (index === 0) return `M ${point.x} ${point.y}`;
-      const prev = points[index - 1]!;
-      const mid = (prev.y + point.y) / 2;
-      return `C ${prev.x} ${mid}, ${point.x} ${mid}, ${point.x} ${point.y}`;
-    })
-    .join(' ');
-
   return (
-    <section className="unit-path" aria-labelledby={`unit-${unit.id}`}>
-      <header className="unit-path__banner">
+    <details className="unit-path" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
+      <summary className="unit-path__banner" aria-labelledby={`unit-${unit.id}`}>
         <h3 className="unit-path__title" id={`unit-${unit.id}`}>
           <span className="unit-path__n">{unit.order}</span>
-          {say(unit.title)}
+          <span className="unit-path__heading"><span>{say(unit.title)}</span><span className="unit-path__sub">{t('courseUnitProgress', { done, total: lessonCount })}{passed ? ` · ${t('courseCheckpointDone')}` : ''}</span></span>
         </h3>
         {unit.status === 'available' ? (
           <span className="unit-path__count">
@@ -212,24 +233,16 @@ function UnitPath({ unit, currentLessonId }: { unit: Unit; currentLessonId?: str
         ) : (
           <StatusBadge status={unit.status} />
         )}
-      </header>
-      <p className="unit-path__summary">{say(unit.summary)}</p>
+        <Icon name="chevron" size={18} className="unit-path__chevron" />
+      </summary>
+      <div className="unit-path__body"><p className="unit-path__summary">{say(unit.summary)}</p>
 
-      <div className="unit-path__trail" style={{ height: stops.length * ROW }}>
-        <svg
-          className="unit-path__line"
-          width={NODE_X * 2 + Math.max(...SWAY)}
-          height={stops.length * ROW}
-          aria-hidden="true"
-        >
-          <path d={line} />
-        </svg>
+      <div className="unit-path__trail">
         <ol className="unit-path__stops">
           {stops.map((stop, index) => {
-            const style = { top: points[index]!.y, left: points[index]!.x };
             if (stop.kind === 'checkpoint') {
               return (
-                <li key={stop.id} className="trail-stop trail-stop--gate" style={style}>
+                <li key={stop.id} className="trail-stop trail-stop--gate">
                   <Link to={`/checkpoint/${stop.id}`} className="trail-stop__link">
                     <span className="trail-stop__dot">
                       <Icon name="check" size={20} />
@@ -276,7 +289,7 @@ function UnitPath({ unit, currentLessonId }: { unit: Unit; currentLessonId?: str
               </span>
             );
             return (
-              <li key={stop.id} className={`trail-stop trail-stop--${stop.state}`} style={style}>
+              <li key={stop.id} className={`trail-stop trail-stop--${stop.state}`}>
                 {stop.state === 'planned' ? (
                   <span className="trail-stop__link">
                     {dot}
@@ -307,7 +320,8 @@ function UnitPath({ unit, currentLessonId }: { unit: Unit; currentLessonId?: str
           ))}
         </ul>
       ) : null}
-    </section>
+      </div>
+    </details>
   );
 }
 

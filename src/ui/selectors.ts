@@ -11,7 +11,7 @@ import {
   practiceForCategory,
   unitForLesson,
   vocabById,
-} from '../content/index.ts';
+} from '../content/browser.ts';
 import type { Bilingual, Exercise, ExerciseStep, Lesson, TeachingLanguage, VocabEntry } from '../content/types.ts';
 import { allStepIds, isLessonComplete, lessonRequirements, type LessonProgress } from '../core/progress/lesson.ts';
 import type { SessionSources } from '../core/progress/session.ts';

@@ -75,7 +75,7 @@ function stubState(aiAvailable: boolean, lang: TeachingLanguage = 'en'): AppStat
     learners: [{ id: 1, name: 'me', createdAt: new Date().toISOString() }],
     studyingAs: 1,
     studyAs: async () => 'switched' as const,
-    addLearner: async () => {},
+    addLearner: async () => 'switched' as const,
     renameLearner: async () => {},
     offline: false,
     notice: null,

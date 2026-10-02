@@ -167,6 +167,21 @@ function answer(stepId: string, extra: Partial<AttemptPayload> = {}): AttemptPay
 
 const attemptsSent = () => sent.filter((item) => item.url.endsWith('/api/attempts'));
 
+describe('adding a learner while work is waiting', () => {
+  it('keeps the current learner until their queued answer can be saved', async () => {
+    const state = await mountState();
+    write = (url) => url.endsWith('/api/attempts') ? json({ error: 'Database unavailable' }, 503) : undefined;
+    await act(async () => { await state().submitAttempt(answer('waiting-before-new-learner')); });
+    await waitFor(() => expect(outbox.queuedCount()).toBe(1));
+    let outcome: string | undefined;
+    await act(async () => { outcome = await state().addLearner('Papa'); });
+    expect(outcome).toBe('answers-waiting');
+    expect(sent.filter(item => item.url.endsWith('/api/learners'))).toHaveLength(0);
+    expect(state().studyingAs).toBe(1);
+    expect(outbox.queuedCount()).toBe(1);
+  });
+});
+
 /*
  * An expired session threw queued answers away.
  *

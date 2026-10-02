@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type Db } from '../../server/db.ts';
 import * as push from '../../server/push.ts';
 import * as store from '../../server/store.ts';
+import { handleRequest, resolveAuth } from '../../server/api.ts';
 
 /** Every store call belongs to somebody; in these tests it is the first learner. */
 const scopeOf = (db: Db): store.Scope => ({ db, userId: 1 });
@@ -31,6 +32,52 @@ const scopeOf = (db: Db): store.Scope => ({ db, userId: 1 });
 
 const POSTGRES_URL = process.env.TEST_DATABASE_URL;
 const describeParity = POSTGRES_URL ? describe : describe.skip;
+
+describeParity('audit fixes across two Postgres instances', () => {
+  let first: Db;
+  let second: Db;
+  beforeAll(async () => {
+    const admin = await openDatabase({ databaseUrl: POSTGRES_URL! });
+    await admin.exec('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+    await admin.close();
+    first = await openDatabase({ databaseUrl: POSTGRES_URL! });
+    second = await openDatabase({ databaseUrl: POSTGRES_URL! });
+  }, 30_000);
+  afterAll(async () => { await first?.close(); await second?.close(); });
+
+  it('banks a retried answer once across different processes', async () => {
+    const request = {
+      method: 'POST', path: '/api/attempts', headers: { 'idempotency-key': 'cross-instance-answer' },
+      body: { stepId: 'cross-instance', expected: 'Hallo', given: 'Hallo', verdict: 'correct', credit: 1, resolved: true },
+    };
+    const replies = await Promise.all([handleRequest({ db: first }, request), handleRequest({ db: second }, request)]);
+    expect(replies[0]).toEqual(replies[1]);
+    expect((await store.getStats(scopeOf(first))).totalAnswers).toBe(1);
+  });
+
+  it('preserves independent settings from different instances', async () => {
+    await Promise.all([
+      store.updateProfile(scopeOf(first), { teachingLanguage: 'bg' }),
+      store.updateProfile(scopeOf(second), { dailyTargetMinutes: 30 }),
+    ]);
+    expect(await store.getProfile(scopeOf(first))).toMatchObject({ teachingLanguage: 'bg', dailyTargetMinutes: 30 });
+  });
+
+  it('allows only one first password across instances', async () => {
+    const auth = { ...(await resolveAuth(first)), hosted: true };
+    const replies = await Promise.all([first, second].map((db, index) => handleRequest({ db, auth }, {
+      method: 'POST', path: '/api/setup', body: { password: `audit-password-${index}` },
+    })));
+    expect(replies.map(reply => reply.status).sort()).toEqual([200, 409]);
+  });
+
+  it('keeps every grade when two instances update the same item', async () => {
+    await store.ensureReviewItems(scopeOf(first), [{ kind: 'vocab', refId: 'audit-word', level: 'a1' }]);
+    await Promise.all(Array.from({ length: 6 }, (_, index) =>
+      store.gradeReviewItem(scopeOf(index % 2 ? first : second), 'vocab:audit-word', 'good')));
+    expect((await store.getReviewItem(scopeOf(first), 'vocab:audit-word'))!.successCount).toBe(6);
+  });
+});
 
 const attempt = (over: Partial<store.AttemptInput> = {}): store.AttemptInput => ({
   context: 'lesson',
