@@ -8,6 +8,7 @@ import { Meter, StatusBadge } from '../components/bits.tsx';
 import { Icon } from '../components/icons.tsx';
 import { saveLevel } from '../../services/offline.ts';
 import { buildLessonViews, nextAction } from '../selectors.ts';
+import { DackelScene } from '../components/Dackel.tsx';
 
 /**
  * The course, as a path.
@@ -38,13 +39,14 @@ export function CoursePage() {
 
   return (
     <div className="page course">
-      <h1 className="page__title">{t('courseTitle')}</h1>
+      <div className="course-welcome"><div><p className="section-eyebrow">{t('playCourse')}</p>
+        <h1 className="page__title">{t('courseTitle')}</h1>
       <p className="page__lede">
         {t('courseSubtitle')}{' '}
         <Link to="/placement" className="course__placement">
           {t('placementNav')}
         </Link>
-      </p>
+      </p></div><DackelScene className="course-welcome__scene" /></div>
 
       <nav className="levels" aria-label={t('courseTitle')}>
         {CURRICULUM.map((entry) => (

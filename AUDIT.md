@@ -156,6 +156,33 @@ Exam practice exercises language skills rather than simulating an official exam.
   phrase transfer, recurring-mistake variations, strict progress validation,
   retries, offline queues, resume, learner isolation, and progress reset.
 
+## Playful illustrated revision — 2026-10-07
+
+The user's selected direction replaces the muted studio presentation with an
+illustrated dachshund and neighbourhood scene, sunny yellow, blue and coral.
+Dashboard, practice, onboarding, course navigation, brand and home-screen
+icons now share the character. Practice uses speech bubbles and coloured
+milestones; course lessons follow a winding trail with their real saved states.
+Readability, correction and keyboard interactions remain the learning focus.
+The asset and theme details are documented in [the design notes](docs/DESIGN.md).
+
+The production illustration is a transparent WebP of approximately 526 KB.
+Missing illustration/WebP requests return missing-asset responses locally and
+are excluded from Vercel's SPA rewrite. Existing network-first caching keeps
+visited artwork; illustrations are not added to automatic startup precaching.
+
+- **171 relevant regression tests passed** across six files, covering learning,
+  navigation, daily practice, correction, static image serving and Vercel routing.
+- **Production build and TypeScript checks passed.**
+- **72 browser variants and 10 journeys passed**, with no browser JavaScript
+  errors or automated accessibility violations. Nine additional design previews
+  covered phone/desktop screens, both languages and dark mode; a dark-mode
+  lesson-time contrast defect found in those previews was corrected.
+- Initial JavaScript was **1,275,407 bytes**, below the existing 1,400,000-byte
+  budget. Controlled cold startup was **10.0 seconds** under the same 150 ms
+  latency, 200,000 bytes/s download and 4× CPU throttling conditions. These are
+  controlled browser measurements, not physical-phone results.
+
 ## Scope and limits
 
 The review covered the frontend routes and player, progress and review engine,

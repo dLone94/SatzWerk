@@ -10,6 +10,7 @@ import { Icon } from './components/icons.tsx';
 import { learnerName } from './components/bits.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
 import { reviewItemsForPath } from './reviewBuilder.ts';
+import { DackelMark } from './components/Dackel.tsx';
 import { arrivedAt } from '../services/offline/register.ts';
 
 import { RouteContent, RouteLoading } from './components/RouteContent.tsx';
@@ -174,7 +175,7 @@ export function App() {
       <header className="topbar">
         <Link to="/" className="topbar__brand" aria-label={t('appName')}>
           <span className="topbar__logo" aria-hidden="true">
-            SW
+            <DackelMark />
           </span>
           <div>
             <p className="topbar__name">{t('appName')}</p>
@@ -222,7 +223,7 @@ export function App() {
           </span>
           <span className="nav__label">{t('navMore')}</span>
         </NavLink>
-        <div className="nav__foot"><span lang="de">Ein bisschen,<br />jeden Tag.</span><p>{t('studioDaily')}</p><span className="nav__foot-mark" aria-hidden="true">✳</span></div>
+        <div className="nav__foot"><DackelMark /><span lang="de">Los geht’s!</span><p>{t('studioDaily')}</p></div>
       </nav>
 
       <SyncBanner />

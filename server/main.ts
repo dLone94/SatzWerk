@@ -129,8 +129,8 @@ function serveStatic(res: ServerResponse, urlPath: string): void {
     // A removed bundle or recording is a missing file, not an app route.
     // Returning HTML with 200 let the worker cache it forever as JavaScript
     // or audio after a deployment.
-    if (urlPath.startsWith('/assets/') || urlPath.startsWith('/audio/') ||
-        /\.(?:js|css|json|png|svg|ico|woff2|mp3|webmanifest|map)$/.test(urlPath)) {
+    if (urlPath.startsWith('/assets/') || urlPath.startsWith('/audio/') || urlPath.startsWith('/illustrations/') ||
+        /\.(?:js|css|json|png|jpg|webp|svg|ico|woff2|mp3|webmanifest|map)$/.test(urlPath)) {
       res.writeHead(404, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end('Not found');
       return;

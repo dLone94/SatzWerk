@@ -16,6 +16,7 @@ import { PracticalProgress } from '../components/PracticalProgress.tsx';
 import { ScenarioPlayer } from '../components/ScenarioPlayer.tsx';
 import { SpeakCheck } from '../components/Speaking.tsx';
 import { ShadowRecorder } from '../components/ShadowRecorder.tsx';
+import { DackelMark, DackelScene } from '../components/Dackel.tsx';
 import type { UiKey } from '../../i18n.ts';
 
 const STAGES: UiKey[] = ['dailyLearn', 'dailyReview', 'dailyRecall', 'dailyConversation', 'dailyListen'];
@@ -102,7 +103,7 @@ function DailyPractice() {
   const notice = problem ? <div className="task__warn" role="alert"><p>{t('dailySaveFailed')}</p>
     <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => { if (retryRef.current) void change(retryRef.current); }}>{t('retry')}</button></div> : null;
   if (run?.stage === 5) return <div className="page daily-page">
-    <section className="daily-finished" aria-labelledby="daily-title"><span className="daily-finished__mark" aria-hidden="true"><Icon name="check" size={30} /></span>
+    <section className="daily-finished" aria-labelledby="daily-title"><DackelScene className="daily-finished__scene" /><span className="daily-finished__mark" aria-hidden="true"><Icon name="check" size={30} /></span>
       <p className="section-eyebrow">{t('dailyFinishedEyebrow')}</p><h1 id="daily-title">{t('dailyFinished')}</h1>
       <p>{t('exerciseScore', { correct: run.firstTryCorrect, total: run.total })}</p>
       <p className="daily-finished__ability">{say(currentScript.goal)}</p>
@@ -122,9 +123,11 @@ function DailyPractice() {
           onClick={() => paused ? setPaused(false) : start(saved)}>
           {t(busy ? 'loading' : run || saved ? 'dailyResume' : 'dailyStart')}<Icon name="arrow" size={20} /></button>
         <p className="daily-plan__estimate">{t('dailyEstimate', { n: estimate })}</p>
-      </div><ol className="daily-plan__steps">{STAGES.map((key, index) => <li key={key}>
-        <span>{String(index + 1).padStart(2, '0')}</span><strong>{t(key)}</strong></li>)}</ol>
+      </div><div className="daily-plan__world"><DackelScene />
+        <p className="daily-plan__world-note">{t('playAdventureNote')}</p></div>
     </section>{notice}
+    <ol className="daily-plan__steps">{STAGES.map((key, index) => <li key={key}>
+      <span>{String(index + 1).padStart(2, '0')}</span><strong>{t(key)}</strong></li>)}</ol>
     {finished && !saved && !run ? <p className="daily-already"><Icon name="check" size={18} />{t('dailyAlreadyDone')}</p> : null}
     <details className="daily-settings"><summary>{t('dailyPersonalise')}</summary><LearningPreferences /></details>
     <PracticalProgress />
@@ -143,7 +146,8 @@ function DailyPractice() {
         aria-current={index === run.stage ? 'step' : undefined}><span>{index < run.stage ? <Icon name="check" size={14} /> : index + 1}</span><span>{t(key)}</span></li>)}</ol>
     {notice}
     {run.stage === 0 && card ? <Card title={t('dailyPhraseCount', { n: cardIndex + 1, total: phrases.length })}>
-      <div className="phrase-card"><p className="phrase-card__purpose">{say(card.purpose)}</p>
+      <div className="phrase-card"><div className="phrase-card__buddy"><DackelMark /><span>{t('playSayIt')}</span></div>
+        <p className="phrase-card__purpose">{say(card.purpose)}</p>
         <p className="phrase-card__german" lang="de">{card.german}</p>
         <div className="phrase-card__audio"><AudioButton text={card.german} /><AudioButton text={card.german} slow /></div>
         {frame ? <div className="phrase-frame"><p className="phrase-card__pattern"><span>{t('dailyBuildingBlock')}</span><strong lang="de">{frame.template}</strong></p>

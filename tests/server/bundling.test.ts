@@ -137,7 +137,7 @@ describe('how API URLs reach the function', () => {
       expect(matches.test(path), path).toBe(true);
     }
     for (const path of ['/api', '/api/health', '/api/lessons/a/sections/b', '/assets/missing.js',
-      '/audio/de/missing.mp3', '/asset-manifest.json', '/missing.woff2', '/manifest.webmanifest']) {
+      '/audio/de/missing.mp3', '/asset-manifest.json', '/missing.woff2', '/manifest.webmanifest', '/illustrations/missing.webp', '/missing.webp']) {
       expect(matches.test(path), path).toBe(false);
     }
   });

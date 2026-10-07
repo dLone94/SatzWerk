@@ -13,7 +13,7 @@
       "destination": "/api/index?__path=/api/$1"
     },
     {
-      "source": "/((?!api(?:/|$)|assets(?:/|$)|audio(?:/|$)|.*\\.(?:js|css|json|png|svg|ico|woff2|mp3|webmanifest|map)$).*)",
+      "source": "/((?!api(?:/|$)|assets(?:/|$)|audio(?:/|$)|illustrations(?:/|$)|.*\\.(?:js|css|json|png|jpg|webp|svg|ico|woff2|mp3|webmanifest|map)$).*)",
       "destination": "/index.html"
     }
   ],

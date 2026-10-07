@@ -86,7 +86,7 @@ describe('the self-hosted server', () => {
 
   it('does not serve or cache HTML as a missing asset', async () => {
     for (const path of ['/assets/old-build.js', '/audio/de/missing.mp3', '/missing.css', '/sw.js',
-      '/assets/missing.woff2', '/asset-manifest.json']) {
+      '/assets/missing.woff2', '/asset-manifest.json', '/illustrations/missing.webp', '/missing.webp']) {
       const response = await fetch(`${base}${path}`);
       expect(response.status, path).toBe(404);
       expect(response.headers.get('content-type')).toContain('text/plain');

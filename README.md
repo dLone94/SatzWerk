@@ -43,6 +43,10 @@ flexible weekly goal of one to seven answer days, and practical progress lists
 the conversations actually rehearsed with their best first-try practice results.
 Microphone permission and available audio never block the typing path.
 
+The interface now uses an illustrated dachshund and neighbourhood scenes,
+colourful practice milestones and a winding course trail. See the
+[design notes](docs/DESIGN.md) for the visual system and asset details.
+
 ---
 
 ## Quick start

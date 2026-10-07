@@ -9,6 +9,7 @@ import { useApp } from '../../state/AppState.tsx';
 import { Card, Meter, Stat, formatDuration } from '../components/bits.tsx';
 import { Icon } from '../components/icons.tsx';
 import { PracticalProgress } from '../components/PracticalProgress.tsx';
+import { DackelScene } from '../components/Dackel.tsx';
 import { reviewItemsForPath } from '../reviewBuilder.ts';
 import { buildLessonViews, buildVocabViews, nextAction, sessionBuild, skillProgress } from '../selectors.ts';
 
@@ -88,9 +89,10 @@ export function DashboardPage() {
       </header>
 
       <section className="daily-dashboard" aria-labelledby="daily-dashboard-title">
-        <div><p className="section-eyebrow">{t('dailyTitle')}</p><h2 id="daily-dashboard-title">{t('dailyDashboardTitle')}</h2>
-          <p>{t('dailyDashboardNote')}</p></div>
-        <Link to="/daily" className="btn btn--primary">{t('dailyStart')}<Icon name="arrow" size={20} /></Link>
+        <div className="daily-dashboard__copy"><p className="section-eyebrow">{t('playToday')}</p><h2 id="daily-dashboard-title">{t('dailyDashboardTitle')}</h2>
+          <p>{t('dailyDashboardNote')}</p>
+          <Link to="/daily" className="btn btn--primary">{t('dailyStart')}<Icon name="arrow" size={20} /></Link></div>
+        <DackelScene className="daily-dashboard__scene" />
       </section>
       <div className="today-overview">
       <section className="today-hero" aria-labelledby="today-hero-title">
@@ -119,13 +121,6 @@ export function DashboardPage() {
           <span>{actionLabel}</span>
           <Icon name="arrow" />
         </Link>
-        </div>
-        <div className="studio-postcard" aria-hidden="true">
-          <span className="studio-postcard__stamp">DE / SW</span>
-          <span className="studio-postcard__hello" lang="de">Hallo!</span>
-          <span className="studio-postcard__rule" />
-          <span className="studio-postcard__phrase" lang="de">Ein bisschen,<br />jeden Tag.</span>
-          <span className="studio-postcard__spark">✳</span>
         </div>
       </section>
 

@@ -1,0 +1,251 @@
+/* SatzWerk's illustrated world. Layout primitives and learning states are
+   shared with studio.css; this layer owns the character, colour and shapes. */
+:root {
+  --play-blue: #3159b9;
+  --play-blue-dark: #203f8b;
+  --play-yellow: #ffdf87;
+  --play-coral: #fa987c;
+  --play-lilac: #ece4fb;
+  --play-ink: #293548;
+  --play-shadow: 0 5px 0 var(--line);
+}
+body { background-image: radial-gradient(var(--line) .65px, transparent .65px); background-size: 19px 19px; }
+.main { padding-top: 30px; }
+.topbar { min-height: 86px; background: var(--paper); }
+.topbar__brand { gap: 8px; top: 22px; }
+.topbar__logo { width: 46px; height: 46px; background: var(--play-yellow); border-radius: 50%; }
+.dackel-mark { width: 100%; height: 100%; flex: none; }
+.topbar__name { font-family: var(--font-display); font-size: 23px; font-weight: 800; letter-spacing: -.9px; }
+.topbar__context p { color: var(--accent-ink); font-weight: 750; letter-spacing: 1.4px; }
+.topbar__context > span { font-size: 12px; }
+.topbar__avatar { background: var(--play-coral); color: var(--play-ink); border: 2px solid var(--surface); }
+.lang-toggle { border-radius: 12px; border-width: 2px; background: var(--surface); }
+.lang-toggle__btn.is-active { background: var(--accent); color: var(--on-accent); }
+.nav { backdrop-filter: none; -webkit-backdrop-filter: none; }
+.nav__item { border-radius: 14px; min-height: 47px; }
+.nav__item.is-active { background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
+.nav__item.is-active .nav__icon { transform: rotate(-7deg); }
+.nav__icon svg { stroke-width: 2; }
+.nav__foot { padding: 20px 12px 12px 72px; min-height: 100px; }
+.nav__foot .dackel-mark { position: absolute; width: 58px; height: 58px; left: 2px; top: 21px; transform: rotate(-9deg); background: var(--play-yellow); border-radius: 50%; }
+.nav__foot > span { font-family: var(--font-de); font-size: 21px; font-weight: 650; }
+.nav__foot p { margin-top: 4px; max-width: 120px; }
+.page__title { font-weight: 750; }
+.page__lede { margin-top: 0; }
+.card { border-radius: 24px 24px 24px 8px; border-width: 2px; box-shadow: 0 4px 0 var(--line); }
+.card__title { font-weight: 750; }
+.btn { border-radius: 13px; min-height: 46px; border-width: 2px; font-weight: 750; transition: transform var(--dur-1), box-shadow var(--dur-1), background-color var(--dur-1); }
+.btn--primary { box-shadow: 0 4px 0 var(--play-blue-dark); }
+.btn--primary:hover { transform: translateY(-1px); box-shadow: 0 5px 0 var(--play-blue-dark); }
+.btn--primary:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--play-blue-dark); }
+.btn--ghost { background: var(--surface); }
+.btn--sm { min-height: 36px; }
+.meter { height: 9px; border: 1px solid var(--line); }
+.meter__fill { border-radius: inherit; }
+.today { gap: 28px; }
+.today__greeting { font-family: var(--font-display); font-size: clamp(38px, 4vw, 58px); font-weight: 750; letter-spacing: -2px; }
+.today__welcome { font-size: 15px; }
+.today__streak { background: var(--warn-soft); border: 2px solid var(--highlight); border-radius: 18px; transform: rotate(3deg); }
+
+/* The illustrated scene carries the personality; its text stays in the DOM. */
+.dackel-scene { position: relative; min-width: 0; }
+.dackel-scene img { display: block; width: 100%; height: auto; }
+.dackel-scene__hello { position: absolute; top: -2%; left: 52%; padding: 10px 19px; color: var(--play-ink); background: #fffdf6; border: 2px solid var(--play-ink); border-radius: 25px 25px 25px 3px; font-family: var(--font-de); font-size: clamp(17px, 2vw, 27px); font-weight: 650; transform: rotate(-8deg); box-shadow: 3px 3px 0 rgb(41 53 72 / 15%); }
+.daily-dashboard { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.04fr); align-items: center; margin: 0; padding: 34px 38px; gap: 4px; background: var(--play-yellow); border: 2px solid #e0bd5d; border-radius: 32px 32px 32px 8px; box-shadow: 0 6px 0 #e5ce90; overflow: hidden; }
+.daily-dashboard__copy { z-index: 1; padding-right: 12px; }
+.daily-dashboard .section-eyebrow { color: #514935; font-size: 10px; font-weight: 750; }
+.daily-dashboard h2 { color: var(--play-ink); font-size: clamp(29px, 3.4vw, 46px); line-height: 1.12; letter-spacing: -1.4px; font-weight: 800; margin: 16px 0; max-width: 450px; }
+.daily-dashboard p:not(.section-eyebrow) { color: #514935; font-size: 14px; max-width: 340px; line-height: 1.65; }
+.daily-dashboard .btn { margin-top: 24px; min-width: 160px; background: var(--play-blue); border-color: var(--play-blue); color: #fff; }
+.daily-dashboard__scene { width: calc(100% + 28px); margin: 15px -18px -5px 0; }
+.today-overview { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 24px; }
+.today-hero { min-height: 260px; padding: 28px; background: var(--surface); color: var(--ink); border: 2px solid var(--line); border-radius: 24px 8px 24px 24px; box-shadow: 0 4px 0 var(--line); }
+.today-hero::before { display: none; }
+.today-hero__eyebrow { color: var(--accent-ink); font-size: 10px; }
+.today-hero__title { color: var(--ink); font-size: clamp(25px, 2.5vw, 32px); font-weight: 750; }
+.today-hero__detail { color: var(--ink-soft); max-width: 460px; }
+.today-hero__time { color: var(--ink-soft); }
+.today-hero__cta { min-height: 44px; background: var(--accent-soft); color: var(--accent-ink); border-radius: 13px; border: 2px solid var(--line); }
+.today-hero__cta:hover { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); }
+.today-hero :focus-visible { outline-color: var(--accent); }
+.today-tiles { gap: 14px; }
+.today-tile { border-width: 2px; border-radius: 22px; padding: 20px; }
+.today-tile:first-child { grid-template-columns: 65px minmax(0, 1fr); }
+.today-tile:first-child .goal-ring { width: 65px; height: 65px; }
+.today-tile--review { border-color: var(--line); background: var(--accent-soft); }
+.today-workbench { gap: 24px; }
+.today-round { border-width: 2px; min-height: 180px; border-radius: 8px 24px 24px 24px; background: var(--surface); box-shadow: 0 4px 0 var(--line); }
+.today-round__icon { background: var(--play-coral); color: var(--play-ink); transform: rotate(-9deg); border-radius: 13px; }
+.weekly-rhythm { border-width: 2px; border-radius: 24px; background: var(--surface); box-shadow: 0 4px 0 var(--line); }
+.weekly-rhythm__bar { border-radius: 10px 10px 5px 5px; }
+.weekly-rhythm__bar > span { background: var(--accent); }
+.today-unit { border: 0; border-top: 2px dashed var(--line); border-bottom: 2px dashed var(--line); border-radius: 0; background: transparent; padding: 24px 4px; }
+.stops__stop--now .stops__dot { border: 2px solid var(--play-blue-dark); background: var(--play-blue); color: white; box-shadow: 0 4px 0 var(--play-blue-dark); }
+.studio-explore__grid { gap: 24px; }
+.studio-explore__card { border-width: 2px; border-radius: 24px; box-shadow: 0 4px 0 var(--line); padding: 23px; }
+.studio-explore__card--conversation { background: #fff0df; border-color: #e6cda9; color: var(--play-ink); }
+.studio-explore__card--conversation > span > span { color: #66513a; }
+.studio-explore__card--conversation .studio-explore__icon { background: var(--play-coral); color: var(--play-ink); transform: rotate(-7deg); }
+.studio-explore__card strong { font-size: 16px; font-weight: 750; }
+.studio-explore__icon { border-radius: 13px; }
+.practical-progress { border: 0; border-top: 2px dashed var(--line); border-radius: 0; background: transparent; padding: 30px 4px; }
+.practical-progress h2 { font-weight: 750; }
+.weekly-goal { border-radius: 12px; border: 1px solid var(--line); }
+.ability-list__icon { background: var(--good-soft); color: var(--good); }
+.today-progress { border-width: 2px; border-radius: 22px; }
+
+/* A daily adventure has five real milestones, not invented XP. */
+.daily-intro { margin-bottom: 4px; }
+.daily-intro .page__title { font-size: clamp(33px, 4.2vw, 49px); font-weight: 750; margin: 8px 0 12px; }
+.daily-plan { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); border: 2px solid #e0bd5d; background: var(--play-yellow); border-radius: 32px 8px 32px 32px; overflow: hidden; box-shadow: 0 6px 0 #e5ce90; margin-bottom: 0; }
+.daily-plan__copy { padding: 34px; }
+.daily-plan__tag { background: #fff9e8; color: #514935; border: 1px solid #e0bd5d; font-weight: 650; }
+.daily-plan h2 { color: var(--play-ink); font-size: clamp(25px, 2.8vw, 34px); font-weight: 750; line-height: 1.22; }
+.daily-plan__copy > p { color: #514935; }
+.daily-plan__start, .daily-plan__start:hover { background: var(--play-blue); color: white; border-color: var(--play-blue); }
+.daily-plan__world { display: flex; flex-direction: column; justify-content: center; padding: 26px 20px 20px 0; min-width: 0; }
+.daily-plan__world .dackel-scene { margin-top: 8px; }
+.daily-plan__world-note { margin: 12px 15px 0; color: #514935; text-align: center; font-size: 12px; line-height: 1.6; }
+.daily-plan__steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 12px 0 10px; margin: 0; gap: 12px; background: none; border: 0; }
+.daily-plan__steps li { flex-direction: column; align-items: flex-start; font-size: 12px; gap: 12px; line-height: 1.4; }
+.daily-plan__steps li > span { width: 38px; height: 38px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-ink); border: 2px solid var(--line); border-radius: 12px; font-size: 13px; font-weight: 750; box-shadow: 0 3px 0 var(--line); }
+.daily-plan__steps li:nth-child(2) > span { background: #fae7df; color: #753c27; }
+.daily-plan__steps li:nth-child(3) > span { background: #ece4fb; color: #604489; }
+.daily-plan__steps li:nth-child(4) > span { background: #e1f1e1; color: #285938; }
+.daily-plan__steps li:nth-child(5) > span { background: #fff0cb; color: #75571e; }
+.daily-settings { border-width: 2px; border-radius: 18px; margin: 8px 0; }
+.goal-option { border-width: 2px; border-radius: 15px; font-weight: 650; }
+.goal-option.is-active { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); box-shadow: 0 3px 0 var(--accent); }
+.learning-preferences__row select { border-width: 2px; border-radius: 12px; }
+.daily-running-head { margin-bottom: 10px; }
+.daily-stage-track { gap: 12px; margin-bottom: 28px; position: relative; }
+.daily-stage-track li { border: 2px solid var(--line); border-radius: 14px; background: var(--surface); padding: 11px; box-shadow: 0 3px 0 var(--line); font-weight: 650; }
+.daily-stage-track .is-current { background: var(--accent); color: var(--on-accent); border-color: var(--accent); box-shadow: 0 3px 0 var(--play-blue-dark); }
+.daily-stage-track .is-done { background: var(--good-soft); color: var(--good); }
+.daily-stage-track li > span:first-child { border: 0; font-weight: 800; }
+.daily-page > .card { position: relative; padding: 28px; border-color: var(--line); }
+.daily-page > .card::before { content: ''; position: absolute; width: 65px; height: 16px; top: -9px; left: 38px; background: var(--play-coral); transform: rotate(-4deg); border-radius: 3px; }
+.phrase-card__buddy { display: flex; align-items: center; gap: 10px; margin: 4px 0 16px; }
+.phrase-card__buddy .dackel-mark { height: 48px; width: 48px; transform: rotate(-8deg); }
+.phrase-card__buddy > span { font-size: 12px; font-weight: 700; color: var(--accent-ink); }
+.phrase-card__purpose { margin: 4px 0 20px; font-size: 15px; }
+.phrase-card__german { padding: 24px; border: 2px solid var(--line); background: var(--accent-soft); border-radius: 22px 22px 22px 4px; font-size: clamp(30px, 4.5vw, 45px); line-height: 1.35; margin-bottom: 20px; }
+.phrase-card__pattern, .phrase-card__noun { border: 1px dashed var(--line); background: var(--surface-alt); border-radius: 13px; }
+.phrase-frame__example { padding: 5px 0; }
+.shadow-lines > div { background: var(--accent-soft); border: 2px solid var(--line); border-radius: 20px 20px 20px 4px; }
+.shadow-recorder { border-width: 2px; border-style: dashed; border-radius: 20px; }
+.daily-finished { border-width: 2px; background: var(--surface); border-radius: 32px; padding-top: 25px; }
+.daily-finished__scene { width: 260px; max-width: 100%; margin: 0 auto 12px; }
+.daily-finished__mark { height: 45px; width: 45px; margin-bottom: 20px; background: var(--good-soft); color: var(--good); box-shadow: 0 3px 0 var(--line); }
+
+/* A small winding trail retains authored lesson labels and completion states. */
+.course-welcome { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; align-items: center; padding: 22px 26px; border-radius: 28px 28px 8px 28px; background: var(--accent-soft); border: 2px solid var(--line); }
+.course-welcome .page__title { margin: 8px 0 12px; }
+.course-welcome .page__lede { margin: 0; font-size: 14px; }
+.course-welcome__scene { align-self: end; }
+.levels { border-width: 2px; border-radius: 15px; gap: 5px; }
+.levels__item { font-weight: 750; border-radius: 10px; }
+.levels__item.is-active { background: var(--accent); color: var(--on-accent); }
+.course-continue { border: 2px solid var(--line); border-radius: 18px; box-shadow: 0 4px 0 var(--line); background: var(--surface); }
+.course-continue__icon { background: var(--accent); color: var(--on-accent); border-radius: 12px; box-shadow: 0 3px 0 var(--play-blue-dark); }
+.unit-path { border-width: 2px; border-radius: 24px 24px 24px 8px; }
+.unit-path[open] > .unit-path__banner { background: var(--accent-soft); color: var(--ink); border-bottom: 2px solid var(--line); }
+.unit-path[open] .unit-path__sub { color: var(--ink-soft); }
+.unit-path[open] .unit-path__n { background: var(--accent); color: var(--on-accent); border-radius: 12px; box-shadow: 0 3px 0 var(--play-blue-dark); }
+.unit-path__body { padding: 22px; }
+.unit-path__stops { position: relative; gap: 16px; }
+.unit-path__stops::before { content: ''; position: absolute; left: 43px; top: 30px; bottom: 30px; width: 34px; border-left: 3px dashed var(--line); border-radius: 50%; pointer-events: none; }
+.trail-stop { z-index: 1; }
+.trail-stop:nth-child(even) { margin-left: 35px; }
+.trail-stop:nth-child(odd) { margin-right: 35px; }
+.trail-stop__link { min-height: 83px; border: 2px solid var(--line); border-radius: 18px; background: var(--surface); padding: 15px; }
+.trail-stop__dot { height: 45px; width: 45px; min-width: 45px; border: 2px solid var(--line); border-radius: 16px; background: var(--surface-alt); box-shadow: 0 3px 0 var(--line); }
+.trail-stop--now .trail-stop__link { border-color: var(--accent); background: var(--accent-soft); }
+.trail-stop--now .trail-stop__dot { color: var(--on-accent); background: var(--accent); border-color: var(--accent); box-shadow: 0 4px 0 var(--play-blue-dark); }
+.trail-stop--done .trail-stop__dot { background: var(--good-soft); color: var(--good); }
+.trail-stop--gate .trail-stop__dot { background: var(--play-yellow); color: var(--play-ink); border-color: #dcb963; box-shadow: 0 3px 0 #dcb963; transform: rotate(-6deg); }
+.trail-stop__title { font-size: 14px; font-weight: 750; }
+.level-gate { border-radius: 22px; border-width: 2px; }
+.offline-level { border-width: 2px; border-radius: 20px; }
+.task { border-width: 2px; border-radius: 24px 24px 24px 8px; box-shadow: 0 4px 0 var(--line); }
+.answer-field { border-radius: 13px; background: var(--paper); }
+.task__audio-only { background: var(--accent-soft); border-radius: 18px; }
+.feedback { border-radius: 22px 22px 8px 22px; border-width: 2px; }
+.chat__bubble { border-radius: 23px 23px 23px 4px; border: 2px solid var(--line); box-shadow: 0 3px 0 var(--line); }
+.chat__bubble--you { border-radius: 23px 23px 4px 23px; }
+.onboarding__scene { width: 330px; max-width: 85%; margin: 0 auto 20px; }
+.onboarding .path-card { border-width: 2px; border-radius: 20px; }
+
+@media (max-width: 900px) {
+  .topbar__brand { position: static; }
+  .nav__item.is-active { box-shadow: none; }
+  .nav { border-width: 2px; border-radius: 22px; box-shadow: 0 5px 0 var(--line), 0 8px 22px rgb(41 53 72 / 8%); }
+  .nav__item.is-active .nav__icon { background: var(--accent); color: var(--on-accent); border-radius: 10px; transform: rotate(-5deg); }
+  .daily-dashboard { padding: 28px; }
+  .course-welcome { grid-template-columns: minmax(0, 1fr) 210px; }
+}
+@media (max-width: 620px) {
+  .topbar { min-height: 74px; padding: 12px 18px; }
+  .topbar__logo { width: 38px; height: 38px; }
+  .topbar__name { font-size: 20px; }
+  .main { padding-top: 25px; }
+  .today { gap: 25px; }
+  .today__greeting { font-size: 38px; letter-spacing: -1.3px; }
+  .today__welcome { font-size: 13px; }
+  .daily-dashboard { grid-template-columns: 1fr; padding: 26px 23px 8px; border-radius: 27px 27px 27px 8px; gap: 18px; }
+  .daily-dashboard h2 { font-size: 35px; letter-spacing: -1.2px; max-width: 280px; }
+  .daily-dashboard p:not(.section-eyebrow) { font-size: 13px; }
+  .daily-dashboard__copy { padding-right: 0; }
+  .daily-dashboard .btn { margin-top: 20px; }
+  .daily-dashboard__scene { width: 100%; max-width: 330px; margin: 10px auto 0; }
+  .dackel-scene__hello { font-size: 18px; padding: 7px 13px; }
+  .today-overview { gap: 18px; }
+  .today-hero { min-height: 0; padding: 24px; }
+  .today-hero__title { font-size: 29px; }
+  .today-tile { padding: 15px; border-radius: 20px; }
+  .today-tile:first-child .goal-ring { width: 53px; height: 53px; }
+  .today-tile__main { font-size: 12px; }
+  .today-tile__note { font-size: 11px; }
+  .today-workbench { gap: 18px; }
+  .today-round { min-height: 0; border-radius: 20px; }
+  .weekly-rhythm { padding: 18px; }
+  .studio-explore__grid { gap: 18px; }
+  .studio-explore__card { padding: 20px; }
+  .daily-intro .page__title { font-size: 34px; letter-spacing: -1.2px; }
+  .daily-plan { grid-template-columns: 1fr; border-radius: 27px 8px 27px 27px; }
+  .daily-plan__copy { padding: 25px; }
+  .daily-plan h2 { font-size: 28px; }
+  .daily-plan__world { padding: 0 25px 22px; }
+  .daily-plan__world .dackel-scene { max-width: 330px; margin: 10px auto 0; }
+  .daily-plan__world-note { margin-top: 8px; }
+  .daily-plan__steps { grid-template-columns: 1fr; gap: 14px; padding: 20px 4px; }
+  .daily-plan__steps li { flex-direction: row; align-items: center; gap: 14px; }
+  .daily-plan__steps li > span { flex: none; }
+  .daily-running-head .page__title { font-size: 25px; }
+  .daily-stage-track { gap: 8px; }
+  .daily-stage-track li { padding: 10px 2px; }
+  .daily-page > .card { padding: 23px 20px; border-radius: 22px 22px 22px 8px; }
+  .phrase-card__german { padding: 18px 15px; font-size: 32px; }
+  .phrase-card__purpose { font-size: 14px; }
+  .course-welcome { display: flex; flex-direction: column; align-items: stretch; gap: 5px; padding: 23px; }
+  .course-welcome .page__title { font-size: 35px; }
+  .course-welcome__scene { width: 230px; max-width: 100%; margin: 16px auto 0; align-self: center; }
+  .unit-path__body { padding: 20px 12px; }
+  .trail-stop:nth-child(even) { margin-left: 15px; }
+  .trail-stop:nth-child(odd) { margin-right: 15px; }
+  .trail-stop__link { padding: 13px 10px; gap: 12px; }
+  .trail-stop__dot { height: 38px; width: 38px; min-width: 38px; border-radius: 13px; }
+  .trail-stop__title { font-size: 12px; }
+  .onboarding__scene { width: 270px; }
+}
+@media (prefers-color-scheme: dark) {
+  .studio-explore__card--conversation { background: #fff0df; }
+  .weekly-rhythm__bar > span { background: var(--accent); }
+  .daily-plan__steps li:nth-child(n+2) > span { border-color: transparent; }
+  .btn--primary { box-shadow: 0 4px 0 #5c77ad; }
+  .btn--primary:hover { box-shadow: 0 5px 0 #5c77ad; }
+  .btn--primary:active { box-shadow: 0 1px 0 #5c77ad; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn--primary:hover, .btn--primary:active { transform: none; }
+}

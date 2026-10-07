@@ -14,23 +14,23 @@
  */
 
 :root {
-  /* Forest ink, warm paper, and a citrus highlight. Shared by every surface. */
-  --ink: #203b30;
-  --ink-soft: #4b6255;
-  --ink-faint: #4f6152;
-  --paper: #f5f7f2;
+  /* A sunny illustrated workbook: navy ink, blue actions and coral details. */
+  --ink: #293548;
+  --ink-soft: #566070;
+  --ink-faint: #626370;
+  --paper: #fffaf1;
   --surface: #ffffff;
-  --surface-alt: #edf1e8;
-  --line: #dce4d7;
-  --accent: #24634c;
-  --accent-soft: #e7f0e2;
-  --accent-ink: #1f513d;
+  --surface-alt: #f3f1ed;
+  --line: #dcdce4;
+  --accent: #3159b9;
+  --accent-soft: #eaf0ff;
+  --accent-ink: #294e9c;
   --on-accent: #ffffff;
-  --hero: #173e31;
-  --on-hero: #f5faee;
-  --on-hero-soft: #c5d8c8;
-  --highlight: #d6ee9c;
-  --on-highlight: #173e31;
+  --hero: #ffdf87;
+  --on-hero: #293548;
+  --on-hero-soft: #514935;
+  --highlight: #fa987c;
+  --on-highlight: #332720;
   --good: #286c49;
   --good-soft: #e1f0df;
   --warn: #855021;
@@ -68,22 +68,22 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ink: #e8f1e4;
-    --ink-soft: #bdcebf;
-    --ink-faint: #a1b7a5;
-    --paper: #101d17;
-    --surface: #192d23;
-    --surface-alt: #243a2c;
-    --line: #344c3c;
-    --accent: #b8dca2;
-    --accent-soft: #243f2b;
-    --accent-ink: #d5efbd;
-    --on-accent: #173524;
-    --hero: #20432f;
-    --on-hero: #f1f7e7;
-    --on-hero-soft: #cadcc8;
-    --highlight: #d6ee9c;
-    --on-highlight: #173e31;
+    --ink: #f5f2eb;
+    --ink-soft: #cad1df;
+    --ink-faint: #b8c2d4;
+    --paper: #171e2a;
+    --surface: #222c3c;
+    --surface-alt: #2b3649;
+    --line: #465267;
+    --accent: #a5c0ff;
+    --accent-soft: #2b3b5d;
+    --accent-ink: #c1d3ff;
+    --on-accent: #172946;
+    --hero: #ffdf87;
+    --on-hero: #293548;
+    --on-hero-soft: #514935;
+    --highlight: #fa987c;
+    --on-highlight: #332720;
     --good: #9cd7a9;
     --good-soft: #243c29;
     --warn: #edc587;

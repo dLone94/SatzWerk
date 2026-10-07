@@ -5,6 +5,7 @@ import { contentStats, unauthoredLevels } from '../../content/browser.ts';
 import { UI, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Icon } from '../components/icons.tsx';
+import { DackelScene } from '../components/Dackel.tsx';
 
 const TARGETS = [10, 20, 30];
 
@@ -69,6 +70,7 @@ export function OnboardingPage() {
 
   return (
     <div className="onboarding">
+      <DackelScene className="onboarding__scene" />
       <h1 className="onboarding__title">{say('onboardingTitle')}</h1>
       <p className="onboarding__intro">{say('onboardingIntro')}</p>
 
