@@ -9,6 +9,7 @@ import type { AttemptPayload } from '../../src/services/api/client.ts';
 import * as outbox from '../../src/services/api/outbox.ts';
 import { AppStateProvider, useApp, type AppStateValue } from '../../src/state/AppState.tsx';
 import { ExercisePlayer } from '../../src/ui/components/ExercisePlayer.tsx';
+import type { DailyRun } from '../../src/core/progress/daily.ts';
 
 /**
  * How the app's state and the outbox work together when the server is slow,
@@ -17,6 +18,7 @@ import { ExercisePlayer } from '../../src/ui/components/ExercisePlayer.tsx';
  */
 
 const bi = (en: string, bg: string) => ({ en, bg });
+let savedDailyRows: DailyRun[] = [];
 
 function freshSnapshot() {
   return {
@@ -52,6 +54,7 @@ function freshSnapshot() {
     studyDays: [],
     checkpointResults: [],
     scenarioRuns: [],
+    dailyRuns: savedDailyRows,
     serverTime: new Date().toISOString(),
   };
 }
@@ -91,6 +94,10 @@ function normalAnswer(url: string, body: Record<string, unknown>): Response {
   }
   if (url.includes('/api/reviews/')) return json({ ...freshSnapshot().reviewItems[0], state: 'known' });
   if (url.endsWith('/api/study')) return json({ stats: freshSnapshot().stats, studyDays: [] });
+  if (url.endsWith('/api/daily-runs')) {
+    savedDailyRows = [{ ...body, updatedAt: new Date().toISOString() } as unknown as DailyRun];
+    return json({ dailyRuns: savedDailyRows });
+  }
   if (url.includes('/api/lessons/')) return json(lessonBody(String(url.split('/')[5])));
   return json(body);
 }
@@ -98,6 +105,7 @@ function normalAnswer(url: string, body: Record<string, unknown>): Response {
 beforeEach(() => {
   outbox.reset();
   sent.length = 0;
+  savedDailyRows = [];
   signedIn = true;
   write = () => undefined;
 
@@ -508,5 +516,26 @@ describe('what the app says is waiting', () => {
     await waitFor(() => expect(app().sync.pending).toBe(1));
     expect(app().sync.other).toBe(0);
     expect(outbox.queuedCount()).toBe(2);
+  });
+});
+
+describe('daily practice with a lost connection', () => {
+  it('keeps the completed part across a snapshot refresh and retries the same write ID', async () => {
+    const app = await mountState();
+    write = () => Promise.reject(new TypeError('Failed to fetch'));
+    const payload = { id: 'daily-offline', day: '2026-10-07', scriptId: 'sc-bakery-pre-a1', goal: 'everyday' as const,
+      stage: 2, total: 4, firstTryCorrect: 3, listeningCompleted: false };
+    await act(async () => { await app().recordDailyRun(payload); });
+    expect(app().dailyRuns[0]).toMatchObject(payload);
+    expect(app().sync.other).toBe(1);
+    await act(async () => { await app().reload(); });
+    expect(app().dailyRuns[0]).toMatchObject(payload);
+    write = () => undefined;
+    await act(async () => { await app().syncAnswers(); });
+    await waitFor(() => expect(outbox.queuedCount()).toBe(0));
+    expect(app().dailyRuns[0]).toMatchObject(payload);
+    const copies = sent.filter(item => item.url.endsWith('/api/daily-runs'));
+    expect(copies.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(copies.map(copy => copy.key)).size).toBe(1);
   });
 });

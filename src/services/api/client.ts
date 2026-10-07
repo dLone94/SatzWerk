@@ -3,6 +3,8 @@ import type { LessonProgress } from '../../core/progress/lesson.ts';
 import type { RecallGrade, ReviewItem, ReviewKind } from '../../core/srs/scheduler.ts';
 import type { Verdict } from '../../core/validation/validate.ts';
 import { existingPushEndpoint } from '../push/index.ts';
+import type { DailyRun, DailyRunInput, LearningGoal } from '../../core/progress/daily.ts';
+import type { CefrLevel } from '../../content/types.ts';
 
 /** Typed client for the SatzWerk API. One place that knows about fetch. */
 
@@ -12,6 +14,9 @@ export interface Profile {
   displayName: string | null;
   onboarded: boolean;
   createdAt: string;
+  learningGoal?: LearningGoal;
+  practiceLevel?: CefrLevel | null;
+  weeklyTargetDays?: number;
 }
 
 export interface MistakeRecord {
@@ -74,6 +79,7 @@ export interface AppStateSnapshot {
   studyDays: StudyDay[];
   checkpointResults: CheckpointResult[];
   scenarioRuns: ScenarioRun[];
+  dailyRuns?: DailyRun[];
   serverTime: string;
 }
 
@@ -396,6 +402,8 @@ export const api = {
 
   recordScenarioRun: (payload: ScenarioRunPayload, key?: string) =>
     write<{ scenarioRuns: ScenarioRun[] }>('/scenario-runs', payload, key),
+  recordDailyRun: (payload: DailyRunInput, key?: string) =>
+    write<{ dailyRuns: DailyRun[] }>('/daily-runs', payload, key),
 
   /**
    * `at` is when the time was spent, which is not when it was sent if it

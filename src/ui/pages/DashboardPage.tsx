@@ -8,6 +8,8 @@ import { UI } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Card, Meter, Stat, formatDuration } from '../components/bits.tsx';
 import { Icon } from '../components/icons.tsx';
+import { PracticalProgress } from '../components/PracticalProgress.tsx';
+import { reviewItemsForPath } from '../reviewBuilder.ts';
 import { buildLessonViews, buildVocabViews, nextAction, sessionBuild, skillProgress } from '../selectors.ts';
 
 /**
@@ -23,14 +25,15 @@ export function DashboardPage() {
   const { t, say, lang, lessons, reviewItems, mistakes, favorites, stats, studyDays, profile, checkpointResults } =
     useApp();
 
-  const action = nextAction(lessons, reviewItems, mistakes, profile.onboarded, checkpointResults);
+  const onPath = reviewItemsForPath(reviewItems, lang);
+  const action = nextAction(lessons, onPath, mistakes, profile.onboarded, checkpointResults);
   // The same plan the round itself will build, so the two never disagree.
   const round = planSession(
     sessionBuild(lessons, reviewItems, mistakes, new Date(), lang).sources,
     profile.dailyTargetMinutes,
     stats,
   );
-  const queue = summarizeQueue(reviewItems);
+  const queue = summarizeQueue(onPath);
   const lessonViews = buildLessonViews(lessons);
   const hasActivity = stats.totalAnswers > 0;
 
@@ -84,6 +87,11 @@ export function DashboardPage() {
         ) : null}
       </header>
 
+      <section className="daily-dashboard" aria-labelledby="daily-dashboard-title">
+        <div><p className="section-eyebrow">{t('dailyTitle')}</p><h2 id="daily-dashboard-title">{t('dailyDashboardTitle')}</h2>
+          <p>{t('dailyDashboardNote')}</p></div>
+        <Link to="/daily" className="btn btn--primary">{t('dailyStart')}<Icon name="arrow" size={20} /></Link>
+      </section>
       <div className="today-overview">
       <section className="today-hero" aria-labelledby="today-hero-title">
         <div className="today-hero__copy">
@@ -240,6 +248,7 @@ export function DashboardPage() {
         </Card>
       ) : null}
 
+      <PracticalProgress />
       {hasActivity ? progress() : null}
     </div>
   );

@@ -10,6 +10,7 @@ import {
 } from '../../services/push/index.ts';
 import { SAMPLE_PHRASE } from '../../services/tts/phraseKey.ts';
 import { useApp } from '../../state/AppState.tsx';
+import { LearningPreferences } from '../components/LearningPreferences.tsx';
 import { Card, learnerName } from '../components/bits.tsx';
 
 const TARGETS = [10, 20, 30];
@@ -39,6 +40,7 @@ export function SettingsPage() {
       <h1 className="page__title">{t('settingsTitle')}</h1>
 
       <Learners />
+      <Card title={t('dailyPersonalise')}><LearningPreferences /></Card>
 
       <Card title={t('settingsLanguage')} subtitle={t('settingsLanguageNote')}>
         <div className="chips">

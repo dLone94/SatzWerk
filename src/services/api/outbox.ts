@@ -1,4 +1,5 @@
 import type { RecallGrade } from '../../core/srs/scheduler.ts';
+import type { DailyRunInput } from '../../core/progress/daily.ts';
 import {
   ApiError,
   type AttemptPayload,
@@ -80,7 +81,8 @@ export type PendingWrite =
   | { kind: 'mastery'; lessonId: string; accuracy: number; passAccuracy: number }
   | { kind: 'complete'; lessonId: string }
   | { kind: 'checkpoint'; payload: CheckpointPayload }
-  | { kind: 'scenarioRun'; payload: ScenarioRunPayload };
+  | { kind: 'scenarioRun'; payload: ScenarioRunPayload }
+  | { kind: 'dailyRun'; payload: DailyRunInput };
 
 export interface QueuedWrite {
   /**
@@ -248,6 +250,7 @@ const WRITE_KINDS = new Set<PendingWrite['kind']>([
   'complete',
   'checkpoint',
   'scenarioRun',
+  'dailyRun',
 ]);
 
 function isRejected(value: unknown): value is RejectedAttempt {

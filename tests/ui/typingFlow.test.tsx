@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -54,6 +54,8 @@ function stubState(lang: TeachingLanguage): AppStateValue {
     studyDays: [],
     checkpointResults: [],
     scenarioRuns: [],
+    dailyRuns: [],
+    recordDailyRun: async () => undefined,
     coach: null,
     lang,
     t: (key, vars) => tr(key, lang, vars),
@@ -182,7 +184,8 @@ describe('the typing and correction flow', () => {
     await user.type(field(), 'Ich komme von Bulgarien.{Enter}');
 
     // The authored explanation, not a bare "wrong".
-    expect(await screen.findByText(/For a country of origin German uses/)).toBeInTheDocument();
+    const explanation = document.querySelector('.feedback__lines')! as HTMLElement;
+    expect(within(explanation).getByText(/For a country of origin German uses/)).toBeInTheDocument();
     expect(screen.getByText('Not quite.')).toBeInTheDocument();
     // The answer sits beside what was typed; it is not repeated as a sentence
     // under the explanation as well.

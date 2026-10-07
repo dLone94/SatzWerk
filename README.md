@@ -20,6 +20,29 @@ Beside the course sit the **Real Life scenarios**: 13 rooms, 41 conversations,
 and someone who answers back. A lesson tells you what to say; there, the other
 person's line decides it.
 
+**Daily practice** brings that material into one guided path. Choose **Start
+today** on the dashboard or open **Practice** in the navigation:
+
+1. Meet three useful phrases, including reusable frames and noun/article/plural pairs.
+2. Review a short selection of due items and variations on recurring mistakes.
+3. Recall the phrases and adapt one building block to a new sentence.
+4. Rehearse an authored conversation, with typing or optional speech recognition.
+5. Listen, type what you hear, and repeat. Optional local voice recordings let you
+   compare your own speech with the model; they are never uploaded or persisted.
+
+Personalisation selects everyday life, travel, work or exam practice and a level
+from Pre-A1 to B2. Exam practice rehearses language skills rather than an official
+exam format. Beginners start with common greetings and polite requests. Estimates
+use the learner's recorded pace, with a provisional default until enough answers
+exist; they are not a timer or a promise of fluency.
+
+Completed parts survive reopening and use the same durable outbox as answers.
+An unfinished part can restart; the original answers remain recorded. Whole
+phrases enter spaced review alongside vocabulary. Settings also provides a
+flexible weekly goal of one to seven answer days, and practical progress lists
+the conversations actually rehearsed with their best first-try practice results.
+Microphone permission and available audio never block the typing path.
+
 ---
 
 ## Quick start
@@ -49,7 +72,7 @@ only the setup screen, and cannot set the password from there. Once it is set,
 the other devices sign in with it.
 
 ```bash
-npm test          # 224 tests
+npm test          # full regression suite
 npm run typecheck # tsc, no emit
 npm run build     # type-check + production bundle
 ```

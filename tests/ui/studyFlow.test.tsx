@@ -81,6 +81,8 @@ function state(overrides: Partial<AppStateValue> = {}): AppStateValue {
     studyDays: [],
     checkpointResults: [],
     scenarioRuns: [],
+    dailyRuns: [],
+    recordDailyRun: async () => undefined,
     coach: null,
     lang,
     t: (key, vars) => tr(key, lang, vars),
@@ -201,7 +203,7 @@ describe('every page can be reached on a phone', () => {
    * checked the day it is added: every top-level route is either a tab a phone
    * shows, or one of the entries on More.
    */
-  const PHONE_TABS = ['/', '/session', '/course', '/review', '/more'];
+  const PHONE_TABS = ['/', '/daily', '/course', '/review', '/more'];
   const app = readFileSync('src/ui/App.tsx', 'utf8');
   const routes = [...app.matchAll(/<Route path="([^"]+)"/g)]
     .map((match) => match[1]!)

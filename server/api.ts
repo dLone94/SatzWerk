@@ -21,6 +21,8 @@ import { plausibleOffset } from '../src/core/progress/days.ts';
 import { findDatabaseUrl, type Db } from './db.ts';
 import * as store from './store.ts';
 import { isLearningWrite, once } from './idempotency.ts';
+import { isCalendarDay, LEARNING_GOALS, PRACTICE_LEVELS, type DailyRunInput, type LearningGoal } from '../src/core/progress/daily.ts';
+import { SCENARIO_SCRIPTS } from '../src/content/scenarios/index.ts';
 import {
   deleteSubscription,
   moveSubscription,
@@ -167,6 +169,7 @@ export async function fullState(scope: store.Scope) {
     studyDays,
     checkpointResults,
     scenarioRuns,
+    dailyRuns,
   ] = await Promise.all([
     // No `await` inside this list, and that is the whole point of the list.
     // With one on each line the array elements are evaluated one at a time —
@@ -183,6 +186,7 @@ export async function fullState(scope: store.Scope) {
     store.listStudyDaysForStreak(scope, 60),
     store.listCheckpointResults(scope),
     store.listScenarioRuns(scope),
+    store.listDailyRuns(scope),
   ]);
   return {
     profile,
@@ -194,6 +198,7 @@ export async function fullState(scope: store.Scope) {
     studyDays,
     checkpointResults,
     scenarioRuns,
+    dailyRuns,
     serverTime: new Date().toISOString(),
   };
 }
@@ -521,6 +526,18 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     if (method === 'PUT' || method === 'PATCH') {
       const body = asRecord(request.body);
       const patch: store.ProfilePatch = {};
+      if (body.learningGoal !== undefined) {
+        if (!LEARNING_GOALS.includes(body.learningGoal as LearningGoal)) return badRequest('Unknown learning goal.');
+        patch.learningGoal = body.learningGoal as LearningGoal;
+      }
+      if (body.practiceLevel !== undefined) {
+        if (body.practiceLevel !== null && !PRACTICE_LEVELS.includes(body.practiceLevel as typeof PRACTICE_LEVELS[number])) return badRequest('Unknown practice level.');
+        patch.practiceLevel = body.practiceLevel as store.Profile['practiceLevel'];
+      }
+      if (body.weeklyTargetDays !== undefined) {
+        if (!Number.isInteger(body.weeklyTargetDays) || Number(body.weeklyTargetDays) < 1 || Number(body.weeklyTargetDays) > 7) return badRequest('Choose 1 to 7 practice days.');
+        patch.weeklyTargetDays = Number(body.weeklyTargetDays);
+      }
       if (body.teachingLanguage !== undefined) {
         if (!TEACHING_LANGUAGES.has(String(body.teachingLanguage))) {
           return badRequest('teachingLanguage must be "en" or "bg"');
@@ -635,6 +652,20 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       detail: body.detail,
     });
     return ok({ results: await store.listCheckpointResults(scope) });
+  }
+
+  if (route.length === 1 && route[0] === 'daily-runs' && method === 'POST') {
+    const body = asRecord(request.body);
+    if (typeof body.id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(body.id)) return badRequest('Invalid daily run ID.');
+    if (!isCalendarDay(body.day)) return badRequest('Invalid practice day.');
+    if (!SCENARIO_SCRIPTS.some(script => script.id === body.scriptId)) return badRequest('Unknown conversation.');
+    if (!LEARNING_GOALS.includes(body.goal as LearningGoal)) return badRequest('Unknown learning goal.');
+    if (!Number.isInteger(body.stage) || Number(body.stage) < 0 || Number(body.stage) > 5) return badRequest('Invalid daily stage.');
+    if (!Number.isInteger(body.total) || Number(body.total) < 0 || Number(body.total) > 500 ||
+      !Number.isInteger(body.firstTryCorrect) || Number(body.firstTryCorrect) < 0 || Number(body.firstTryCorrect) > Number(body.total)) return badRequest('Invalid practice result.');
+    if (typeof body.listeningCompleted !== 'boolean') return badRequest('Invalid listening result.');
+    if (!await store.recordDailyRun(scope, body as unknown as DailyRunInput)) return { status: 409, body: { error: 'This session belongs to a different practice plan.' } };
+    return ok({ dailyRuns: await store.listDailyRuns(scope) });
   }
 
   if (route.length === 1 && route[0] === 'scenario-runs' && method === 'POST') {

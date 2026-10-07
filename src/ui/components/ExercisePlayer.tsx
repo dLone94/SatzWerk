@@ -20,6 +20,7 @@ import {
 import { CATEGORY_LABELS } from '../../i18n.ts';
 import { ExplainWhy } from './ExplainWhy.tsx';
 import { SpeakAnswer, SpeakCheck } from './Speaking.tsx';
+import { microTip } from '../../core/feedback/microTips.ts';
 import type { AttemptPayload, TargetSpec } from '../../services/api/client.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AnswerInput, type AnswerInputHandle } from './AnswerInput.tsx';
@@ -1009,6 +1010,7 @@ export function ExercisePlayer({
             </div>
           ) : null}
 
+          {result && microTip(result.categories) ? <p className="micro-tip">{say(microTip(result.categories))}</p> : null}
           {result && result.categories.length > 0 ? (
             <ul className="feedback__tags">
               {result.categories.map((category) => (

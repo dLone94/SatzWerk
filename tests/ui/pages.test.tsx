@@ -82,6 +82,8 @@ function stubState(lang: TeachingLanguage, overrides: Partial<AppStateValue> = {
     studyDays: [],
     checkpointResults: [],
     scenarioRuns: [],
+    dailyRuns: [],
+    recordDailyRun: async () => undefined,
     coach: { aiAvailable: false, provider: 'none', features: { writingReview: 'rule-based', conversation: 'planned' } },
     lang,
     t: (key, vars) => tr(key, lang, vars),

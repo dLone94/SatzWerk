@@ -285,6 +285,25 @@ describeParity('SQLite and Postgres agree', () => {
     expect(postgresTables).toEqual(sqliteTables);
   }, 30_000);
 
+  it('saves personal goals and resumable daily sessions the same way in both databases', async () => {
+    const sqlite = await openDatabase({ path: ':memory:' });
+    async function daily(db: Db) {
+      const learner = await store.createLearner(db, 'daily-learner');
+      const scope = { db, userId: learner.id };
+      await store.updateProfile(scope, { learningGoal: 'work', practiceLevel: 'a2', weeklyTargetDays: 3 });
+      const input = { id: 'daily-parity', day: '2026-10-07', scriptId: 'sc-work-a2', goal: 'work' as const,
+        stage: 0, total: 0, firstTryCorrect: 0, listeningCompleted: false };
+      await store.recordDailyRun(scope, input);
+      await store.recordDailyRun(scope, { ...input, stage: 5, total: 12, firstTryCorrect: 9, listeningCompleted: true });
+      await store.recordDailyRun(scope, { ...input, stage: 2 });
+      const profile = await store.getProfile(scope);
+      const runs = (await store.listDailyRuns(scope)).map(({ updatedAt: _, ...run }) => run);
+      return { goal: profile.learningGoal, level: profile.practiceLevel, target: profile.weeklyTargetDays, runs };
+    }
+    try { expect(await daily(postgres)).toEqual(await daily(sqlite)); }
+    finally { await sqlite.close(); }
+  }, 30_000);
+
   it('rolls a failed transaction back on Postgres', async () => {
     const before = await store.getStats(scopeOf(postgres));
     await expect(

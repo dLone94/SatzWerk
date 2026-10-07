@@ -60,6 +60,8 @@ function stubState(aiAvailable: boolean, lang: TeachingLanguage = 'en'): AppStat
     studyDays: [],
     checkpointResults: [],
     scenarioRuns: [],
+    dailyRuns: [],
+    recordDailyRun: async () => undefined,
     coach: { aiAvailable, provider: aiAvailable ? 'claude:test' : 'none', features: {} },
     lang,
     t: (key, vars) => tr(key, lang, vars),

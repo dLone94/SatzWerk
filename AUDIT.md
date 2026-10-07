@@ -110,6 +110,52 @@ Use [the operations guide](docs/OPERATIONS.md) for browser setup, download
 budgets, safe request diagnostics and receipt maintenance. No deployment or
 live reminders were triggered.
 
+## Daily practice addition — 2026-10-07
+
+The dashboard now opens a guided practice flow: meet three useful phrases,
+review due items and recurring mistakes, recall and adapt a sentence frame,
+rehearse an authored conversation, then listen and repeat. Learners choose an
+everyday, travel, work or exam goal and a level from Pre-A1 to B2. The flow
+reuses the existing curriculum and conversations, with distinct exercise IDs
+so practice does not falsely complete a course lesson.
+
+Whole phrases enter spaced review. Vocabulary reviews also use authored
+example sentences once a word has been recalled successfully, and noun/article
+drills require the article. English-only and Bulgarian-only phrases stay on
+their teaching path. Short grammar reminders support corrections in both
+languages. Seven authored sentence frames provide useful substitutions without
+assuming that arbitrary words fit a gap.
+
+The new screens use the studio design in both color schemes and on phones.
+Weekly goals count actual answer days; practical progress reports conversations
+rehearsed and their first-try practice results. Optional microphone recordings
+stay in temporary browser blobs and are released on exit. Speech recognition
+reports what it heard and does not award an accent score. Audio permission or
+availability cannot block the typing path.
+
+Migration 8 adds learner preferences and daily runs on SQLite and PostgreSQL.
+Completed parts survive reopening through the durable, idempotent outbox.
+Out-of-order saves cannot rewind progress; learner handover waits for pending
+writes. Retrying a failed part save does not count its conversation twice.
+An unfinished part can restart, while its individual answers remain recorded.
+Exam practice exercises language skills rather than simulating an official exam.
+
+- **1,104 tests passed across 81 files**, including PostgreSQL checks against a
+  disposable PostgreSQL 16.14 database. No database tests were skipped.
+- **Production build and TypeScript checks passed** on Node 22.23.3.
+- **72 browser page variants passed** automated accessibility and layout checks
+  across both languages, both themes, mobile and desktop. Ten browser journeys
+  completed, including daily practice, local recording with a synthetic
+  microphone, resume, correction and offline recovery. No browser JavaScript
+  errors or automated accessibility violations were observed.
+- Initial JavaScript remains below the 1,400,000-byte budget at **1,274,324
+  bytes**. The controlled cold-start measurement was **8.9 seconds** at 150 ms
+  latency, 200,000 bytes/s download and 4× CPU throttling; this is not a
+  physical-phone timing.
+- Regression coverage includes both teaching paths, every goal and level,
+  phrase transfer, recurring-mistake variations, strict progress validation,
+  retries, offline queues, resume, learner isolation, and progress reset.
+
 ## Scope and limits
 
 The review covered the frontend routes and player, progress and review engine,

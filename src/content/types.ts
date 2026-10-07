@@ -161,6 +161,8 @@ export interface SentencePattern {
   gloss: Bilingual;
   level: CefrLevel;
   grammarIds?: string[];
+  alternatives?: string[];
+  only?: TeachingLanguage[];
 }
 
 /* ------------------------------------------------------------------ *

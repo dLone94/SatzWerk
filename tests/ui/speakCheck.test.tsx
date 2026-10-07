@@ -66,6 +66,8 @@ function stubState(recogniser: SpeechRecogniser, lang: TeachingLanguage = 'en'):
     studyDays: [],
     checkpointResults: [],
     scenarioRuns: [],
+    dailyRuns: [],
+    recordDailyRun: async () => undefined,
     coach: null,
     lang,
     t: (key, vars) => tr(key, lang, vars),

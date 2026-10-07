@@ -68,6 +68,8 @@ function stubState(): AppStateValue {
     studyDays: [],
     checkpointResults: [],
     scenarioRuns: [],
+    dailyRuns: [],
+    recordDailyRun: async () => undefined,
     coach: null,
     lang,
     t: (key, vars) => tr(key, lang, vars),

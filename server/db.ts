@@ -416,6 +416,29 @@ const MIGRATIONS: Migration[] = [
       PRIMARY KEY (user_id, write_id)
     );`,
   },
+  {
+    version: 8,
+    name: 'personal learning goals and resumable daily practice',
+    sql: `
+      ALTER TABLE profile ADD COLUMN learning_goal TEXT NOT NULL DEFAULT 'everyday';
+      ALTER TABLE profile ADD COLUMN practice_level TEXT;
+      ALTER TABLE profile ADD COLUMN weekly_target_days INTEGER NOT NULL DEFAULT 4;
+      CREATE TABLE daily_runs (
+        user_id INTEGER NOT NULL,
+        id TEXT NOT NULL,
+        day TEXT NOT NULL,
+        script_id TEXT NOT NULL,
+        goal TEXT NOT NULL,
+        stage INTEGER NOT NULL DEFAULT 0 CHECK (stage BETWEEN 0 AND 5),
+        total INTEGER NOT NULL DEFAULT 0,
+        first_try_correct INTEGER NOT NULL DEFAULT 0,
+        listening_completed INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, id)
+      );
+      CREATE INDEX daily_runs_recent ON daily_runs (user_id, day, updated_at);
+    `,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

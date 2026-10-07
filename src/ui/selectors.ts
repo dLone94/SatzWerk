@@ -482,7 +482,7 @@ export function sessionBuild(
    * scheduled ones — nor the interleaving that keeps twenty words from the
    * same lesson out of a single run.
    */
-  const review = buildReviewExercises(orderQueue(reviewItems, now));
+  const review = buildReviewExercises(orderQueue(reviewItems, now), lang);
 
   // A mistake made once may have been a slip. Twice is a pattern, and a
   // pattern is worth spending a daily round on.

@@ -29,7 +29,18 @@ The browser script exercises both languages and color schemes, 320–390 px
 mobile layouts and desktop dashboard/course layouts, keyboard route focus,
 onboarding, a lesson with a correction and mastery, a checkpoint, Bulgarian
 conversation, dropped acknowledgements, learner handover, level downloads,
-offline continuation/reopening/recovery, and failed content downloads.
+offline continuation/reopening/recovery, and failed content downloads. Daily
+practice checks also cover phrase transfer, part resume, correction, whole-phrase
+review scheduling, listening, and local recording using Chromium's synthetic
+microphone. No real microphone, private learner data, or deployment is used.
+
+Schema migration 8 adds per-learner learning goals, practice level, weekly goals
+and `daily_runs`. It runs through the existing startup migration mechanism on
+SQLite and PostgreSQL. Completed parts go through the durable, idempotent outbox;
+out-of-order acknowledgements cannot rewind a run. An unfinished part can restart,
+and the individual answers remain recorded. Resetting progress clears only the
+selected learner's runs. Audio recordings are temporary browser blobs and are
+never saved to this database or sent to the API.
 
 Set `TEST_DATABASE_URL` to a **disposable database** to include PostgreSQL
 parity tests. Those tests recreate its public schema. See `AUDIT.md` for the

@@ -13,6 +13,7 @@ import { useApp } from '../../state/AppState.tsx';
  * this page; a wide screen still gets every tab, because there they fit.
  */
 const ENTRIES: Array<{ to: string; label: UiKey; note: UiKey; icon: IconName }> = [
+  { to: '/session', icon: 'round', label: 'navSession', note: 'sessionLede' },
   { to: '/vocabulary', icon: 'book', label: 'navVocabulary', note: 'moreVocabulary' },
   { to: '/mistakes', icon: 'target', label: 'navMistakes', note: 'moreMistakes' },
   { to: '/real-life', icon: 'chat', label: 'navRealLife', note: 'moreRealLife' },

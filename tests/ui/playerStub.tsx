@@ -43,6 +43,8 @@ export function stubState(overrides: Partial<AppStateValue> = {}, lang: Teaching
     studyDays: [],
     checkpointResults: [],
     scenarioRuns: [],
+    dailyRuns: [],
+    recordDailyRun: async () => undefined,
     coach: null,
     lang,
     t: (key, vars) => tr(key, lang, vars),

@@ -1,4 +1,4 @@
-import data from './catalog.generated.json';
+import data from './catalog.generated.json' with { type: 'json' };
 import { createRegistry } from './registry.ts';
 import { SCENARIOS } from './outline/realLife.ts';
 import type { Checkpoint, Exercise, GrammarConcept, Level, ScenarioScript, SentencePattern, TeachingLanguage, CefrLevel, VocabEntry } from './types.ts';
@@ -112,12 +112,13 @@ export async function ensureContent(path: string): Promise<void> {
     await once('placement', async () => {
       hydrateCheckpoint((await import('./placement/checkpoint.ts')).PLACEMENT_CHECKPOINT);
     });
-  } else if (route === 'scenario') {
+  } else if (route === 'scenario' || route === 'daily') {
     await once('scenarios', async () => {
       for (const script of (await import('./scenarios/index.ts')).SCENARIO_SCRIPTS) {
         Object.assign(scriptById(script.id)!, script);
       }
     });
+    if (route === 'daily') await Promise.all([loadGrammar(), loadVocabulary(), ...CURRICULUM.map(level => loadLevel(level.id))]);
   } else if (['review', 'mistakes', 'session'].includes(route ?? '')) {
     // These rounds can mix any level, including old mistakes from a lower one.
     await Promise.all([loadGrammar(), loadVocabulary(), ...CURRICULUM.map(level => loadLevel(level.id))]);

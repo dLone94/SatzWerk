@@ -39,6 +39,7 @@ import { createTtsProvider, type TtsProvider } from '../services/tts/index.ts';
 import { createSpeechRecogniser, type SpeechRecogniser } from '../services/speech/recogniser.ts';
 import { trackStudy } from '../services/studyTracker.ts';
 import type { StudyStatus } from '../core/progress/studyClock.ts';
+import { mergeDailyRun, type DailyRun, type DailyRunInput } from '../core/progress/daily.ts';
 import { deviceLanguage, markPageLanguage, rememberLanguage } from '../ui/deviceLanguage.ts';
 
 /**
@@ -75,6 +76,7 @@ export interface AppStateValue {
   studyDays: AppStateSnapshot['studyDays'];
   checkpointResults: AppStateSnapshot['checkpointResults'];
   scenarioRuns: AppStateSnapshot['scenarioRuns'];
+  dailyRuns: DailyRun[];
   coach: CoachStatus | null;
 
   lang: TeachingLanguage;
@@ -130,6 +132,7 @@ export interface AppStateValue {
     passed: boolean;
   }) => Promise<void>;
   recordScenarioRun: (scriptId: string, turns: number, firstTryCorrect: number) => Promise<void>;
+  recordDailyRun: (payload: DailyRunInput) => Promise<void>;
   /** True once the server has deleted everything; anything else means it did not. */
   resetAll: () => Promise<boolean | undefined>;
   lessonProgress: (lessonId: string) => LessonProgress;
@@ -293,6 +296,7 @@ function withHeld(state: AppStateSnapshot): AppStateSnapshot {
   if (queued.length === 0) return state;
   const lessons = indexLessons(state.lessons);
   let reviewItems = state.reviewItems;
+  let dailyRuns = state.dailyRuns ?? [];
   for (const { write } of queued) {
     const rule = heldLessonRule(write);
     if (rule) {
@@ -300,9 +304,11 @@ function withHeld(state: AppStateSnapshot): AppStateSnapshot {
     } else if (write.kind === 'reviewGrade') {
       const when = write.gradedAt ? new Date(write.gradedAt) : new Date();
       reviewItems = reviewItems.map((item) => (item.id === write.id ? scheduleReview(item, write.grade, when) : item));
+    } else if (write.kind === 'dailyRun') {
+      dailyRuns = mergeDailyRun(dailyRuns, { ...write.payload, updatedAt: new Date().toISOString() });
     }
   }
-  return { ...state, lessons: Object.values(lessons), reviewItems };
+  return { ...state, lessons: Object.values(lessons), reviewItems, dailyRuns };
 }
 
 /** How often we flush accumulated active time to the server. */
@@ -534,6 +540,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         return api.recordCheckpoint(write.payload, key);
       case 'scenarioRun':
         return api.recordScenarioRun(write.payload, key);
+      case 'dailyRun':
+        return api.recordDailyRun(write.payload, key);
     }
   }, []);
 
@@ -580,6 +588,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         case 'scenarioRun':
           patchSnapshot({ scenarioRuns: (result as { scenarioRuns: AppStateSnapshot['scenarioRuns'] }).scenarioRuns });
           return false;
+        case 'dailyRun': {
+          let dailyRuns = (result as { dailyRuns: DailyRun[] }).dailyRuns;
+          for (const { write, queuedAt } of outbox.snapshot().queued) {
+            if (write.kind === 'dailyRun') dailyRuns = mergeDailyRun(dailyRuns, { ...write.payload, updatedAt: queuedAt ?? new Date().toISOString() });
+          }
+          patchSnapshot({ dailyRuns });
+          return false;
+        }
       }
     },
     [mergeLesson, patchSnapshot, replaceReviewItem],
@@ -893,6 +909,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       studyDays: snapshot?.studyDays ?? [],
       checkpointResults: snapshot?.checkpointResults ?? [],
       scenarioRuns: snapshot?.scenarioRuns ?? [],
+      dailyRuns: snapshot?.dailyRuns ?? [],
       coach,
       lang,
       t,
@@ -983,7 +1000,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       studyAs: async (id) => {
         // Save the current learner's partial minute before changing the cookie.
         keepStudyTime.current();
-        if (outbox.queuedCount() > 0) {
+        if (outbox.queuedCount() > 0 || flushing.current) {
           await flushAnswers();
           if (outbox.queuedCount() > 0) return 'answers-waiting';
         }
@@ -1003,7 +1020,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         keepStudyTime.current();
         // Adding a learner selects them immediately, so it needs the same
         // queue guard as switching to an existing learner.
-        if (outbox.queuedCount() > 0) {
+        if (outbox.queuedCount() > 0 || flushing.current) {
           await flushAnswers();
           if (outbox.queuedCount() > 0) return 'answers-waiting';
         }
@@ -1195,6 +1212,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         } catch (cause) {
           await heldAfter(cause, hold);
         }
+      },
+
+      recordDailyRun: async (payload) => {
+        // Queue before sending, like an answer. This keeps part transitions
+        // immediate and makes learner handover wait for this write too.
+        if (!outbox.enqueue({ kind: 'dailyRun', payload })) {
+          lostAnswers.current += 1;
+          readSync();
+          throw new Error('The daily session could not be held.');
+        }
+        setSnapshot(current => current ? { ...current,
+          dailyRuns: mergeDailyRun(current.dailyRuns ?? [], { ...payload, updatedAt: new Date().toISOString() }) } : current);
+        void flushAnswers();
       },
 
       // Says whether it worked: Settings used to announce "Progress deleted."

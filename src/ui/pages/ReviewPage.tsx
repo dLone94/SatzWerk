@@ -8,7 +8,7 @@ import { useApp } from '../../state/AppState.tsx';
 import { AudioButton, Card, EmptyState, formatRelativeDate } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 import { buildQueue, reasonKey } from '../selectors.ts';
-import { buildReviewExercises } from '../reviewBuilder.ts';
+import { buildReviewExercises, reviewItemsForPath } from '../reviewBuilder.ts';
 
 const GRADES: RecallGrade[] = ['again', 'hard', 'good', 'easy'];
 
@@ -38,17 +38,18 @@ export function ReviewPage() {
   const [round, setRound] = useState<Round | null>(null);
   const [summary, setSummary] = useState<PlayerSummary | null>(null);
 
-  const queue = useMemo(() => buildQueue(reviewItems), [reviewItems]);
-  const counts = summarizeQueue(reviewItems);
+  const onPath = useMemo(() => reviewItemsForPath(reviewItems, lang), [reviewItems, lang]);
+  const queue = useMemo(() => buildQueue(onPath), [onPath]);
+  const counts = summarizeQueue(onPath);
 
   // Practising early takes the soonest items that are not yet due.
   const earlyItems = useMemo(
     () =>
-      [...reviewItems]
+      [...onPath]
         .filter((item) => new Date(item.dueAt).getTime() > Date.now())
         .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
         .slice(0, 10),
-    [reviewItems],
+    [onPath],
   );
 
   // One sitting at a time: a beginner's first bad day can make thirty words

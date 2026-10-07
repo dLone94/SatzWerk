@@ -8,7 +8,7 @@ import { diagnose } from './diagnostics.ts';
 /** Only the learning writes that the outbox may replay. */
 export function isLearningWrite(method: string, path: string): boolean {
   return method === 'POST' && (
-    /^\/api\/(attempts|study|checkpoints|scenario-runs)$/.test(path) ||
+    /^\/api\/(attempts|study|checkpoints|scenario-runs|daily-runs)$/.test(path) ||
     /^\/api\/lessons\/[^/]+\/(sections\/[^/]+|mastery|recovery|complete)$/.test(path) ||
     /^\/api\/reviews\/[^/]+\/grade$/.test(path)
   );

@@ -9,11 +9,13 @@ import { SyncBanner } from './components/SyncBanner.tsx';
 import { Icon } from './components/icons.tsx';
 import { learnerName } from './components/bits.tsx';
 import { dueItems } from '../core/srs/scheduler.ts';
+import { reviewItemsForPath } from './reviewBuilder.ts';
 import { arrivedAt } from '../services/offline/register.ts';
 
 import { RouteContent, RouteLoading } from './components/RouteContent.tsx';
 
 const CoachPage = lazy(() => import('./pages/CoachPage.tsx').then(module => ({ default: module.CoachPage })));
+const DailyPage = lazy(() => import('./pages/DailyPage.tsx').then(module => ({ default: module.DailyPage })));
 const CheckpointPage = lazy(() => import('./pages/CheckpointPage.tsx').then(module => ({ default: module.CheckpointPage })));
 const CoursePage = lazy(() => import('./pages/CoursePage.tsx').then(module => ({ default: module.CoursePage })));
 const LessonPage = lazy(() => import('./pages/LessonPage.tsx').then(module => ({ default: module.LessonPage })));
@@ -159,7 +161,7 @@ export function App() {
     return <Navigate to="/welcome" replace />;
   }
 
-  const dueCount = dueItems(reviewItems).length;
+  const dueCount = dueItems(reviewItemsForPath(reviewItems, profile.teachingLanguage)).length;
   const name = learnerName(learners.find(learner => learner.id === studyingAs)?.name ?? '', t);
 
   return (
@@ -195,7 +197,7 @@ export function App() {
       <nav className="nav" aria-label={t('navMain')} hidden={location.pathname === '/welcome'}>
         <p className="nav__section">{t('studioLearn')}</p>
         <NavItem to="/" label={t('navToday')} icon="today" />
-        <NavItem to="/session" label={t('navSession')} icon="round" />
+        <NavItem to="/daily" label={t('navDaily')} icon="round" />
         <NavItem to="/course" label={t('navCourse')} icon="course" />
         <NavItem to="/review" label={t('navReview')} icon="review" badge={dueCount > 0 ? dueCount : undefined} />
         {/* Wide screens: all of them. A phone hides these and shows More. */}
@@ -230,6 +232,7 @@ export function App() {
           <Route path="/welcome" element={<OnboardingPage />} />
           <Route path="/" element={<DashboardPage />} />
           <Route path="/session" element={<SessionPage />} />
+          <Route path="/daily" element={<DailyPage />} />
           <Route path="/course" element={<CoursePage />} />
           <Route path="/lesson/:lessonId" element={<LessonPage />} />
           <Route path="/checkpoint/:checkpointId" element={<CheckpointPage />} />

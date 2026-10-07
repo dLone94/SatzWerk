@@ -8,10 +8,12 @@ import { LEVEL as A1, PATTERNS as A1_PATTERNS } from './levels/a1.ts';
 import { LEVEL as A2, PATTERNS as A2_PATTERNS } from './levels/a2.ts';
 import { LEVEL as B1, PATTERNS as B1_PATTERNS } from './levels/b1.ts';
 import { LEVEL as B2, PATTERNS as B2_PATTERNS } from './levels/b2.ts';
+import { SCENARIO_SCRIPTS } from './scenarios/index.ts';
+import { scenarioPhrasePatterns } from './dailyPatterns.ts';
 
 export { PRE_A1, A1, A2, B1, B2 };
 export const CURRICULUM: Level[] = [PRE_A1, A1, A2, B1, B2];
-export const SENTENCE_PATTERNS: SentencePattern[] = [...PRE_A1_PATTERNS, ...A1_PATTERNS, ...A2_PATTERNS, ...B1_PATTERNS, ...B2_PATTERNS];
+export const SENTENCE_PATTERNS: SentencePattern[] = [...PRE_A1_PATTERNS, ...A1_PATTERNS, ...A2_PATTERNS, ...B1_PATTERNS, ...B2_PATTERNS, ...scenarioPhrasePatterns(SCENARIO_SCRIPTS)];
 export const { levelById, unitById, lessonById, checkpointById, patternById, allLessons, allUnits, allCheckpoints, availableLessons, lessonsInOrder, unitForLesson, lessonExercises, practiceForCategory, categoryPracticeCounts, resolveTarget, contentStats, unauthoredLevels, partialLevels, sectionBlocks, grammarById } = createRegistry(CURRICULUM, SENTENCE_PATTERNS, GRAMMAR_CONCEPTS, PLACEMENT_CHECKPOINT, VOCABULARY);
 export type { ContentStats, ResolvedTarget, ReviewTargetKind } from './registry.ts';
 import { createContentLexicon } from './lexicon.ts';

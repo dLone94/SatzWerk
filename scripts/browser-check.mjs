@@ -7,6 +7,7 @@ import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import { CURRICULUM, SCENARIO_SCRIPTS, VOCABULARY } from '../src/content/index.ts';
 import { tr } from '../src/i18n.ts';
+import { dailyListening, phraseRecall } from '../src/ui/dailyBuilder.ts';
 
 // Always use an isolated, disposable database. No deployment or learner data
 // is involved. CI installs Chromium; local runs can point to system Chromium.
@@ -29,7 +30,8 @@ for (let attempt = 0; ; attempt++) {
   if (attempt === 100) { server.kill(); throw new Error('Browser server did not start: ' + serverLog); }
   await new Promise(resolve => setTimeout(resolve, 100));
 }
-const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, headless: true }).catch(async error => {
+const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, headless: true,
+  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] }).catch(async error => {
   server.kill('SIGTERM');
   await new Promise(resolve => server.once('exit', resolve));
   await rm(temporary, { recursive: true, force: true });
@@ -128,7 +130,7 @@ try {
   const lesson = CURRICULUM[0].units[0].lessons[0];
   const checkpoint = CURRICULUM[0].units[0].checkpoint;
   const scenario = SCENARIO_SCRIPTS[0];
-  const routes = ['/', '/course', '/review', '/session', '/vocabulary', '/mistakes', '/coach', '/settings',
+  const routes = ['/', '/daily', '/course', '/review', '/session', '/vocabulary', '/mistakes', '/coach', '/settings',
     '/real-life', '/placement', '/more', '/lesson/' + lesson.id, '/checkpoint/' + checkpoint.id,
     '/scenario/' + scenario.id, '/vocabulary/' + VOCABULARY[0].id];
   for (const lang of ['en', 'bg']) {
@@ -154,6 +156,41 @@ try {
   await context.request.patch(base + '/api/profile', { headers: { 'X-Requested-With': 'SatzWerk' }, data: { teachingLanguage: 'en' } });
   await page.emulateMedia({ colorScheme: 'light' });
   await page.setViewportSize({ width: 390, height: 844 });
+  // A daily session uses real API writes, survives a reload between parts,
+  // and rehearses whole phrases without claiming course-lesson completion.
+  await open('/daily');
+  await page.getByRole('button', { name: tr('dailyStart', 'en'), exact: true }).click();
+  await page.getByRole('button', { name: tr('dailyNextPhrase', 'en'), exact: true }).waitFor();
+  await page.screenshot({ path: report + '/daily-phrase-mobile.png', fullPage: true });
+  const dailyPhraseAxe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  observations.push({ path: '/daily#phrases', violations: dailyPhraseAxe.violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => node.target) })) });
+  for (let phrase = 0; phrase < 2; phrase++) await page.getByRole('button', { name: tr('dailyNextPhrase', 'en'), exact: true }).click();
+  await page.getByRole('button', { name: tr('dailyPutToUse', 'en'), exact: true }).click();
+  await page.locator('[data-step-id]').waitFor();
+  await page.reload();
+  await page.getByRole('button', { name: tr('dailyResume', 'en'), exact: true }).waitFor();
+  await page.getByRole('button', { name: tr('dailyResume', 'en'), exact: true }).click();
+  const dailyExercises = [...phraseRecall(scenario, 'en'),
+    ...scenario.beats.filter(beat => beat.who === 'you').map(beat => beat.exercise), ...dailyListening(scenario, 'en')];
+  const dailyResult = await play(dailyExercises, 'en', async () => await page.getByRole('button', { name: tr('dailyFinish', 'en'), exact: true }).count() > 0, true);
+  const shadowAxe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  observations.push({ path: '/daily#shadow', violations: shadowAxe.violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => node.target) })) });
+  await page.getByRole('button', { name: tr('recorderStart', 'en'), exact: true }).click();
+  await page.getByRole('button', { name: tr('recorderStop', 'en'), exact: true }).waitFor();
+  await page.waitForTimeout(300);
+  await page.getByRole('button', { name: tr('recorderStop', 'en'), exact: true }).click();
+  await page.locator('.shadow-recorder audio').waitFor();
+  assert.ok((await page.locator('.shadow-recorder audio').getAttribute('src')).startsWith('blob:'), 'Voice rehearsal remains local');
+  await page.getByRole('button', { name: tr('dailyFinish', 'en'), exact: true }).click();
+  await page.getByRole('heading', { name: tr('dailyFinished', 'en'), exact: true }).waitFor();
+  await eventually(async () => (await (await context.request.get(base + '/api/state')).json()).dailyRuns.some(run => run.stage === 5));
+  const dailyState = await (await context.request.get(base + '/api/state')).json();
+  assert.equal(dailyState.dailyRuns[0].stage, 5);
+  assert.equal(dailyState.dailyRuns[0].listeningCompleted, true);
+  assert.equal(dailyState.lessons.length, 0, 'Daily rehearsal does not complete a lesson');
+  assert.ok(dailyState.reviewItems.some(item => item.refId.startsWith('p-daily-')), 'Whole phrases enter spaced review');
+  observations.push({ journey: 'Daily practice, reload and resume, wrong answer and correction, conversation, listening, local voice recording', result: dailyResult, passed: true });
+
   await open('/lesson/' + lesson.id);
   await page.locator('.section-nav .btn--primary').click();
   for (let section = 0; section < lesson.sections.length; section++) {
@@ -189,12 +226,12 @@ try {
   await page.setViewportSize({ width: 1440, height: 1050 });
   for (const colorScheme of ['light', 'dark']) {
     await page.emulateMedia({ colorScheme });
-    for (const path of ['/', '/course']) {
+    for (const path of ['/', '/course', '/daily']) {
       await open(path);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
       observations.push({ path, desktop: true, colorScheme, violations: axe.violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => node.target) })) });
-      await page.screenshot({ path: report + `/${path === '/' ? 'dashboard' : 'course'}-desktop-${colorScheme}.png`, fullPage: true });
+      await page.screenshot({ path: report + `/${path === '/' ? 'dashboard' : path.slice(1)}-desktop-${colorScheme}.png`, fullPage: true });
     }
   }
   // The browser is online again before changing learners; each handover gets
@@ -225,16 +262,16 @@ try {
   });
   assert.ok(cacheFiles.some(path => /pre-a1-/.test(path)));
   assert.ok(!cacheFiles.some(path => /\/b2-/.test(path)), 'Saving one level does not download the others');
+  // Visit the account screen while online so its complete import graph is
+  // cached. Warming a single chunk misses shared components after splitting.
+  await offlinePage.goto(base + '/settings');
+  await offlinePage.getByLabel(tr('learnersAdd', 'en')).waitFor();
   await offlinePage.goto(base + '/lesson/' + lesson.id);
   await offlinePage.locator('.route-loading').waitFor({ state: 'hidden' });
   await offlinePage.locator('.section-nav .btn--primary').click();
   for (let section = 0; section < lesson.sections.length; section++) await offlinePage.locator('.section-nav .btn--primary').click();
   const stepId = await offlinePage.locator('[data-step-id]').getAttribute('data-step-id');
   const firstStep = lesson.exercises.flatMap(exercise => exercise.steps).find(step => step.id === stepId);
-  // Warm the account screen's chunk before dropping the connection.
-  await offlinePage.evaluate(() => fetch('/asset-manifest.json').then(response => response.json()).then(async manifest => {
-    await Promise.all(manifest.files.filter(path => /SettingsPage-/.test(path)).map(path => fetch(path)));
-  }));
   await offlineContext.setOffline(true);
   if (await offlinePage.getByRole('textbox').count()) {
     await offlinePage.getByRole('textbox').fill(firstStep.answer.accepted[0]);

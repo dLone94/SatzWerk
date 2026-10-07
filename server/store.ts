@@ -20,6 +20,7 @@ import {
 import type { Verdict } from '../src/core/validation/validate.ts';
 import { localDay, plausibleOffset, streakOn } from '../src/core/progress/days.ts';
 import type { Db } from './db.ts';
+import type { DailyRun, DailyRunInput, LearningGoal } from '../src/core/progress/daily.ts';
 
 /**
  * All database access lives here.
@@ -111,16 +112,23 @@ export interface Profile {
   displayName: string | null;
   onboarded: boolean;
   createdAt: string;
+  learningGoal?: LearningGoal;
+  practiceLevel?: CefrLevel | null;
+  weeklyTargetDays?: number;
 }
 
 export async function getProfile({ db, userId }: Scope): Promise<Profile> {
-  const row = await db.get(`SELECT teaching_language, daily_target_minutes, display_name, onboarded, created_at
+  const row = await db.get(`SELECT teaching_language, daily_target_minutes, display_name, onboarded, created_at,
+       learning_goal, practice_level, weekly_target_days
        FROM profile WHERE user_id = ?`, userId) as Record<string, unknown> | undefined ?? {};
   return {
     teachingLanguage: (row.teaching_language as TeachingLanguage) ?? 'en',
     dailyTargetMinutes: Number(row.daily_target_minutes ?? 20),
     displayName: (row.display_name as string | null) ?? null,
     onboarded: Number(row.onboarded ?? 0) === 1,
+    learningGoal: (row.learning_goal as LearningGoal) ?? 'everyday',
+    practiceLevel: (row.practice_level as CefrLevel | null) ?? null,
+    weeklyTargetDays: Number(row.weekly_target_days ?? 4),
     // Every learner is given a profile row, so this default should never be
     // reached — but `String(undefined)` is the string "undefined", and a date
     // field carrying that word renders as "Invalid Date" on the dashboard
@@ -134,6 +142,9 @@ export interface ProfilePatch {
   dailyTargetMinutes?: number;
   displayName?: string | null;
   onboarded?: boolean;
+  learningGoal?: LearningGoal;
+  practiceLevel?: CefrLevel | null;
+  weeklyTargetDays?: number;
 }
 
 export async function updateProfile(scope: Scope, patch: ProfilePatch): Promise<Profile> {
@@ -142,6 +153,18 @@ export async function updateProfile(scope: Scope, patch: ProfilePatch): Promise<
   // allowed a simultaneous target change to erase a teaching-language change.
   const fields: string[] = [];
   const values: Array<string | number | null> = [];
+  if (patch.learningGoal !== undefined) {
+    fields.push('learning_goal = ?');
+    values.push(patch.learningGoal);
+  }
+  if (patch.practiceLevel !== undefined) {
+    fields.push('practice_level = ?');
+    values.push(patch.practiceLevel);
+  }
+  if (patch.weeklyTargetDays !== undefined) {
+    fields.push('weekly_target_days = ?');
+    values.push(patch.weeklyTargetDays);
+  }
   if (patch.teachingLanguage !== undefined) {
     fields.push('teaching_language = ?');
     values.push(patch.teachingLanguage);
@@ -1010,10 +1033,39 @@ export async function resetAll({ db, userId }: Scope): Promise<void> {
     'checkpoint_results',
     'word_flags',
     'scenario_runs',
+    'daily_runs',
     'write_receipts',
   ]) {
     await db.run(`DELETE FROM ${table} WHERE user_id = ?`, userId);
   }
+}
+
+/** Later acknowledgements cannot rewind a daily session finished on another device. */
+export async function recordDailyRun({ db, userId }: Scope, input: DailyRunInput): Promise<boolean> {
+  await db.run(`INSERT INTO daily_runs
+    (user_id, id, day, script_id, goal, stage, total, first_try_correct, listening_completed, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT (user_id, id) DO UPDATE SET
+      stage = excluded.stage,
+      total = CASE WHEN excluded.total > daily_runs.total THEN excluded.total ELSE daily_runs.total END,
+      first_try_correct = CASE WHEN excluded.first_try_correct > daily_runs.first_try_correct THEN excluded.first_try_correct ELSE daily_runs.first_try_correct END,
+      listening_completed = CASE WHEN excluded.listening_completed > daily_runs.listening_completed THEN excluded.listening_completed ELSE daily_runs.listening_completed END,
+      updated_at = excluded.updated_at
+    WHERE daily_runs.script_id = excluded.script_id AND daily_runs.goal = excluded.goal
+      AND daily_runs.day = excluded.day AND excluded.stage > daily_runs.stage`,
+  userId, input.id, input.day, input.scriptId, input.goal, input.stage, input.total,
+  input.firstTryCorrect, input.listeningCompleted ? 1 : 0, new Date().toISOString());
+  const row = await db.get<{ script_id: string; goal: string; day: string }>(
+    'SELECT script_id, goal, day FROM daily_runs WHERE user_id = ? AND id = ?', userId, input.id);
+  return row?.script_id === input.scriptId && row.goal === input.goal && row.day === input.day;
+}
+
+export async function listDailyRuns({ db, userId }: Scope): Promise<DailyRun[]> {
+  const rows = await db.all(`SELECT * FROM daily_runs WHERE user_id = ? ORDER BY updated_at DESC, id ASC LIMIT 100`, userId) as Array<Record<string, unknown>>;
+  return rows.map(row => ({ id: String(row.id), day: String(row.day), scriptId: String(row.script_id),
+    goal: row.goal as LearningGoal, stage: Number(row.stage), total: Number(row.total),
+    firstTryCorrect: Number(row.first_try_correct), listeningCompleted: Number(row.listening_completed) === 1,
+    updatedAt: String(row.updated_at) }));
 }
 
 /* ------------------------------------------------------------------ *

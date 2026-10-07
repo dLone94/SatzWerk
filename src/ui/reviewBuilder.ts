@@ -1,6 +1,6 @@
 import { patternById, vocabById } from '../content/browser.ts';
 import { bi, dictation, exercise, typeIt } from '../content/authoring.ts';
-import type { Exercise, VocabEntry } from '../content/types.ts';
+import type { Exercise, TeachingLanguage, VocabEntry } from '../content/types.ts';
 import type { ReviewItem } from '../core/srs/scheduler.ts';
 
 /**
@@ -12,12 +12,21 @@ import type { ReviewItem } from '../core/srs/scheduler.ts';
  * listening stays in the rotation.
  */
 
-function vocabExercise(entry: VocabEntry, index: number): Exercise {
+function vocabExercise(entry: VocabEntry, index: number, item: ReviewItem): Exercise {
   const needsArticle = entry.wordType === 'noun' && Boolean(entry.article);
   const accepted = [entry.display];
   // A noun may also be typed bare, but that is not the taught form, so it only
   // counts as an alternative and the learner is shown "der Tisch" afterwards.
-  const alternatives = needsArticle ? [entry.german] : undefined;
+  const alternatives = needsArticle && item.kind !== 'noun-article' ? [entry.german] : undefined;
+
+  if (index % 3 === 1 && item.kind === 'vocab' && item.successCount > 0 && entry.example?.de && entry.example.gloss) {
+    return { ...typeIt(`rv-${entry.id}-context`, bi('Use it in a sentence', 'Използвай го в изречение'), [{
+      id: `rv-${entry.id}-context-s1`, prompt: entry.example.gloss,
+      instruction: bi('Recall the whole sentence.', 'Припомни си цялото изречение.'),
+      answer: entry.example.de, shape: 'sentence', reviewTargets: [entry.id],
+      hints: [bi(`The word you are practising is "${entry.display}".`, `Упражняваш думата „${entry.display}“.`)],
+    }]), level: entry.level };
+  }
 
   // Listening rotation.
   if (index % 3 === 2) {
@@ -65,19 +74,20 @@ function vocabExercise(entry: VocabEntry, index: number): Exercise {
 function patternExercise(patternId: string): Exercise | null {
   const pattern = patternById(patternId);
   if (!pattern) return null;
-  return typeIt(`rv-${pattern.id}`, bi('Produce the sentence', 'Създай изречението'), [
+  return { ...typeIt(`rv-${pattern.id}`, bi('Produce the sentence', 'Създай изречението'), [
     {
       id: `rv-${pattern.id}-s1`,
       prompt: pattern.gloss,
       instruction: bi('Type the whole German sentence.', 'Напиши цялото немско изречение.'),
       answer: pattern.example,
+      alternatives: pattern.alternatives,
       shape: 'sentence',
       reviewTargets: [pattern.id],
       hints: [
         bi(`The pattern is "${pattern.template}".`, `Моделът е „${pattern.template}“.`),
       ],
     },
-  ]);
+  ]), level: pattern.level, only: pattern.only };
 }
 
 export interface ReviewBuild {
@@ -86,16 +96,23 @@ export interface ReviewBuild {
   conceptItems: ReviewItem[];
 }
 
-export function buildReviewExercises(items: ReviewItem[]): ReviewBuild {
+export function reviewItemsForPath(items: ReviewItem[], lang: TeachingLanguage): ReviewItem[] {
+  return items.filter(item => {
+    const pattern = patternById(item.refId);
+    return !pattern?.only || pattern.only.includes(lang);
+  });
+}
+
+export function buildReviewExercises(items: ReviewItem[], lang?: TeachingLanguage): ReviewBuild {
   const exercises: Exercise[] = [];
   const conceptItems: ReviewItem[] = [];
   let typedIndex = 0;
 
-  for (const item of items) {
+  for (const item of lang ? reviewItemsForPath(items, lang) : items) {
     if (item.kind === 'vocab' || item.kind === 'noun-article') {
       const entry = vocabById(item.refId);
       if (!entry) continue;
-      exercises.push(vocabExercise(entry, typedIndex));
+      exercises.push(vocabExercise(entry, typedIndex, item));
       typedIndex += 1;
       continue;
     }
