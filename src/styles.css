@@ -2863,6 +2863,12 @@ textarea.answer-field {
   line-height: 1.45;
 }
 
+/* What a refused try is told. Two classes deep, or `.boot p` greys it. */
+.login .login__hint--wrong {
+  color: var(--bad);
+  font-weight: 600;
+}
+
 .login__note {
   margin-top: 0.4rem;
   color: var(--ink-faint);

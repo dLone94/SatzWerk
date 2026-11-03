@@ -2,7 +2,7 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { DackelMark } from '../../src/ui/components/Dackel.tsx';
-import { contrast, luminance, styledPage, type Viewer } from './shippedStyles.ts';
+import { contrast, luminance, rgb, styledPage, type Viewer } from './shippedStyles.ts';
 
 /**
  * What the stylesheet decides: which of its three layers wins, in the CSS the
@@ -232,5 +232,23 @@ describe('Settings with large text', () => {
     // wraps when the text is large, not the name that vanishes.
     expect(page.declared('.learners__name', 'min-width')).toMatch(/^[\d.]+rem$/);
     expect(page.value('.content-stats', 'grid-template-columns')).toMatch(/minmax\(min\(12rem,\s*100%\)/);
+  });
+});
+
+describe('the password setup screen', () => {
+  /*
+   * A refused try marks the rule it broke. The setup screen sits inside
+   * `.boot`, whose paragraphs are all grey and outrank a single class.
+   */
+  it.each(named(PHONE, { ...PHONE, dark: true }))('draws a broken rule in the warning colour (%s)', (_, viewer) => {
+    const page = styledPage(
+      viewer,
+      `<div class="boot boot--login"><form class="login">
+        <p class="login__hint" id="rule">At least 10 characters</p>
+        <p class="login__hint login__hint--wrong" id="broken">At least 10 characters</p>
+      </form></div>`,
+    );
+    expect(page.value('#broken', 'color')).not.toBe(page.value('#rule', 'color'));
+    expect(rgb(page.value('#broken', 'color'))).toEqual(rgb(page.value('.boot', '--bad')));
   });
 });

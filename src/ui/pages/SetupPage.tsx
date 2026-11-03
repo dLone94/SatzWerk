@@ -17,15 +17,32 @@ export function SetupPage() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Refused tries so far: each one is said afresh. */
+  const [refused, setRefused] = useState(0);
   const first = useRef<HTMLInputElement>(null);
+  const second = useRef<HTMLInputElement>(null);
 
-  const mismatch = confirm.length > 0 && confirm !== password;
-  const tooShort = password.length > 0 && password.length < 10;
-  const ready = password.length >= 10 && confirm === password;
+  /*
+   * The rule is on screen from the start, under the field it is about, and
+   * the button always works. It used to be disabled until both fields were
+   * right, so Tab skipped it, focus fell off the form and Enter did nothing,
+   * and the rule appeared only once typing began, in a line no field pointed
+   * to and nothing announced. Now a refused try says what is wrong, marks the
+   * field and puts the cursor back in it.
+   */
+  const tooShort = password.length < 10;
+  const differs = confirm !== password;
+  const problem = refused === 0 ? null : tooShort ? 'short' : differs ? 'mismatch' : null;
+  const showMismatch = problem === 'mismatch' || (confirm.length > 0 && differs);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy || !ready) return;
+    if (busy) return;
+    if (tooShort || differs) {
+      setRefused((count) => count + 1);
+      (tooShort ? first : second).current?.focus();
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -34,6 +51,8 @@ export function SetupPage() {
       setError(cause instanceof Error ? cause.message : String(cause));
       setPassword('');
       setConfirm('');
+      // The server's refusal is the news now, not the emptied fields.
+      setRefused(0);
       first.current?.focus();
     } finally {
       setBusy(false);
@@ -62,29 +81,51 @@ export function SetupPage() {
           autoComplete="new-password"
           lang={lang === 'bg' ? 'bg' : 'en'}
           onChange={(event) => setPassword(event.target.value)}
+          aria-describedby="new-password-rule"
+          aria-invalid={problem === 'short' || undefined}
         />
+        {/* Remounted as an alert on each refused try: an alert is announced
+            when it arrives, not while it stays. */}
+        <p
+          key={problem === 'short' ? `refused-${refused}` : 'rule'}
+          id="new-password-rule"
+          className={`login__hint${problem === 'short' ? ' login__hint--wrong' : ''}`}
+          role={problem === 'short' ? 'alert' : undefined}
+        >
+          {t('setupTooShort')}
+        </p>
 
         <label className="login__label" htmlFor="confirm-password">
           {t('setupConfirm')}
         </label>
         <input
           id="confirm-password"
+          ref={second}
           className="login__field"
           type="password"
           value={confirm}
           autoComplete="new-password"
           onChange={(event) => setConfirm(event.target.value)}
+          aria-describedby={showMismatch ? 'confirm-password-hint' : undefined}
+          aria-invalid={problem === 'mismatch' || undefined}
         />
-
-        {tooShort ? <p className="login__hint">{t('setupTooShort')}</p> : null}
-        {mismatch ? <p className="login__hint">{t('setupMismatch')}</p> : null}
+        {showMismatch ? (
+          <p
+            key={problem === 'mismatch' ? `refused-${refused}` : 'typing'}
+            id="confirm-password-hint"
+            className={`login__hint${problem === 'mismatch' ? ' login__hint--wrong' : ''}`}
+            role={problem === 'mismatch' ? 'alert' : undefined}
+          >
+            {t('setupMismatch')}
+          </p>
+        ) : null}
         {error ? (
           <p className="login__error" role="alert">
             {error}
           </p>
         ) : null}
 
-        <button type="submit" className="btn btn--primary login__submit" disabled={busy || !ready}>
+        <button type="submit" className="btn btn--primary login__submit" disabled={busy}>
           {busy ? t('loginWorking') : t('setupSubmit')}
         </button>
 
