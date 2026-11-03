@@ -137,3 +137,45 @@ describe('time studied survives putting the phone away', () => {
     expect(keptSeconds()).toBe(30);
   });
 });
+
+describe('a minute with nothing to send', () => {
+  /*
+   * The minute's flush runs on every screen. With nothing studied and nothing
+   * waiting it only re-reads the queue — but it built a new sync object with
+   * the same numbers each time, which changed the app's context, and every
+   * screen drew itself again once a minute. On Today, for a learner with a
+   * long history, that was a second-long freeze on a phone with nobody
+   * touching it.
+   */
+  it('does not draw the app again', async () => {
+    const minute: Array<() => void> = [];
+    const setInterval = window.setInterval.bind(window);
+    vi.spyOn(window, 'setInterval').mockImplementation(((handler: () => void, delay?: number) => {
+      if (delay === 60_000) minute.push(handler);
+      return setInterval(handler, delay);
+    }) as typeof window.setInterval);
+
+    let renders = 0;
+    function Watcher() {
+      useApp();
+      renders += 1;
+      return null;
+    }
+    const view = render(
+      <AppStateProvider>
+        <Ready learning={false} />
+        <Watcher />
+      </AppStateProvider>,
+    );
+    await waitFor(() => expect(view.getByText('ready')).toBeInTheDocument());
+    expect(minute).toHaveLength(1);
+
+    const before = renders;
+    for (let tick = 0; tick < 3; tick += 1) {
+      clock += 60_000;
+      await act(async () => minute[0]!());
+    }
+    expect(outbox.queuedCount()).toBe(0);
+    expect(renders - before, 'renders caused by three idle minutes').toBe(0);
+  });
+});
