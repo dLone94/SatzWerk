@@ -363,6 +363,13 @@ describe('why an item is due', () => {
     expect(dueReason(item({ state: 'learning', dueAt: late }), now)).toBe('learning');
     expect(dueReason(item({ state: 'lapsed', dueAt: late }), now)).toBe('lapsed');
   });
+
+  it('reads a graduated item that is not known yet by the calendar', () => {
+    // Four days on an interval, it has not been asked for three of them.
+    const graduated = item({ state: 'learning', intervalDays: 4, learningStep: 2, dueAt: new Date(2026, 9, 30, 9, 0).toISOString() });
+    expect(dueReason(graduated, now)).toBe('overdue');
+    expect(dueReason({ ...graduated, dueAt: new Date(2026, 10, 2, 8, 0).toISOString() }, now)).toBe('scheduled');
+  });
 });
 
 describe('queue', () => {

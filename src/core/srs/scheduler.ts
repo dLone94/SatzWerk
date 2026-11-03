@@ -308,6 +308,10 @@ export function dueItems(items: ReviewItem[], now = new Date()): ReviewItem[] {
  * calendar. It used to be anything later than its whole interval, so a word
  * on a four-day interval that fell due three days ago read "Scheduled for
  * today".
+ *
+ * "Learning" is kept for an item still on its learning steps. One that has
+ * graduated is reviewed by the calendar like a known one, so it is overdue
+ * or scheduled too, though it is not known yet.
  */
 export function dueReason(
   item: ReviewItem,
@@ -315,7 +319,7 @@ export function dueReason(
 ): 'new' | 'learning' | 'overdue' | 'scheduled' | 'lapsed' {
   if (item.state === 'new') return 'new';
   if (item.state === 'lapsed') return 'lapsed';
-  if (item.state === 'learning') return 'learning';
+  if (!graduated(item)) return 'learning';
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   return new Date(item.dueAt).getTime() < startOfToday ? 'overdue' : 'scheduled';
 }
