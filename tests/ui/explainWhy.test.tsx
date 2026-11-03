@@ -22,10 +22,17 @@ const { explainMistake } = vi.hoisted(() => ({ explainMistake: vi.fn() }));
 
 vi.mock('../../src/services/api/client.ts', () => ({
   api: { explainMistake },
-  ApiError: class extends Error {},
+  ApiError: class extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  },
 }));
 
 const { ExplainWhy } = await import('../../src/ui/components/ExplainWhy.tsx');
+const { ApiError } = await import('../../src/services/api/client.ts');
 
 function stubState(aiAvailable: boolean, lang: TeachingLanguage = 'en'): AppStateValue {
   return {
@@ -189,5 +196,16 @@ describe('asking why an answer was wrong', () => {
     mount(true);
     await userEvent.click(screen.getByRole('button', { name: tr('explainAsk', 'en') }));
     expect(await screen.findByText(/network down/)).toBeInTheDocument();
+  });
+
+  it('says a request that got no answer in the learner\'s own language', async () => {
+    // The client's deadline: its text is English and about the request.
+    explainMistake.mockRejectedValue(new ApiError('/coach/explain did not answer within 35 seconds.', 0));
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    mount(true, 'bg');
+    await userEvent.click(screen.getByRole('button', { name: tr('explainAsk', 'bg') }));
+    expect(await screen.findByText(tr('coachNoAnswer', 'bg'))).toBeInTheDocument();
+    expect(screen.queryByText(/35 seconds/)).not.toBeInTheDocument();
+    info.mockRestore();
   });
 });

@@ -66,6 +66,14 @@ describe('the Vercel function', () => {
     expect(await (await handler(request())).json()).toEqual(first);
     expect(first.stats.totalStudySeconds).toBe(20);
   });
+  it('forwards which learner a tab is showing', async () => {
+    const handler = await loadHandler();
+    // A learner the household does not have: refused only if the name arrived.
+    const response = await handler(new Request('https://satzwerk.test/api/learners', {
+      headers: { 'x-satzwerk-learner': '7' },
+    }));
+    expect(response.status).toBe(409);
+  });
   it('answers health without touching the database', async () => {
     const handler = await loadHandler();
     const response = await handler(get('/api/health'));
@@ -316,6 +324,41 @@ describe('a failure after the database was opened', () => {
       expect(response.status, String((make() as Error).message)).toBe(503);
       expect(response.headers.get('retry-after')).toBeTruthy();
     }
+  });
+
+  /*
+   * A migration that failed was reported as a database that could not be
+   * reached, with advice to check DATABASE_URL — sending whoever read it to
+   * the one setting that was fine.
+   */
+  it('does not blame DATABASE_URL for a migration that failed', async () => {
+    vi.resetModules();
+    vi.doMock('../../server/db.ts', async (importOriginal) => {
+      const original = await importOriginal<typeof import('../../server/db.ts')>();
+      return {
+        ...original,
+        openDatabase: async () => {
+          throw new original.MigrationFailure('Migration 5 (scenario runs) failed: relation "scenario_runs" already exists');
+        },
+      };
+    });
+    const handler = (await import('../../server/vercel.ts')).default as (request: Request) => Promise<Response>;
+    const logged: string[] = [];
+    const info = vi.spyOn(console, 'info').mockImplementation((line: unknown) => {
+      logged.push(String(line));
+    });
+    const response = await handler(get('/api/state'));
+    info.mockRestore();
+    expect(response.status).toBe(503);
+    const body = (await response.json()) as { error: string };
+    expect(body.error).toContain('Migration 5 (scenario runs) failed');
+    expect(body.error).not.toContain('DATABASE_URL');
+    expect(body.error).not.toContain('cannot reach its database');
+    // The log says the same: an operator reading it is not sent to the
+    // connection either.
+    const events = logged.map((line) => (JSON.parse(line) as { event?: string }).event);
+    expect(events).toContain('migration_failed');
+    expect(events).not.toContain('database_unavailable');
   });
 
   it('still answers 500 for a genuine bug, so the client does not hold it forever', async () => {

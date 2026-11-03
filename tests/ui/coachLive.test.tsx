@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tr } from '../../src/i18n.ts';
-import { api, type WritingEvaluation } from '../../src/services/api/client.ts';
+import { ApiError, api, type WritingEvaluation } from '../../src/services/api/client.ts';
 import { AppStateContext } from '../../src/state/AppState.tsx';
 import { CoachPage } from '../../src/ui/pages/CoachPage.tsx';
 import { stubState } from './playerStub.tsx';
@@ -28,9 +28,9 @@ const evaluation = (findings: number): WritingEvaluation => ({
   note: { en: 'note', bg: 'бележка' },
 });
 
-function mount() {
+function mount(lang: 'en' | 'bg' = 'en') {
   render(
-    <AppStateContext.Provider value={stubState()}>
+    <AppStateContext.Provider value={stubState({}, lang)}>
       <MemoryRouter>
         <CoachPage />
       </MemoryRouter>
@@ -71,5 +71,21 @@ describe('the coach', () => {
     await user.type(screen.getByRole('textbox'), 'Der Tisch ist groß.');
     await user.click(screen.getByRole('button', { name: tr('coachCheck', 'en') }));
     expect(await screen.findByRole('alert')).toHaveTextContent('The server did not answer.');
+  });
+
+  it('says a coach that never answered in the learner\'s own language', async () => {
+    // What the client throws when its deadline passes: English, and about the
+    // request rather than the learner.
+    vi.spyOn(api, 'reviewWriting').mockRejectedValue(
+      new ApiError('/coach/writing did not answer within 35 seconds. The German Coach is slow to answer right now.', 0),
+    );
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    const user = userEvent.setup();
+    mount('bg');
+    await user.type(screen.getByRole('textbox'), 'Der Tisch ist groß.');
+    await user.click(screen.getByRole('button', { name: tr('coachCheck', 'bg') }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(tr('coachNoAnswer', 'bg'));
+    expect(alert).not.toHaveTextContent(/seconds/);
   });
 });

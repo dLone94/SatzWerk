@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { contentStats, partialLevels, unauthoredLevels } from '../../content/browser.ts';
 import type { TeachingLanguage } from '../../content/types.ts';
 import { tr } from '../../i18n.ts';
@@ -26,6 +26,8 @@ export function SettingsPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [passwordDone, setPasswordDone] = useState(false);
+  const [passwordChosen, setPasswordChosen] = useState(false);
+  const chosenNote = useRef<HTMLParagraphElement>(null);
   const stats = contentStats();
   // Named from the curriculum itself, so the sentence cannot outlive the gap
   // it describes.
@@ -34,6 +36,14 @@ export function SettingsPage() {
   // nor finished, and saying either would be an overstatement in one direction
   // or the other. It gets its own sentence, with its own real numbers.
   const started = partialLevels();
+
+  // The first-password card goes away with the button that had focus, and
+  // focus fell to the page, so nothing was said. It moves to the note that
+  // says the password is set, which a screen reader then reads out.
+  const showChosen = passwordChosen && !passwordDone && session.required;
+  useEffect(() => {
+    if (showChosen) chosenNote.current?.focus();
+  }, [showChosen]);
 
   return (
     <div className="page">
@@ -183,7 +193,15 @@ export function SettingsPage() {
         {resetDone ? <p className="done-note">{t('settingsResetDone')}</p> : null}
       </Card>
 
-      {/* Only meaningful on a hosted copy: locally there is no session at all. */}
+      {/*
+        A local copy with no password is open on this computer only, and the
+        README, the startup log and the setup refusal all send the owner here
+        to choose one before a phone can sign in. So that copy gets a card for
+        the first password; one that has a password gets the change form.
+      */}
+      {!session.required ? (
+        <ChoosePassword onChosen={() => setPasswordChosen(true)} />
+      ) : null}
       {session.required ? (
         <Card title={t('passwordChange')}>
           {session.canChangePassword === false ? (
@@ -234,6 +252,11 @@ export function SettingsPage() {
                 </p>
               ) : null}
               {passwordDone ? <p className="done-note">{t('passwordChanged')}</p> : null}
+              {showChosen ? (
+                <p ref={chosenNote} className="done-note" role="status" tabIndex={-1}>
+                  {t('passwordChosen')}
+                </p>
+              ) : null}
               <button
                 type="submit"
                 className="btn btn--primary"
@@ -251,6 +274,145 @@ export function SettingsPage() {
         </Card>
       ) : null}
     </div>
+  );
+}
+
+/** Why the last try was turned down, and which try that was. */
+interface Refusal {
+  reason: 'short' | 'mismatch';
+  /** Which refused try in a row: a new number mounts a new alert, so each is said afresh. */
+  n: number;
+}
+
+/**
+ * The first password, on a copy that has none.
+ *
+ * Only ever shown on this computer: anything else reaching a copy with no
+ * password is answered as a hosted one and gets the setup screen, which
+ * refuses to finish from there. There is no current password to ask for, so
+ * the new one is typed twice instead, as on the setup screen — a typo here
+ * would lock the owner out of their own copy at the next sign-in.
+ *
+ * It behaves as the setup screen does, because it is the same choice. The
+ * rule is on screen from the start, under the field it is about, and the
+ * button always works: disabled until both fields were right, it was skipped
+ * by Tab and Enter did nothing. A refused try says what is wrong, marks the
+ * field and puts the cursor back in it, and the refusal stands until the
+ * field it is about is edited, rather than turning the typing after it into
+ * a running commentary.
+ */
+function ChoosePassword({ onChosen }: { onChosen: () => void }) {
+  const { t, changePassword } = useApp();
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<Refusal | null>(null);
+  const first = useRef<HTMLInputElement>(null);
+  const second = useRef<HTMLInputElement>(null);
+
+  const tooShort = password.length < 10;
+  const differs = confirm !== password;
+  const problem = refusal?.reason ?? null;
+  const showMismatch = problem === 'mismatch' || (confirm.length > 0 && differs);
+
+  // After the refusal has rendered, so the field is already marked invalid
+  // when focus arrives and a screen reader does not call it fine first.
+  useEffect(() => {
+    if (refusal) (refusal.reason === 'short' ? first : second).current?.focus();
+  }, [refusal]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (busy) return;
+    if (tooShort || differs) {
+      const reason = tooShort ? 'short' : 'mismatch';
+      setRefusal((last) => ({ reason, n: (last?.n ?? 0) + 1 }));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      // The same route as a change; with no password yet there is no current
+      // one for it to check.
+      await changePassword('', password);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+      setPassword('');
+      setConfirm('');
+      // The server's refusal is the news now, not the emptied fields.
+      setRefusal(null);
+      first.current?.focus();
+      return;
+    } finally {
+      setBusy(false);
+    }
+    onChosen();
+  };
+
+  return (
+    <Card title={t('setupTitle')} subtitle={t('passwordLocalIntro')}>
+      <form className="password-form" onSubmit={(event) => void submit(event)}>
+        <label htmlFor="first-password">{t('setupPassword')}</label>
+        <input
+          id="first-password"
+          ref={first}
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            // Both refusals are about this field: its length, or the pair.
+            setRefusal(null);
+          }}
+          aria-describedby="first-password-rule"
+          aria-invalid={problem === 'short' || undefined}
+        />
+        {/* Remounted as an alert on each refused try: an alert is announced
+            when it arrives, not while it stays. */}
+        <p
+          key={problem === 'short' ? `refused-${refusal?.n}` : 'rule'}
+          id="first-password-rule"
+          className={`login__hint${problem === 'short' ? ' login__hint--wrong' : ''}`}
+          role={problem === 'short' ? 'alert' : undefined}
+        >
+          {t('setupTooShort')}
+        </p>
+        <label htmlFor="first-password-again">{t('setupConfirm')}</label>
+        <input
+          id="first-password-again"
+          ref={second}
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(event) => {
+            setConfirm(event.target.value);
+            if (problem === 'mismatch') setRefusal(null);
+          }}
+          aria-describedby={showMismatch ? 'first-password-again-hint' : undefined}
+          aria-invalid={problem === 'mismatch' || undefined}
+        />
+        {showMismatch ? (
+          <p
+            key={problem === 'mismatch' ? `refused-${refusal?.n}` : 'typing'}
+            id="first-password-again-hint"
+            className={`login__hint${problem === 'mismatch' ? ' login__hint--wrong' : ''}`}
+            role={problem === 'mismatch' ? 'alert' : undefined}
+          >
+            {t('setupMismatch')}
+          </p>
+        ) : null}
+        {error ? (
+          <p className="login__error" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <button type="submit" className="btn btn--primary" disabled={busy}>
+          {busy ? t('loginWorking') : t('setupTitle')}
+        </button>
+        <p className="card__foot">{t('setupNote')}</p>
+      </form>
+    </Card>
   );
 }
 

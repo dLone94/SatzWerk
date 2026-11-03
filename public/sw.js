@@ -145,7 +145,10 @@ self.addEventListener('fetch', (event) => {
   // Navigations and everything else: the network when there is one, so a
   // deploy is picked up on the next open, and the cache when there is not —
   // or, for a page, when the network has not answered within a few seconds.
-  if (request.mode === 'navigate') {
+  // A file opened in a tab of its own (a long press on the dachshund, the
+  // icon, the manifest) is a navigation too, but it is that file and not the
+  // app, so it is fetched and held as itself.
+  if (request.mode === 'navigate' && !isFile(url)) {
     event.respondWith(networkFirstPage(event));
     return;
   }
@@ -194,10 +197,13 @@ async function networkFirstPage(event) {
   // and the worker must live until that is done, even when the held copy
   // answered long before. The copy is taken at once, before the page reads
   // the body.
+  //
+  // Only an HTML answer is the page. Anything else kept here would be served
+  // as the app for every route from then on.
   event.waitUntil(
     network
       .then((response) => {
-        if (!isWhole(response)) return undefined;
+        if (!isWhole(response) || !isHtml(response)) return undefined;
         const copy = response.clone();
         return keepPage(copy).then(refreshBuild);
       })
@@ -279,9 +285,20 @@ async function refreshBuild() {
 }
 
 async function isPage(cache, key) {
-  const response = await cache.match(key);
+  return isHtml(await cache.match(key));
+}
+
+function isHtml(response) {
   const type = response && response.headers ? response.headers.get('Content-Type') : null;
   return Boolean(type && type.includes('text/html'));
+}
+
+/**
+ * A path that names a file rather than a route: its last part has an
+ * extension, and not .html. No route of the app has a dot in it.
+ */
+function isFile(url) {
+  return /\.[A-Za-z0-9]+$/.test(url.pathname) && !url.pathname.endsWith('.html');
 }
 
 function isWhole(response) {

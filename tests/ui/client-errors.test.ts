@@ -62,6 +62,29 @@ describe('an API error', () => {
     );
   });
 
+  /*
+   * A slow model gave up at the same moment as the server's own deadline for
+   * it, so the server's answer — "the explanation service could not be
+   * reached", or the rule-based writing review — never arrived, and the
+   * learner was told the server could not reach its database.
+   */
+  it('waits past the coach\'s own deadline, and blames the coach rather than the database', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    globalThis.fetch = vi.fn(async () => {
+      throw new DOMException('The operation timed out.', 'TimeoutError');
+    }) as unknown as typeof fetch;
+    try {
+      const failure = api.explainMistake({ expected: 'Ich bin müde.', given: 'Ich ist müde.', categories: [], language: 'en', level: 'pre-a1' });
+      await expect(failure).rejects.toThrow(/German Coach/);
+      await expect(failure).rejects.not.toThrow(/database/);
+      await expect(api.reviewWriting('ich habe ein hund', 'en', 'pre-a1')).rejects.toThrow(/German Coach/);
+      const { CLAUDE_DEADLINE_MS } = await import('../../server/ai-claude.ts');
+      for (const [ms] of timeout.mock.calls) expect(ms).toBeGreaterThan(CLAUDE_DEADLINE_MS + 10_000);
+    } finally {
+      timeout.mockRestore();
+    }
+  });
+
   it('reports the status alongside the message, so callers can branch on 401', async () => {
     answerWith(JSON.stringify({ error: 'Sign in first.' }), {
       status: 401,

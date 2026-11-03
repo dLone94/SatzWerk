@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ErrorCategory } from '../../content/types.ts';
-import { api } from '../../services/api/client.ts';
+import { ApiError, api } from '../../services/api/client.ts';
 import { useApp } from '../../state/AppState.tsx';
 
 /**
@@ -59,7 +59,15 @@ export function ExplainWhy({
       setProblem(result.error ? result.error[lang] : t('explainFailed'));
       setState('failed');
     } catch (cause) {
-      setProblem(cause instanceof Error ? cause.message : String(cause));
+      // No answer at all — the model was slow, or the signal went — is said
+      // in the learner's language. The client's own text names the request
+      // and the deadline, which is for the console, and it is English.
+      if (cause instanceof ApiError && cause.status === 0) {
+        console.info(cause.message);
+        setProblem(t('coachNoAnswer'));
+      } else {
+        setProblem(cause instanceof Error ? cause.message : String(cause));
+      }
       setState('failed');
     }
   };

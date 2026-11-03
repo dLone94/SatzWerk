@@ -175,6 +175,15 @@ export const UI = {
     'Password changed. Any other device that was signed in has been signed out.',
     'Паролата е сменена. Всяко друго устройство, което беше влязло, е излязло.',
   ),
+  // Choosing the first one on a local copy, in Settings
+  passwordLocalIntro: s(
+    'This copy is open on this computer only. Choose a password, and your other devices can sign in with it — a phone on the same Wi-Fi, when SatzWerk is started with HOST=0.0.0.0. This computer will ask for it too once this sign-in ends.',
+    'Това копие е отворено само на този компютър. Избери парола и другите ти устройства ще могат да влизат с нея — например телефон в същата Wi-Fi мрежа, когато SatzWerk е стартиран с HOST=0.0.0.0. Когато този вход изтече, и този компютър ще я поиска.',
+  ),
+  passwordChosen: s(
+    'Password set. Your other devices can sign in with it when SatzWerk is started with HOST=0.0.0.0.',
+    'Паролата е зададена. Другите ти устройства могат да влизат с нея, когато SatzWerk е стартиран с HOST=0.0.0.0.',
+  ),
   passwordFromEnv: s(
     'The password comes from an environment variable on the host, so it has to be changed there.',
     'Паролата идва от променлива на средата при хостинга, затова трябва да се смени там.',
@@ -569,6 +578,11 @@ export const UI = {
   explainFailed: s(
     'No explanation came back. Your answer and your progress are unaffected.',
     'Не се върна обяснение. Отговорът и напредъкът ти не са засегнати.',
+  ),
+  // A question for the coach that got no answer at all: too slow, or no signal.
+  coachNoAnswer: s(
+    'The German Coach did not answer. Nothing you did is lost; try again in a moment.',
+    'Немският наставник не отговори. Нищо от направеното не е загубено; опитай отново след малко.',
   ),
 
   // Speaking. The wording is careful on purpose: the app checks whether a

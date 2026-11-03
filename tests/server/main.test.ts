@@ -134,6 +134,37 @@ describe('the self-hosted server', () => {
     expect(changed.headers.get('etag')).not.toBe(etag);
   });
 
+  /*
+   * An answer pasted by accident can be bigger than the server takes. The
+   * socket used to be destroyed mid-upload, so the browser saw a reset
+   * connection, called it "offline", and held the write at the front of the
+   * queue for good, with every later answer stuck behind it. A 413 is a
+   * refusal the outbox can act on.
+   */
+  it('answers 413 to a body over the limit instead of resetting the connection', async () => {
+    const response = await fetch(`${base}/api/attempts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-requested-with': 'SatzWerk' },
+      body: JSON.stringify({ stepId: 's', verdict: 'incorrect', given: 'x'.repeat(300_000) }),
+    });
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ error: expect.any(String) });
+
+    // And the next ordinary write is taken as usual.
+    const next = await fetch(`${base}/api/attempts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-requested-with': 'SatzWerk' },
+      body: JSON.stringify({ stepId: 's', verdict: 'correct', given: 'Hallo' }),
+    });
+    expect(next.status).toBe(200);
+  });
+
+  it('forwards which learner a tab is showing', async () => {
+    // A learner the household does not have: refused only if the name arrived.
+    const response = await fetch(`${base}/api/learners`, { headers: { 'x-satzwerk-learner': '7' } });
+    expect(response.status).toBe(409);
+  });
+
   it('forwards retry IDs to the API instead of duplicating HTTP writes', async () => {
     const send = () => fetch(`${base}/api/study`, {
       method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'SatzWerk', 'idempotency-key': 'http-study' },
