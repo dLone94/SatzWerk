@@ -1389,9 +1389,6 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  /* The page header stays put as the page scrolls (70–88px tall), so a field
-     scrolled to the top must stop below it, not under it. */
-  scroll-margin-top: 6rem;
 }
 
 .answer__row {

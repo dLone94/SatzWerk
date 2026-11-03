@@ -26,7 +26,7 @@ import { useApp } from '../../state/AppState.tsx';
 const SPECIAL_CHARACTERS = ['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü'];
 
 export interface AnswerInputHandle {
-  focus: () => void;
+  focus: (options?: FocusOptions) => void;
   insert: (text: string) => void;
   /** Scroll the field, with its letter keys, into view. */
   scrollIntoView: (options: ScrollIntoViewOptions) => void;
@@ -91,10 +91,10 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
   const scaffoldId = useId();
   const scaffolded = Boolean(prefix || suffix);
 
-  const focus = useCallback(() => {
+  const focus = useCallback((options?: FocusOptions) => {
     const element = inputRef.current;
     if (!element) return;
-    element.focus();
+    element.focus(options);
     // Put the caret at the end so continuing to type just works.
     const end = element.value.length;
     try {

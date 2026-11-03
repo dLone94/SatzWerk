@@ -562,8 +562,14 @@ describe('the verdict is brought into view', () => {
       await new Promise((resolve) => requestAnimationFrame(resolve));
       await user.click(document.body);
       expect(field()).not.toHaveFocus();
+      const before = scrolled.length;
       await user.click(document.querySelector('.feedback__retype-target')!);
       expect(field()).toHaveFocus();
+      // And brings the field back to the top: scrolled a little since, it was
+      // under the header, where focus alone left it.
+      expect(scrolled.slice(before)).toHaveLength(1);
+      expect(scrolled.at(-1)!.element).toContain(field());
+      expect(scrolled.at(-1)!.options).toMatchObject({ block: 'start' });
       await user.keyboard('Ich komme aus Bulgarien.');
       expect(field()).toHaveValue('Ich komme aus Bulgarien.');
     } finally {

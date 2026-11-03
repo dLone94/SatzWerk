@@ -292,11 +292,7 @@ export function ExercisePlayer({
    */
   useEffect(() => {
     if (phase === 'answer') return;
-    const reduced =
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const behavior = reduced ? 'auto' : 'smooth';
+    const behavior = scrollBehavior();
     if (phase === 'retype' && inputRef.current) {
       inputRef.current.scrollIntoView({ behavior, block: 'start' });
       return;
@@ -1140,12 +1136,18 @@ export function ExercisePlayer({
               {/* Drawn as a box, so it is the thing a thumb goes for. A tap on
                   it used to land on the page and the typing went nowhere; it
                   goes to the field, inside the tap so a phone opens its
-                  keyboard. A keyboard is in the field already. */}
+                  keyboard. A keyboard is in the field already. The field
+                  goes back to the top as well, the correction under it, as
+                  when the retype was asked for: after a little scrolling it
+                  was under the page header, and focus alone left it there. */}
               <p
                 className="feedback__retype-target"
                 id="player-retype-target"
                 lang="de"
-                onClick={() => inputRef.current?.focus()}
+                onClick={() => {
+                  inputRef.current?.focus({ preventScroll: true });
+                  inputRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+                }}
               >
                 {feedback.correction}
               </p>
@@ -1267,6 +1269,15 @@ function supportCue(answer: string, letters: boolean): string {
 
 /** Beyond this many questions a segment is too thin to read; a bar takes over. */
 const MAX_SEGMENTS = 24;
+
+/** Scrolling glides, unless the learner has asked for less motion. */
+function scrollBehavior(): ScrollBehavior {
+  const reduced =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return reduced ? 'auto' : 'smooth';
+}
 
 /*
  * How many players are on screen. A scenario swaps one for the next between
