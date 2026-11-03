@@ -105,6 +105,8 @@ export const UI = {
   courseUnitProgress: s('{done} of {total} lessons complete', '{done} от {total} урока завършени'),
   courseOpenUnit: s('Open unit', 'Отвори раздела'),
   courseCheckpointDone: s('Checkpoint passed', 'Проверката е премината'),
+  courseCheckpointNotTaken: s('Not taken yet', 'Още не е направена'),
+  courseCheckpointBest: s('Best so far {n}%', 'Най-добър резултат досега {n}%'),
   routeLoadFailed: s('This page could not be loaded. Your saved answers are safe. Check your connection and try again.', 'Страницата не може да се зареди. Запазените ти отговори са в безопасност. Провери връзката и опитай отново.'),
   appName: s('SatzWerk', 'SatzWerk'),
   tagline: s('Your personal German tutor', 'Твоят личен учител по немски'),
@@ -200,6 +202,7 @@ export const UI = {
   todayDue: s('{n} due for review', '{n} за повторение'),
   todayNothingDue: s('Nothing due', 'Нищо за повторение'),
   todayReviewNote: s('Review', 'Повторение'),
+  todayReviewLater: s('What you learn comes back here', 'Наученото се връща тук'),
   todayRoundEmpty: s('Nothing waiting yet', 'Още нищо не чака'),
   todaySeePath: s('See path', 'Виж пътя'),
   todayProgress: s('Your progress', 'Твоят напредък'),
@@ -256,8 +259,8 @@ export const UI = {
   sessionTarget: s('Your daily target is {time}. Change it in Settings.', 'Дневната ти цел е {time}. Можеш да я смениш в Настройки.'),
   sessionNothing: s('There is nothing to put in a round', 'Няма какво да се сложи в кръг'),
   sessionNothingBody: s(
-    'Nothing is due, no mistake has come back twice, and no lesson is half-finished. Start a lesson, or practise ahead of schedule.',
-    'Нищо не е за повторение, нито една грешка не се е повторила, и няма недовършен урок. Започни урок или упражнявай предварително.',
+    'Nothing is due, no mistake has come back twice, and no lesson is half-finished. Start the next lesson from the course.',
+    'Нищо не е за повторение, нито една грешка не се е повторила, и няма недовършен урок. Започни следващия урок от курса.',
   ),
   sessionReadFirst: s(
     'Finish reading your lesson first: its exercises join the round once every section is read.',
@@ -637,6 +640,10 @@ export const UI = {
     'Your queue is empty. You can still practise early, or carry on with the course.',
     'Опашката ти е празна. Можеш да упражняваш предварително или да продължиш с курса.',
   ),
+  reviewNothingYetBody: s(
+    'Your queue is empty, and nothing is learnt yet to practise early. Words come here once a lesson has taught them.',
+    'Опашката ти е празна и още няма научено, което да упражняваш предварително. Думите идват тук, след като урок ги е преподал.',
+  ),
   reviewPracticeEarly: s('Practise early', 'Упражнявай предварително'),
   reviewStart: s('Start reviewing', 'Започни повторение'),
   reviewWhyDue: s('Why is this due?', 'Защо е за повторение?'),
@@ -723,8 +730,8 @@ export const UI = {
   mistakesPractise: s('Practise these', 'Упражнявай тези'),
   mistakesPractiseCategory: s('Practise this kind', 'Упражнявай този вид'),
   mistakesCategoryIntro: s(
-    'Practice for a whole kind of mistake uses the course\u2019s own tasks for that skill, not a replay of the sentences you got wrong.',
-    'Упражнението за цял вид грешка използва задачите на курса за това умение, а не повторение на изреченията, които си сбъркал.',
+    'Practice for a whole kind of mistake uses the course\u2019s own tasks for that skill, from the lessons you have taken. When they have none, it replays your own mistakes of that kind.',
+    'Упражнението за цял вид грешка използва задачите на курса за това умение от уроците, които си минал. Ако в тях няма такива, повтаря твоите грешки от този вид.',
   ),
   mistakesResolve: s('Mark as sorted', 'Отбележи като решено'),
   mistakesByCategory: s('By kind of mistake', 'По вид грешка'),
@@ -764,6 +771,7 @@ export const UI = {
   placementSeeCourse: s('See the whole course', 'Виж целия курс'),
   placementDisagree: s('Not right? Start here instead:', 'Не е вярно? Започни оттук:'),
   placementAgain: s('Take it again', 'Направи я пак'),
+  placementLast: s('Your last check suggested {level}.', 'Последната ти проверка предложи {level}.'),
 
   // Real life
   realLifeTitle: s('Real life', 'Реален живот'),

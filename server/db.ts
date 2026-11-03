@@ -439,6 +439,16 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX daily_runs_recent ON daily_runs (user_id, day, updated_at);
     `,
   },
+  {
+    version: 9,
+    name: 'placement guesses out of the mistake bank',
+    // The placement check files no mistakes any more (recordAttempt in
+    // store.ts), but the rows it filed before stayed open: B2 sentences in a
+    // beginner's bank, offered as practice. This puts them away, dated the
+    // last time they were seen; nothing is deleted. Only the placement
+    // check's step ids begin with "pl-".
+    sql: `UPDATE mistakes SET resolved_at = last_seen_at WHERE step_id LIKE 'pl-%' AND resolved_at IS NULL;`,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

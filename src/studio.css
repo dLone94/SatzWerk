@@ -297,6 +297,7 @@ body { background: var(--paper); }
 .level-gate { border-radius: 15px; box-shadow: none; background: var(--warn-soft); padding: 22px; margin-top: 22px; }
 .level-gate__title { font-size: 15px; }
 .level-gate__desc { font-size: 12px; line-height: 1.65; }
+.level-gate__status { font-size: 11px; }
 
 /* Quiet teaching surfaces, with the answer remaining the strongest control. */
 .page--player { max-width: 780px; }

@@ -872,7 +872,7 @@ function plausibleDuration(raw: unknown): number | undefined {
   return Math.min(MAX_STEP_MS, Math.round(millis));
 }
 
-const CONTEXTS = new Set(['lesson', 'mastery', 'review', 'checkpoint', 'practice', 'scenario']);
+const CONTEXTS = new Set(['lesson', 'mastery', 'review', 'checkpoint', 'placement', 'practice', 'scenario']);
 const VERDICTS = new Set([
   'correct',
   'accepted-variant',

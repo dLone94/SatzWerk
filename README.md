@@ -418,7 +418,9 @@ teaches rather than calling it a typo.
 **Practice targeted at a kind of mistake, not just at sentences.** Once the
 mistake bank shows a real pattern (three or more of the same error category),
 the dashboard and the mistakes page offer a round drilling that category,
-assembled from the authored trap answers across the whole level. Related skills
+assembled from the authored trap answers in the lessons the learner has
+already taken, never from further on; when those have none, the round replays
+the learner's own mistakes of that kind. Related skills
 are pulled in so a round is never thin — asking for article practice also draws
 on gender and case, because they are the same skill. The steps keep their
 original ids, so an attempt inside a targeted round counts towards the same
@@ -507,7 +509,13 @@ explicit Again / Hard / Good / Easy buttons.
 **A mistake bank driven by real attempts.** Grouped by the 15+ error categories,
 showing what was written, what was correct, how many times it happened and how
 many times it was retyped correctly — and it can be practised either as a round
-of exactly those sentences, or as a round drilling the whole category.
+of exactly those sentences, or as a round drilling the whole category. A
+practice card asks the original question again, with the earlier answer
+beside it; answered right with no hint, the mistake is put away, and it comes
+back if it is made again. The daily round asks a recurring mistake in another
+sentence of the same kind, and a clean answer there puts it away too.
+Placement answers are never filed here: that check is looking for where the
+learner's German runs out (migration 9 put away the ones filed before).
 
 **An honest dashboard.** Every figure is derived from database rows. A fresh
 profile shows `—` and "No data yet", not a zero dressed up as progress. The
@@ -912,7 +920,10 @@ Three details are deliberate:
 
 It is offered on the first-run screen to anyone who says they already speak
 some German, and from the top of the Course page — never forced, because most
-people opening this app already know they are beginners.
+people opening this app already know they are beginners. The recommendation is
+kept: until the learner opens a lesson, Today, the course page and daily
+practice start at the recommended level, and the check shows its last answer
+when it is opened again.
 
 ---
 

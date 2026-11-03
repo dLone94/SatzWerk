@@ -53,6 +53,8 @@ export interface StudyDay {
 
 export interface CheckpointResult {
   checkpointId: string;
+  /** The unit or level checked; for the placement check, the level it recommends. */
+  targetId?: string;
   accuracy: number;
   passed: boolean;
   createdAt: string;
@@ -92,7 +94,7 @@ export interface TargetSpec {
 }
 
 export interface AttemptPayload {
-  context: 'lesson' | 'mastery' | 'review' | 'checkpoint' | 'practice' | 'scenario';
+  context: 'lesson' | 'mastery' | 'review' | 'checkpoint' | 'placement' | 'practice' | 'scenario';
   lessonId?: string;
   exerciseId?: string;
   stepId: string;

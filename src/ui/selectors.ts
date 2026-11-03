@@ -1,25 +1,39 @@
 import {
+  CURRICULUM,
   GRAMMAR_CONCEPTS,
+  PLACEMENT_CHECKPOINT,
   VOCABULARY,
   allCheckpoints,
-  allLessons,
   availableLessons,
   grammarById,
   lessonExercises,
   lessonsInOrder,
   patternById,
   practiceForCategory,
+  unitById,
   unitForLesson,
   vocabById,
 } from '../content/browser.ts';
-import type { Bilingual, Exercise, ExerciseStep, Lesson, TeachingLanguage, VocabEntry } from '../content/types.ts';
+import {
+  CEFR_ORDER,
+  type Bilingual,
+  type CefrLevel,
+  type Checkpoint,
+  type Exercise,
+  type ExerciseStep,
+  type Lesson,
+  type Level,
+  type TeachingLanguage,
+  type Unit,
+  type VocabEntry,
+} from '../content/types.ts';
 import { allStepIds, isLessonComplete, lessonRequirements, type LessonProgress } from '../core/progress/lesson.ts';
 import type { SessionSources } from '../core/progress/session.ts';
 import { dueItems, dueReason, orderQueue, type ReviewItem } from '../core/srs/scheduler.ts';
 import { toDigraphs } from '../core/validation/text.ts';
 import { CATEGORY_LABELS } from '../i18n.ts';
 import type { CheckpointResult, MistakeRecord } from '../services/api/client.ts';
-import { buildMistakePractice, buildReviewExercises } from './reviewBuilder.ts';
+import { authoredStep, buildMistakePractice, buildReviewExercises } from './reviewBuilder.ts';
 
 /**
  * Everything the dashboard, vocabulary page and review queue show is derived
@@ -68,19 +82,7 @@ export function buildVocabViews(
   });
 }
 
-/** Every authored step, by id: lesson practice, final checks and checkpoints. */
-let stepIndex: Map<string, ExerciseStep> | null = null;
-function stepById(id: string): ExerciseStep | undefined {
-  if (!stepIndex) {
-    stepIndex = new Map();
-    const exercises = [
-      ...allLessons().flatMap((lesson) => [...lesson.exercises, ...lesson.mastery.exercises]),
-      ...allCheckpoints().flatMap((checkpoint) => checkpoint.exercises),
-    ];
-    for (const exercise of exercises) for (const step of exercise.steps) stepIndex.set(step.id, step);
-  }
-  return stepIndex.get(id);
-}
+const stepById = (id: string): ExerciseStep | undefined => authoredStep(id)?.step;
 
 /** Lower-case words, split on anything that is not a letter (umlauts and ß are letters). */
 function words(text: string): string[] {
@@ -190,6 +192,18 @@ export function buildLessonViews(lessons: Record<string, LessonProgress>): Lesso
     });
 }
 
+/**
+ * The lessons whose teaching the learner has been through: finished, or
+ * practised in. Practice drawn from the course stays inside these.
+ */
+export function taughtLessons(lessons: Record<string, LessonProgress>): Set<string> {
+  return new Set(
+    buildLessonViews(lessons)
+      .filter((view) => view.complete || Object.keys(view.progress.practice).length > 0)
+      .map((view) => view.lesson.id),
+  );
+}
+
 export type NextActionKind = 'onboard' | 'continue-lesson' | 'start-lesson' | 'review' | 'mistakes' | 'checkpoint' | 'idle';
 
 export interface NextAction {
@@ -228,8 +242,10 @@ export function nextAction(
   }
 
   const views = buildLessonViews(lessons);
-  const inProgress = views.find((view) => view.started && !view.complete);
+  const placed = standingPlacement(lessons, checkpointResults);
+  const inProgress = lessonInProgress(views, placed);
   const due = dueItems(reviewItems, now);
+  const allComplete = views.length > 0 && views.every((view) => view.complete);
 
   if (inProgress) {
     return {
@@ -251,7 +267,28 @@ export function nextAction(
     };
   }
 
-  const next = nextNewLesson(views);
+  /*
+   * The end of a unit: its checkpoint, before the next unit begins.
+   *
+   * The course promises a checkpoint at the end of every unit, but none was
+   * offered until all 84 lessons were done, so nobody was ever sent to one
+   * while working through the course. It is offered while the furthest lesson
+   * reached is the one that finished a unit, once: a learner who has tried it
+   * goes on, and so does one who would rather start the next lesson. The
+   * course page still has it.
+   */
+  const boundary = placed || allComplete ? undefined : unitCheckpointDue(views, lessons, checkpointResults);
+  if (boundary) {
+    return {
+      kind: 'checkpoint',
+      to: `/checkpoint/${boundary.id}`,
+      title: boundary.title,
+      detail: boundary.description,
+      estimatedMinutes: 10,
+    };
+  }
+
+  const next = nextNewLesson(views, placed);
   if (next) {
     return {
       kind: 'start-lesson',
@@ -279,7 +316,6 @@ export function nextAction(
   const checkpoint = allCheckpoints().find(
     (candidate) => candidate.status === 'available' && !passed.has(candidate.id),
   );
-  const allComplete = views.length > 0 && views.every((view) => view.complete);
   if (allComplete && checkpoint) {
     return {
       kind: 'checkpoint',
@@ -333,20 +369,121 @@ export function nextAction(
 }
 
 /**
+ * Where the placement check said to start, while that still stands.
+ *
+ * The check stored its recommendation and nothing read it back, so a learner
+ * told "Start at B1" who left the result any way but its first button was sent
+ * to Pre-A1 lesson 1 on Today, on the course page and in daily practice. The
+ * latest result counts until the learner does lesson work after it: opening
+ * the lesson it recommends, or the level above or below that the result
+ * offers instead, puts them somewhere real, and from then on the lessons
+ * themselves say where they are.
+ */
+export function standingPlacement(
+  lessons: Record<string, LessonProgress>,
+  checkpointResults: CheckpointResult[],
+): CefrLevel | undefined {
+  let latest: CheckpointResult | undefined;
+  for (const result of checkpointResults) {
+    if (result.checkpointId !== PLACEMENT_CHECKPOINT.id) continue;
+    if (!CEFR_ORDER.includes(result.targetId as CefrLevel)) continue;
+    if (!latest || Date.parse(result.createdAt) > Date.parse(latest.createdAt)) latest = result;
+  }
+  if (!latest) return undefined;
+  const placedAt = Date.parse(latest.createdAt);
+  const workedSince = Object.values(lessons).some(
+    (progress) => Date.parse(progress.lastActiveAt ?? progress.startedAt ?? '') > placedAt,
+  );
+  return workedSince ? undefined : (latest.targetId as CefrLevel);
+}
+
+/** Where the learner's part of the course begins: the placed level's first lesson, or the first of all. */
+function placedIndex(views: LessonView[], placed?: CefrLevel): number {
+  return placed ? Math.max(0, views.findIndex((view) => view.lesson.level === placed)) : 0;
+}
+
+/**
+ * A lesson started and not finished. While a placement stands, one below the
+ * placed level does not count: the learner was sent past it after opening it.
+ */
+export function lessonInProgress(views: LessonView[], placed?: CefrLevel): LessonView | undefined {
+  return views.slice(placedIndex(views, placed)).find((view) => view.started && !view.complete);
+}
+
+/**
  * The next lesson not yet started, counted on from where the learner is.
  *
  * The first unstarted lesson in the whole course sent a learner placed at A2
  * back to Pre-A1 lesson 1 after every lesson they finished. So the search
- * starts after the furthest lesson already started or finished; the lessons
- * left behind (below a placement, or skipped) come round once the end of the
- * course is reached.
+ * starts after the furthest lesson already started or finished, or at the
+ * placed level while a placement stands; the lessons left behind (below a
+ * placement, or skipped) come round once the end of the course is reached.
  */
-function nextNewLesson(views: LessonView[]): LessonView | undefined {
-  let furthest = -1;
-  views.forEach((view, index) => {
-    if (view.started || view.complete) furthest = index;
-  });
+export function nextNewLesson(views: LessonView[], placed?: CefrLevel): LessonView | undefined {
+  let furthest = placedIndex(views, placed) - 1;
+  if (!placed) {
+    views.forEach((view, index) => {
+      if (view.started || view.complete) furthest = index;
+    });
+  }
   return views.slice(furthest + 1).find((view) => !view.started) ?? views.find((view) => !view.started);
+}
+
+/**
+ * The checkpoint a level offers next: the first not yet passed among its
+ * finished units, then the level's own once every unit is finished. A unit
+ * with lessons still only planned is not finished.
+ */
+export function checkpointToTake(
+  level: Level,
+  lessons: Record<string, LessonProgress>,
+  checkpointResults: CheckpointResult[],
+): Checkpoint | undefined {
+  const passed = new Set(checkpointResults.filter((result) => result.passed).map((result) => result.checkpointId));
+  const finished = level.units.filter((unit) =>
+    unit.lessons.every((lesson) => isLessonComplete(lesson, lessons[lesson.id] ?? emptyProgress(lesson.id))),
+  );
+  const open = (checkpoint?: Checkpoint) => checkpoint && checkpoint.status === 'available' && !passed.has(checkpoint.id);
+  const unitCheckpoint = finished.map((unit) => unit.checkpoint).find(open);
+  if (unitCheckpoint) return unitCheckpoint;
+  return finished.length === level.units.length && open(level.checkpoint) ? level.checkpoint : undefined;
+}
+
+/**
+ * The checkpoint at a unit boundary: the furthest lesson reached has just
+ * finished its unit. It is that unit's own checkpoint, and after the level's
+ * last unit the level's, each only until it has been tried.
+ *
+ * It used to be the level's oldest checkpoint not passed, so one skipped in
+ * unit 1 came back at every boundary after, and a failed one stood between
+ * Today and the next lesson until it was passed. A skipped or failed
+ * checkpoint is still on the course page, with its best score.
+ */
+function unitCheckpointDue(
+  views: LessonView[],
+  lessons: Record<string, LessonProgress>,
+  checkpointResults: CheckpointResult[],
+): Checkpoint | undefined {
+  const furthest = views.filter((view) => view.started || view.complete).at(-1);
+  if (!furthest?.complete) return undefined;
+  const unit = unitById(furthest.lesson.unitId);
+  const level = CURRICULUM.find((entry) => entry.id === furthest.lesson.level);
+  if (!unit || !level) return undefined;
+  const finished = (candidate: Unit) =>
+    candidate.lessons.every((lesson) => isLessonComplete(lesson, lessons[lesson.id] ?? emptyProgress(lesson.id)));
+  if (!finished(unit)) return undefined;
+  const tried = new Set(checkpointResults.map((result) => result.checkpointId));
+  const untried = (checkpoint?: Checkpoint) =>
+    checkpoint?.status === 'available' && !tried.has(checkpoint.id) ? checkpoint : undefined;
+  const own = untried(unit.checkpoint);
+  if (own) return own;
+  return unit.id === level.units.at(-1)?.id && level.units.every(finished) ? untried(level.checkpoint) : undefined;
+}
+
+/** The level a checkpoint belongs to; none for the placement check. */
+export function checkpointLevel(checkpoint: Checkpoint): CefrLevel | undefined {
+  if (checkpoint.scope === 'unit') return unitById(checkpoint.targetId)?.level;
+  return checkpoint.scope === 'level' ? (checkpoint.targetId as CefrLevel) : undefined;
 }
 
 /**
@@ -649,7 +786,7 @@ export interface QueueEntry {
  */
 export function buildQueue(reviewItems: ReviewItem[], now = new Date()): QueueEntry[] {
   return orderQueue(reviewItems, now).map((item) => {
-    const reason = dueReason(item);
+    const reason = dueReason(item, now);
     const entry = vocabById(item.refId);
     if (entry) return { item, reason, label: entry.display, german: true, gloss: entry.translation, entry };
     const pattern = patternById(item.refId);
@@ -660,6 +797,26 @@ export function buildQueue(reviewItems: ReviewItem[], now = new Date()): QueueEn
     if (concept) return { item, reason, label: concept.title.en, german: false, title: concept.title };
     return { item, reason, label: item.refId, german: false };
   });
+}
+
+/**
+ * What "Practise early" plays: the soonest items not yet due that can be
+ * typed. Empty for a learner with nothing learnt yet, and then nothing may
+ * offer it: the dashboard and the empty review page promised early practice
+ * to a brand-new learner and the review page had no way to give it.
+ */
+export function earlyReviewExercises(reviewItems: ReviewItem[], now = new Date(), limit = 10): Exercise[] {
+  const ahead = reviewItems
+    .filter((item) => new Date(item.dueAt).getTime() > now.getTime())
+    .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
+  // Built from the front until there are enough, not for every item ahead:
+  // Today asks for one on each render, only to know whether there is one.
+  // A longer front gives the same cards first, so nothing changes but the
+  // work.
+  for (let end = limit; ; end += limit) {
+    const built = buildReviewExercises(ahead.slice(0, end)).exercises;
+    if (built.length >= limit || end >= ahead.length) return built.slice(0, limit);
+  }
 }
 
 export function reasonKey(reason: ReturnType<typeof dueReason>): TeachingLanguageKey {

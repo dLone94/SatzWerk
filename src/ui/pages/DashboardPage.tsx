@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { contentStats, unitForLesson } from '../../content/browser.ts';
+import { checkpointById, contentStats, unitForLesson } from '../../content/browser.ts';
 import { todayHere } from '../../core/progress/days.ts';
 import { estimatedMinutes, planSession } from '../../core/progress/session.ts';
 import { summarizeQueue } from '../../core/srs/scheduler.ts';
@@ -11,7 +11,14 @@ import { Icon } from '../components/icons.tsx';
 import { PracticalProgress } from '../components/PracticalProgress.tsx';
 import { DackelScene } from '../components/Dackel.tsx';
 import { reviewItemsForPath } from '../reviewBuilder.ts';
-import { buildLessonViews, buildVocabViews, nextAction, sessionBuild, skillProgress } from '../selectors.ts';
+import {
+  buildLessonViews,
+  buildVocabViews,
+  earlyReviewExercises,
+  nextAction,
+  sessionBuild,
+  skillProgress,
+} from '../selectors.ts';
 
 /**
  * Today: the one thing worth doing next, and nothing that competes with it.
@@ -48,7 +55,7 @@ export function DashboardPage() {
           : action.kind === 'mistakes'
             ? t('dashboardPracticeMistakes')
             : action.kind === 'checkpoint'
-              ? t('unitCheckpoint')
+              ? t(checkpointById(action.to.slice('/checkpoint/'.length))?.scope === 'level' ? 'levelCheckpoint' : 'unitCheckpoint')
               : t('reviewPracticeEarly');
   const actionTo = action.kind === 'idle' ? '/review' : action.to;
 
@@ -142,10 +149,14 @@ export function DashboardPage() {
           <p className="today-tile__main">
             {queue.total > 0 ? t('todayDue', { n: queue.total }) : t('todayNothingDue')}
           </p>
+          {/* "Practise early" only when there is something to practise: a new
+              learner was offered it and the review page had nothing to give. */}
           <p className="today-tile__note">
             {queue.total > 0
               ? `${t('todayReviewNote')} · ${t('dashboardEstimate', { n: Math.max(1, Math.round(queue.total * 0.4)) })}`
-              : t('reviewPracticeEarly')}
+              : earlyReviewExercises(onPath, new Date(), 1).length > 0
+                ? t('reviewPracticeEarly')
+                : t('todayReviewLater')}
           </p>
         </Link>
       </div>
