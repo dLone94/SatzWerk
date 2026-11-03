@@ -393,3 +393,87 @@ describe('a passed check with a teaching section unread', () => {
     expect(calls.completed).toEqual([L2.id]);
   });
 });
+
+describe('where focus goes as a lesson moves on', () => {
+  /** Every programmatic focus, and whether it was allowed to scroll the page. */
+  function watchFocus() {
+    const calls: Array<{ element: HTMLElement; scrolls: boolean }> = [];
+    const original = HTMLElement.prototype.focus;
+    const spy = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, options?: FocusOptions) {
+      calls.push({ element: this, scrolls: !options?.preventScroll });
+      original.call(this, options);
+    });
+    return { calls, restore: () => spy.mockRestore() };
+  }
+
+  /*
+   * The overview's Start button focused itself, and focusing it scrolled it
+   * into view: on a phone the lesson opened at its end, its title, the way
+   * back to the course and its objective all above the screen.
+   */
+  it('opens a lesson without scrolling down to its Start button', () => {
+    const focus = watchFocus();
+    try {
+      render(<Harness lessonId={L1.id} initial={emptyLessonProgress(L1.id)} calls={newCalls()} />);
+      expect(focus.calls.filter((call) => call.scrolls)).toEqual([]);
+      expect(screen.getByRole('button', { name: tr('lessonStart', 'en') })).not.toHaveFocus();
+    } finally {
+      focus.restore();
+    }
+  });
+
+  /*
+   * Next swapped the section in place and put the page at its top, but focus
+   * stayed on Next, now far below the screen: nothing said a new section had
+   * opened, and Space, meant to scroll, skipped the section unread.
+   */
+  it('takes focus to each new section by its title', async () => {
+    const user = userEvent.setup();
+    render(<Harness lessonId={L1.id} initial={emptyLessonProgress(L1.id)} calls={newCalls()} />);
+    await user.click(screen.getByRole('button', { name: tr('lessonStart', 'en') }));
+    expect(screen.getByRole('heading', { level: 2, name: L1.sections[0]!.title.en })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: tr('lessonNextSection', 'en') }));
+    expect(screen.getByRole('heading', { level: 2, name: L1.sections[1]!.title.en })).toHaveFocus();
+
+    // Back from the exercises, the overview is announced by its title too.
+    for (let i = 0; i < 20; i++) {
+      const next = screen.queryByRole('button', { name: tr('lessonNextSection', 'en') });
+      if (!next) break;
+      await user.click(next);
+    }
+    await user.click(screen.getByRole('button', { name: tr('lessonToExercises', 'en') }));
+    await user.click(screen.getByRole('button', { name: tr('lessonBackToLesson', 'en') }));
+    expect(screen.getByRole('heading', { level: 1, name: L1.title.en })).toHaveFocus();
+  });
+
+  /*
+   * The last Continue unmounted the player, and with it its focus and its
+   * live region: the result arrived with focus on the page and nothing read.
+   */
+  it('lands on the result of a passed check, and says the score', async () => {
+    const user = userEvent.setup();
+    const calls = newCalls();
+    render(<Harness lessonId={L2.id} initial={allButCheck(L2)} calls={calls} />);
+    await user.click(screen.getByRole('button', { name: tr('lessonMastery', 'en') }));
+    await play(user, L2.mastery.exercises, { right: () => true, done: () => Boolean(document.querySelector('.done-hero')) });
+    await waitFor(() => expect(document.querySelector('.done-hero')).not.toBeNull());
+    const title = screen.getByRole('heading', { level: 1 });
+    expect(title).toHaveTextContent(tr('lessonDoneTitle', 'en'));
+    expect(title).toHaveFocus();
+    const total = masterySteps(L2).length;
+    expect(title).toHaveAccessibleDescription(tr('exerciseScore', 'en', { correct: total, total }));
+  });
+
+  it('lands on the way on from a failed check, and says why', async () => {
+    const user = userEvent.setup();
+    render(<Harness lessonId={L2.id} initial={allButCheck(L2)} calls={newCalls()} />);
+    await user.click(screen.getByRole('button', { name: tr('lessonMastery', 'en') }));
+    await play(user, L2.mastery.exercises, {
+      right: () => false,
+      done: () => Boolean(screen.queryByRole('button', { name: tr('lessonMasteryRetry', 'en') })),
+    });
+    const again = screen.getByRole('button', { name: tr('lessonReplay', 'en') });
+    expect(again).toHaveFocus();
+    expect(again).toHaveAccessibleDescription(new RegExp(tr('lessonMasteryFailed', 'en').slice(0, 20)));
+  });
+});

@@ -116,3 +116,15 @@ it('a learner handover clears the open daily round', async () => {
   expect(screen.getByRole('button', { name: tr('dailyStart', 'en') })).toBeInTheDocument();
   expect(screen.queryByText('Guten Morgen!')).not.toBeInTheDocument();
 });
+
+/*
+ * "Next phrase" swapped the card in place and left focus on the button, so a
+ * screen reader heard nothing of "Phrase 2 of 3" or the new German.
+ */
+it('takes focus to each new phrase by its title', async () => {
+  render(<AppStateContext.Provider value={stubState()}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+  await user.click(await screen.findByRole('button', { name: tr('dailyNextPhrase', 'en') }));
+  expect(screen.getByRole('heading', { level: 2, name: /^Phrase 2 of/ })).toHaveFocus();
+});
