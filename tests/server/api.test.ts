@@ -195,6 +195,9 @@ describe('attempts, mistakes and the retyping distinction', () => {
       expect((response.body as { mistakeId?: string }).mistakeId).toBe(made!.id);
       expect(await store.listMistakes(scopeOf(db))).toHaveLength(0);
       expect((await store.listMistakes(scopeOf(db), true))[0]!.resolvedAt).not.toBeNull();
+      // The kinds of mistake over the bank go with it, rather than staying up
+      // over an empty list.
+      expect((await store.getStats(scopeOf(db))).categoryCounts).toEqual([]);
     });
 
     it('takes the same question filed under another category with it', async () => {
@@ -224,6 +227,18 @@ describe('attempts, mistakes and the retyping distinction', () => {
       await call('POST', '/api/attempts', practice(made!.id));
       await call('POST', '/api/attempts', wrongAttempt);
       expect(await store.listMistakes(scopeOf(db))).toEqual([expect.objectContaining({ id: made!.id, occurrences: 3, resolvedAt: null })]);
+    });
+
+    it('puts it away from the daily round’s variation of it too', async () => {
+      await call('POST', '/api/attempts', wrongAttempt);
+      await call('POST', '/api/attempts', wrongAttempt);
+      const [made] = await store.listMistakes(scopeOf(db));
+      // Another sentence of the same kind, played in the daily review.
+      await call('POST', '/api/attempts', practice(made!.id, {
+        context: 'review', exerciseId: `daily-target-u1l2-ex2-mp-${made!.id}`, stepId: 'daily-target-u1l2-ex2-2',
+        expected: 'das', given: 'das',
+      }));
+      expect(await store.listMistakes(scopeOf(db))).toHaveLength(0);
     });
 
     it('leaves the bank alone when a right answer is not a mistake card', async () => {

@@ -116,6 +116,16 @@ describe('practising the mistake bank', () => {
     expect(hints).toContain('"d"');
   });
 
+  it('does not end a sentence answered last time with a second full stop', () => {
+    const [step] = buildMistakePractice([
+      mistake('aaaaaaaaaaaaaaaa', 'die', 'Der Tochter.', { stepId: 'u1l2-ex2-3' }),
+    ])[0]!.steps;
+    expect(step!.instruction!.en).toMatch(/answered "Der Tochter\."$/);
+    expect(step!.instruction!.bg).toMatch(/„Der Tochter\.“$/);
+    const [word] = buildMistakePractice([mistake('aaaaaaaaaaaaaaaa', 'die', 'der', { stepId: 'u1l2-ex2-3' })])[0]!.steps;
+    expect(word!.instruction!.en).toMatch(/answered "der"\.$/);
+  });
+
   it('makes one card of one question filed under two categories', () => {
     const cards = buildMistakePractice([
       mistake('aaaaaaaaaaaaaaaa', 'die', 'der', { stepId: 'u1l2-ex2-3' }),
@@ -190,5 +200,42 @@ describe('the placement check and the mistake bank', () => {
     await user.click(screen.getByRole('button', { name: tr('placementStart', 'en') }));
     await user.click(screen.getByRole('button', { name: tr('exerciseSkip', 'en') }));
     expect(submitAttempt).toHaveBeenCalledWith(expect.objectContaining({ context: 'placement' }));
+  });
+});
+
+describe('a mistake whose question is not loaded', () => {
+  /*
+   * The placement check's content is loaded only on its own page, and a
+   * level's only on the routes that need it; everywhere else their steps are
+   * catalog entries with no prompt and no answer. Replayed as they were, a
+   * placement guess filed before the check stopped filing them came back on
+   * /mistakes as a card with nothing to answer, which refused every answer
+   * and so could never be cleared.
+   */
+  const fresh = async () => {
+    // The content as a page that has loaded nothing finds it.
+    vi.resetModules();
+    const content = await import('../../src/content/browser.ts');
+    const { buildMistakePractice: build } = await import('../../src/ui/reviewBuilder.ts');
+    return { content, build };
+  };
+
+  it('does not replay a placement step, on a page that loads every level', async () => {
+    const { content, build } = await fresh();
+    await content.ensureContent('/mistakes');
+    expect(content.checkpointById('placement')!.exercises[1]!.steps[0]!.answer.accepted).toEqual([]);
+    const [card] = build([
+      mistake('aaaaaaaaaaaaaaaa', 'Heute arbeite ich zu Hause.', 'Heute ich arbeite zu Hause.', { stepId: 'pl-a1-1', category: 'word-order' }),
+    ]);
+    const step = card!.steps[0]!;
+    expect(step.prompt?.en).toContain('Heute ich arbeite zu Hause.');
+    expect(step.answer.accepted).toEqual(['Heute arbeite ich zu Hause.']);
+  });
+
+  it('does not replay a lesson step whose level is not loaded', async () => {
+    const { build } = await fresh();
+    const [card] = build([mistake('aaaaaaaaaaaaaaaa', 'die', 'der', { stepId: 'u1l2-ex2-3' })]);
+    expect(card!.steps[0]!.prompt).toBeTruthy();
+    expect(card!.steps[0]!.answer.accepted).toEqual(['die']);
   });
 });

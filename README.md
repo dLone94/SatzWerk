@@ -512,8 +512,10 @@ many times it was retyped correctly — and it can be practised either as a roun
 of exactly those sentences, or as a round drilling the whole category. A
 practice card asks the original question again, with the earlier answer
 beside it; answered right with no hint, the mistake is put away, and it comes
-back if it is made again. Placement answers are never filed here: that check
-is looking for where the learner's German runs out.
+back if it is made again. The daily round asks a recurring mistake in another
+sentence of the same kind, and a clean answer there puts it away too.
+Placement answers are never filed here: that check is looking for where the
+learner's German runs out (migration 9 put away the ones filed before).
 
 **An honest dashboard.** Every figure is derived from database rows. A fresh
 profile shows `—` and "No data yet", not a zero dressed up as progress. The

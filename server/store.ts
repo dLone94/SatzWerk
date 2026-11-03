@@ -703,12 +703,13 @@ async function creditRetype({ db, userId }: Scope, input: AttemptInput, iso: str
  * reopens it (upsertMistake clears resolved_at), so the bank holds what is
  * still going wrong.
  *
- * The card names its mistake in its exercise id, `mp-<mistake id>`, which is
- * how the app builds it (mistakePracticeId in src/ui/reviewBuilder.ts).
- * Returns the id, so the app knows the bank has changed.
+ * The card names its mistake at the end of its exercise id, `mp-<mistake
+ * id>`, which is how the app builds it (mistakePracticeId in
+ * src/ui/reviewBuilder.ts). Returns the id, so the app knows the bank has
+ * changed.
  */
 async function resolvePractised({ db, userId }: Scope, input: AttemptInput, iso: string): Promise<string | undefined> {
-  const practised = /^mp-([0-9a-f]{16})$/.exec(input.exerciseId ?? '')?.[1];
+  const practised = /(?:^|-)mp-([0-9a-f]{16})$/.exec(input.exerciseId ?? '')?.[1];
   if (!practised) return undefined;
   const row = await db.get<{ step_id: string | null; expected: string }>(
     'SELECT step_id, expected FROM mistakes WHERE id = ? AND user_id = ? AND resolved_at IS NULL', practised, userId);
@@ -1017,8 +1018,11 @@ export async function getStats(scope: Scope, now = new Date(), tzOffsetMinutes =
 
   const study = await db.get('SELECT COALESCE(SUM(seconds_active), 0) AS seconds, COUNT(*) AS days FROM study_days WHERE user_id = ?', userId) as Record<string, unknown>;
 
+  // Kinds of mistake in the open bank only. The counts sit over the bank's
+  // list and filter it, and now that practice puts a mistake away, counting
+  // the ones put away kept a kind up whose rows had all gone.
   const categories = await db.all(`SELECT category, SUM(occurrences) AS count FROM mistakes
-       WHERE user_id = ? GROUP BY category ORDER BY count DESC`, userId) as Array<Record<string, unknown>>;
+       WHERE user_id = ? AND resolved_at IS NULL GROUP BY category ORDER BY count DESC`, userId) as Array<Record<string, unknown>>;
 
   const answers = Number(firstTry.answers ?? 0);
   const correct = Number(firstTry.correct ?? 0);

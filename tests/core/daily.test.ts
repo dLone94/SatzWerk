@@ -54,6 +54,17 @@ describe('personal daily plans', () => {
     expect(microTip(['article'])?.bg).toContain('българския');
   });
 
+  it('names the mistake a variation is for, so that getting it right can put the mistake away', () => {
+    // Nothing practised here used to say which mistake it was for, so a
+    // learner who practised only in the daily round met the same mistakes in
+    // every round.
+    const mistake: MistakeRecord = { id: '0123456789abcdef', category: 'article', expected: 'der Tisch',
+      lastGiven: 'die Tisch', stepId: null, lessonId: null, occurrences: 2, correctedCount: 0,
+      firstSeenAt: '', lastSeenAt: '', resolvedAt: null };
+    const targeted = dailyReview([], [mistake], 'pre-a1', 'en', 4).find(exercise => exercise.id.startsWith('daily-target-'))!;
+    expect(targeted.id).toMatch(/^daily-target-.+-mp-0123456789abcdef$/);
+  });
+
   it('learns noun articles and plurals together, and reviews familiar words in a sentence', () => {
     const script = SCENARIO_SCRIPTS.find(script => script.id === 'sc-bakery-a1')!;
     expect(dailyPhrases(script, 'en').some(card => card.words.some(word => word.article && word.plural))).toBe(true);

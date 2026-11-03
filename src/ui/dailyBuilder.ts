@@ -5,7 +5,7 @@ import type { LearningGoal } from '../core/progress/daily.ts';
 import { orderQueue } from '../core/srs/scheduler.ts';
 import type { ReviewItem } from '../core/srs/scheduler.ts';
 import type { MistakeRecord, ScenarioRun } from '../services/api/client.ts';
-import { buildMistakePractice, buildReviewExercises } from './reviewBuilder.ts';
+import { buildMistakePractice, buildReviewExercises, mistakePracticeId } from './reviewBuilder.ts';
 import { dailyPatternId } from '../content/dailyPatterns.ts';
 import { phraseFrame } from '../content/phraseFrames.ts';
 
@@ -90,13 +90,19 @@ export function dailyReview(items: ReviewItem[], mistakes: MistakeRecord[], leve
   const taken = new Set<string>();
   for (const mistake of recurring) {
     // Use an authored variation of the same skill, at or below this learner's level.
+    // Got right with no help, it puts the mistake away: the skill has held in a
+    // sentence that cannot have been remembered, which says more than the same
+    // question again would. Made again, the mistake comes back. Before, nothing
+    // practised here could put one away, so a learner who practised only here
+    // met the same mistakes in every round.
     const variation = practiceForCategory(mistake.category, 80).find(exercise =>
       CEFR_ORDER.indexOf(exercise.level) <= CEFR_ORDER.indexOf(level) && isVisible(exercise, lang) &&
       exercise.steps.some(step => isVisible(step, lang) && step.id !== mistake.stepId && !taken.has(step.id)));
     if (variation) {
       const step = variation.steps.find(step => isVisible(step, lang) && step.id !== mistake.stepId && !taken.has(step.id))!;
       taken.add(step.id);
-      targeted.push({ ...variation, id: `daily-target-${variation.id}`, steps: [{ ...step, id: `daily-target-${step.id}` }] });
+      targeted.push({ ...variation, id: mistakePracticeId(mistake.id, `daily-target-${variation.id}`),
+        steps: [{ ...step, id: `daily-target-${step.id}` }] });
     }
     if (targeted.length === 2) break;
   }

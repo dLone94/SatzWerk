@@ -42,6 +42,10 @@ and the individual answers remain recorded. Resetting progress clears only the
 selected learner's runs. Audio recordings are temporary browser blobs and are
 never saved to this database or sent to the API.
 
+Schema migration 9 changes no tables. It puts away mistake-bank rows that the
+placement check filed before it stopped filing them (step ids beginning `pl-`),
+dated when each was last seen; no row is deleted.
+
 Set `TEST_DATABASE_URL` to a **disposable database** to include PostgreSQL
 parity tests. Those tests recreate its public schema. See `AUDIT.md` for the
 checks and measurements made during this work.

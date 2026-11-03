@@ -177,14 +177,24 @@ export function buildReviewExercises(items: ReviewItem[], lang?: TeachingLanguag
   return { exercises, conceptItems };
 }
 
-/** Every authored step, by id, with its exercise: lesson practice, final checks and checkpoints. */
+/**
+ * Every authored step, by id, with its exercise: lesson practice, final checks
+ * and unit and level checkpoints.
+ *
+ * The placement check is left out. It files no mistakes, and its content is
+ * only loaded on its own page, so anywhere else its steps are catalog
+ * metadata with no prompt and no answer: replayed from the mistake bank, an
+ * old placement guess became a blank card that no answer could pass.
+ */
 let stepIndex: Map<string, { exercise: Exercise; step: ExerciseStep }> | null = null;
 export function authoredStep(id: string): { exercise: Exercise; step: ExerciseStep } | undefined {
   if (!stepIndex) {
     stepIndex = new Map();
     const exercises = [
       ...allLessons().flatMap((lesson) => [...lesson.exercises, ...lesson.mastery.exercises]),
-      ...allCheckpoints().flatMap((checkpoint) => checkpoint.exercises),
+      ...allCheckpoints()
+        .filter((checkpoint) => checkpoint.scope !== 'placement')
+        .flatMap((checkpoint) => checkpoint.exercises),
     ];
     for (const exercise of exercises) for (const step of exercise.steps) stepIndex.set(step.id, { exercise, step });
   }
@@ -205,10 +215,11 @@ export interface PractisedMistake {
  * The exercise id a mistake's practice card carries. The server reads it back:
  * a clean right answer on that card puts the mistake away (recordAttempt in
  * server/store.ts), and nothing else in an attempt says which mistake a card
- * was for.
+ * was for. A card with an id of its own, the daily round's variation say,
+ * keeps it in front.
  */
-export function mistakePracticeId(mistakeId: string): string {
-  return `mp-${mistakeId}`;
+export function mistakePracticeId(mistakeId: string, card?: string): string {
+  return card ? `${card}-mp-${mistakeId}` : `mp-${mistakeId}`;
 }
 
 /**
@@ -250,9 +261,11 @@ function mistakeExercise(mistake: PractisedMistake): Exercise {
       ? bi('Practise a recurring mistake', 'Упражни повтаряща се грешка')
       : bi('Fix a mistake', 'Поправи грешка');
   const stepId = mistake.stepId ?? `mp-${mistake.id}-s1`;
+  // An answer that was a whole sentence brings its own full stop.
+  const stop = /[.!?…]$/.test(mistake.lastGiven.trim()) ? '' : '.';
   const lastTime = bi(
-    `Last time you answered "${mistake.lastGiven}".`,
-    `Миналия път отговори „${mistake.lastGiven}“.`,
+    `Last time you answered "${mistake.lastGiven}"${stop}`,
+    `Миналия път отговори „${mistake.lastGiven}“${stop}`,
   );
   const asMistake = (card: Exercise, step: ExerciseStep): Exercise => {
     const replay: ExerciseStep = {
@@ -266,9 +279,11 @@ function mistakeExercise(mistake: PractisedMistake): Exercise {
     return { ...card, id: mistakePracticeId(mistake.id), objective, steps: [replay] };
   };
 
-  // A daily round asks an authored step under its own prefixed id.
+  // A daily round asks an authored step under its own prefixed id. A step
+  // whose level has not been loaded has no answers yet, and replayed it could
+  // never be passed, so it is rebuilt below like any other.
   const authored = mistake.stepId ? authoredStep(mistake.stepId.replace(/^daily-target-/, '')) : undefined;
-  if (authored) return asMistake(authored.exercise, authored.step);
+  if (authored && authored.step.answer.accepted.length > 0) return asMistake(authored.exercise, authored.step);
 
   const entry = VOCABULARY.find((candidate) => candidate.display === mistake.expected || candidate.german === mistake.expected);
   if (entry) {
