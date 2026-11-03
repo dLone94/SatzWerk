@@ -40,15 +40,17 @@ export function CoursePage() {
   const current = (views.find(view => view.lesson.id === suggested) ?? lessonInProgress(views, placed) ??
     nextNewLesson(views, placed))?.lesson;
   // Today may send you to the checkpoint closing the unit just finished; then
-  // its level opens and it comes before the next lesson here too.
+  // its level opens and it comes before the next lesson here too. The next
+  // lesson stays marked on the trail all the same, so where to go on after
+  // the checkpoint is still plain.
   const checkpointFirst = action.kind === 'checkpoint' ? checkpointById(action.to.slice('/checkpoint/'.length)) : undefined;
   const firstLevel = (checkpointFirst ? checkpointLevel(checkpointFirst) : undefined) ?? current?.level;
   const chosen = CURRICULUM.find((level) => level.id === params.get('level'));
   const level = chosen ?? CURRICULUM.find((entry) => entry.id === firstLevel) ?? CURRICULUM[0]!;
   const [downloads, setDownloads] = useState<Record<string, 'saving' | 'saved' | 'failed'>>({});
   const download = downloads[level.id];
-  const nextCheckpoint = checkpointToTake(level, lessons, checkpointResults);
-  const checkpointHere = Boolean(checkpointFirst && nextCheckpoint && checkpointLevel(checkpointFirst) === level.id);
+  const checkpointHere = checkpointFirst && checkpointLevel(checkpointFirst) === level.id ? checkpointFirst : undefined;
+  const nextCheckpoint = checkpointHere ?? checkpointToTake(level, lessons, checkpointResults);
   const lessonFirst = Boolean(current && current.level === level.id && !checkpointHere);
 
   return (
@@ -83,12 +85,13 @@ export function CoursePage() {
           <Icon name="arrow" />
         </Link>
       ) : nextCheckpoint ? <Link className="course-continue" to={`/checkpoint/${nextCheckpoint.id}`}>
-        <span className="course-continue__icon"><Icon name="check" /></span>
+        <span className="course-continue__icon"><Icon name="target" /></span>
         <span><strong>{t('courseJumpCheckpoint')}</strong><span>{say(nextCheckpoint.title)}</span></span>
         <Icon name="arrow" />
       </Link> : null}
-      <LevelPath key={level.id} level={level} currentLessonId={checkpointHere ? undefined : current?.id}
-        currentUnitId={nextCheckpoint?.scope === 'unit' ? nextCheckpoint.targetId : undefined} />
+      <LevelPath key={level.id} level={level} currentLessonId={current?.id}
+        currentUnitId={nextCheckpoint?.scope === 'unit' ? nextCheckpoint.targetId : undefined}
+        checkpointFirst={Boolean(checkpointHere)} />
       {'serviceWorker' in navigator ? <aside className="offline-level">
         <div><strong>{t('offlineLevel')}</strong><p>{t('offlineLevelNote')}</p></div>
         <button type="button" className="btn btn--secondary" disabled={download === 'saving'} onClick={async () => {
@@ -103,13 +106,26 @@ export function CoursePage() {
   );
 }
 
-function LevelPath({ level, currentLessonId, currentUnitId }: { level: Level; currentLessonId?: string; currentUnitId?: string }) {
+/**
+ * One level's trail. The unit holding the current lesson is open; when the
+ * checkpoint closing a unit comes first (`checkpointFirst`), that unit opens
+ * too, and with no current lesson in this level the next checkpoint's unit
+ * stands in for it.
+ */
+function LevelPath({ level, currentLessonId, currentUnitId, checkpointFirst = false }: {
+  level: Level;
+  currentLessonId?: string;
+  currentUnitId?: string;
+  checkpointFirst?: boolean;
+}) {
   const { t, say, lessons } = useApp();
   const authored = level.units.flatMap((unit) => unit.lessons).filter((lesson) => lesson.status === 'available');
   const complete = authored.filter((lesson) => isLessonComplete(lesson, lessons[lesson.id] ?? empty(lesson.id)));
   const currentUnit = level.units.find(unit => unit.lessons.some(lesson => lesson.id === currentLessonId)) ?? level.units.find(unit => unit.id === currentUnitId) ??
     level.units.find(unit => unit.lessons.some(lesson => !isLessonComplete(lesson, lessons[lesson.id] ?? empty(lesson.id)))) ?? level.units[0];
+  const open = new Set([currentUnit?.id, checkpointFirst ? currentUnitId : undefined]);
   const outline = LEVEL_OUTLINES[level.id as Exclude<CefrLevel, 'c1' | 'c2'>];
+  const gate = useCheckpointStanding(level.checkpoint?.id);
 
   return (
     <section className="level" aria-labelledby={`level-${level.id}`}>
@@ -141,17 +157,24 @@ function LevelPath({ level, currentLessonId, currentUnitId }: { level: Level; cu
       </details>
 
       {level.units.map((unit) => (
-        <UnitPath key={unit.id} unit={unit} currentLessonId={currentLessonId} defaultOpen={unit.id === currentUnit?.id} />
+        <UnitPath key={unit.id} unit={unit} currentLessonId={currentLessonId} defaultOpen={open.has(unit.id)} />
       ))}
 
+      {/* Like a unit's: a target until passed, and it says how it stands. */}
       {level.checkpoint ? (
-        <Link className="level-gate" to={`/checkpoint/${level.checkpoint.id}`}>
+        <Link
+          className="level-gate"
+          to={`/checkpoint/${level.checkpoint.id}`}
+          aria-labelledby={`${level.checkpoint.id}-title`}
+          aria-describedby={`${level.checkpoint.id}-desc ${level.checkpoint.id}-meta`}
+        >
           <span className="level-gate__icon">
-            <Icon name="check" />
+            <Icon name={gate.passed ? 'check' : 'target'} />
           </span>
           <span className="level-gate__text">
-            <span className="level-gate__title">{t('levelCheckpoint')}</span>
-            <span className="level-gate__desc">{say(level.checkpoint.description)}</span>
+            <span className="level-gate__title" id={`${level.checkpoint.id}-title`}>{t('levelCheckpoint')}</span>
+            <span className="level-gate__desc" id={`${level.checkpoint.id}-desc`}>{say(level.checkpoint.description)}</span>
+            <span className="level-gate__status" id={`${level.checkpoint.id}-meta`}>{gate.status}</span>
           </span>
           <Icon name="arrow" size={20} />
         </Link>
@@ -215,11 +238,9 @@ type Stop =
   | { kind: 'checkpoint'; id: string };
 
 function UnitPath({ unit, currentLessonId, defaultOpen }: { unit: Unit; currentLessonId?: string; defaultOpen: boolean }) {
-  const { t, say, lessons, checkpointResults } = useApp();
+  const { t, say, lessons } = useApp();
   const [open, setOpen] = useState(defaultOpen);
-  const results = checkpointResults.filter(result => result.checkpointId === unit.checkpoint?.id);
-  const passed = results.some(result => result.passed);
-  const best = Math.round(Math.max(0, ...results.map(result => result.accuracy)) * 100);
+  const { passed, status } = useCheckpointStanding(unit.checkpoint?.id);
 
   const stops: Stop[] = unit.lessons.map((lesson) => {
     if (lesson.status !== 'available') return { kind: 'lesson', id: lesson.id, state: 'planned', started: false };
@@ -277,13 +298,7 @@ function UnitPath({ unit, currentLessonId, defaultOpen }: { unit: Unit; currentL
                     </span>
                     <span className="trail-stop__label">
                       <span className="trail-stop__title" id={`${stop.id}-title`}>{say(unit.checkpoint!.title)}</span>
-                      <span className="trail-stop__meta" id={`${stop.id}-meta`}>
-                        {passed
-                          ? t('courseCheckpointDone')
-                          : results.length > 0
-                            ? t('courseCheckpointBest', { n: best })
-                            : t('courseCheckpointNotTaken')}
-                      </span>
+                      <span className="trail-stop__meta" id={`${stop.id}-meta`}>{status}</span>
                     </span>
                   </Link>
                 </li>
@@ -362,6 +377,22 @@ function UnitPath({ unit, currentLessonId, defaultOpen }: { unit: Unit; currentL
       </div>
     </details>
   );
+}
+
+/** How a checkpoint stands: passed, the best score so far, or not taken yet. */
+function useCheckpointStanding(checkpointId?: string): { passed: boolean; status: string } {
+  const { t, checkpointResults } = useApp();
+  const results = checkpointResults.filter((result) => result.checkpointId === checkpointId);
+  const passed = results.some((result) => result.passed);
+  const best = Math.round(Math.max(0, ...results.map((result) => result.accuracy)) * 100);
+  return {
+    passed,
+    status: passed
+      ? t('courseCheckpointDone')
+      : results.length > 0
+        ? t('courseCheckpointBest', { n: best })
+        : t('courseCheckpointNotTaken'),
+  };
 }
 
 function empty(lessonId: string) {

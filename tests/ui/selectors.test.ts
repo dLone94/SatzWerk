@@ -210,6 +210,34 @@ describe('the end of a unit', () => {
     const [first] = unit.lessons;
     expect(nextAction({ [first!.id]: completed(first!.id) }, [], [], true).kind).toBe('start-lesson');
   });
+
+  /*
+   * It used to be the level's oldest checkpoint not passed: with unit 1's
+   * skipped, the end of unit 2 offered unit 1's, and so did every boundary
+   * after it; a failed one stood in front of the next lesson until passed.
+   */
+  const level = allUnits().filter((candidate) => candidate.level === unit.level);
+  const through = (count: number) => Object.fromEntries(level.slice(0, count)
+    .flatMap((candidate) => candidate.lessons).map((lesson) => [lesson.id, completed(lesson.id)]));
+  const tried = (checkpointId: string, passed = false): CheckpointResult =>
+    ({ checkpointId, targetId: '', accuracy: passed ? 1 : 0.4, passed, createdAt: '2026-01-02T00:00:00.000Z' });
+
+  it('offers the checkpoint of the unit just finished, not one skipped before it', () => {
+    expect(nextAction(through(2), [], [], true)).toMatchObject({ to: `/checkpoint/${level[1]!.checkpoint!.id}` });
+  });
+
+  it('goes on to the next lesson once it has been tried, passed or not', () => {
+    expect(nextAction(done, [], [], true, [result(false)]).kind).toBe('start-lesson');
+  });
+
+  it('offers the level checkpoint after the level’s last unit and its checkpoint', () => {
+    const last = level.at(-1)!;
+    const all = through(level.length);
+    expect(nextAction(all, [], [], true)).toMatchObject({ to: `/checkpoint/${last.checkpoint!.id}` });
+    const levelCheckpoint = allCheckpoints().find((checkpoint) => checkpoint.scope === 'level' && checkpoint.targetId === unit.level)!;
+    expect(nextAction(all, [], [], true, [tried(last.checkpoint!.id)])).toMatchObject({ to: `/checkpoint/${levelCheckpoint.id}` });
+    expect(nextAction(all, [], [], true, [tried(last.checkpoint!.id), tried(levelCheckpoint.id)]).kind).toBe('start-lesson');
+  });
 });
 
 describe('which words a mistake is counted against', () => {

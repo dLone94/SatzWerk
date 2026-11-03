@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { contentStats, unitForLesson } from '../../content/browser.ts';
+import { checkpointById, contentStats, unitForLesson } from '../../content/browser.ts';
 import { todayHere } from '../../core/progress/days.ts';
 import { estimatedMinutes, planSession } from '../../core/progress/session.ts';
 import { summarizeQueue } from '../../core/srs/scheduler.ts';
@@ -55,7 +55,7 @@ export function DashboardPage() {
           : action.kind === 'mistakes'
             ? t('dashboardPracticeMistakes')
             : action.kind === 'checkpoint'
-              ? t('unitCheckpoint')
+              ? t(checkpointById(action.to.slice('/checkpoint/'.length))?.scope === 'level' ? 'levelCheckpoint' : 'unitCheckpoint')
               : t('reviewPracticeEarly');
   const actionTo = action.kind === 'idle' ? '/review' : action.to;
 
@@ -154,7 +154,7 @@ export function DashboardPage() {
           <p className="today-tile__note">
             {queue.total > 0
               ? `${t('todayReviewNote')} · ${t('dashboardEstimate', { n: Math.max(1, Math.round(queue.total * 0.4)) })}`
-              : earlyReviewExercises(onPath).length > 0
+              : earlyReviewExercises(onPath, new Date(), 1).length > 0
                 ? t('reviewPracticeEarly')
                 : t('todayReviewLater')}
           </p>

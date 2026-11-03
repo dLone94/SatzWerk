@@ -12,6 +12,7 @@ import { AppStateContext, type AppStateValue } from '../../src/state/AppState.ts
 import { DashboardPage } from '../../src/ui/pages/DashboardPage.tsx';
 import { ReviewPage } from '../../src/ui/pages/ReviewPage.tsx';
 import { buildReviewExercises } from '../../src/ui/reviewBuilder.ts';
+import { earlyReviewExercises } from '../../src/ui/selectors.ts';
 import { stubState } from './playerStub.tsx';
 
 /**
@@ -121,5 +122,23 @@ describe('the review page', () => {
     learnt.unmount();
     mount(<ReviewPage />, { reviewItems: [later] }, '/review');
     expect(screen.getByRole('button', { name: tr('reviewPracticeEarly', 'en') })).toBeInTheDocument();
+  });
+
+  it('builds early practice only as far as it is asked, with the same cards first', () => {
+    // Today asks whether there is any on every render; grammar in front
+    // cannot be typed and is passed over.
+    const ahead = (refId: string, kind: ReviewItem['kind'], days: number): ReviewItem => ({
+      ...createReviewItem({ id: `${kind}:${refId}`, kind, refId, level: 'pre-a1' }),
+      state: 'known', intervalDays: days, dueAt: new Date(now + days * 86_400_000).toISOString(),
+    });
+    const grammar = lessonsInOrder()[0]!.sections.find((section) => section.grammarId)?.grammarId ?? 'g-missing';
+    const items = [
+      ahead(grammar, 'grammar', 1),
+      ...VOCABULARY.slice(0, 25).map((entry, index) => ahead(entry.id, 'vocab', index + 2)),
+    ];
+    const all = earlyReviewExercises(items, new Date(now), 25);
+    expect(all).toHaveLength(25);
+    expect(earlyReviewExercises(items, new Date(now), 1)).toEqual(all.slice(0, 1));
+    expect(earlyReviewExercises(items, new Date(now))).toEqual(all.slice(0, 10));
   });
 });

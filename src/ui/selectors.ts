@@ -24,6 +24,7 @@ import {
   type Lesson,
   type Level,
   type TeachingLanguage,
+  type Unit,
   type VocabEntry,
 } from '../content/types.ts';
 import { allStepIds, isLessonComplete, lessonRequirements, type LessonProgress } from '../core/progress/lesson.ts';
@@ -272,9 +273,9 @@ export function nextAction(
    * The course promises a checkpoint at the end of every unit, but none was
    * offered until all 84 lessons were done, so nobody was ever sent to one
    * while working through the course. It is offered while the furthest lesson
-   * reached is the one that finished a unit, and it is the checkpoint the
-   * course page offers for that level. A learner who would rather go on starts
-   * the next lesson, and the moment has passed; the course page still has it.
+   * reached is the one that finished a unit, once: a learner who has tried it
+   * goes on, and so does one who would rather start the next lesson. The
+   * course page still has it.
    */
   const boundary = placed || allComplete ? undefined : unitCheckpointDue(views, lessons, checkpointResults);
   if (boundary) {
@@ -448,7 +449,16 @@ export function checkpointToTake(
   return finished.length === level.units.length && open(level.checkpoint) ? level.checkpoint : undefined;
 }
 
-/** The checkpoint at a unit boundary: the furthest lesson reached has just finished its unit. */
+/**
+ * The checkpoint at a unit boundary: the furthest lesson reached has just
+ * finished its unit. It is that unit's own checkpoint, and after the level's
+ * last unit the level's, each only until it has been tried.
+ *
+ * It used to be the level's oldest checkpoint not passed, so one skipped in
+ * unit 1 came back at every boundary after, and a failed one stood between
+ * Today and the next lesson until it was passed. A skipped or failed
+ * checkpoint is still on the course page, with its best score.
+ */
 function unitCheckpointDue(
   views: LessonView[],
   lessons: Record<string, LessonProgress>,
@@ -459,8 +469,15 @@ function unitCheckpointDue(
   const unit = unitById(furthest.lesson.unitId);
   const level = CURRICULUM.find((entry) => entry.id === furthest.lesson.level);
   if (!unit || !level) return undefined;
-  const unitDone = views.filter((view) => view.lesson.unitId === unit.id).every((view) => view.complete);
-  return unitDone ? checkpointToTake(level, lessons, checkpointResults) : undefined;
+  const finished = (candidate: Unit) =>
+    candidate.lessons.every((lesson) => isLessonComplete(lesson, lessons[lesson.id] ?? emptyProgress(lesson.id)));
+  if (!finished(unit)) return undefined;
+  const tried = new Set(checkpointResults.map((result) => result.checkpointId));
+  const untried = (checkpoint?: Checkpoint) =>
+    checkpoint?.status === 'available' && !tried.has(checkpoint.id) ? checkpoint : undefined;
+  const own = untried(unit.checkpoint);
+  if (own) return own;
+  return unit.id === level.units.at(-1)?.id && level.units.every(finished) ? untried(level.checkpoint) : undefined;
 }
 
 /** The level a checkpoint belongs to; none for the placement check. */
@@ -792,7 +809,14 @@ export function earlyReviewExercises(reviewItems: ReviewItem[], now = new Date()
   const ahead = reviewItems
     .filter((item) => new Date(item.dueAt).getTime() > now.getTime())
     .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
-  return buildReviewExercises(ahead).exercises.slice(0, limit);
+  // Built from the front until there are enough, not for every item ahead:
+  // Today asks for one on each render, only to know whether there is one.
+  // A longer front gives the same cards first, so nothing changes but the
+  // work.
+  for (let end = limit; ; end += limit) {
+    const built = buildReviewExercises(ahead.slice(0, end)).exercises;
+    if (built.length >= limit || end >= ahead.length) return built.slice(0, limit);
+  }
 }
 
 export function reasonKey(reason: ReturnType<typeof dueReason>): TeachingLanguageKey {

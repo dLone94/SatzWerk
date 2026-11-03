@@ -5552,6 +5552,12 @@ a.trail-stop__link:active .trail-stop__dot {
   font-size: 0.88rem;
 }
 
+.level-gate__status {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 @media (min-width: 52rem) {
   .course .level {
     max-width: 44rem;

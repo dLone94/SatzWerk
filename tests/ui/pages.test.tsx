@@ -159,11 +159,14 @@ it.each(LANGS)('opens a completed unit awaiting its checkpoint and offers a dire
     completedAt: now,
   }]));
   const first = level.units[0]!.checkpoint!;
-  const next = level.units[1]!.checkpoint!;
+  // The unit just finished is the level's last, and its checkpoint is the one
+  // Today offers; the page leads to the same one. The checkpoints skipped on
+  // the way stay on the trail.
+  const last = level.units.at(-1)!;
   const view = mount(<CoursePage />, lang, { lessons, checkpointResults: [{ checkpointId: first.id, accuracy: 1, passed: true, createdAt: now }] }, '/course?level=pre-a1');
-  expect(screen.getByRole('link', { name: new RegExp(tr('courseJumpCheckpoint', lang)) })).toHaveAttribute('href', `/checkpoint/${next.id}`);
+  expect(screen.getByRole('link', { name: new RegExp(tr('courseJumpCheckpoint', lang)) })).toHaveAttribute('href', `/checkpoint/${last.checkpoint!.id}`);
   expect(view.container.querySelector('.unit-path[open]')).toHaveAttribute('open');
-  expect(view.container.querySelector('.unit-path[open] h3')?.textContent).toContain(level.units[1]!.title[lang]);
+  expect(view.container.querySelector('.unit-path[open] h3')?.textContent).toContain(last.title[lang]);
   expect(view.container.querySelectorAll('.unit-path[open]')).toHaveLength(1);
 });
 
