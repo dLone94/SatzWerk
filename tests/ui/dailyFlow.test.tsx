@@ -118,6 +118,28 @@ it('a learner handover clears the open daily round', async () => {
 });
 
 /*
+ * With nothing due the review part was jumped over, and the track then ticked
+ * "Strengthen what you know" as done although it never happened.
+ */
+it('says the review is clear rather than ticking a review that never happened', async () => {
+  const runs: DailyRunInput[] = [];
+  render(<AppStateContext.Provider value={stubState({ recordDailyRun: async run => { runs.push(run); } })}>
+    <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+  for (let index = 0; index < 2; index++) await user.click(await screen.findByRole('button', { name: tr('dailyNextPhrase', 'en') }));
+  await user.click(screen.getByRole('button', { name: tr('dailyPutToUse', 'en') }));
+  expect(await screen.findByText(tr('dailyReviewClearNote', 'en'))).toBeInTheDocument();
+  const reviewStep = () => screen.getByRole('list', { name: tr('dailyPlanProgress', 'en') }).children[1]!;
+  expect(reviewStep()).toHaveAttribute('aria-current', 'step');
+  expect(reviewStep()).not.toHaveClass('is-done');
+  await user.click(screen.getByRole('button', { name: tr('exerciseContinue', 'en') }));
+  expect(await screen.findByRole('heading', { name: tr('dailyRecall', 'en') })).toBeInTheDocument();
+  expect(reviewStep()).toHaveClass('is-done');
+  expect(runs.map(run => run.stage)).toEqual([0, 1, 2]);
+});
+
+/*
  * The parts swap in place under the same address, and the page kept the
  * scroll of the one before: on a phone Finish sits under a long card, and the
  * celebration opened with its picture and tick above the screen.

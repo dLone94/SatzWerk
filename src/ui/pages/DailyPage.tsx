@@ -175,9 +175,10 @@ function DailyPractice() {
           <span lang="de">{word.display}{word.plural ? ` → ${word.plural}` : ''}</span><span>{say(word.translation)}</span></p>)}
         <p className="muted">{t('dailyPhraseTip')}</p><SpeakCheck target={card.german} spec={card.step.answer} />
       </div><div className="section-nav"><button type="button" className="btn btn--primary" disabled={busy}
-        onClick={() => cardIndex + 1 < phrases.length ? setCardIndex(cardIndex + 1) : advance(review.length > 0 ? 1 : 2)}>
+        onClick={() => cardIndex + 1 < phrases.length ? setCardIndex(cardIndex + 1) : advance(1)}>
         {t(cardIndex + 1 < phrases.length ? 'dailyNextPhrase' : 'dailyPutToUse')}</button></div>
     </Card> : null}
+    {/* Shown even with nothing due: jumping past it left the track ticking a part that never happened. */}
     {run.stage === 1 ? review.length > 0 ? <ExercisePlayer key={`${run.id}-review`} exercises={review} context="review"
       level={currentScript.level} onFinish={summary => advance(2, summary)} /> : <Card title={t('dailyReviewClear')}>
         <p>{t('dailyReviewClearNote')}</p><button type="button" className="btn btn--primary" disabled={busy} onClick={() => advance(2)}>{t('exerciseContinue')}</button></Card> : null}

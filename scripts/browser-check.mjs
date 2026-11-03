@@ -166,7 +166,8 @@ try {
   observations.push({ path: '/daily#phrases', violations: dailyPhraseAxe.violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => node.target) })) });
   for (let phrase = 0; phrase < 2; phrase++) await page.getByRole('button', { name: tr('dailyNextPhrase', 'en'), exact: true }).click();
   await page.getByRole('button', { name: tr('dailyPutToUse', 'en'), exact: true }).click();
-  await page.locator('[data-step-id]').waitFor();
+  // The review part, saved: due items, or the note that nothing is due.
+  await page.locator('[data-step-id]').or(page.getByText(tr('dailyReviewClearNote', 'en'), { exact: true })).waitFor();
   await page.reload();
   await page.getByRole('button', { name: tr('dailyResume', 'en'), exact: true }).waitFor();
   await page.getByRole('button', { name: tr('dailyResume', 'en'), exact: true }).click();
