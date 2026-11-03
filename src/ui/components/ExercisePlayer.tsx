@@ -929,6 +929,7 @@ export function ExercisePlayer({
                       key={`${word}-${index}`}
                       type="button"
                       className="chip"
+                      lang="de"
                       disabled={usedBank.includes(index)}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => {

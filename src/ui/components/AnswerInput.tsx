@@ -87,6 +87,7 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
   const { t, lang } = useApp();
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const labelId = useId();
   const scaffoldId = useId();
   const scaffolded = Boolean(prefix || suffix);
 
@@ -172,7 +173,10 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
     placeholder: placeholder ?? '',
     onChange: (event: { target: { value: string } }) => onChange(event.target.value),
     onKeyDown: handleKeyDown,
-    'aria-label': label,
+    // Named by the element below rather than by an aria-label: an aria-label
+    // takes the field's language, which is German, so a screen reader read
+    // "Type your answer in German" in a German voice.
+    'aria-labelledby': labelId,
     'aria-describedby':
       [questionIds ?? '', scaffolded ? scaffoldId : '', describedBy ?? ''].filter(Boolean).join(' ') || undefined,
     // German text, so the browser should not autocorrect it as English.
@@ -186,6 +190,9 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
 
   return (
     <div className="answer" ref={boxRef}>
+      <span id={labelId} className="visually-hidden" lang={lang}>
+        {label}
+      </span>
       {/*
         The words around the gap, for a screen reader.
 

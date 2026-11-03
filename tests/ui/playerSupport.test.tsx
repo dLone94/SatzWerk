@@ -383,3 +383,39 @@ describe('help asked for, and a correction typed', () => {
     expect(field()).not.toHaveClass('answer-field--error');
   });
 });
+
+describe('which language each part is read in', () => {
+  /*
+   * The field's name was an aria-label on an element marked German, so a
+   * screen reader read "Напиши отговора си на немски" or "Type your answer in
+   * German" with a German voice; the word-bank chips, all German, were marked
+   * as the page's language.
+   */
+  it('names the field in the teaching language while its text stays German', () => {
+    render(
+      <AppStateContext.Provider value={stubState({}, 'bg')}>
+        <ExercisePlayer exercises={[sentences]} context="lesson" level="pre-a1" onFinish={() => {}} />
+      </AppStateContext.Provider>,
+    );
+    expect(field()).toHaveAttribute('lang', 'de');
+    expect(field()).not.toHaveAttribute('aria-label');
+    expect(field()).toHaveAccessibleName(tr('exerciseTypeAnswer', 'bg'));
+    const name = document.getElementById(field().getAttribute('aria-labelledby')!)!;
+    expect(name.closest('[lang]')).toHaveAttribute('lang', 'bg');
+  });
+
+  it('marks the words in a word bank as German', () => {
+    const bank: Exercise = typeIt('sr-bank', bi('Order', 'Ред'), [
+      {
+        id: 'sr-bank-s1',
+        prompt: bi('I live in Germany.', 'Живея в Германия.'),
+        answer: 'Ich wohne in Deutschland.',
+        wordBank: ['Ich', 'wohne', 'in', 'Deutschland.'],
+      },
+    ]);
+    mount({ exercises: [bank] });
+    for (const word of ['Ich', 'wohne', 'in', 'Deutschland.']) {
+      expect(screen.getByRole('button', { name: word })).toHaveAttribute('lang', 'de');
+    }
+  });
+});

@@ -50,6 +50,8 @@ export function SettingsPage() {
               type="button"
               className={`chip chip--choice${lang === code ? ' is-active' : ''}`}
               aria-pressed={lang === code}
+              // Each language named in itself, as the header's toggle does.
+              lang={code}
               onClick={() => void setTeachingLanguage(code)}
             >
               {code === 'en' ? 'English' : 'Български'}

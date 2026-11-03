@@ -194,7 +194,7 @@ describe('the typing and correction flow', () => {
     expect(screen.queryByText(/The correct answer is/)).not.toBeInTheDocument();
 
     // A retype is demanded; there is no Continue button to escape with.
-    expect(screen.getByText('Now type the correct German')).toBeInTheDocument();
+    expect(screen.getByText('Now type the correct German', { selector: '.feedback__retype-label' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
 
     expect(attempts[0]).toMatchObject({ verdict: 'incorrect', credit: 0, resolved: false, isRetype: false });
@@ -204,7 +204,7 @@ describe('the typing and correction flow', () => {
     await user.clear(field());
     await user.type(field(), 'Ich komme von Bulgarien.{Enter}');
     await waitFor(() => expect(screen.getByText('Type the correction to continue.')).toBeInTheDocument());
-    expect(screen.getByText('Now type the correct German')).toBeInTheDocument();
+    expect(screen.getByText('Now type the correct German', { selector: '.feedback__retype-label' })).toBeInTheDocument();
 
     // The correct retyping is accepted and only then can they continue.
     await user.clear(field());
@@ -251,7 +251,7 @@ describe('the typing and correction flow', () => {
     await user.type(field(), 'Ich heisse Theo.{Enter}');
     expect(await screen.findByText('Meaning is correct.')).toBeInTheDocument();
     expect(screen.getByText(/Standard spelling: Ich heiße Theo\./)).toBeInTheDocument();
-    expect(screen.getByText('Now type the correct German')).toBeInTheDocument();
+    expect(screen.getByText('Now type the correct German', { selector: '.feedback__retype-label' })).toBeInTheDocument();
     expect(attempts[0]!.credit).toBeGreaterThan(0);
     expect(attempts[0]!.credit).toBeLessThan(1);
   });
