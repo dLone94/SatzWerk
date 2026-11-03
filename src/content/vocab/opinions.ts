@@ -330,7 +330,7 @@ const WEIGHING: VocabEntry[] = [
     plural: 'die Möglichkeiten',
     wordType: 'noun',
     translation: { en: 'possibility, option', bg: 'възможност' },
-    pronunciation: { en: 'MER-glikh-kite', bg: 'МЬОГ-лих-кайт' },
+    pronunciation: { en: 'MERK-likh-kite', bg: 'МЬОК-лих-кайт' },
     example: {
       de: 'Es gibt mehrere Möglichkeiten.',
       gloss: { en: 'There are several options.', bg: 'Има няколко възможности.' },

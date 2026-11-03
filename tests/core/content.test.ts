@@ -596,6 +596,43 @@ describe('vocabulary', () => {
     expect(failures).toEqual([]);
   });
 
+  it('gives each b, d and g the same sound on both paths, inside a word too', () => {
+    /*
+     * The check above sees only the end of an entry. Inside a compound each
+     * part ends the same way, and there the paths disagreed: SHLAHK-tsy-luh
+     * against ШЛАГ-цай-ле, …-lowp-nis against …-лаубнис, and Bescheid in
+     * "Bescheid sagen". So where the two respellings show the same stops in
+     * the same places, each must be voiced on both or on neither. What the
+     * alphabets write differently for one sound is made alike first: ц, ч and
+     * щ hold a t (ts, ch, sht), kh is х, and a doubled stop is one sound. The
+     * ŋ of Junge, which only Cyrillic spells with a г, is the one difference
+     * left, and those few entries have no place sequence in common to compare.
+     */
+    const stops = (said: string, cyrillic: boolean): string => {
+      const text = said.toLowerCase().replace(/\(.*?\)/g, '');
+      const latin = cyrillic
+        ? text
+            .replace(/нг/g, 'н')
+            .replace(/[цчщ]/g, 'т')
+            .replace(/[птбдгк]/g, (c) => ({ п: 'p', т: 't', б: 'b', д: 'd', г: 'g', к: 'k' })[c]!)
+        : text.replace(/kh/g, 'h').replace(/t?ch/g, 't').replace(/ng/g, 'n');
+      return latin.replace(/[^ptkbdg-]/g, '').replace(/([ptkbdg])-?\1/g, '$1').replace(/-/g, '');
+    };
+    const place = (sounds: string) => sounds.replace(/[pb]/g, 'P').replace(/[td]/g, 'T').replace(/[kg]/g, 'K');
+    const failures: string[] = [];
+    let compared = 0;
+    for (const entry of VOCABULARY) {
+      if (!entry.pronunciation) continue;
+      const { en, bg } = entry.pronunciation;
+      const [latin, cyrillic] = [stops(en, false), stops(bg, true)];
+      if (place(latin) !== place(cyrillic)) continue;
+      compared += 1;
+      if (latin !== cyrillic) failures.push(`${entry.id}: ${en} / ${bg}`);
+    }
+    expect(compared).toBeGreaterThan(VOCABULARY.length - 10);
+    expect(failures).toEqual([]);
+  });
+
   it('feeds the validator lexicon with genders and plurals', () => {
     expect(LEXICON.nounGender.get('tochter')).toBe('f');
     expect(LEXICON.nounGender.get('haus')).toBe('n');

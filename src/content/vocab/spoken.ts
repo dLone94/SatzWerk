@@ -175,7 +175,7 @@ const SMALL_TALK: VocabEntry[] = [
     display: 'Bescheid sagen',
     wordType: 'phrase',
     translation: { en: 'to let someone know', bg: 'да съобщя, да кажа (на някого)' },
-    pronunciation: { en: 'buh-SHITE zah-gen', bg: 'бе-ШАЙД за-ген' },
+    pronunciation: { en: 'buh-SHITE zah-gen', bg: 'бе-ШАЙТ за-ген' },
     example: {
       de: 'Sag mir einfach Bescheid, wenn du so weit bist.',
       gloss: {

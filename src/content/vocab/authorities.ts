@@ -385,7 +385,7 @@ const APPLYING: VocabEntry[] = [
     plural: 'die Aufenthaltserlaubnisse',
     wordType: 'noun',
     translation: { en: 'residence permit', bg: 'разрешение за пребиваване' },
-    pronunciation: { en: 'OWF-ent-halts-er-lowp-nis', bg: 'АУФ-ент-халтс-ер-лаубнис' },
+    pronunciation: { en: 'OWF-ent-halts-er-lowp-nis', bg: 'АУФ-ент-халтс-ер-лаупнис' },
     example: {
       de: 'Die Aufenthaltserlaubnis wird für zwei Jahre erteilt.',
       gloss: {

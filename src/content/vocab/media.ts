@@ -52,7 +52,7 @@ const NEWS: VocabEntry[] = [
     plural: 'die Schlagzeilen',
     wordType: 'noun',
     translation: { en: 'headline', bg: 'заглавие (във вестник)' },
-    pronunciation: { en: 'SHLAHK-tsy-luh', bg: 'ШЛАГ-цай-ле' },
+    pronunciation: { en: 'SHLAHK-tsy-luh', bg: 'ШЛАК-цай-ле' },
     example: {
       de: 'Die Schlagzeile stand auf der ersten Seite.',
       gloss: {
