@@ -6,7 +6,7 @@ import {
   patternById,
   vocabById,
 } from '../content/browser.ts';
-import { bi, dictation, exercise, typeIt } from '../content/authoring.ts';
+import { bi, dictation, exercise, fillBlank, typeIt } from '../content/authoring.ts';
 import type { Exercise, ExerciseStep, TeachingLanguage, VocabEntry } from '../content/types.ts';
 import type { ReviewItem } from '../core/srs/scheduler.ts';
 
@@ -19,6 +19,33 @@ import type { ReviewItem } from '../core/srs/scheduler.ts';
  * listening stays in the rotation.
  */
 
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * The example sentence with the word cut out of it, or null when the word does
+ * not appear in it as written. The answer keeps the sentence's own spelling, so
+ * "Die Katze" at the start of a sentence is asked for with its capital.
+ */
+function exampleGap(entry: VocabEntry): { scaffold: string; answer: string } | null {
+  const sentence = entry.example?.de;
+  if (!sentence || !entry.example.gloss?.en) return null;
+  for (const form of [entry.display, entry.german]) {
+    const word = form.replace(/[.!?]+$/, '').trim();
+    if (!word) continue;
+    // Whole words only: "Ei" is not in "eine". The gap starts the sentence or
+    // follows a space, because anything typed against it ("„___") would be
+    // read as the first letters of the answer. No lookbehind, which older
+    // Safari cannot compile; the space is matched and kept instead.
+    const found = new RegExp(`(^|\\s)(${escapeRegExp(word)})(?!\\p{L})`, 'iu').exec(sentence);
+    if (found) {
+      const start = found.index + found[1]!.length;
+      const answer = found[2]!;
+      return { scaffold: `${sentence.slice(0, start)}___${sentence.slice(start + answer.length)}`, answer };
+    }
+  }
+  return null;
+}
+
 function vocabExercise(entry: VocabEntry, index: number, item: Pick<ReviewItem, 'kind' | 'successCount'>): Exercise {
   const needsArticle = entry.wordType === 'noun' && Boolean(entry.article);
   const accepted = [entry.display];
@@ -26,12 +53,25 @@ function vocabExercise(entry: VocabEntry, index: number, item: Pick<ReviewItem, 
   // counts as an alternative and the learner is shown "der Tisch" afterwards.
   const alternatives = needsArticle && item.kind !== 'noun-article' ? [entry.german] : undefined;
 
-  if (index % 3 === 1 && item.kind === 'vocab' && item.successCount > 0 && entry.example?.de && entry.example.gloss) {
-    return { ...typeIt(`rv-${entry.id}-context`, bi('Use it in a sentence', 'Използвай го в изречение'), [{
-      id: `rv-${entry.id}-context-s1`, prompt: entry.example.gloss,
-      instruction: bi('Recall the whole sentence.', 'Припомни си цялото изречение.'),
-      answer: entry.example.de, shape: 'sentence', reviewTargets: [entry.id],
-      hints: [bi(`The word you are practising is "${entry.display}".`, `Упражняваш думата „${entry.display}“.`)],
+  /*
+   * The word in its authored example sentence, with the word itself as the gap.
+   *
+   * This asked for the whole sentence back, "recalled", though no lesson ever
+   * shows the examples (only the word page does), and they are written with
+   * words the course has not reached: "Gute Nacht, schlaf gut!" two lessons
+   * in, with "schlaf" not taught until A1. A learner who knew "Gute Nacht"
+   * was marked wrong and the word lapsed. Now the sentence is shown and only
+   * the word is asked for, so the card tests the word it schedules. An
+   * example that does not contain the word as written (a verb conjugated,
+   * say) leaves the plain card below.
+   */
+  const gap = index % 3 === 1 && item.kind === 'vocab' && item.successCount > 0 ? exampleGap(entry) : null;
+  if (gap) {
+    return { ...fillBlank(`rv-${entry.id}-context`, bi('Use it in a sentence', 'Използвай го в изречение'), [{
+      id: `rv-${entry.id}-context-s1`, prompt: entry.example.gloss, scaffold: gap.scaffold,
+      instruction: bi('Fill the gap with the word you are practising.', 'Попълни празното място с думата, която упражняваш.'),
+      answer: gap.answer, reviewTargets: [entry.id],
+      hints: [bi(`It means "${entry.translation.en}".`, `Означава „${entry.translation.bg}“.`)],
     }]), level: entry.level };
   }
 

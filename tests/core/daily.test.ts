@@ -62,8 +62,10 @@ describe('personal daily plans', () => {
     const exercise = buildReviewExercises([item]).exercises[0]!;
     expect(validateAnswer(noun.german, exercise.steps[0]!.answer, { lexicon: LEXICON }).verdict).not.toBe('correct');
     const learned = { ...item, kind: 'vocab' as const, successCount: 3 };
-    const contextual = buildReviewExercises([item, learned]).exercises[1]!;
-    expect(contextual.steps[0]!.answer.accepted).toEqual([noun.example.de]);
+    const contextual = buildReviewExercises([item, learned]).exercises[1]!.steps[0]!;
+    // The sentence is shown with the word as its gap; only the word is typed.
+    expect(contextual.scaffold!.replace('___', contextual.answer.accepted[0]!)).toBe(noun.example.de);
+    expect(contextual.answer.accepted).toEqual([noun.german]);
   });
 });
 

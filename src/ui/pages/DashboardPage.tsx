@@ -11,7 +11,14 @@ import { Icon } from '../components/icons.tsx';
 import { PracticalProgress } from '../components/PracticalProgress.tsx';
 import { DackelScene } from '../components/Dackel.tsx';
 import { reviewItemsForPath } from '../reviewBuilder.ts';
-import { buildLessonViews, buildVocabViews, nextAction, sessionBuild, skillProgress } from '../selectors.ts';
+import {
+  buildLessonViews,
+  buildVocabViews,
+  earlyReviewExercises,
+  nextAction,
+  sessionBuild,
+  skillProgress,
+} from '../selectors.ts';
 
 /**
  * Today: the one thing worth doing next, and nothing that competes with it.
@@ -142,10 +149,14 @@ export function DashboardPage() {
           <p className="today-tile__main">
             {queue.total > 0 ? t('todayDue', { n: queue.total }) : t('todayNothingDue')}
           </p>
+          {/* "Practise early" only when there is something to practise: a new
+              learner was offered it and the review page had nothing to give. */}
           <p className="today-tile__note">
             {queue.total > 0
               ? `${t('todayReviewNote')} · ${t('dashboardEstimate', { n: Math.max(1, Math.round(queue.total * 0.4)) })}`
-              : t('reviewPracticeEarly')}
+              : earlyReviewExercises(onPath).length > 0
+                ? t('reviewPracticeEarly')
+                : t('todayReviewLater')}
           </p>
         </Link>
       </div>

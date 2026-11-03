@@ -200,6 +200,7 @@ export const UI = {
   todayDue: s('{n} due for review', '{n} за повторение'),
   todayNothingDue: s('Nothing due', 'Нищо за повторение'),
   todayReviewNote: s('Review', 'Повторение'),
+  todayReviewLater: s('What you learn comes back here', 'Наученото се връща тук'),
   todayRoundEmpty: s('Nothing waiting yet', 'Още нищо не чака'),
   todaySeePath: s('See path', 'Виж пътя'),
   todayProgress: s('Your progress', 'Твоят напредък'),
@@ -256,8 +257,8 @@ export const UI = {
   sessionTarget: s('Your daily target is {time}. Change it in Settings.', 'Дневната ти цел е {time}. Можеш да я смениш в Настройки.'),
   sessionNothing: s('There is nothing to put in a round', 'Няма какво да се сложи в кръг'),
   sessionNothingBody: s(
-    'Nothing is due, no mistake has come back twice, and no lesson is half-finished. Start a lesson, or practise ahead of schedule.',
-    'Нищо не е за повторение, нито една грешка не се е повторила, и няма недовършен урок. Започни урок или упражнявай предварително.',
+    'Nothing is due, no mistake has come back twice, and no lesson is half-finished. Start the next lesson from the course.',
+    'Нищо не е за повторение, нито една грешка не се е повторила, и няма недовършен урок. Започни следващия урок от курса.',
   ),
   sessionReadFirst: s(
     'Finish reading your lesson first: its exercises join the round once every section is read.',
@@ -633,6 +634,10 @@ export const UI = {
   reviewNothingDueBody: s(
     'Your queue is empty. You can still practise early, or carry on with the course.',
     'Опашката ти е празна. Можеш да упражняваш предварително или да продължиш с курса.',
+  ),
+  reviewNothingYetBody: s(
+    'Your queue is empty, and nothing is learnt yet to practise early. Words come here once a lesson has taught them.',
+    'Опашката ти е празна и още няма научено, което да упражняваш предварително. Думите идват тук, след като урок ги е преподал.',
   ),
   reviewPracticeEarly: s('Practise early', 'Упражнявай предварително'),
   reviewStart: s('Start reviewing', 'Започни повторение'),

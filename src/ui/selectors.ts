@@ -648,7 +648,7 @@ export interface QueueEntry {
  */
 export function buildQueue(reviewItems: ReviewItem[], now = new Date()): QueueEntry[] {
   return orderQueue(reviewItems, now).map((item) => {
-    const reason = dueReason(item);
+    const reason = dueReason(item, now);
     const entry = vocabById(item.refId);
     if (entry) return { item, reason, label: entry.display, german: true, gloss: entry.translation, entry };
     const pattern = patternById(item.refId);
@@ -659,6 +659,19 @@ export function buildQueue(reviewItems: ReviewItem[], now = new Date()): QueueEn
     if (concept) return { item, reason, label: concept.title.en, german: false, title: concept.title };
     return { item, reason, label: item.refId, german: false };
   });
+}
+
+/**
+ * What "Practise early" plays: the soonest items not yet due that can be
+ * typed. Empty for a learner with nothing learnt yet, and then nothing may
+ * offer it: the dashboard and the empty review page promised early practice
+ * to a brand-new learner and the review page had no way to give it.
+ */
+export function earlyReviewExercises(reviewItems: ReviewItem[], now = new Date(), limit = 10): Exercise[] {
+  const ahead = reviewItems
+    .filter((item) => new Date(item.dueAt).getTime() > now.getTime())
+    .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
+  return buildReviewExercises(ahead).exercises.slice(0, limit);
 }
 
 export function reasonKey(reason: ReturnType<typeof dueReason>): TeachingLanguageKey {
