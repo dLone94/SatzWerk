@@ -12,8 +12,10 @@ import { AppStateContext, type AppStateValue } from '../../src/state/AppState.ts
 import { DailyPage } from '../../src/ui/pages/DailyPage.tsx';
 import { DashboardPage } from '../../src/ui/pages/DashboardPage.tsx';
 import { LearningPreferences } from '../../src/ui/components/LearningPreferences.tsx';
-import { chooseDailyScript, dailyListening, phraseRecall } from '../../src/ui/dailyBuilder.ts';
+import { chooseDailyScript, dailyListening, dailyPhrases, goalScripts, phraseRecall } from '../../src/ui/dailyBuilder.ts';
 import { tr } from '../../src/i18n.ts';
+import { dailyPatternId } from '../../src/content/dailyPatterns.ts';
+import { createReviewItem } from '../../src/core/srs/scheduler.ts';
 import { play, silentVoice, stubState } from './playerStub.tsx';
 import type { AttemptPayload, Profile } from '../../src/services/api/client.ts';
 
@@ -35,7 +37,9 @@ it.each(['en', 'bg'] as const)('completes the daily journey and banks actual ans
   await user.click(screen.getByRole('button', { name: tr('dailyStart', lang) }));
   for (let index = 0; index < 2; index++) await user.click(await screen.findByRole('button', { name: tr('dailyNextPhrase', lang) }));
   await user.click(screen.getByRole('button', { name: tr('dailyPutToUse', lang) }));
-  const script = SCENARIO_SCRIPTS.find(script => script.level === 'pre-a1')!;
+  const script = chooseDailyScript('everyday', 'pre-a1', [], todayHere());
+  const recall = [...phraseRecall(script, lang), ...dailyListening(script, lang)];
+  const answers = scriptAnswerCount(script, lang) + recall.length;
   const exercises = [...phraseRecall(script, lang), ...script.beats.flatMap(beat => beat.who === 'you' ? [beat.exercise] : []), ...dailyListening(script, lang)];
   // The shared helper uses English continuation labels; play through that
   // helper in English, and use the same authored answers in Bulgarian below.
@@ -59,8 +63,8 @@ it.each(['en', 'bg'] as const)('completes the daily journey and banks actual ans
   expect(await screen.findByRole('heading', { name: tr('dailyFinished', lang) })).toBeInTheDocument();
   expect(conversations).toHaveBeenCalledOnce();
   const final = progress.mock.calls.at(-1)![0];
-  expect(final).toMatchObject({ stage: 5, listeningCompleted: true, total: 10, firstTryCorrect: 10 });
-  expect(attempts).toHaveBeenCalledTimes(10);
+  expect(final).toMatchObject({ stage: 5, listeningCompleted: true, total: answers, firstTryCorrect: answers });
+  expect(attempts).toHaveBeenCalledTimes(answers);
   expect(attempts.mock.calls.some(call => (call[0] as { reviewTargets?: unknown[] })?.reviewTargets?.length)).toBe(true);
 });
 
@@ -113,10 +117,49 @@ it('a learner handover clears the open daily round', async () => {
   const first = stubState();
   const result = render(<AppStateContext.Provider value={first}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
   await userEvent.setup().click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
-  expect(await screen.findByText('Guten Morgen!')).toBeInTheDocument();
+  const phrase = dailyPhrases(chooseDailyScript('everyday', 'pre-a1', [], todayHere()), 'en')[0]!.german;
+  expect(await screen.findByText(phrase)).toBeInTheDocument();
   result.rerender(<AppStateContext.Provider value={stubState({ studyingAs: 2 })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
   expect(screen.getByRole('button', { name: tr('dailyStart', 'en') })).toBeInTheDocument();
-  expect(screen.queryByText('Guten Morgen!')).not.toBeInTheDocument();
+  expect(screen.queryByText(phrase)).not.toBeInTheDocument();
+});
+
+/*
+ * The first "new" phrase of a Pre-A1 round was "Guten Morgen!", already in
+ * review since the greetings lesson, and the same three came every time.
+ */
+it('shows lines not met yet first, and marks a phrase met before', async () => {
+  const script = chooseDailyScript('everyday', 'pre-a1', [], todayHere());
+  const first = dailyPhrases(script, 'en');
+  // Every line met but the first card's, and one line more that was never a card.
+  const lines = script.beats.flatMap(beat => beat.who === 'you' && !beat.exercise.only?.includes('bg') ? beat.exercise.steps : []);
+  const yesterday = new Date(Date.now() - 86_400_000);
+  const reviewItems = lines.filter(step => step.id !== first[0]!.step.id).map(step => createReviewItem({ id: step.id,
+    kind: 'pattern', refId: dailyPatternId(step.id), level: 'pre-a1', now: yesterday }));
+  const expected = dailyPhrases(script, 'en', reviewItems);
+  expect(expected.map(card => card.again)).toEqual([false, true, true]);
+  render(<AppStateContext.Provider value={stubState({ reviewItems })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+  for (const [index, card] of expected.entries()) {
+    expect(await screen.findByText(card.german)).toBeInTheDocument();
+    expect(Boolean(screen.queryByText(tr('dailyPhraseAgain', 'en')))).toBe(card.again);
+    if (index + 1 < expected.length) await user.click(screen.getByRole('button', { name: tr('dailyNextPhrase', 'en') }));
+  }
+});
+
+// Answering today's recall puts the phrases in review; reopened, the round keeps its cards.
+it('keeps the day’s phrases when today’s answers reach review', async () => {
+  const script = chooseDailyScript('everyday', 'pre-a1', [], todayHere());
+  const first = dailyPhrases(script, 'en');
+  const today = first.map(card => createReviewItem({ id: card.step.id, kind: 'pattern',
+    refId: dailyPatternId(card.step.id), level: 'pre-a1' }));
+  // Counted, they would have changed the cards.
+  expect(dailyPhrases(script, 'en', today).some(card => card.again)).toBe(true);
+  render(<AppStateContext.Provider value={stubState({ reviewItems: today })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+  await userEvent.setup().click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+  expect(await screen.findByText(first[0]!.german)).toBeInTheDocument();
+  expect(screen.queryByText(tr('dailyPhraseAgain', 'en'))).not.toBeInTheDocument();
 });
 
 /*
@@ -132,7 +175,7 @@ it('takes focus to each new phrase by its title', async () => {
 });
 
 /*
- * Pre-A1 has one conversation, so "Try another practice" brought back the one
+ * Pre-A1 had one conversation, so "Try another practice" brought back the one
  * just finished, and choosing Work or Exam practice changed only the tag.
  */
 describe('what the next practice really is', () => {
@@ -157,34 +200,49 @@ describe('what the next practice really is', () => {
     return user;
   }
 
-  it('offers the only beginner conversation again as itself, not as another practice', async () => {
-    const user = await finish({ profile: profile('everyday', 'pre-a1') }, 'sc-bakery-pre-a1');
+  // Until the finished conversation reaches the saved runs, the plan is still that one.
+  it('offers the same conversation again as itself, not as another practice', async () => {
+    const same = chooseDailyScript('everyday', 'pre-a1', [], todayHere());
+    const user = await finish({ profile: profile('everyday', 'pre-a1') }, same.id);
     expect(screen.queryByRole('button', { name: tr('dailyAnother', 'en') })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: tr('dailyAgain', 'en') }));
-    expect(screen.getByRole('heading', { name: SCENARIO_SCRIPTS.find(script => script.id === 'sc-bakery-pre-a1')!.goal.en })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: same.goal.en })).toBeInTheDocument();
   });
 
-  it('still offers another practice where there is one', async () => {
-    const done = chooseDailyScript('everyday', 'a1', [], todayHere());
+  it.each(['pre-a1', 'a1'] as const)('offers another practice at %s once one is done', async level => {
+    const done = chooseDailyScript('everyday', level, [], todayHere());
     const runs = [{ scriptId: done.id, runs: 1, turns: 4, firstTryCorrect: 4, lastAccuracy: 1, bestAccuracy: 1,
       firstRunAt: new Date().toISOString(), lastRunAt: new Date().toISOString() }];
-    const next = chooseDailyScript('everyday', 'a1', runs, todayHere());
+    const next = chooseDailyScript('everyday', level, runs, todayHere());
     expect(next.id).not.toBe(done.id);
-    const user = await finish({ profile: profile('everyday', 'a1'), scenarioRuns: runs }, done.id);
+    const user = await finish({ profile: profile('everyday', level), scenarioRuns: runs }, done.id);
     await user.click(screen.getByRole('button', { name: tr('dailyAnother', 'en') }));
     expect(screen.getByRole('heading', { name: next.goal.en })).toBeInTheDocument();
   });
 
-  it('says when a goal has no conversation of its own at this level', () => {
-    const view = render(<AppStateContext.Provider value={stubState({ profile: profile('work', 'pre-a1') })}>
+  /*
+   * Travel has one conversation at B2. It takes turns with the rest of the
+   * level rather than coming back every day, and the day it rests says so.
+   */
+  it('says why a conversation from outside the goal is today’s', () => {
+    const [only] = goalScripts('travel', 'b2');
+    expect(goalScripts('travel', 'b2')).toHaveLength(1);
+    const rested = [{ scriptId: only!.id, runs: 1, turns: 4, firstTryCorrect: 4, lastAccuracy: 1, bestAccuracy: 1,
+      firstRunAt: new Date().toISOString(), lastRunAt: new Date().toISOString() }];
+    const view = render(<AppStateContext.Provider value={stubState({ profile: profile('travel', 'b2'), scenarioRuns: rested })}>
       <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
-    expect(screen.getByText(tr('dailyGoalElsewhere', 'en'))).toBeInTheDocument();
-    view.rerender(<AppStateContext.Provider value={stubState({ profile: profile('travel', 'pre-a1') })}>
+    expect(screen.getByText(tr('dailyGoalResting', 'en'))).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: only!.goal.en })).not.toBeInTheDocument();
+    view.rerender(<AppStateContext.Provider value={stubState({ profile: profile('travel', 'b2') })}>
       <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
-    expect(screen.queryByText(tr('dailyGoalElsewhere', 'en'))).not.toBeInTheDocument();
-    view.rerender(<AppStateContext.Provider value={stubState({ profile: profile('work', 'a1') })}>
-      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
-    expect(screen.queryByText(tr('dailyGoalElsewhere', 'en'))).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: only!.goal.en })).toBeInTheDocument();
+    expect(screen.queryByText(tr('dailyGoalResting', 'en'))).not.toBeInTheDocument();
+    for (const goal of ['work', 'exams'] as const) {
+      view.rerender(<AppStateContext.Provider value={stubState({ profile: profile(goal, 'pre-a1') })}>
+        <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+      expect(screen.queryByText(tr('dailyGoalResting', 'en'))).not.toBeInTheDocument();
+      expect(screen.queryByText(tr('dailyGoalElsewhere', 'en'))).not.toBeInTheDocument();
+    }
   });
 });
 
@@ -242,8 +300,10 @@ describe('a new goal or level while a round is open', () => {
   });
 
   it('just continues when the new goal brings the same conversation', () => {
-    // Pre-A1 has one conversation for every goal: starting it over would only lose the parts done.
-    render(<AppStateContext.Provider value={stubState({ profile: { ...profile, learningGoal: 'work', practiceLevel: 'pre-a1' }, dailyRuns: [saved] })}>
+    // The round under way is the very conversation the new goal brings: starting over would only lose the parts done.
+    const shared = chooseDailyScript('work', 'pre-a1', [], todayHere());
+    render(<AppStateContext.Provider value={stubState({ profile: { ...profile, learningGoal: 'work', practiceLevel: 'pre-a1' },
+      dailyRuns: [{ ...saved, scriptId: shared.id }] })}>
       <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
     expect(screen.getByRole('button', { name: tr('dailyResume', 'en') })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: tr('dailyResumeEarlier', 'en', { plan: 'Everyday life · PRE-A1' }) })).not.toBeInTheDocument();

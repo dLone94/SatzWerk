@@ -51,6 +51,7 @@ export const SCENARIOS: Scenario[] = [
     register: 'Sie',
     relatedLessonIds: ['pre-a1-u2-l2'],
     stages: [
+      { level: 'pre-a1', task: bi('Order a coffee in a café, pay and tip.', 'Поръчай кафе в кафене, плати и остави бакшиш.') },
       { level: 'a1', task: bi('Order food and drinks and ask for the bill.', 'Поръчай храна и напитки и поискай сметката.') },
       { level: 'a2', task: bi('Book a table by phone.', 'Резервирай маса по телефона.') },
       { level: 'b1', task: bi('Complain that the food is wrong or cold.', 'Оплачи се, че храната е грешна или студена.') },
@@ -74,6 +75,7 @@ export const SCENARIOS: Scenario[] = [
     setting: bi('U-Bahn, bus, Deutsche Bahn.', 'U-Bahn, автобус, Deutsche Bahn.'),
     register: 'Sie',
     stages: [
+      { level: 'pre-a1', task: bi('Ask a stranger the way to the station.', 'Попитай непознат как да стигнеш до гарата.') },
       { level: 'a1', task: bi('Buy a ticket and ask which platform.', 'Купи билет и попитай от кой коловоз.') },
       { level: 'a2', task: bi('Ask about a connection and a delay.', 'Попитай за връзка и за закъснение.') },
       { level: 'b1', task: bi('Claim compensation for a cancelled train.', 'Поискай компенсация за отменен влак.') },
@@ -107,6 +109,7 @@ export const SCENARIOS: Scenario[] = [
     setting: bi('Registering your address.', 'Регистрация на адрес.'),
     register: 'Sie',
     stages: [
+      { level: 'pre-a1', task: bi('Give your name, address, age and languages at a counter.', 'Кажи името, адреса, възрастта и езиците си на гише.') },
       { level: 'a2', task: bi('Book an appointment online and confirm it.', 'Запази час онлайн и го потвърди.') },
       { level: 'b1', task: bi('Complete the Anmeldung and answer questions about documents.', 'Направи Anmeldung и отговори на въпроси за документите.') },
       { level: 'b2', task: bi('Resolve a missing-document problem and escalate politely.', 'Реши проблем с липсващ документ и ескалирай учтиво.') },
@@ -129,6 +132,8 @@ export const SCENARIOS: Scenario[] = [
     setting: bi('Office, team meeting, Bewerbungsgespräch.', 'Офис, екипна среща, Bewerbungsgespräch.'),
     register: 'both',
     stages: [
+      { level: 'pre-a1', task: bi('Introduce yourself to a colleague on your first day.', 'Представи се на колега в първия си работен ден.') },
+      { level: 'a1', task: bi('Ask a colleague where something is, and arrange lunch.', 'Попитай колега къде е нещо и си уговори обяд.') },
       { level: 'a2', task: bi('Say what you do and ask a colleague for help.', 'Кажи какво работиш и помоли колега за помощ.') },
       { level: 'b1', task: bi('Answer standard interview questions.', 'Отговори на стандартни въпроси на интервю.') },
       { level: 'b2', task: bi('Disagree in a meeting and negotiate a deadline.', 'Изрази несъгласие на среща и договори срок.') },
@@ -162,6 +167,7 @@ export const SCENARIOS: Scenario[] = [
     setting: bi('Hausflur, Hausordnung, a phone call.', 'Hausflur, Hausordnung, телефонен разговор.'),
     register: 'both',
     stages: [
+      { level: 'pre-a1', task: bi('Greet a neighbour on the stairs and ask how they are.', 'Поздрави съсед по стълбите и попитай как е.') },
       { level: 'a1', task: bi('Greet a neighbour and introduce yourself.', 'Поздрави съсед и се представи.') },
       { level: 'a2', task: bi('Accept a parcel and leave a note.', 'Приеми колет и остави бележка.') },
       { level: 'b1', task: bi('Raise a noise problem without escalating it.', 'Повдигни проблем с шум, без да го ескалираш.') },

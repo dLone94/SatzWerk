@@ -8,6 +8,7 @@ import type { MistakeRecord, ScenarioRun } from '../services/api/client.ts';
 import { buildMistakePractice, buildReviewExercises, mistakePracticeId } from './reviewBuilder.ts';
 import { dailyPatternId } from '../content/dailyPatterns.ts';
 import { phraseFrame } from '../content/phraseFrames.ts';
+import { todayHere } from '../core/progress/days.ts';
 
 const TOPICS: Record<LearningGoal, string[]> = {
   everyday: ['sc-bakery', 'sc-supermarket', 'sc-neighbours', 'sc-doctor', 'sc-pharmacy', 'sc-apartment', 'sc-kita', 'sc-buergeramt'],
@@ -19,38 +20,94 @@ const TOPICS: Record<LearningGoal, string[]> = {
 /** Whether a conversation is about what this goal is for, rather than a stand-in at its level. */
 export const fitsGoal = (script: ScenarioScript, goal: LearningGoal) => TOPICS[goal].includes(script.scenarioId);
 
-/** Stay at the chosen level. Beginners share a small, useful first exchange. */
+/** The conversations written for this goal at this level. */
+export const goalScripts = (goal: LearningGoal, level: CefrLevel) =>
+  SCENARIO_SCRIPTS.filter(script => script.level === level && fitsGoal(script, goal));
+
+const DAY_MS = 86_400_000;
+const dayNumber = (day: string) => Math.floor(Date.parse(`${day}T00:00:00Z`) / DAY_MS);
+
+/**
+ * Today's conversation: always at the chosen level, so a beginner is never
+ * handed the next level's German, and not the one practised today or
+ * yesterday while another one fits.
+ *
+ * Pre-A1 used to have a single conversation, so every goal got the bakery on
+ * every day of the first month. A goal with two or more conversations of its
+ * own keeps to them. A goal with only one lets the rest of its level take
+ * turns with it, rather than opening the same exchange every morning. After
+ * that, an unplayed conversation comes first, then one still needing
+ * practice, then the one left longest; the date settles the remaining ties,
+ * so two days in a row differ even for somebody who has played nothing yet.
+ */
 export function chooseDailyScript(goal: LearningGoal, level: CefrLevel, runs: ScenarioRun[], day: string): ScenarioScript {
   const atLevel = SCENARIO_SCRIPTS.filter(script => script.level === level);
   const available = atLevel.length > 0 ? atLevel : SCENARIO_SCRIPTS.filter(script => script.level === 'pre-a1');
-  const relevant = available.filter(script => fitsGoal(script, goal));
-  const candidates = relevant.length > 0 ? relevant : available;
-  const seed = [...day].reduce((value, char) => value + char.charCodeAt(0), 0);
+  const own = available.filter(script => fitsGoal(script, goal));
+  const candidates = own.length >= 2 ? own : available;
+  const today = dayNumber(day);
   const ranked = candidates.map((script, index) => {
     const run = runs.find(run => run.scriptId === script.id);
-    // A conversation still needing practice comes back before one already clean.
-    const priority = !run ? 0 : run.lastAccuracy < 0.8 ? 1 : 2;
-    return { script, priority, date: run?.lastRunAt ?? '', tie: (index + seed) % candidates.length };
-  }).sort((a, b) => a.priority - b.priority || a.date.localeCompare(b.date) || a.tie - b.tie);
+    const at = run ? new Date(run.lastRunAt) : undefined;
+    // The day it was played, on the same calendar as `day`: the learner's own.
+    const played = at && !Number.isNaN(at.getTime()) ? dayNumber(todayHere(at)) : -Infinity;
+    return {
+      script,
+      resting: today - played <= 1 ? 1 : 0,
+      other: fitsGoal(script, goal) ? 0 : 1,
+      // A conversation still needing practice comes back before one already clean.
+      priority: !run ? 0 : run.lastAccuracy < 0.8 ? 1 : 2,
+      date: run?.lastRunAt ?? '',
+      turn: (((index - today) % candidates.length) + candidates.length) % candidates.length,
+    };
+  }).sort((a, b) => a.resting - b.resting || a.other - b.other || a.priority - b.priority
+    || a.date.localeCompare(b.date) || a.turn - b.turn);
   return ranked[0]!.script;
 }
 
-export interface PhraseCard { step: ExerciseStep; german: string; purpose: Bilingual; words: VocabEntry[] }
-export function dailyPhrases(script: ScenarioScript, lang: TeachingLanguage): PhraseCard[] {
-  return script.beats.flatMap(beat => beat.who === 'you' && isVisible(beat.exercise, lang)
-    ? beat.exercise.steps.filter(step => isVisible(step, lang) && step.answer.accepted.length > 0).map(step => ({
-      step, german: step.answer.accepted[0]!, purpose: step.prompt ?? step.instruction ?? beat.exercise.objective,
-      words: [...new Set([
-        ...(step.reviewTargets ?? []).map(vocabById).filter((word): word is VocabEntry => Boolean(word)),
-        ...VOCABULARY.filter(word => word.wordType === 'noun' &&
-          step.answer.accepted[0]!.toLowerCase().split(/[^\p{L}]+/u).includes(word.german.toLowerCase())).slice(0, 3),
-      ])],
-    })) : []).slice(0, 3);
+/** `again` says the learner has met this phrase before, so its card does not present it as new. */
+export interface PhraseCard { step: ExerciseStep; german: string; purpose: Bilingual; words: VocabEntry[]; again: boolean }
+
+const bare = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+/**
+ * Three lines of the day's conversation to meet before it, new ones first.
+ *
+ * The first three, always, meant the same three on every visit, and a Pre-A1
+ * learner's first "new" phrase was "Guten Morgen!", learned in a lesson weeks
+ * before. A line is met when it is already in review as a daily phrase, or
+ * when it is itself a phrase the course taught ("Guten Morgen!" is a word in
+ * the vocabulary). Met lines fill the cards only when there are not three new
+ * ones, the longest unpractised first, and the cards keep the order the
+ * conversation says them in.
+ */
+export function dailyPhrases(script: ScenarioScript, lang: TeachingLanguage, items: readonly ReviewItem[] = []): PhraseCard[] {
+  const known = new Map(items.map(item => [item.refId, item]));
+  const met = (step: ExerciseStep): ReviewItem | undefined => {
+    const daily = known.get(dailyPatternId(step.id));
+    if (daily) return daily;
+    const taught = (step.reviewTargets ?? []).find(id => known.has(id)
+      && bare(vocabById(id)?.german ?? '') === bare(step.answer.accepted[0]!));
+    return taught ? known.get(taught) : undefined;
+  };
+  const lines = script.beats.flatMap(beat => beat.who === 'you' && isVisible(beat.exercise, lang)
+    ? beat.exercise.steps.filter(step => isVisible(step, lang) && step.answer.accepted.length > 0)
+      .map(step => ({ step, purpose: step.prompt ?? step.instruction ?? beat.exercise.objective, seen: met(step) }))
+    : []).map((line, index) => ({ ...line, index }));
+  const chosen = [...lines].sort((a, b) => Number(Boolean(a.seen)) - Number(Boolean(b.seen))
+    || (a.seen?.lastReviewAt ?? '').localeCompare(b.seen?.lastReviewAt ?? '') || a.index - b.index).slice(0, 3);
+  return chosen.sort((a, b) => a.index - b.index).map(({ step, purpose, seen }) => ({
+    step, german: step.answer.accepted[0]!, purpose, again: Boolean(seen),
+    words: [...new Set([
+      ...(step.reviewTargets ?? []).map(vocabById).filter((word): word is VocabEntry => Boolean(word)),
+      ...VOCABULARY.filter(word => word.wordType === 'noun' &&
+        step.answer.accepted[0]!.toLowerCase().split(/[^\p{L}]+/u).includes(word.german.toLowerCase())).slice(0, 3),
+    ])],
+  }));
 }
 
 /** Practice has distinct IDs: rehearsing a line never completes a course lesson. */
-export function phraseRecall(script: ScenarioScript, lang: TeachingLanguage): Exercise[] {
-  const cards = dailyPhrases(script, lang);
+export function phraseRecall(script: ScenarioScript, lang: TeachingLanguage, cards = dailyPhrases(script, lang)): Exercise[] {
   const recall: Exercise[] = cards.map(card => ({
     id: `daily-phrase-${card.step.id}`, kind: 'type', level: script.level,
     objective: { en: 'Use your new phrase', bg: 'Използвай новата фраза' },
@@ -72,8 +129,8 @@ export function phraseRecall(script: ScenarioScript, lang: TeachingLanguage): Ex
   return recall;
 }
 
-export function dailyListening(script: ScenarioScript, lang: TeachingLanguage): Exercise[] {
-  return dailyPhrases(script, lang).slice(0, 2).map(card => ({
+export function dailyListening(script: ScenarioScript, lang: TeachingLanguage, cards = dailyPhrases(script, lang)): Exercise[] {
+  return cards.slice(0, 2).map(card => ({
     id: `daily-listen-${card.step.id}`, kind: 'dictation', level: script.level,
     objective: { en: 'Recognise a useful phrase', bg: 'Разпознай полезна фраза' },
     steps: [{ id: `daily-listen-${card.step.id}`, prompt: null,

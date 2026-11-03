@@ -11,6 +11,121 @@ import { narrator, registerTrap, script, them, you } from './authoring.ts';
  * next — which is the actual goal of an appointment at a German authority.
  */
 
+const BUERGERAMT_PRE_A1 = script({
+  id: 'sc-buergeramt-pre-a1',
+  scenarioId: 'sc-buergeramt',
+  level: 'pre-a1',
+  register: 'Sie',
+  partner: bi('the clerk at the counter', 'служителката на гишето'),
+  goal: bi(
+    'Give the clerk your details for a form: your name, where you live, your age, and how much German you speak.',
+    'Дай на служителката данните си за формуляр: име, къде живееш, възраст и колко немски говориш.',
+  ),
+  lessonIds: ['pre-a1-u2-l3', 'pre-a1-u2-l4', 'pre-a1-u3-l3', 'pre-a1-u4-l1'],
+  outro: bi(
+    'Name, address, age, languages: the questions every German form asks, and the first part of every beginners’ speaking exam. You answered each one in a whole sentence.',
+    'Име, адрес, възраст, езици: въпросите на всеки немски формуляр и първата част на всеки устен изпит за начинаещи. На всеки отговори с цяло изречение.',
+  ),
+  beats: [
+    narrator(
+      bi(
+        'Your number comes up on the screen. The clerk needs a few details for a form, and asks for them one at a time, much like the examiner in a beginners’ speaking test.',
+        'Номерът ти излиза на екрана. Служителката иска няколко данни за формуляр и ги пита една по една — почти като изпитващия на устен изпит за начинаещи.',
+      ),
+    ),
+    them('Guten Tag. Wie heißen Sie?', bi('Hello. What is your name?', 'Добър ден. Как се казвате?')),
+    you(
+      'sc-buergeramt-pre-a1-t1',
+      bi('Give your name', 'Кажи името си'),
+      [
+        {
+          id: 'sc-buergeramt-pre-a1-t1-s1',
+          prompt: bi('Your name is Alex Novak.', 'Казваш се Алекс Новак.'),
+          answer: 'Ich heiße Alex Novak.',
+          alternatives: ['Mein Name ist Alex Novak.', 'Guten Tag, ich heiße Alex Novak.', 'Alex Novak.'],
+          shape: 'sentence',
+          reviewTargets: ['v-heissen', 'v-der-name'],
+          hints: [
+            bi('The verb from her question, with ich: heiße.', 'Глаголът от въпроса ѝ, с „ich“: „heiße“.'),
+            bi('Ich h____ Alex Novak.', 'Ich h____ Alex Novak.'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Und wo wohnen Sie?', bi('And where do you live?', 'А къде живеете?')),
+    you(
+      'sc-buergeramt-pre-a1-t2',
+      bi('Say where you live', 'Кажи къде живееш'),
+      [
+        {
+          id: 'sc-buergeramt-pre-a1-t2-s1',
+          prompt: bi('You live in Berlin.', 'Живееш в Берлин.'),
+          answer: 'Ich wohne in Berlin.',
+          alternatives: ['In Berlin.'],
+          shape: 'sentence',
+          reviewTargets: ['v-wohnen'],
+          hints: [
+            bi('wohnen, with ich: wohne. A town takes in.', '„wohnen“ с „ich“: „wohne“. Град — с „in“.'),
+            bi('Ich w____ in Berlin.', 'Ich w____ in Berlin.'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Wie alt sind Sie?', bi('How old are you?', 'На колко години сте?'), {
+      note: bi(
+        'German answers with the whole phrase: I am thirty-two years old, Jahre alt and all. The number is said units first: zweiunddreißig, two-and-thirty.',
+        'Българският казва „на трийсет и две години съм“; немският — „аз съм трийсет и две години стар“: „Jahre alt“ накрая е задължително. А числото започва от единиците: zweiunddreißig, „две и трийсет“.',
+      ),
+    }),
+    you(
+      'sc-buergeramt-pre-a1-t3',
+      bi('Give your age', 'Кажи възрастта си'),
+      [
+        {
+          id: 'sc-buergeramt-pre-a1-t3-s1',
+          prompt: bi('You are thirty-two.', 'На трийсет и две години си.'),
+          answer: 'Ich bin zweiunddreißig Jahre alt.',
+          alternatives: ['Ich bin 32 Jahre alt.', 'Zweiunddreißig.'],
+          shape: 'sentence',
+          reviewTargets: ['v-zweiunddreissig', 'v-alt'],
+          hints: [
+            bi('Units first, then und, then the tens, all in one word.', 'Първо единиците, после „und“, после десетиците — всичко в една дума.'),
+            bi('Ich bin zweiunddreißig J____ a__.', 'Ich bin zweiunddreißig J____ a__.'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Sprechen Sie Deutsch?', bi('Do you speak German?', 'Говорите ли немски?')),
+    you(
+      'sc-buergeramt-pre-a1-t4',
+      bi('Say how much German you speak', 'Кажи колко немски говориш'),
+      [
+        {
+          id: 'sc-buergeramt-pre-a1-t4-s1',
+          instruction: bi(
+            'ein bisschen is "a little". Then say why: you are learning it.',
+            '„ein bisschen“ е „малко“. После кажи защо: учиш го.',
+          ),
+          prompt: bi('A little: you are learning German.', 'Малко: учиш немски.'),
+          answer: 'Ein bisschen. Ich lerne Deutsch.',
+          alternatives: ['Ja, ein bisschen. Ich lerne Deutsch.', 'Ein bisschen, ich lerne Deutsch.'],
+          shape: 'sentence',
+          reviewTargets: ['v-lernen', 'v-deutsch'],
+          hints: [
+            bi('lernen, with ich: lerne. A language takes no article.', '„lernen“ с „ich“: „lerne“. Езикът е без член.'),
+            bi('Ein bisschen. Ich l____ Deutsch.', 'Ein bisschen. Ich l____ Deutsch.'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Gut, danke. Das ist alles. Ihre Bestätigung kommt sofort.', bi('Good, thank you. That is everything. Your confirmation is coming right away.', 'Добре, благодаря. Това е всичко. Потвърждението Ви идва веднага.')),
+  ],
+});
+
 const BUERGERAMT_A2 = script({
   id: 'sc-buergeramt-a2',
   scenarioId: 'sc-buergeramt',
@@ -911,6 +1026,7 @@ const BANK_B2 = script({
 });
 
 export const OFFICE_SCRIPTS: ScenarioScript[] = [
+  BUERGERAMT_PRE_A1,
   BUERGERAMT_A2,
   BUERGERAMT_B1,
   BUERGERAMT_B2,

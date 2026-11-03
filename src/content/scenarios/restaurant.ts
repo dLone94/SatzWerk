@@ -5,10 +5,135 @@ import { narrator, registerTrap, script, them, you } from './authoring.ts';
 /**
  * At the restaurant.
  *
- * Four stages that are four different rooms wearing the same name: a table on
- * the night, a telephone, a complaint made while somebody is still holding
- * your plate, and a bill you have to argue with in writing-grade German.
+ * Five stages that are five different rooms wearing the same name: a café
+ * table with a coffee on it, a table on the night, a telephone, a complaint
+ * made while somebody is still holding your plate, and a bill you have to
+ * argue with in writing-grade German.
  */
+
+const PRE_A1 = script({
+  id: 'sc-restaurant-pre-a1',
+  scenarioId: 'sc-restaurant',
+  level: 'pre-a1',
+  register: 'Sie',
+  partner: bi('the waiter in a café', 'сервитьорът в кафенето'),
+  goal: bi('Order a coffee and a water in a café, then pay and tip.', 'Поръчай кафе и вода в кафене, после плати и остави бакшиш.'),
+  lessonIds: ['pre-a1-u2-l2', 'pre-a1-u3-l3'],
+  outro: bi(
+    'You ordered with the waiter’s own verb, asked to pay, and tipped the German way: round up, and say Stimmt so.',
+    'Поръча с глагола на самия сервитьор, поиска да платиш и остави бакшиш по немски: закръгляш и казваш „Stimmt so“.',
+  ),
+  beats: [
+    narrator(
+      bi('A small café near the station. You sit down at a table by the window.', 'Малко кафене до гарата. Сядаш на маса до прозореца.'),
+    ),
+    them('Hallo! Was möchten Sie?', bi('Hello! What would you like?', 'Здравейте! Какво ще желаете?'), {
+      note: bi(
+        'möchten is "would like", and you can borrow it: the polite way to order is Ich möchte …, with the same verb he asked with.',
+        '„möchten“ е учтивото „искам“ — като „желая“. Вземи го назаем: „Ich möchte …“ е учтивият начин да поръчаш, със същия глагол, с който той попита.',
+      ),
+    }),
+    you(
+      'sc-restaurant-pre-a1-t1',
+      bi('Order a coffee', 'Поръчай кафе'),
+      [
+        {
+          id: 'sc-restaurant-pre-a1-t1-s1',
+          instruction: bi(
+            'Coffee is der Kaffee, so a coffee you order is einen Kaffee — the same einen as in Ich habe einen Bruder.',
+            'Кафето е „der Kaffee“, затова кафето, което поръчваш, е „einen Kaffee“ — същото „einen“ като в „Ich habe einen Bruder“.',
+          ),
+          prompt: bi('Say you would like a coffee.', 'Кажи, че искаш едно кафе.'),
+          answer: 'Ich möchte einen Kaffee.',
+          alternatives: ['Ich möchte einen Kaffee, bitte.', 'Einen Kaffee, bitte.', 'Ich hätte gern einen Kaffee.'],
+          shape: 'sentence',
+          reviewTargets: ['v-moechten', 'v-kaffee'],
+          hints: [
+            bi('Ich möchte, then einen, then the coffee.', '„Ich möchte“, после „einen“, после кафето.'),
+            bi('Ich m_____ einen Kaffee.', 'Ich m_____ einen Kaffee.'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Gern. Und sonst noch etwas?', bi('Sure. Anything else?', 'Разбира се. Нещо друго?')),
+    you(
+      'sc-restaurant-pre-a1-t2',
+      bi('Ask for a water too', 'Поискай и вода'),
+      [
+        {
+          id: 'sc-restaurant-pre-a1-t2-s1',
+          instruction: bi(
+            'Water is das Wasser, so it stays ein: ein Wasser, never einen.',
+            'Водата е „das Wasser“, затова остава „ein“: „ein Wasser“, никога „einen“.',
+          ),
+          prompt: bi('And a water, please.', 'И една вода, моля.'),
+          answer: 'Und ein Wasser, bitte.',
+          alternatives: ['Ein Wasser, bitte.', 'Und ein Wasser.', 'Ich möchte auch ein Wasser.'],
+          shape: 'phrase',
+          reviewTargets: ['v-das-wasser', 'v-bitte'],
+          hints: [
+            bi('das Wasser: ein, not einen.', '„das Wasser“: „ein“, не „einen“.'),
+            bi('Und ein W_____, bitte.', 'Und ein W_____, bitte.'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    narrator(
+      bi('He brings both. Twenty minutes later you catch his eye to pay.', 'Той носи и двете. След двайсет минути хващаш погледа му, за да платиш.'),
+    ),
+    you(
+      'sc-restaurant-pre-a1-t3',
+      bi('Ask to pay', 'Поискай да платиш'),
+      [
+        {
+          id: 'sc-restaurant-pre-a1-t3-s1',
+          instruction: bi(
+            'In a café you ask to pay rather than for the bill: two words, "paying, please".',
+            'В кафене не искаш сметката, а казваш, че искаш да платиш: две думи, „плащане, моля“.',
+          ),
+          prompt: bi('Tell him you would like to pay.', 'Кажи му, че искаш да платиш.'),
+          answer: 'Zahlen, bitte!',
+          alternatives: ['Ich möchte zahlen, bitte.', 'Ich möchte bitte zahlen.', 'Die Rechnung, bitte.'],
+          shape: 'phrase',
+          reviewTargets: ['v-bitte'],
+          hints: [
+            bi('The verb is zahlen, to pay. Then the magic word.', 'Глаголът е „zahlen“ — плащам. После вълшебната дума.'),
+            bi('Z_____, bitte!', 'Z_____, bitte!'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Ein Kaffee und ein Wasser … das macht fünf Euro zwanzig.', bi('A coffee and a water … that comes to five euros twenty.', 'Едно кафе и една вода … прави пет евро и двайсет.'), {
+      note: bi(
+        'The tip is not left on the table. You round up as you pay, and say how much he should keep — or just Stimmt so, "that is right as it is".',
+        'Бакшишът не се оставя на масата. Закръгляш, докато плащаш, и казваш колко да задържи — или просто „Stimmt so“, „така е точно“. В България оставяш рестото; в Германия го казваш на глас.',
+      ),
+    }),
+    you(
+      'sc-restaurant-pre-a1-t4',
+      bi('Pay, and round up', 'Плати и закръгли'),
+      [
+        {
+          id: 'sc-restaurant-pre-a1-t4-s1',
+          prompt: bi('Give him six euros, and tell him to keep the change.', 'Дай му шест евро и му кажи да задържи рестото.'),
+          answer: 'Sechs Euro, stimmt so!',
+          alternatives: ['Sechs Euro. Stimmt so!', 'Sechs Euro, bitte. Stimmt so!'],
+          shape: 'phrase',
+          reviewTargets: ['v-sechs', 'v-der-euro'],
+          hints: [
+            bi('The amount, then the two words that mean "keep the change".', 'Сумата, после двете думи за „задръжте рестото“.'),
+            bi('Sechs Euro, s_____ so!', 'Sechs Euro, s_____ so!'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Vielen Dank! Schönen Tag noch!', bi('Thank you very much! Have a nice day!', 'Много благодаря! Приятен ден!')),
+  ],
+});
 
 const A1 = script({
   id: 'sc-restaurant-a1',
@@ -628,4 +753,4 @@ const B2 = script({
   ],
 });
 
-export const RESTAURANT_SCRIPTS: ScenarioScript[] = [A1, A2, B1, B2];
+export const RESTAURANT_SCRIPTS: ScenarioScript[] = [PRE_A1, A1, A2, B1, B2];

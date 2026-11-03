@@ -5,11 +5,136 @@ import { narrator, registerTrap, script, them, you } from './authoring.ts';
 /**
  * Public transport and the station.
  *
- * Three stages that follow one journey going wrong: buying the ticket,
- * finding out the train is late, and asking for the money back afterwards.
- * The last one is the conversation most people never have, because they do
- * not know it exists.
+ * Four stages that follow one journey going wrong: finding the station,
+ * buying the ticket, finding out the train is late, and asking for the money
+ * back afterwards. The last one is the conversation most people never have,
+ * because they do not know it exists.
  */
+
+const PRE_A1 = script({
+  id: 'sc-transport-pre-a1',
+  scenarioId: 'sc-transport',
+  level: 'pre-a1',
+  register: 'Sie',
+  partner: bi('a woman at the bus stop', 'жена на автобусната спирка'),
+  goal: bi(
+    'Ask a stranger the way to the station, and check the way before you set off.',
+    'Попитай непозната как да стигнеш до гарата и провери пътя, преди да тръгнеш.',
+  ),
+  lessonIds: ['pre-a1-u2-l2'],
+  outro: bi(
+    'Excuse me, where is …?, and then the part that matters: saying the way back, so that she can correct you before you walk ten minutes in the wrong direction.',
+    'Извинете, къде е …?, и после най-важното: да повториш пътя, за да те поправи, преди да вървиш десет минути в грешна посока.',
+  ),
+  beats: [
+    narrator(
+      bi(
+        'Your train leaves in half an hour and the map on your phone has frozen. A woman is waiting at the bus stop.',
+        'Влакът ти тръгва след половин час, а картата на телефона ти е блокирала. Една жена чака на спирката.',
+      ),
+    ),
+    you(
+      'sc-transport-pre-a1-t1',
+      bi('Get her attention', 'Привлечи вниманието ѝ'),
+      [
+        {
+          id: 'sc-transport-pre-a1-t1-s1',
+          instruction: bi(
+            'Entschuldigung is "excuse me" and "sorry" in one word, and it is how a question to a stranger begins.',
+            '„Entschuldigung“ е едновременно „извинете“ и „съжалявам“ — и с нея започва всеки въпрос към непознат.',
+          ),
+          prompt: bi('Say excuse me.', 'Обърни се към нея учтиво.'),
+          answer: 'Entschuldigung!',
+          alternatives: ['Entschuldigen Sie!', 'Entschuldigung, bitte!'],
+          shape: 'word',
+          reviewTargets: ['v-entschuldigung'],
+          hints: [
+            bi('The long word from the please-and-thank-you lesson.', 'Дългата дума от урока за „моля“ и „благодаря“.'),
+            bi('Ent__________!', 'Ent__________!'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Ja, bitte?', bi('Yes?', 'Да, моля?')),
+    you(
+      'sc-transport-pre-a1-t2',
+      bi('Ask where the station is', 'Попитай къде е гарата'),
+      [
+        {
+          id: 'sc-transport-pre-a1-t2-s1',
+          instruction: bi(
+            'The station is der Bahnhof. Where something is, you ask with Wo ist …?',
+            'Гарата е „der Bahnhof“. Къде е нещо, питаш с „Wo ist …?“.',
+          ),
+          prompt: bi('Ask where the station is.', 'Попитай къде е гарата.'),
+          answer: 'Wo ist der Bahnhof?',
+          alternatives: ['Wo ist der Bahnhof, bitte?', 'Entschuldigung, wo ist der Bahnhof?'],
+          shape: 'sentence',
+          reviewTargets: ['v-bahnhof'],
+          hints: [
+            bi('Wo ist, then der, then the word for station.', '„Wo ist“, после „der“, после думата за гара.'),
+            bi('Wo ist der B_______?', 'Wo ist der B_______?'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them(
+      'Der Bahnhof? Immer geradeaus, dann links. Zehn Minuten.',
+      bi('The station? Straight on, then left. Ten minutes.', 'Гарата ли? Все направо, после наляво. Десет минути.'),
+      {
+        note: bi(
+          'geradeaus is straight on, links is left and rechts is right. Catching them is the skill today; saying them comes later.',
+          'Внимание: „geradeaus“ е „направо“, а „rechts“ е „надясно“. На български двете думи звучат близко, на немски — изобщо не.',
+        ),
+      },
+    ),
+    you(
+      'sc-transport-pre-a1-t3',
+      bi('Check the way', 'Провери пътя'),
+      [
+        {
+          id: 'sc-transport-pre-a1-t3-s1',
+          instruction: bi(
+            'Say her two directions back, as a question. It is the surest way to find out whether you caught them.',
+            'Повтори двете ѝ посоки като въпрос. Така най-сигурно разбираш дали посоките са ти ясни.',
+          ),
+          prompt: bi('Repeat the way back to her: straight on, then left?', 'Повтори ѝ пътя: направо, после наляво?'),
+          answer: 'Geradeaus, dann links?',
+          alternatives: ['Immer geradeaus, dann links?', 'Geradeaus und dann links?'],
+          shape: 'phrase',
+          reviewTargets: ['v-geradeaus', 'v-links'],
+          hints: [
+            bi('Her words, in her order: geradeaus, dann links.', 'Нейните думи, в нейния ред: geradeaus, dann links.'),
+            bi('G_________, dann l____?', 'G_________, dann l____?'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Genau. Gute Reise!', bi('Exactly. Have a good trip!', 'Точно така. Приятно пътуване!')),
+    you(
+      'sc-transport-pre-a1-t4',
+      bi('Thank her', 'Благодари ѝ'),
+      [
+        {
+          id: 'sc-transport-pre-a1-t4-s1',
+          prompt: bi('Thank her and say goodbye.', 'Благодари ѝ и се сбогувай.'),
+          answer: 'Vielen Dank! Auf Wiedersehen!',
+          alternatives: ['Danke schön! Auf Wiedersehen!', 'Danke! Auf Wiedersehen!', 'Vielen Dank, auf Wiedersehen!'],
+          shape: 'phrase',
+          reviewTargets: ['v-danke', 'v-auf-wiedersehen'],
+          hints: [
+            bi('Thanks, then the goodbye for a stranger.', 'Благодаря, после сбогуването с непознат.'),
+            bi('Vielen Dank! Auf W_________!', 'Vielen Dank! Auf W_________!'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+  ],
+});
 
 const A1 = script({
   id: 'sc-transport-a1',
@@ -419,4 +544,4 @@ const B1 = script({
   ],
 });
 
-export const TRANSPORT_SCRIPTS: ScenarioScript[] = [A1, A2, B1];
+export const TRANSPORT_SCRIPTS: ScenarioScript[] = [PRE_A1, A1, A2, B1];
