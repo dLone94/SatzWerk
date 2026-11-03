@@ -27,11 +27,13 @@ import {
   type Unit,
   type VocabEntry,
 } from '../content/types.ts';
+import type { DailyRun } from '../core/progress/daily.ts';
+import { todayHere } from '../core/progress/days.ts';
 import { allStepIds, isLessonComplete, lessonRequirements, type LessonProgress } from '../core/progress/lesson.ts';
 import type { SessionSources } from '../core/progress/session.ts';
 import { dueItems, dueReason, orderQueue, type ReviewItem } from '../core/srs/scheduler.ts';
 import { toDigraphs } from '../core/validation/text.ts';
-import { CATEGORY_LABELS } from '../i18n.ts';
+import { CATEGORY_LABELS, type UiKey } from '../i18n.ts';
 import type { CheckpointResult, MistakeRecord } from '../services/api/client.ts';
 import { authoredStep, buildMistakePractice, buildReviewExercises } from './reviewBuilder.ts';
 
@@ -394,9 +396,90 @@ export function nextAction(
     kind: 'idle',
     to: '/course',
     title: bi('You are up to date', 'Всичко е наред'),
-    detail: bi('Nothing is due. Practising early is still an option.', 'Нищо не е дължимо. Можеш да упражняваш предварително.'),
+    detail: bi('Nothing is due. Reviewing early is still an option.', 'Нищо не е за повторение. Можеш да повториш предварително.'),
     estimatedMinutes: 0,
   };
+}
+
+/**
+ * More due than today's practice reviews on its own (it takes at most six), so
+ * clearing them is worth a step of its own before anything new.
+ */
+export const REVIEW_BACKLOG = 10;
+
+/** The daily practice's five parts, in order: a run's stage is an index into these. */
+export const DAILY_STAGES: UiKey[] = ['dailyLearn', 'dailyReview', 'dailyRecall', 'dailyConversation', 'dailyListen'];
+
+export type TodayStepKind = Exclude<NextActionKind, 'idle'> | 'daily' | 'continue-daily' | 'done';
+
+export interface TodayInput {
+  lessons: Record<string, LessonProgress>;
+  /** Only the items on the learner's teaching path. */
+  reviewItems: ReviewItem[];
+  mistakes: MistakeRecord[];
+  onboarded: boolean;
+  checkpointResults: CheckpointResult[];
+  dailyRuns: DailyRun[];
+  minutesToday: number;
+  targetMinutes: number;
+  now?: Date;
+}
+
+export interface TodayStep {
+  kind: TodayStepKind;
+  to: string;
+  /** What the course offers next, whatever leads today. */
+  course: NextAction;
+  /** Today's daily practice: not begun, begun and unfinished, or finished. */
+  practice: 'todo' | 'open' | 'done';
+  /** Today's unfinished practice, when there is one. */
+  run?: DailyRun;
+  due: number;
+  goalMet: boolean;
+  /**
+   * The one thing offered after the first step, as a quiet link: the course
+   * after today's practice, the practice after a lesson, and once the day is
+   * done, a way to keep going.
+   */
+  then?: 'daily' | 'course';
+}
+
+/**
+ * Today's first step, and the only one Today shows as a button.
+ *
+ * Today used to open on four starts of equal weight: the daily practice, the
+ * lesson, the round and early review, and nothing said which came first. The
+ * day is now one loop. A practice begun today is finished first, then
+ * whatever the course has under way (a lesson part-done, a checkpoint just
+ * earned), then a backlog of reviews, then today's practice, then the course's
+ * next step. Once the daily goal in minutes is met, or the practice is done
+ * and the course has nothing waiting, the day is done, and nothing nags: what
+ * comes next is offered, never pressed.
+ */
+export function todayStep(input: TodayInput): TodayStep {
+  const now = input.now ?? new Date();
+  const day = todayHere(now);
+  const course = nextAction(input.lessons, input.reviewItems, input.mistakes, input.onboarded, input.checkpointResults, now);
+  const runs = input.dailyRuns.filter((candidate) => candidate.day === day);
+  const run = runs.find((candidate) => candidate.stage < 5);
+  const practice = runs.some((candidate) => candidate.stage >= 5) ? 'done' : run ? 'open' : 'todo';
+  const due = dueItems(input.reviewItems, now).length;
+  const goalMet = input.minutesToday >= Math.max(1, input.targetMinutes);
+  const base = { course, practice, run: practice === 'open' ? run : undefined, due, goalMet } as const;
+  const courseLeads = course.kind !== 'idle' && course.kind !== 'onboard';
+  const afterCourse = practice === 'done' ? undefined : ('daily' as const);
+
+  if (!input.onboarded) return { ...base, kind: 'onboard', to: course.to };
+  if (goalMet || (practice === 'done' && !courseLeads)) {
+    return { ...base, kind: 'done', to: '/', then: practice !== 'done' ? 'daily' : courseLeads ? 'course' : undefined };
+  }
+  if (practice === 'open') return { ...base, kind: 'continue-daily', to: '/daily', then: courseLeads ? 'course' : undefined };
+  if (course.kind === 'continue-lesson' || course.kind === 'checkpoint') {
+    return { ...base, kind: course.kind, to: course.to, then: afterCourse };
+  }
+  if (due >= REVIEW_BACKLOG) return { ...base, kind: 'review', to: '/review', then: afterCourse };
+  if (practice === 'todo') return { ...base, kind: 'daily', to: '/daily', then: courseLeads ? 'course' : undefined };
+  return { ...base, kind: course.kind as TodayStepKind, to: course.to, then: afterCourse };
 }
 
 /**
