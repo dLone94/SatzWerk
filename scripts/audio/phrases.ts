@@ -18,7 +18,7 @@ import {
 import { SCENARIO_SCRIPTS } from '../../src/content/scenarios/index.ts';
 import { VOCABULARY } from '../../src/content/vocabulary.ts';
 import { SAMPLE_PHRASE, normalizePhrase, phraseKey } from '../../src/services/tts/phraseKey.ts';
-import { speakable } from '../../src/services/tts/speakable.ts';
+import { examplesIn, speakable } from '../../src/services/tts/speakable.ts';
 
 /** Fields whose string value is German that a button may read out. */
 const SPOKEN_FIELDS = new Set(['de', 'promptDe', 'display', 'plural']);
@@ -52,11 +52,17 @@ export function collectPhrases(): Map<string, string> {
     }
     // A table's German cells are plain strings in arrays, with no field name
     // to recognise them by. Each gets a play button when the tables' own rule
-    // says it is speakable, and says exactly that text.
+    // says it is speakable, and says exactly that text. So does each German
+    // example in a cell written for both paths ("acht — AKHT").
     if (record.t === 'table' && Array.isArray(record.rows)) {
       for (const row of record.rows as unknown[]) {
         if (!Array.isArray(row)) continue;
-        for (const cell of row) if (typeof cell === 'string') add(speakable(cell));
+        for (const cell of row) {
+          if (typeof cell === 'string') add(speakable(cell));
+          else if (cell && typeof cell === 'object') {
+            for (const example of examplesIn(cell as { en: string; bg: string })) add(speakable(example));
+          }
+        }
       }
     }
   };

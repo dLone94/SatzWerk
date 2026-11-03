@@ -1,7 +1,7 @@
-import type { CSSProperties, ReactNode, Ref } from 'react';
+import { Fragment, type CSSProperties, type ReactNode, type Ref } from 'react';
 import type { Block, ContentStatus, VocabEntry } from '../../content/types.ts';
 import { NORMAL_RATE, SLOW_RATE } from '../../services/tts/index.ts';
-import { speakable } from '../../services/tts/speakable.ts';
+import { examplesIn, speakable, splitExamples } from '../../services/tts/speakable.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { WORD_TYPE_LABELS, tr } from '../../i18n.ts';
 import { Icon, type IconName } from './icons.tsx';
@@ -349,8 +349,10 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
                     {block.rows.map((row, r) => (
                       <tr key={r}>
                         {/* A plain string in a table is German; a bilingual
-                            cell is the explanation. The German gets the German
-                            face whichever column it sits in. */}
+                            cell is the explanation, unless it is a list of
+                            German examples with a respelling for each path.
+                            The German gets the German face whichever column
+                            it sits in. */}
                         {row.map((cell, c) =>
                           typeof cell === 'string' ? (
                             <td key={c} lang="de" className="data-table__de">
@@ -359,7 +361,11 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
                             </td>
                           ) : (
                             <td key={c}>
-                              <RichText text={say(cell)} />
+                              {examplesIn(cell).length > 0 ? (
+                                <Examples text={say(cell)} />
+                              ) : (
+                                <RichText text={say(cell)} />
+                              )}
                             </td>
                           ),
                         )}
@@ -408,6 +414,28 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
         }
       })}
     </div>
+  );
+}
+
+/**
+ * "lesen — „ЛЕ-зен“, sieben — „ЗИ-бен“": each German word marked as German,
+ * with its own play button, and the respelling after it left as it is.
+ */
+function Examples({ text }: { text: string }) {
+  return (
+    <>
+      {(splitExamples(text) ?? []).map((example, index) => (
+        <Fragment key={index}>
+          {index > 0 ? ', ' : null}
+          <span lang="de" className="data-table__de">
+            {example.de}
+          </span>
+          {' — '}
+          <RichText text={example.rest} />
+          {speakable(example.de) ? <AudioButton compact text={speakable(example.de)!} /> : null}
+        </Fragment>
+      ))}
+    </>
   );
 }
 
