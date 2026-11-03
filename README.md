@@ -918,7 +918,10 @@ Three details are deliberate:
 
 It is offered on the first-run screen to anyone who says they already speak
 some German, and from the top of the Course page — never forced, because most
-people opening this app already know they are beginners.
+people opening this app already know they are beginners. The recommendation is
+kept: until the learner opens a lesson, Today, the course page and daily
+practice start at the recommended level, and the check shows its last answer
+when it is opened again.
 
 ---
 

@@ -782,16 +782,22 @@ export async function recordCheckpointResult({ db, userId }: Scope, input: Check
 
 export interface CheckpointResult {
   checkpointId: string;
+  /** The unit or level checked; for the placement check, the level it recommends. */
+  targetId: string;
   accuracy: number;
   passed: boolean;
   createdAt: string;
 }
 
 export async function listCheckpointResults({ db, userId }: Scope): Promise<CheckpointResult[]> {
+  // The target is sent back because the placement check's recommendation is
+  // its target, and a recommendation the app cannot read back was lost the
+  // moment the learner left the result screen.
   return (
-    await db.all('SELECT checkpoint_id, accuracy, passed, created_at FROM checkpoint_results WHERE user_id = ? ORDER BY created_at DESC', userId) as Array<Record<string, unknown>>
+    await db.all('SELECT checkpoint_id, target_id, accuracy, passed, created_at FROM checkpoint_results WHERE user_id = ? ORDER BY created_at DESC', userId) as Array<Record<string, unknown>>
   ).map((row) => ({
     checkpointId: String(row.checkpoint_id),
+    targetId: String(row.target_id),
     accuracy: Number(row.accuracy),
     passed: Number(row.passed) === 1,
     createdAt: String(row.created_at),

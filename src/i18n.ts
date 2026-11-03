@@ -105,6 +105,8 @@ export const UI = {
   courseUnitProgress: s('{done} of {total} lessons complete', '{done} от {total} урока завършени'),
   courseOpenUnit: s('Open unit', 'Отвори раздела'),
   courseCheckpointDone: s('Checkpoint passed', 'Проверката е премината'),
+  courseCheckpointNotTaken: s('Not taken yet', 'Още не е направена'),
+  courseCheckpointBest: s('Best so far {n}%', 'Най-добър резултат досега {n}%'),
   routeLoadFailed: s('This page could not be loaded. Your saved answers are safe. Check your connection and try again.', 'Страницата не може да се зареди. Запазените ти отговори са в безопасност. Провери връзката и опитай отново.'),
   appName: s('SatzWerk', 'SatzWerk'),
   tagline: s('Your personal German tutor', 'Твоят личен учител по немски'),
@@ -766,6 +768,7 @@ export const UI = {
   placementSeeCourse: s('See the whole course', 'Виж целия курс'),
   placementDisagree: s('Not right? Start here instead:', 'Не е вярно? Започни оттук:'),
   placementAgain: s('Take it again', 'Направи я пак'),
+  placementLast: s('Your last check suggested {level}.', 'Последната ти проверка предложи {level}.'),
 
   // Real life
   realLifeTitle: s('Real life', 'Реален живот'),

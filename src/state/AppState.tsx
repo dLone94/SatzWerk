@@ -1165,6 +1165,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           // when the queue drains.
           const row = {
             checkpointId: payload.checkpointId,
+            targetId: payload.targetId,
             accuracy: payload.accuracy,
             passed: payload.passed,
             createdAt: new Date().toISOString(),

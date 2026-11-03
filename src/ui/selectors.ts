@@ -1,5 +1,7 @@
 import {
+  CURRICULUM,
   GRAMMAR_CONCEPTS,
+  PLACEMENT_CHECKPOINT,
   VOCABULARY,
   allCheckpoints,
   availableLessons,
@@ -8,10 +10,22 @@ import {
   lessonsInOrder,
   patternById,
   practiceForCategory,
+  unitById,
   unitForLesson,
   vocabById,
 } from '../content/browser.ts';
-import type { Bilingual, Exercise, ExerciseStep, Lesson, TeachingLanguage, VocabEntry } from '../content/types.ts';
+import {
+  CEFR_ORDER,
+  type Bilingual,
+  type CefrLevel,
+  type Checkpoint,
+  type Exercise,
+  type ExerciseStep,
+  type Lesson,
+  type Level,
+  type TeachingLanguage,
+  type VocabEntry,
+} from '../content/types.ts';
 import { allStepIds, isLessonComplete, lessonRequirements, type LessonProgress } from '../core/progress/lesson.ts';
 import type { SessionSources } from '../core/progress/session.ts';
 import { dueItems, dueReason, orderQueue, type ReviewItem } from '../core/srs/scheduler.ts';
@@ -227,8 +241,10 @@ export function nextAction(
   }
 
   const views = buildLessonViews(lessons);
-  const inProgress = views.find((view) => view.started && !view.complete);
+  const placed = standingPlacement(lessons, checkpointResults);
+  const inProgress = lessonInProgress(views, placed);
   const due = dueItems(reviewItems, now);
+  const allComplete = views.length > 0 && views.every((view) => view.complete);
 
   if (inProgress) {
     return {
@@ -250,7 +266,28 @@ export function nextAction(
     };
   }
 
-  const next = nextNewLesson(views);
+  /*
+   * The end of a unit: its checkpoint, before the next unit begins.
+   *
+   * The course promises a checkpoint at the end of every unit, but none was
+   * offered until all 84 lessons were done, so nobody was ever sent to one
+   * while working through the course. It is offered while the furthest lesson
+   * reached is the one that finished a unit, and it is the checkpoint the
+   * course page offers for that level. A learner who would rather go on starts
+   * the next lesson, and the moment has passed; the course page still has it.
+   */
+  const boundary = placed || allComplete ? undefined : unitCheckpointDue(views, lessons, checkpointResults);
+  if (boundary) {
+    return {
+      kind: 'checkpoint',
+      to: `/checkpoint/${boundary.id}`,
+      title: boundary.title,
+      detail: boundary.description,
+      estimatedMinutes: 10,
+    };
+  }
+
+  const next = nextNewLesson(views, placed);
   if (next) {
     return {
       kind: 'start-lesson',
@@ -278,7 +315,6 @@ export function nextAction(
   const checkpoint = allCheckpoints().find(
     (candidate) => candidate.status === 'available' && !passed.has(candidate.id),
   );
-  const allComplete = views.length > 0 && views.every((view) => view.complete);
   if (allComplete && checkpoint) {
     return {
       kind: 'checkpoint',
@@ -332,20 +368,105 @@ export function nextAction(
 }
 
 /**
+ * Where the placement check said to start, while that still stands.
+ *
+ * The check stored its recommendation and nothing read it back, so a learner
+ * told "Start at B1" who left the result any way but its first button was sent
+ * to Pre-A1 lesson 1 on Today, on the course page and in daily practice. The
+ * latest result counts until the learner does lesson work after it: opening
+ * the lesson it recommends, or the level above or below that the result
+ * offers instead, puts them somewhere real, and from then on the lessons
+ * themselves say where they are.
+ */
+export function standingPlacement(
+  lessons: Record<string, LessonProgress>,
+  checkpointResults: CheckpointResult[],
+): CefrLevel | undefined {
+  let latest: CheckpointResult | undefined;
+  for (const result of checkpointResults) {
+    if (result.checkpointId !== PLACEMENT_CHECKPOINT.id) continue;
+    if (!CEFR_ORDER.includes(result.targetId as CefrLevel)) continue;
+    if (!latest || Date.parse(result.createdAt) > Date.parse(latest.createdAt)) latest = result;
+  }
+  if (!latest) return undefined;
+  const placedAt = Date.parse(latest.createdAt);
+  const workedSince = Object.values(lessons).some(
+    (progress) => Date.parse(progress.lastActiveAt ?? progress.startedAt ?? '') > placedAt,
+  );
+  return workedSince ? undefined : (latest.targetId as CefrLevel);
+}
+
+/** Where the learner's part of the course begins: the placed level's first lesson, or the first of all. */
+function placedIndex(views: LessonView[], placed?: CefrLevel): number {
+  return placed ? Math.max(0, views.findIndex((view) => view.lesson.level === placed)) : 0;
+}
+
+/**
+ * A lesson started and not finished. While a placement stands, one below the
+ * placed level does not count: the learner was sent past it after opening it.
+ */
+export function lessonInProgress(views: LessonView[], placed?: CefrLevel): LessonView | undefined {
+  return views.slice(placedIndex(views, placed)).find((view) => view.started && !view.complete);
+}
+
+/**
  * The next lesson not yet started, counted on from where the learner is.
  *
  * The first unstarted lesson in the whole course sent a learner placed at A2
  * back to Pre-A1 lesson 1 after every lesson they finished. So the search
- * starts after the furthest lesson already started or finished; the lessons
- * left behind (below a placement, or skipped) come round once the end of the
- * course is reached.
+ * starts after the furthest lesson already started or finished, or at the
+ * placed level while a placement stands; the lessons left behind (below a
+ * placement, or skipped) come round once the end of the course is reached.
  */
-function nextNewLesson(views: LessonView[]): LessonView | undefined {
-  let furthest = -1;
-  views.forEach((view, index) => {
-    if (view.started || view.complete) furthest = index;
-  });
+export function nextNewLesson(views: LessonView[], placed?: CefrLevel): LessonView | undefined {
+  let furthest = placedIndex(views, placed) - 1;
+  if (!placed) {
+    views.forEach((view, index) => {
+      if (view.started || view.complete) furthest = index;
+    });
+  }
   return views.slice(furthest + 1).find((view) => !view.started) ?? views.find((view) => !view.started);
+}
+
+/**
+ * The checkpoint a level offers next: the first not yet passed among its
+ * finished units, then the level's own once every unit is finished. A unit
+ * with lessons still only planned is not finished.
+ */
+export function checkpointToTake(
+  level: Level,
+  lessons: Record<string, LessonProgress>,
+  checkpointResults: CheckpointResult[],
+): Checkpoint | undefined {
+  const passed = new Set(checkpointResults.filter((result) => result.passed).map((result) => result.checkpointId));
+  const finished = level.units.filter((unit) =>
+    unit.lessons.every((lesson) => isLessonComplete(lesson, lessons[lesson.id] ?? emptyProgress(lesson.id))),
+  );
+  const open = (checkpoint?: Checkpoint) => checkpoint && checkpoint.status === 'available' && !passed.has(checkpoint.id);
+  const unitCheckpoint = finished.map((unit) => unit.checkpoint).find(open);
+  if (unitCheckpoint) return unitCheckpoint;
+  return finished.length === level.units.length && open(level.checkpoint) ? level.checkpoint : undefined;
+}
+
+/** The checkpoint at a unit boundary: the furthest lesson reached has just finished its unit. */
+function unitCheckpointDue(
+  views: LessonView[],
+  lessons: Record<string, LessonProgress>,
+  checkpointResults: CheckpointResult[],
+): Checkpoint | undefined {
+  const furthest = views.filter((view) => view.started || view.complete).at(-1);
+  if (!furthest?.complete) return undefined;
+  const unit = unitById(furthest.lesson.unitId);
+  const level = CURRICULUM.find((entry) => entry.id === furthest.lesson.level);
+  if (!unit || !level) return undefined;
+  const unitDone = views.filter((view) => view.lesson.unitId === unit.id).every((view) => view.complete);
+  return unitDone ? checkpointToTake(level, lessons, checkpointResults) : undefined;
+}
+
+/** The level a checkpoint belongs to; none for the placement check. */
+export function checkpointLevel(checkpoint: Checkpoint): CefrLevel | undefined {
+  if (checkpoint.scope === 'unit') return unitById(checkpoint.targetId)?.level;
+  return checkpoint.scope === 'level' ? (checkpoint.targetId as CefrLevel) : undefined;
 }
 
 /**

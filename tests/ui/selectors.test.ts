@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { allCheckpoints, availableLessons, lessonsInOrder } from '../../src/content/index.ts';
+import { allCheckpoints, allUnits, availableLessons, lessonsInOrder } from '../../src/content/index.ts';
 import type { LessonProgress, StepOutcome } from '../../src/core/progress/lesson.ts';
 import { createReviewItem, type ReviewItem } from '../../src/core/srs/scheduler.ts';
 import type { CheckpointResult, MistakeRecord } from '../../src/services/api/client.ts';
-import { buildQueue, buildVocabViews, mistakeMatchesVocab, nextAction, vocabMatches } from '../../src/ui/selectors.ts';
+import { inferredPracticeLevel } from '../../src/ui/components/LearningPreferences.tsx';
+import {
+  buildQueue,
+  buildVocabViews,
+  mistakeMatchesVocab,
+  nextAction,
+  standingPlacement,
+  vocabMatches,
+} from '../../src/ui/selectors.ts';
 import { vocabById } from '../../src/content/index.ts';
 
 /**
@@ -111,6 +119,96 @@ describe('what Today sends the learner to next', () => {
       const allPassed = allCheckpoints().map((checkpoint) => passed(checkpoint.id));
       expect(nextAction(everything, [], [], true, allPassed, now).kind).toBe('idle');
     });
+  });
+});
+
+describe('where a placed learner starts', () => {
+  /*
+   * The placement result was kept only on its own screen. A learner told
+   * "Start at B1" who left it by the nav, or by its own "See the whole
+   * course", was sent to Pre-A1 lesson 1 on Today, the course page and in
+   * daily practice; nothing read the level it stored.
+   */
+  const placedAt = '2026-05-01T10:00:00.000Z';
+  const placement = (targetId: string, createdAt = placedAt): CheckpointResult => ({
+    checkpointId: 'placement',
+    targetId,
+    accuracy: 0.6,
+    passed: false,
+    createdAt,
+  });
+  const firstOf = (level: string) => lessonsInOrder().find((lesson) => lesson.level === level && lesson.status === 'available')!;
+  const opened = (lessonId: string, at: string): LessonProgress => ({
+    lessonId,
+    sectionsSeen: [firstOf('pre-a1').sections[0]!.id],
+    practice: {},
+    mastery: { attempts: 0, bestAccuracy: 0, passed: false },
+    recoveryRounds: 0,
+    startedAt: at,
+    lastActiveAt: at,
+  });
+
+  it('starts at the first lesson of the level the check recommended', () => {
+    const action = nextAction({}, [], [], true, [placement('b1')]);
+    expect(action).toMatchObject({ kind: 'start-lesson', to: `/lesson/${firstOf('b1').id}` });
+    expect(standingPlacement({}, [placement('b1')])).toBe('b1');
+    expect(inferredPracticeLevel({}, [placement('b1')])).toBe('b1');
+  });
+
+  it('takes the latest check, and lets a lesson below it that was opened earlier wait', () => {
+    const earlier = { [firstOf('pre-a1').id]: opened(firstOf('pre-a1').id, '2026-04-01T10:00:00.000Z') };
+    const results = [placement('b2', '2026-03-01T10:00:00.000Z'), placement('a2')];
+    expect(nextAction(earlier, [], [], true, results).to).toBe(`/lesson/${firstOf('a2').id}`);
+  });
+
+  it('gives way to what the learner does after it', () => {
+    // The result also offers the level below; starting there overrules it.
+    const a2 = firstOf('a2').id;
+    const after = { [a2]: { ...completed(a2), lastActiveAt: '2026-05-02T10:00:00.000Z' } };
+    expect(standingPlacement(after, [placement('b1')])).toBeUndefined();
+    expect(nextAction(after, [], [], true, [placement('b1')]).to).not.toBe(`/lesson/${firstOf('b1').id}`);
+    expect(inferredPracticeLevel(after, [placement('b1')])).toBe('a2');
+  });
+
+  it('ignores a result that names no level the course has', () => {
+    expect(standingPlacement({}, [placement('pre-a1-u1')])).toBeUndefined();
+  });
+});
+
+describe('the end of a unit', () => {
+  /*
+   * The course promises a checkpoint at the end of every unit, but nothing
+   * offered one until every lesson in the course was done: after unit 1 the
+   * lesson-complete card, Today and the course page all went on to unit 2.
+   */
+  const unit = allUnits().find((candidate) => candidate.checkpoint && candidate.lessons.length > 1)!;
+  const done = Object.fromEntries(unit.lessons.map((lesson) => [lesson.id, completed(lesson.id)]));
+  const result = (passed: boolean): CheckpointResult => ({
+    checkpointId: unit.checkpoint!.id,
+    targetId: unit.id,
+    accuracy: passed ? 1 : 0.4,
+    passed,
+    createdAt: '2026-01-02T00:00:00.000Z',
+  });
+
+  it('offers its checkpoint before the next unit begins', () => {
+    expect(nextAction(done, [], [], true)).toMatchObject({ kind: 'checkpoint', to: `/checkpoint/${unit.checkpoint!.id}` });
+  });
+
+  it('goes on to the next lesson once it is passed', () => {
+    expect(nextAction(done, [], [], true, [result(true)]).kind).toBe('start-lesson');
+  });
+
+  it('does not hold back a learner who has gone on to the next unit', () => {
+    const next = lessonsInOrder().filter((lesson) => lesson.status === 'available')
+      .find((lesson) => lesson.unitId !== unit.id && lessonsInOrder().indexOf(lesson) > lessonsInOrder().indexOf(unit.lessons.at(-1)!))!;
+    const moved = { ...done, [next.id]: completed(next.id) };
+    expect(nextAction(moved, [], [], true).kind).toBe('start-lesson');
+  });
+
+  it('is not offered in the middle of a unit', () => {
+    const [first] = unit.lessons;
+    expect(nextAction({ [first!.id]: completed(first!.id) }, [], [], true).kind).toBe('start-lesson');
   });
 });
 

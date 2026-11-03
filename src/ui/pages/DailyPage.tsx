@@ -29,10 +29,10 @@ export function DailyPage() {
 
 function DailyPractice() {
   const { t, say, lang, profile, lessons, reviewItems, mistakes, scenarioRuns, dailyRuns, stats,
-    recordDailyRun, recordScenarioRun, tts } = useApp();
+    recordDailyRun, recordScenarioRun, tts, checkpointResults } = useApp();
   const day = todayHere();
   const goal = profile.learningGoal ?? 'everyday';
-  const level = profile.practiceLevel ?? inferredPracticeLevel(lessons);
+  const level = profile.practiceLevel ?? inferredPracticeLevel(lessons, checkpointResults);
   const script = chooseDailyScript(goal, level, scenarioRuns, day);
   const saved = dailyRuns.find(run => run.day === day && run.stage < 5 && scriptById(run.scriptId));
   const finished = dailyRuns.find(run => run.day === day && run.stage === 5);

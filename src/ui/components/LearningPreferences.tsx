@@ -1,15 +1,19 @@
 import { GOAL_LABELS, LEARNING_GOALS, PRACTICE_LEVELS } from '../../core/progress/daily.ts';
 import type { CefrLevel } from '../../content/types.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { buildLessonViews } from '../selectors.ts';
+import { buildLessonViews, standingPlacement } from '../selectors.ts';
 
-export function inferredPracticeLevel(lessons: ReturnType<typeof useApp>['lessons']): CefrLevel {
-  return buildLessonViews(lessons).filter(view => view.started || view.complete).at(-1)?.lesson.level ?? 'pre-a1';
+// A placement not yet acted on says where the learner is better than an empty
+// lesson history, which said Pre-A1 to everybody who had just been placed.
+export function inferredPracticeLevel(lessons: ReturnType<typeof useApp>['lessons'],
+  checkpointResults: ReturnType<typeof useApp>['checkpointResults'] = []): CefrLevel {
+  return standingPlacement(lessons, checkpointResults) ??
+    buildLessonViews(lessons).filter(view => view.started || view.complete).at(-1)?.lesson.level ?? 'pre-a1';
 }
 
 export function LearningPreferences() {
-  const { t, say, profile, lessons, updateProfile } = useApp();
-  const selected = profile.practiceLevel ?? inferredPracticeLevel(lessons);
+  const { t, say, profile, lessons, checkpointResults, updateProfile } = useApp();
+  const selected = profile.practiceLevel ?? inferredPracticeLevel(lessons, checkpointResults);
   return <div className="learning-preferences">
     <fieldset><legend>{t('dailyGoalLabel')}</legend><div className="goal-options">
       {LEARNING_GOALS.map(goal => <button key={goal} type="button"

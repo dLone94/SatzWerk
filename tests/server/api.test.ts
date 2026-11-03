@@ -264,6 +264,18 @@ describe('attempts, mistakes and the retyping distinction', () => {
   });
 });
 
+describe('the placement result', () => {
+  /*
+   * The level the check recommends is stored as its target, and was never
+   * sent back, so the app could not tell where the learner had been placed.
+   */
+  it('comes back with the level it recommends', async () => {
+    await call('POST', '/api/checkpoints', { checkpointId: 'placement', scope: 'placement', targetId: 'b1', accuracy: 0.6, passed: false });
+    const results = await store.listCheckpointResults(scopeOf(db));
+    expect(results).toEqual([expect.objectContaining({ checkpointId: 'placement', targetId: 'b1', passed: false })]);
+  });
+});
+
 describe('review queue', () => {
   it('creates items for newly taught material without duplicating them', async () => {
     const targets = [
