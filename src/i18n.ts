@@ -11,11 +11,17 @@ import type { Bilingual, ErrorCategory, TeachingLanguage } from './content/types
 const s = (en: string, bg: string): Bilingual => ({ en, bg });
 
 export const UI = {
-  playToday: s('TODAY’S LITTLE ADVENTURE', 'ДНЕШНОТО МАЛКО ПРИКЛЮЧЕНИЕ'),
   playAdventureNote: s('A few new words. Somewhere new to use them.', 'Няколко нови думи. Ново място, където да ги използваш.'),
   playCourse: s('YOUR GERMAN ADVENTURE', 'ТВОЕТО ПРИКЛЮЧЕНИЕ С НЕМСКИЯ'),
   playSayIt: s('Give it a go!', 'Опитай!'),
-  navDaily: s('Practice', 'Практика'),
+  /*
+   * One name for each kind of practice, used the same way in the tabs, on
+   * Today and on the page itself. Practice, Daily round, Daily target and
+   * Review all sounded like the one thing; now only the guided daily session
+   * is "daily practice", the timed mix is a "mixed round", the minutes are a
+   * "daily goal", and Review is only what comes back to be reviewed.
+   */
+  navDaily: s('Daily practice', 'Дневна практика'),
   dailyEyebrow: s('A LITTLE GERMAN. A REAL CONVERSATION.', 'МАЛКО НЕМСКИ. ИСТИНСКИ РАЗГОВОР.'),
   dailyTitle: s('Your daily practice', 'Твоята дневна практика'),
   dailyLede: s('Useful phrases, a little recall, and a conversation you can use today.', 'Полезни фрази, малко припомняне и разговор, който можеш да използваш днес.'),
@@ -27,7 +33,8 @@ export const UI = {
   dailyDaysOne: s('{n} day a week', '{n} ден седмично'),
   dailyWeeklyNote: s('Choose a rhythm that fits your life. A missed day does not erase your progress. Exam practice builds language skills; it is not an official exam simulation.', 'Избери ритъм, който се вписва в живота ти. Пропуснат ден не изтрива напредъка ти. Подготовката за изпит развива езикови умения, но не е официална изпитна симулация.'),
   dailyPlanNote: s('Meet the phrases first. Then recall them, use them, and recognise them by ear.', 'Първо се запознай с фразите. После си ги припомни, използвай ги и ги разпознай по слух.'),
-  dailyStart: s('Start today', 'Започни днес'),
+  // Today's button already said "Start today"; this one says what comes next.
+  dailyStart: s('Meet the first phrase', 'Към първата фраза'),
   dailyResume: s('Continue your practice', 'Продължи практиката'),
   dailyResumeEarlier: s('Continue the practice you began ({plan})', 'Продължи започнатата практика ({plan})'),
   dailyEstimate: s('About {n} minutes · an estimate, at your own pace', 'Около {n} минути · приблизително, в твое темпо'),
@@ -70,11 +77,6 @@ export const UI = {
   dailyAbilitiesEmpty: s('Your first completed conversation will appear here. You will see what you have practised, not just a points total.', 'Първият завършен разговор ще се появи тук. Ще виждаш какво е упражнено, а не само сбор от точки.'),
   dailyAbilityConfident: s('Best practice: {n}% right without hints', 'Най-добра практика: {n}% верни без подсказки'),
   dailyAbilityPractised: s('Practised · keep building confidence ({n}% without hints)', 'Упражнено · продължи да трупаш увереност ({n}% без подсказки)'),
-  dailyDashboardTitle: s('Let’s go places. In German.', 'Да открием света. На немски.'),
-  dailyDashboardNote: s('Order something tasty. Meet someone new. Practise the words for your next little adventure.', 'Поръчай нещо вкусно. Запознай се с някого. Упражни думите за следващото си малко приключение.'),
-  dailyDashboardDone: s('Today’s practice is done.', 'Днешната практика е завършена.'),
-  dailyDashboardDoneNote: s('Another round is optional.', 'Още един кръг е по желание.'),
-  dailyPractiseAgain: s('Practise again', 'Упражнявай отново'),
   recorderStart: s('Record my voice', 'Запиши моя глас'),
   recorderStop: s('Stop recording', 'Спри записа'),
   recorderRecording: s('Recording… up to 30 seconds', 'Записва се… до 30 секунди'),
@@ -121,7 +123,7 @@ export const UI = {
   skipToContent: s('Skip to content', 'Към съдържанието'),
   navMain: s('Main', 'Основно меню'),
   navToday: s('Today', 'Днес'),
-  navSession: s('Round', 'Кръг'),
+  navSession: s('Mixed round', 'Смесен кръг'),
   navCourse: s('Course', 'Курс'),
   navReview: s('Review', 'Повторение'),
   navVocabulary: s('Vocabulary', 'Речник'),
@@ -131,11 +133,12 @@ export const UI = {
   navSettings: s('Settings', 'Настройки'),
   navMore: s('More', 'Още'),
   moreTitle: s('Everything else', 'Всичко останало'),
+  moreSession: s('Due reviews, repeated mistakes and your open lesson, in one round', 'Повторения, повтарящи се грешки и започнатият урок в един кръг'),
   moreVocabulary: s('Every word you have met, and how well you know it', 'Всяка дума от курса досега и колко добре я знаеш'),
   moreMistakes: s('What keeps going wrong, and practice aimed at it', 'Какво все се обърква, и упражнения точно за него'),
   moreRealLife: s('Conversations at the bakery, the doctor, the Bürgeramt', 'Разговори в пекарната, при лекаря, в Bürgeramt'),
   moreCoach: s('Check a piece of your own writing', 'Провери нещо, написано от теб'),
-  moreSettings: s('Teaching path, daily target, who is studying', 'Път на обучение, дневна цел, кой учи'),
+  moreSettings: s('Teaching path, daily goal, who is studying', 'Път на обучение, дневна цел, кой учи'),
 
   // Login, shown only when the app is hosted behind a password
   loginIntro: s(
@@ -212,13 +215,12 @@ export const UI = {
   dashboardGreeting: s('Today’s study', 'Днешно учене'),
   todayUpNext: s('Up next', 'Следва'),
   todayGoal: s('of {target} min today', 'от {target} мин днес'),
+  todayGoalNote: s('Your daily goal in minutes. Meeting it finishes the day.', 'Дневната ти цел в минути. Щом я постигнеш, денят е завършен.'),
   todayGoalLeft: s('{n} more to your goal', 'още {n} до целта'),
   todayGoalDone: s('Goal reached', 'Целта е постигната'),
   todayDue: s('{n} due for review', '{n} за повторение'),
   todayNothingDue: s('Nothing due', 'Нищо за повторение'),
-  todayReviewNote: s('Review', 'Повторение'),
   todayReviewLater: s('What you learn comes back here', 'Наученото се връща тук'),
-  todayRoundEmpty: s('Nothing waiting yet', 'Още нищо не чака'),
   todaySeePath: s('See path', 'Виж пътя'),
   todayProgress: s('Your progress', 'Твоят напредък'),
   todayStreak: s('Study streak: {n} days', 'Поредни дни учене: {n}'),
@@ -227,33 +229,53 @@ export const UI = {
   requirementMet: s('done', 'изпълнено'),
   requirementNotMet: s('not yet', 'още не'),
   todayLessonNow: s('now', 'сега'),
+  /*
+   * Today's one step. Each concept says what it is the first time Today names
+   * it, because a beginner cannot yet tell daily practice from review.
+   */
+  todayPracticeEyebrow: s('Daily practice', 'Дневна практика'),
+  todayPracticeWhat: s('A few useful phrases to hear and say, then a short conversation that uses them.', 'Няколко полезни фрази, които да чуеш и кажеш, после кратък разговор с тях.'),
+  todayPracticeFirst: s('Your first German: a few useful phrases to hear and say, then a short conversation that uses them.', 'Първият ти немски: няколко полезни фрази, които да чуеш и кажеш, после кратък разговор с тях.'),
+  todayPracticeStart: s('Start today’s practice', 'Започни днешната практика'),
+  todayPracticeStep: s('Step {n} of {total}: {stage}', 'Стъпка {n} от {total}: {stage}'),
+  todayPracticeName: s('Today’s practice', 'Днешната практика'),
+  todayPracticeDone: s('Today’s practice is done', 'Днешната практика е завършена'),
+  todayThen: s('Then', 'След това'),
+  todayReviewEyebrow: s('Review', 'Повторение'),
+  todayReviewTitle: s('{n} words and phrases are waiting', '{n} думи и фрази чакат'),
+  todayReviewWhat: s('What you have learnt comes back just before you would forget it.', 'Наученото се връща точно преди да го забравиш.'),
+  todayDoneEyebrow: s('Done for today', 'Готово за днес'),
+  todayDoneGoal: s('You reached your daily goal.', 'Дневната цел е постигната.'),
+  todayDoneAll: s('Everything for today is done.', 'Всичко за днес е направено.'),
+  todayDoneMinutes: s('{n} minutes of study', '{n} минути учене'),
+  todayDoneMinutesOne: s('{n} minute of study', '{n} минута учене'),
+  todayDoneAnswers: s('{n} answers', '{n} отговора'),
+  todayDoneAnswersOne: s('{n} answer', '{n} отговор'),
+  todayDoneRest: s('Come back tomorrow for a new practice.', 'Ела утре за нова практика.'),
+  todayKeepGoing: s('Keep going if you like', 'Продължи, ако ти се иска'),
+  todayOtherWays: s('Other ways to practise', 'Други начини за упражнение'),
+  todayRoundWhat: s('Due reviews, repeated mistakes and your open lesson in one round', 'Повторения, повтарящи се грешки и започнатият урок в един кръг'),
   dashboardNextAction: s('Your next useful step', 'Следващата ти полезна стъпка'),
   dashboardContinue: s('Continue the lesson', 'Продължи урока'),
   dashboardStartLesson: s('Start the lesson', 'Започни урока'),
   dashboardReviewDue: s('Review what is due', 'Повтори дължимото'),
   dashboardPracticeMistakes: s('Practise your mistakes', 'Упражнявай грешките си'),
-  dashboardAllDone: s(
-    'Nothing is due right now. Practising early is still an option.',
-    'Нищо не е за повторение точно сега. Можеш да упражняваш и предварително.',
-  ),
-  dashboardPlan: s('Suggested sequence', 'Предложена последователност'),
-  dashboardPlanEmpty: s('Finish onboarding to get a plan.', 'Завърши началната настройка, за да получиш план.'),
   dashboardEstimate: s('about {n} min', 'около {n} мин'),
 
-  dashboardRound: s('Do the daily round', 'Направи дневния кръг'),
 
   /*
-   * The daily round.
+   * The mixed round. It was the "daily round", beside the daily practice
+   * and the daily target, three names for one thing to a beginner.
    *
    * A lesson is half an hour; most days are not. The round is the answer to
    * "I have ten minutes" — and because it puts a number of minutes on a
    * button, that number has to be earned rather than guessed, which is what
    * sessionMeasured and sessionDefault are for.
    */
-  sessionTitle: s('Daily round', 'Дневен кръг'),
+  sessionTitle: s('Mixed round', 'Смесен кръг'),
   sessionLede: s(
-    'One short round: what is due, what keeps going wrong, and the lesson you are in the middle of.',
-    'Един кратък кръг: дължимото, това, което постоянно се обърква, и започнатият урок.',
+    'One round mixed from what is waiting: reviews that are due, mistakes that keep coming back, and the lesson you started. It fits your daily goal.',
+    'Един кръг, смесен от това, което чака: повторенията за днес, грешките, които се повтарят, и започнатия урок. Съобразен е с дневната ти цел.',
   ),
   sessionWhatsIn: s('What is in this round', 'Какво има в този кръг'),
   sessionStart: s('Start the round', 'Започни кръга'),
@@ -271,7 +293,7 @@ export const UI = {
     'Estimated at {s}s an answer. That is a stated default, not your pace — it becomes yours after {n} answers.',
     'Оценката е по {s} сек. на отговор. Това е предварително зададена стойност, не твоето темпо — става твое след {n} отговора.',
   ),
-  sessionTarget: s('Your daily target is {time}. Change it in Settings.', 'Дневната ти цел е {time}. Можеш да я смениш в Настройки.'),
+  sessionTarget: s('Your daily goal is {time}. Change it in Settings.', 'Дневната ти цел е {time}. Можеш да я смениш в Настройки.'),
   sessionNothing: s('There is nothing to put in a round', 'Няма какво да се сложи в кръг'),
   sessionNothingBody: s(
     'Nothing is due, no mistake has come back twice, and no lesson is half-finished. Start the next lesson from the course.',
@@ -653,18 +675,23 @@ export const UI = {
   // Review
   // The tab that opens this page says Повторение; so does the page now.
   reviewTitle: s('Review', 'Повторение'),
+  reviewLede: s(
+    'Words, phrases and grammar you have learnt come back here just before you would forget them.',
+    'Научените думи, фрази и граматика се връщат тук точно преди да ги забравиш.',
+  ),
   reviewDueCount: s('{n} due now', '{n} за сега'),
   reviewNothingDue: s('Nothing is due', 'Нищо не е дължимо'),
   reviewRoundSize: s('{n} in this round', '{n} в този кръг'),
   reviewNothingDueBody: s(
-    'Your queue is empty. You can still practise early, or carry on with the course.',
-    'Опашката ти е празна. Можеш да упражняваш предварително или да продължиш с курса.',
+    'Your queue is empty. You can still review early, or carry on with the course.',
+    'Опашката ти е празна. Можеш да повториш предварително или да продължиш с курса.',
   ),
   reviewNothingYetBody: s(
-    'Your queue is empty, and nothing is learnt yet to practise early. Words come here once a lesson has taught them.',
-    'Опашката ти е празна и още няма научено, което да упражняваш предварително. Думите идват тук, след като урок ги е преподал.',
+    'Your queue is empty, and nothing is learnt yet to review early. Words come here once you have met them in a lesson or a practice.',
+    'Опашката ти е празна и още няма научено, което да повториш предварително. Думите идват тук, след като ги срещнеш в урок или практика.',
   ),
-  reviewPracticeEarly: s('Practise early', 'Упражнявай предварително'),
+  // Review is reviewing, early or not: "practise" belongs to the daily practice.
+  reviewPracticeEarly: s('Review early', 'Повтори предварително'),
   reviewStart: s('Start reviewing', 'Започни повторение'),
   reviewWhyDue: s('Why is this due?', 'Защо е за повторение?'),
   reviewReasonNew: s('New — just taught', 'Ново — току-що преподадено'),
@@ -915,7 +942,7 @@ export const UI = {
     'German stays the target language. Switching does not affect your progress.',
     'Немският остава целевият език. Смяната не влияе на напредъка ти.',
   ),
-  settingsDailyTarget: s('Daily target', 'Дневна цел'),
+  settingsDailyTarget: s('Daily goal', 'Дневна цел'),
   settingsCustom: s('Custom', 'По избор'),
   settingsMinutes: s('{n} minutes', '{n} минути'),
   settingsMinutesOne: s('{n} minute', '{n} минута'),

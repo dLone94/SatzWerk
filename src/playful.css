@@ -60,25 +60,32 @@ html { scroll-padding-top: calc(var(--topbar-height) + 8px); }
 .dackel-scene { position: relative; min-width: 0; }
 .dackel-scene img { display: block; width: 100%; height: auto; }
 .dackel-scene__hello { position: absolute; top: -2%; left: 52%; padding: 10px 19px; color: var(--play-ink); background: #fffdf6; border: 2px solid var(--play-ink); border-radius: 25px 25px 25px 3px; font-family: var(--font-de); font-size: clamp(17px, 2vw, 27px); font-weight: 650; transform: rotate(-8deg); box-shadow: 3px 3px 0 rgb(41 53 72 / 15%); }
-.daily-dashboard { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.04fr); align-items: center; margin: 0; padding: 34px 38px; gap: 4px; background: var(--play-yellow); border: 2px solid #e0bd5d; border-radius: 32px 32px 32px 8px; box-shadow: 0 6px 0 #e5ce90; overflow: hidden; }
-.daily-dashboard__copy { z-index: 1; padding-right: 12px; }
-.daily-dashboard .section-eyebrow { color: #514935; font-size: 10px; font-weight: 750; }
-.daily-dashboard h2 { color: var(--play-ink); font-size: clamp(29px, 3.4vw, 46px); line-height: 1.12; letter-spacing: -1.4px; font-weight: 800; margin: 16px 0; max-width: 450px; }
-.daily-dashboard p:not(.section-eyebrow) { color: #514935; font-size: 14px; max-width: 340px; line-height: 1.65; }
-.daily-dashboard .btn { margin-top: 24px; min-width: 160px; background: var(--play-blue); border-color: var(--play-blue); color: #fff; }
-/* The card is yellow in both schemes, so its quieter buttons stay light too: on the dark surface they outweighed the blue one. */
-.daily-dashboard .daily-dashboard__again, .daily-dashboard .daily-dashboard__again:hover { background: #fff9e8; color: var(--play-ink); box-shadow: inset 0 0 0 2px #e0bd5d; }
-.daily-dashboard__scene { width: calc(100% + 28px); margin: 15px -18px -5px 0; }
-.today-overview { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 24px; }
-.today-hero { min-height: 260px; padding: 28px; background: var(--surface); color: var(--ink); border: 2px solid var(--line); border-radius: 24px 8px 24px 24px; box-shadow: 0 4px 0 var(--line); }
-.today-hero::before { display: none; }
-.today-hero__eyebrow { color: var(--accent-ink); font-size: 10px; }
-.today-hero__title { color: var(--ink); font-size: clamp(25px, 2.5vw, 32px); font-weight: 750; }
-.today-hero__detail { color: var(--ink-soft); max-width: 460px; }
-.today-hero__time { color: var(--ink-soft); }
-.today-hero__cta { min-height: 44px; background: var(--accent-soft); color: var(--accent-ink); border-radius: 13px; border: 2px solid var(--line); }
-.today-hero__cta:hover { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); }
-.today-hero :focus-visible { outline-color: var(--accent); }
+/*
+ * Today's one step. The card is yellow in both schemes, so its ink and its
+ * quieter button stay fixed too: on the dark surface a themed button
+ * outweighed the blue one.
+ */
+.today-plan { position: relative; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: 8px; padding: 34px 38px; color: var(--play-ink); background: var(--play-yellow); border: 2px solid #e0bd5d; border-radius: 32px 32px 32px 8px; box-shadow: 0 6px 0 #e5ce90; overflow: hidden; }
+.today-plan__copy { z-index: 1; min-width: 0; padding-right: 12px; }
+.today-plan__eyebrow { display: flex; align-items: center; gap: 6px; margin: 0; color: #514935; font-size: 11px; font-weight: 750; letter-spacing: 1px; text-transform: uppercase; }
+.today-plan__title { margin: 12px 0; color: var(--play-ink); font-size: clamp(28px, 3.2vw, 42px); font-weight: 800; line-height: 1.12; letter-spacing: -1.2px; max-width: 470px; }
+.today-plan__detail, .today-plan__what { margin: 0 0 8px; max-width: 440px; color: #514935; font-size: 14px; line-height: 1.6; }
+.today-plan__what { font-size: 13px; }
+.today-plan__time { white-space: nowrap; font-weight: 650; }
+.today-plan__progress { display: flex; align-items: center; gap: 12px; max-width: 420px; margin: 12px 0 0; color: #514935; font-size: 13px; font-weight: 650; }
+.today-plan__progress .meter { flex: 1; background: #fff9e8; border-color: #e0bd5d; }
+.today-plan__progress .meter__fill { background: var(--play-blue); }
+.today-plan__cta, .today-plan__cta:hover { margin-top: 20px; gap: 14px; background: var(--play-blue); border-color: var(--play-blue); color: #fff; }
+.today-plan__then { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 16px 0 0; color: #514935; font-size: 13px; }
+.today-plan__then a { color: var(--play-ink); font-weight: 750; text-decoration: underline; text-underline-offset: 3px; }
+.today-plan__then--done svg, .today-plan__achieved svg, .today-plan--done .today-plan__eyebrow svg { color: #2f6b3f; flex: none; }
+.today-plan__achieved { display: grid; gap: 8px; margin: 4px 0 12px; padding: 0; list-style: none; color: var(--play-ink); font-size: 15px; font-weight: 650; }
+.today-plan__achieved li { display: flex; align-items: center; gap: 8px; }
+.today-plan__more { margin-top: 18px; }
+.today-plan__more p { margin: 0 0 8px; color: #514935; font-size: 13px; }
+.today-plan .today-plan__keep, .today-plan .today-plan__keep:hover { gap: 10px; background: #fff9e8; color: var(--play-ink); border-color: transparent; box-shadow: inset 0 0 0 2px #e0bd5d; white-space: normal; text-align: left; }
+.today-plan :focus-visible { outline-color: var(--play-ink); }
+.today-plan__scene { width: calc(100% + 28px); margin: 0 -18px -5px 0; }
 .today-tiles { gap: 14px; }
 .today-tile { border-width: 2px; border-radius: 22px; padding: 20px; }
 .today-tile:first-child { grid-template-columns: 65px minmax(0, 1fr); }
@@ -195,7 +202,6 @@ html { scroll-padding-top: calc(var(--topbar-height) + 8px); }
   .nav__item.is-active { box-shadow: none; }
   .nav { border-width: 2px; border-radius: 22px; box-shadow: 0 5px 0 var(--line), 0 8px 22px rgb(41 53 72 / 8%); }
   .nav__item.is-active .nav__icon { background: var(--accent); color: var(--on-accent); border-radius: 10px; transform: rotate(-5deg); }
-  .daily-dashboard { padding: 28px; }
   .course-welcome { grid-template-columns: minmax(0, 1fr) 210px; }
 }
 @media (max-width: 620px) {
@@ -207,16 +213,14 @@ html { scroll-padding-top: calc(var(--topbar-height) + 8px); }
   .today { gap: 25px; }
   .today__greeting { font-size: 38px; letter-spacing: -1.3px; }
   .today__welcome { font-size: 13px; }
-  .daily-dashboard { grid-template-columns: 1fr; padding: 26px 23px 8px; border-radius: 27px 27px 27px 8px; gap: 18px; }
-  .daily-dashboard h2 { font-size: 35px; letter-spacing: -1.2px; max-width: 280px; }
-  .daily-dashboard p:not(.section-eyebrow) { font-size: 13px; }
-  .daily-dashboard__copy { padding-right: 0; }
-  .daily-dashboard .btn { margin-top: 20px; }
-  .daily-dashboard__scene { width: 100%; max-width: 330px; margin: 10px auto 0; }
+  /* The step's button stays above the fold on a phone: the scene goes below it, smaller. */
+  .today-plan { grid-template-columns: 1fr; padding: 24px 22px 8px; border-radius: 27px 27px 27px 8px; gap: 10px; }
+  .today-plan__copy { padding-right: 0; }
+  .today-plan__title { font-size: 30px; letter-spacing: -1px; margin: 10px 0; }
+  .today-plan__detail { font-size: 13px; }
+  .today-plan__cta { width: 100%; justify-content: space-between; margin-top: 16px; }
+  .today-plan__scene { width: 100%; max-width: 250px; margin: 4px auto 0; }
   .dackel-scene__hello { font-size: 18px; padding: 7px 13px; }
-  .today-overview { gap: 18px; }
-  .today-hero { min-height: 0; padding: 24px; }
-  .today-hero__title { font-size: 29px; }
   .today-tile { padding: 15px; border-radius: 20px; }
   .today-tile:first-child .goal-ring { width: 53px; height: 53px; }
   .today-tile__main { font-size: 12px; }

@@ -17,9 +17,10 @@ import { ScenarioPlayer } from '../components/ScenarioPlayer.tsx';
 import { SpeakCheck } from '../components/Speaking.tsx';
 import { ShadowRecorder } from '../components/ShadowRecorder.tsx';
 import { DackelMark, DackelScene } from '../components/Dackel.tsx';
-import type { UiKey } from '../../i18n.ts';
+import { DAILY_STAGES } from '../selectors.ts';
 
-const STAGES: UiKey[] = ['dailyLearn', 'dailyReview', 'dailyRecall', 'dailyConversation', 'dailyListen'];
+// Shared with Today, which names the part a practice reached.
+const STAGES = DAILY_STAGES;
 
 /** Learner handover remounts the plan; another person's open round cannot follow. */
 export function DailyPage() {

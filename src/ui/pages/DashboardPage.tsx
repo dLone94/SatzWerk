@@ -1,43 +1,54 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { checkpointById, contentStats, unitForLesson } from '../../content/browser.ts';
+import { SCENARIOS, checkpointById, contentStats, scriptById, unitForLesson } from '../../content/browser.ts';
 import { todayHere } from '../../core/progress/days.ts';
 import { estimatedMinutes, planSession } from '../../core/progress/session.ts';
 import { summarizeQueue } from '../../core/srs/scheduler.ts';
-import { UI } from '../../i18n.ts';
+import { UI, type UiKey } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Card, Meter, Stat, formatDuration } from '../components/bits.tsx';
 import { Icon } from '../components/icons.tsx';
+import { inferredPracticeLevel } from '../components/LearningPreferences.tsx';
 import { PracticalProgress } from '../components/PracticalProgress.tsx';
 import { DackelScene } from '../components/Dackel.tsx';
+import { chooseDailyScript } from '../dailyBuilder.ts';
 import { reviewItemsForPath } from '../reviewBuilder.ts';
 import {
+  DAILY_STAGES,
   buildLessonViews,
   buildVocabViews,
   earlyReviewExercises,
-  nextAction,
   sessionBuild,
   skillProgress,
+  todayStep,
+  type NextAction,
 } from '../selectors.ts';
 
 /**
  * Today: the one thing worth doing next, and nothing that competes with it.
  *
- * The page used to open on two cards of equal weight, a plan that repeated
- * them, and nine stat tiles that were all zero on the first day. Now the next
- * step is the only dark thing on the page, the two numbers that change what
- * you do today sit under it, and the rest of the statistics wait behind "Your
- * progress" until there is something in them.
+ * The page said so here for a long time while opening on four starts of equal
+ * weight: the daily practice, the next lesson, the round and early review, and
+ * the practice card said "Start today" after the practice was done. Now one
+ * card at the top holds the day's one step, chosen by todayStep from what the
+ * learner has really done, with one quiet link to what follows it. Once the
+ * daily goal is met the card says so, says what was done, and offers more
+ * without asking for it. Everything below it is a tile or a link, never a
+ * second button of the same weight.
  */
 export function DashboardPage() {
-  const { t, say, lang, lessons, reviewItems, mistakes, favorites, stats, studyDays, profile, checkpointResults, dailyRuns } =
-    useApp();
-  // Today's finished practice. The card used to ask "Start today" all day,
-  // however much of it had been done.
-  const dailyDone = dailyRuns.find((run) => run.day === todayHere() && run.stage === 5);
+  const { t, say, lang, lessons, reviewItems, mistakes, favorites, stats, studyDays, profile, checkpointResults, dailyRuns,
+    scenarioRuns } = useApp();
+  const day = todayHere();
+  const today = studyDays.find((entry) => entry.day === day);
+  const minutesToday = Math.floor((today?.secondsActive ?? 0) / 60);
+  const target = Math.max(1, profile.dailyTargetMinutes);
+  const minutesLeft = Math.max(0, target - minutesToday);
 
   const onPath = reviewItemsForPath(reviewItems, lang);
-  const action = nextAction(lessons, onPath, mistakes, profile.onboarded, checkpointResults);
+  const step = todayStep({ lessons, reviewItems: onPath, mistakes, onboarded: profile.onboarded, checkpointResults,
+    dailyRuns, minutesToday, targetMinutes: target });
+  const action = step.course;
   // The same plan the round itself will build, so the two never disagree.
   const round = planSession(
     sessionBuild(lessons, reviewItems, mistakes, new Date(), lang).sources,
@@ -48,32 +59,68 @@ export function DashboardPage() {
   const lessonViews = buildLessonViews(lessons);
   const hasActivity = stats.totalAnswers > 0;
 
-  const actionLabel =
-    action.kind === 'continue-lesson'
-      ? t('dashboardContinue')
-      : action.kind === 'start-lesson'
-        ? t('dashboardStartLesson')
-        : action.kind === 'review'
-          ? t('dashboardReviewDue')
-          : action.kind === 'mistakes'
-            ? t('dashboardPracticeMistakes')
-            : action.kind === 'checkpoint'
-              ? t(checkpointById(action.to.slice('/checkpoint/'.length))?.scope === 'level' ? 'levelCheckpoint' : 'unitCheckpoint')
-              : t('reviewPracticeEarly');
-  const actionTo = action.kind === 'idle' ? '/review' : action.to;
+  // Today's conversation: the one under way, or the one the practice page
+  // will offer, chosen the way that page chooses it.
+  const script = (step.run && scriptById(step.run.scriptId)) ||
+    chooseDailyScript(profile.learningGoal ?? 'everyday', profile.practiceLevel ?? inferredPracticeLevel(lessons, checkpointResults),
+      scenarioRuns, day);
+  const scenario = SCENARIOS.find((candidate) => candidate.id === script.scenarioId);
+  const finished = dailyRuns.find((run) => run.day === day && run.stage >= 5);
+  // Nothing answered and no practice begun: the practice is this learner's first German.
+  const firstTime = stats.totalAnswers === 0 && dailyRuns.length === 0;
 
-  // The lesson the next step is about, or failing that the first one not done:
-  // its unit is the strip of stops under the two tiles.
+  const courseLabel = (next: NextAction) =>
+    next.kind === 'continue-lesson'
+      ? t('dashboardContinue')
+      : next.kind === 'start-lesson'
+        ? t('dashboardStartLesson')
+        : next.kind === 'review'
+          ? t('dashboardReviewDue')
+          : next.kind === 'mistakes'
+            ? t('dashboardPracticeMistakes')
+            : next.kind === 'checkpoint'
+              ? t(checkpointById(next.to.slice('/checkpoint/'.length))?.scope === 'level' ? 'levelCheckpoint' : 'unitCheckpoint')
+              : t('onboardingStart');
+
+  // The lesson the course step is about, or failing that the first one not
+  // done: its unit is the strip of stops further down.
   const actionLessonId = action.to.startsWith('/lesson/') ? action.to.slice('/lesson/'.length) : undefined;
   const focus =
     lessonViews.find((view) => view.lesson.id === actionLessonId) ?? lessonViews.find((view) => !view.complete);
   const unit = focus ? unitForLesson(focus.lesson.id) : undefined;
   const unitViews = unit ? lessonViews.filter((view) => unitForLesson(view.lesson.id)?.id === unit.id) : [];
 
-  const secondsToday = studyDays.find((day) => day.day === todayHere())?.secondsActive ?? 0;
-  const minutesToday = Math.floor(secondsToday / 60);
-  const target = Math.max(1, profile.dailyTargetMinutes);
-  const minutesLeft = Math.max(0, target - minutesToday);
+  const practising = step.kind === 'daily' || step.kind === 'continue-daily';
+  const lessonStep = step.kind === 'continue-lesson' || step.kind === 'start-lesson';
+  const eyebrow = practising
+    ? t('todayPracticeEyebrow')
+    : lessonStep
+      ? `${t('todayUpNext')} · ${unit ? say(unit.title) : ''}`
+      : step.kind === 'review'
+        ? t('todayReviewEyebrow')
+        : step.kind === 'done'
+          ? t('todayDoneEyebrow')
+          : t('dashboardNextAction');
+  const title = practising
+    ? say(scenario?.title ?? script.goal)
+    : step.kind === 'review'
+      ? t('todayReviewTitle', { n: step.due })
+      : step.kind === 'done'
+        ? t(step.goalMet ? 'todayDoneGoal' : 'todayDoneAll')
+        : say(action.title);
+  const cta = step.kind === 'done'
+    ? null
+    : step.kind === 'daily'
+      ? t('todayPracticeStart')
+      : step.kind === 'continue-daily'
+        ? t('dailyResume')
+        : step.kind === 'review'
+          ? t('dashboardReviewDue')
+          : courseLabel(action);
+  const practiceLabel = t(step.practice === 'open' ? 'dailyResume' : 'todayPracticeName');
+  const practiceDone = finished
+    ? `${t('todayPracticeDone')}${finished.total > 0 ? ` · ${t('exerciseScore', { correct: finished.firstTryCorrect, total: finished.total })}` : ''}`
+    : null;
 
   return (
     <div className="page today">
@@ -98,45 +145,96 @@ export function DashboardPage() {
         ) : null}
       </header>
 
-      <section className="daily-dashboard" aria-labelledby="daily-dashboard-title">
-        <div className="daily-dashboard__copy"><p className="section-eyebrow">{t('playToday')}</p>
-          <h2 id="daily-dashboard-title">{t(dailyDone ? 'dailyDashboardDone' : 'dailyDashboardTitle')}</h2>
-          <p>{dailyDone
-            ? `${dailyDone.total > 0 ? `${t('exerciseScore', { correct: dailyDone.firstTryCorrect, total: dailyDone.total })}. ` : ''}${t('dailyDashboardDoneNote')}`
-            : t('dailyDashboardNote')}</p>
-          {/* Done, another round is optional: it steps back so the next lesson below leads. */}
-          <Link to="/daily" className={dailyDone ? 'btn btn--ghost daily-dashboard__again' : 'btn btn--primary'}>
-            {t(dailyDone ? 'dailyPractiseAgain' : 'dailyStart')}<Icon name="arrow" size={20} /></Link></div>
-        <DackelScene className="daily-dashboard__scene" />
-      </section>
-      <div className="today-overview">
-      <section className="today-hero" aria-labelledby="today-hero-title">
-        <div className="today-hero__copy">
-        <p className="today-hero__eyebrow">
-          {action.kind === 'continue-lesson' || action.kind === 'start-lesson'
-            ? `${t('todayUpNext')} · ${unit ? say(unit.title) : ''}`
-            : t('dashboardNextAction')}
-        </p>
-        <h2 className="today-hero__title" id="today-hero-title">
-          {say(action.title)}
-        </h2>
-        <p className="today-hero__detail">
-          {say(action.detail)}
-          {action.estimatedMinutes > 0 ? (
-            <span className="today-hero__time"> {t('dashboardEstimate', { n: action.estimatedMinutes })}</span>
+      <section className={`today-plan today-plan--${step.kind}`} aria-labelledby="today-plan-title">
+        <div className="today-plan__copy">
+          <p className="today-plan__eyebrow">
+            {step.kind === 'done' ? <Icon name="check" size={16} /> : null}
+            {eyebrow}
+          </p>
+          <h2 className="today-plan__title" id="today-plan-title">
+            {title}
+          </h2>
+          {practising ? (
+            <>
+              <p className="today-plan__detail">{say(script.goal)}</p>
+              {step.kind === 'continue-daily' && step.run ? (
+                <div className="today-plan__progress">
+                  <Meter value={step.run.stage / DAILY_STAGES.length} label={t('dailyPlanProgress')} />
+                  <span>
+                    {t('todayPracticeStep', {
+                      n: step.run.stage + 1,
+                      total: DAILY_STAGES.length,
+                      stage: t(DAILY_STAGES[Math.min(step.run.stage, DAILY_STAGES.length - 1)]!),
+                    })}
+                  </span>
+                </div>
+              ) : (
+                // Where daily practice first appears, it says what it is.
+                <p className="today-plan__what">{t(firstTime ? 'todayPracticeFirst' : 'todayPracticeWhat')}</p>
+              )}
+            </>
+          ) : step.kind === 'review' ? (
+            <p className="today-plan__detail">
+              {t('todayReviewWhat')}
+              <span className="today-plan__time"> {t('dashboardEstimate', { n: Math.max(1, Math.round(step.due * 0.4)) })}</span>
+            </p>
+          ) : step.kind === 'done' ? (
+            <>
+              <ul className="today-plan__achieved">
+                {minutesToday > 0 ? <li><Icon name="check" size={16} />{t('todayDoneMinutes', { n: minutesToday })}</li> : null}
+                {practiceDone ? <li><Icon name="check" size={16} />{practiceDone}</li> : null}
+                {(today?.answers ?? 0) > 0 ? <li><Icon name="check" size={16} />{t('todayDoneAnswers', { n: today!.answers })}</li> : null}
+              </ul>
+              {step.then ? null : <p className="today-plan__detail">{t('todayDoneRest')}</p>}
+            </>
+          ) : (
+            <>
+              <p className="today-plan__detail">
+                {say(action.detail)}
+                {action.estimatedMinutes > 0 ? (
+                  <span className="today-plan__time"> {t('dashboardEstimate', { n: action.estimatedMinutes })}</span>
+                ) : null}
+              </p>
+              {step.kind === 'continue-lesson' && focus ? (
+                <div className="today-plan__progress">
+                  <Meter value={focus.readiness} label={say(focus.lesson.title)} />
+                  <span>{Math.round(focus.readiness * 100)}%</span>
+                </div>
+              ) : null}
+            </>
+          )}
+          {cta ? (
+            <Link className="btn btn--primary today-plan__cta" to={step.to}>
+              {cta}
+              <Icon name="arrow" size={20} />
+            </Link>
           ) : null}
-        </p>
-        {action.kind === 'continue-lesson' && focus ? (
-          <div className="today-hero__progress">
-            <Meter value={focus.readiness} label={say(focus.lesson.title)} />
-            <span>{Math.round(focus.readiness * 100)}%</span>
-          </div>
-        ) : null}
-        <Link className="today-hero__cta" to={actionTo}>
-          <span>{actionLabel}</span>
-          <Icon name="arrow" />
-        </Link>
+          {/* Once the day is done, more is offered and never pressed: a quiet
+              button, not the primary one. Before that, what follows the step
+              is a link, so there is only ever one button to choose. */}
+          {step.kind === 'done' && step.then ? (
+            <div className="today-plan__more">
+              <p>{t('todayKeepGoing')}</p>
+              <Link className="btn btn--ghost today-plan__keep" to={step.then === 'daily' ? '/daily' : action.to}>
+                {step.then === 'daily' ? practiceLabel : `${courseLabel(action)}: ${say(action.title)}`}
+                <Icon name="arrow" size={18} />
+              </Link>
+            </div>
+          ) : step.then ? (
+            <p className="today-plan__then">
+              {t('todayThen')}:{' '}
+              <Link to={step.then === 'daily' ? '/daily' : action.to}>
+                {step.then === 'daily' ? practiceLabel : say(action.title)}
+              </Link>
+            </p>
+          ) : practiceDone && step.kind !== 'done' ? (
+            <p className="today-plan__then today-plan__then--done">
+              <Icon name="check" size={16} />
+              {practiceDone}
+            </p>
+          ) : null}
         </div>
+        <DackelScene className="today-plan__scene" />
       </section>
 
       <div className="today-tiles">
@@ -147,50 +245,51 @@ export function DashboardPage() {
           <p className="today-tile__note">
             {minutesLeft > 0 ? t('todayGoalLeft', { n: minutesLeft }) : t('todayGoalDone')}
           </p>
-          <span className="today-tile__active-note">{t('studioWeekMinutes', { n: minutesToday })}</span>
+          <span className="today-tile__active-note">{t('todayGoalNote')}</span>
         </div>
         <Link className="today-tile today-tile--review" to="/review">
           <Icon name="arrow" size={18} className="today-tile__arrow" />
           <span className="today-tile__icon">
             <Icon name="review" />
           </span>
+          <span className="today-tile__eyebrow">{t('navReview')}</span>
           <p className="today-tile__main">
             {queue.total > 0 ? t('todayDue', { n: queue.total }) : t('todayNothingDue')}
           </p>
-          {/* "Practise early" only when there is something to practise: a new
+          {/* "Review early" only when there is something to review: a new
               learner was offered it and the review page had nothing to give. */}
           <p className="today-tile__note">
             {queue.total > 0
-              ? `${t('todayReviewNote')} · ${t('dashboardEstimate', { n: Math.max(1, Math.round(queue.total * 0.4)) })}`
+              ? t('dashboardEstimate', { n: Math.max(1, Math.round(queue.total * 0.4)) })
               : earlyReviewExercises(onPath, new Date(), 1).length > 0
                 ? t('reviewPracticeEarly')
                 : t('todayReviewLater')}
           </p>
         </Link>
       </div>
-      </div>
 
       {/*
-        * The round stays one tap away. The next step above is right about what
-        * is most useful, but it hands you a lesson; most evenings the real
-        * question is "I have ten minutes", and this is the answer to that.
+        * The round stays one tap away for the evening with ten minutes, once
+        * there is something to put in it. With nothing waiting it was a card
+        * that said so: one more start that went nowhere.
         */}
-      <div className="today-workbench">
-      <Link className="today-round" to="/session">
-        <span className="today-round__icon">
-          <Icon name="round" />
-        </span>
-        <span className="today-round__text">
-          <span className="today-round__title">{t('sessionTitle')}</span>
-          <span className="today-round__note">
-            {round.steps > 0
-              ? `${t('sessionAnswers', { n: round.steps })} · ${t('dashboardEstimate', { n: estimatedMinutes(round) })}`
-              : t('todayRoundEmpty')}
-          </span>
-        </span>
-        <Icon name="arrow" size={20} />
-      </Link>
-      <WeeklyRhythm />
+      <div className={`today-workbench${round.steps > 0 ? '' : ' today-workbench--solo'}`}>
+        {round.steps > 0 ? (
+          <Link className="today-round" to="/session">
+            <span className="today-round__icon">
+              <Icon name="round" />
+            </span>
+            <span className="today-round__text">
+              <span className="today-round__title">{t('sessionTitle')}</span>
+              <span className="today-round__note">{t('todayRoundWhat')}</span>
+              <span className="today-round__note">
+                {`${t('sessionAnswers', { n: round.steps })} · ${t('dashboardEstimate', { n: estimatedMinutes(round) })}`}
+              </span>
+            </span>
+            <Icon name="arrow" size={20} />
+          </Link>
+        ) : null}
+        <WeeklyRhythm />
       </div>
 
       {unit && unitViews.length > 0 ? (
@@ -378,7 +477,7 @@ function formatToday(lang: 'en' | 'bg', now = new Date()): string {
   }).format(now);
 }
 
-function skillKey(key: string): keyof typeof UI {
+function skillKey(key: string): UiKey {
   switch (key) {
     case 'vocabulary':
       return 'skillVocabulary';

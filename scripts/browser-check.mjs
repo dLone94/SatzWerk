@@ -156,9 +156,17 @@ try {
   await context.request.patch(base + '/api/profile', { headers: { 'X-Requested-With': 'SatzWerk' }, data: { teachingLanguage: 'en' } });
   await page.emulateMedia({ colorScheme: 'light' });
   await page.setViewportSize({ width: 390, height: 844 });
+  // Today offers a new learner one start, and it is on the first screen of a
+  // phone: it used to be the third of four, below the fold.
+  await open('/');
+  assert.equal(await page.locator('#main .btn--primary').count(), 1, 'Today has one primary action');
+  const todayStart = page.locator('.today-plan__cta');
+  assert.equal((await todayStart.innerText()).trim(), tr('todayPracticeStart', 'en'));
+  const startBox = await todayStart.boundingBox();
+  assert.ok(startBox.y + startBox.height < 700, `Today's start is above the fold on a phone (bottom at ${startBox.y + startBox.height})`);
   // A daily session uses real API writes, survives a reload between parts,
   // and rehearses whole phrases without claiming course-lesson completion.
-  await open('/daily');
+  await todayStart.click();
   await page.getByRole('button', { name: tr('dailyStart', 'en'), exact: true }).click();
   await page.getByRole('button', { name: tr('dailyNextPhrase', 'en'), exact: true }).waitFor();
   await page.screenshot({ path: report + '/daily-phrase-mobile.png', fullPage: true });
@@ -191,6 +199,13 @@ try {
   assert.equal(dailyState.lessons.length, 0, 'Daily rehearsal does not complete a lesson');
   assert.ok(dailyState.reviewItems.some(item => item.refId.startsWith('p-daily-')), 'Whole phrases enter spaced review');
   observations.push({ journey: 'Daily practice, reload and resume, wrong answer and correction, conversation, listening, local voice recording', result: dailyResult, passed: true });
+  // Back on Today the practice is done, and no longer offered as the day's start.
+  await open('/');
+  await page.locator('.today-plan').getByText(tr('todayPracticeDone', 'en'), { exact: false }).first().waitFor();
+  assert.equal(await page.getByRole('link', { name: tr('todayPracticeStart', 'en'), exact: true }).count(), 0, 'A finished practice is not offered as today\'s start');
+  assert.ok(await page.locator('#main .btn--primary').count() <= 1, 'Today still has at most one primary action');
+  await page.screenshot({ path: report + '/today-after-practice.png', fullPage: true });
+  observations.push({ journey: 'Today leads into daily practice and moves on once it is done', passed: true });
 
   await open('/lesson/' + lesson.id);
   await page.locator('.section-nav .btn--primary').click();
@@ -297,7 +312,7 @@ try {
   await offlineContext.setOffline(true);
   await offlinePage.goto(base + '/course');
   await offlinePage.getByRole('heading', { name: tr('offlineTitle', 'en'), exact: true }).waitFor();
-  assert.equal(await offlinePage.locator('.today-hero').count(), 0, 'Offline reopening does not invent progress');
+  assert.equal(await offlinePage.locator('.today-plan').count(), 0, 'Offline reopening does not invent progress');
   await offlineContext.setOffline(false);
   await offlinePage.evaluate(() => window.dispatchEvent(new Event('online')));
   await offlinePage.locator('#main h1').waitFor();
@@ -326,7 +341,7 @@ try {
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   const started = Date.now();
   await coldPage.goto(base + '/');
-  await coldPage.locator('.today-hero__cta').waitFor();
+  await coldPage.locator('.today-plan').waitFor();
   const firstUsableMs = Date.now() - started;
   const resources = await coldPage.evaluate(() => performance.getEntriesByType('resource').filter(entry => entry.name.endsWith('.js')).map(entry => ({ name: entry.name.split('/').pop(), bytes: entry.decodedBodySize })));
   const javascriptBytes = resources.reduce((bytes, resource) => bytes + resource.bytes, 0);

@@ -88,6 +88,7 @@ export function ReviewPage() {
   return (
     <div className="page">
       <h1 className="page__title">{t('reviewTitle')}</h1>
+      <p className="page__lede">{t('reviewLede')}</p>
 
       {summary ? (
         <Card tone="accent" title={t('exerciseDone')}>
