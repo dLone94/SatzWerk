@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { AnswerSpec } from '../../src/content/types.ts';
-import { LEXICON, describeNoun } from '../../src/content/index.ts';
+import { LEXICON, SCENARIO_SCRIPTS, allLessons, describeNoun } from '../../src/content/index.ts';
 import { buildFeedback } from '../../src/core/feedback/explain.ts';
 import { microTip } from '../../src/core/feedback/microTips.ts';
+import { tokenize } from '../../src/core/validation/text.ts';
 import { validateAnswer, type ValidateOptions } from '../../src/core/validation/validate.ts';
 
 /*
@@ -240,6 +241,61 @@ describe('the word-order explanation', () => {
     const { result, feedback } = explain('In Hamburg wohne ich.', spec('Ich wohne in Hamburg.'), { exerciseKind: 'type' });
     expect(result.verdict).toBe('accepted-variant');
     expect(feedback.correction).toBe('Ich wohne in Hamburg.');
+  });
+});
+
+/** Every word an explanation line quotes, "…" in English and „…“ in Bulgarian. */
+function quoted(lines: string[]): string[] {
+  return lines.flatMap((line) => [...line.matchAll(/["„]([^"“]+)["“]/g)].map((match) => match[1]!));
+}
+
+/*
+ * The panel shows one answer under "Expected" and asks for it to be retyped.
+ * The lines under it were built from whichever authored alternative came
+ * closest: "The word German uses here is "hier"" under "Das, bitte.", and
+ * "Hallo" under "Guten Morgen!".
+ */
+describe('the explanation and the expected answer agree', () => {
+  it('explains a wrong answer against the answer it shows', () => {
+    for (const [given, answer, alternatives] of [
+      ['xyz', 'Guten Morgen!', ['Guten Tag!', 'Hallo!']],
+      ['Tschüss!', 'Guten Morgen!', ['Guten Tag!', 'Hallo!']],
+      ['ich weiß nicht', 'Das, bitte.', ['Das hier, bitte.']],
+      ['Halo!', 'Guten Morgen!', ['Guten Tag!', 'Hallo!']],
+      ['Guten Tag noch!', 'Auf Wiedersehen!', ['Schönen Tag noch!']],
+    ] as const) {
+      const { feedback, en } = explain(given, spec(answer, { alternatives: [...alternatives] }));
+      const shown = feedback.correction.toLowerCase();
+      for (const word of quoted(en)) {
+        // A word the learner typed may be quoted back too.
+        if (given.toLowerCase().includes(word.toLowerCase())) continue;
+        expect(shown, `${given}: "${word}"`).toContain(word.toLowerCase());
+      }
+    }
+  });
+
+  // Across the course, whatever a wrong answer is compared with is what the
+  // panel shows and asks to be retyped.
+  it('holds for every authored step with alternatives', () => {
+    const steps = [
+      ...allLessons().flatMap((lesson) => lesson.exercises),
+      ...SCENARIO_SCRIPTS.flatMap((script) => script.beats.flatMap((beat) => (beat.who === 'you' ? [beat.exercise] : []))),
+    ]
+      .flatMap((exercise) => exercise.steps.map((step) => ({ step, kind: exercise.kind })))
+      .filter(({ step }) => (step.answer.alternatives ?? []).length > 0);
+    expect(steps.length).toBeGreaterThan(100);
+    for (const { step, kind } of steps) {
+      const alternative = step.answer.alternatives![0]!;
+      const words = alternative.split(' ');
+      // Nonsense, the alternative with a letter missing, and the alternative
+      // without its first word.
+      for (const given of ['xyz', alternative.replace(/\p{L}(\p{L})/u, '$1'), words.slice(1).join(' ') || 'xyz']) {
+        const result = validateAnswer(given, step.answer, { lexicon: LEXICON, scaffold: step.scaffold, exerciseKind: kind });
+        if (result.verdict === 'correct' || result.verdict === 'accepted-variant' || result.trapFeedback) continue;
+        const compared = result.diff.map((entry) => entry.expected).filter(Boolean).join(' ').toLowerCase();
+        expect(compared, `${step.id}: ${given}`).toBe(tokenize(result.target).join(' ').toLowerCase());
+      }
+    }
   });
 });
 

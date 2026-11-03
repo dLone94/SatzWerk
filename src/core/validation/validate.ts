@@ -161,6 +161,30 @@ function better(a: ValidationResult, b: ValidationResult): ValidationResult {
   return a.categories.length <= b.categories.length ? a : b;
 }
 
+/** How many of the answer's words the learner wrote in their place, as written or in another case. */
+function wordsInCommon(result: ValidationResult, status: 'same' | 'case'): number {
+  return result.diff.filter((entry) => entry.status === status).length;
+}
+
+/**
+ * Does a reading against an authored alternative beat the one against the
+ * taught form? Only when it makes the answer more right, or when the learner
+ * plainly wrote the alternative: "Guten Tag noch!" is "Schönen Tag noch!"
+ * with one word changed, not "Auf Wiedersehen!" with three. A tie goes to the
+ * taught form, so that "xyz" is not explained against "Hallo!".
+ */
+function closer(candidate: ValidationResult, current: ValidationResult): boolean {
+  if (VERDICT_RANK[candidate.verdict] !== VERDICT_RANK[current.verdict]) {
+    return VERDICT_RANK[candidate.verdict] > VERDICT_RANK[current.verdict];
+  }
+  if (candidate.credit !== current.credit) return candidate.credit > current.credit;
+  for (const status of ['same', 'case'] as const) {
+    const [mine, theirs] = [wordsInCommon(candidate, status), wordsInCommon(current, status)];
+    if (mine !== theirs) return mine > theirs;
+  }
+  return false;
+}
+
 /**
  * Check a typed German answer.
  *
@@ -231,7 +255,7 @@ export function validateAnswer(
   }
   for (const alt of spec.alternatives ?? []) {
     const result = compareAgainst(raw, alt, spec, options, true);
-    best = best ? better(best, result) : result;
+    if (!best || closer(result, best)) best = result;
   }
 
   // "gerne" where the lesson says "gern" is the same word: good German, at
@@ -240,14 +264,19 @@ export function validateAnswer(
   if (best && VERDICT_RANK[best.verdict] < VERDICT_RANK['accepted-variant'] && options.exerciseKind !== 'dictation') {
     for (const answer of [...spec.accepted, ...(spec.alternatives ?? [])]) {
       for (const variant of freeVariantsOf(answer)) {
-        best = better(best, compareAgainst(raw, variant, spec, options, true));
+        const result = compareAgainst(raw, variant, spec, options, true);
+        if (closer(result, best)) best = result;
       }
     }
   }
 
   const result = best ?? emptyResult(target);
-  // Always steer the learner to the taught form, even after an accepted variant.
-  return { ...result, target };
+  const right = VERDICT_RANK[result.verdict] >= VERDICT_RANK['accepted-variant'];
+
+  // A right answer is steered to the taught form, even an accepted variant.
+  // A wrong one keeps the answer it was compared with, so that the expected
+  // line, the explanation under it and the retype all name the same German.
+  return right ? { ...result, target } : result;
 }
 
 /** The answer with each word of a FREE_VARIANTS pair swapped for its partner. */

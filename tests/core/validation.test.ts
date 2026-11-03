@@ -819,3 +819,43 @@ describe('der, die and das on their own', () => {
     expect(both.categories).toEqual(['article']);
   });
 });
+
+/*
+ * The validator compares the answer with the taught form and with each
+ * authored alternative, and kept whichever came closest — but then showed
+ * the taught form as the answer. "xyz" for "Guten Morgen!" was told "The word
+ * German uses here is "Hallo"", from an alternative the learner never saw.
+ */
+describe('the answer a wrong attempt is compared with', () => {
+  const greeting = sentence(['Guten Morgen!'], { alternatives: ['Guten Tag!', 'Hallo!'] });
+
+  it('is the taught form when no alternative is closer', () => {
+    for (const given of ['xyz', 'Tschüss!']) {
+      const r = validateAnswer(given, greeting, opts);
+      expect(r.target, given).toBe('Guten Morgen!');
+      expect(r.matched, given).toBe('Guten Morgen!');
+    }
+    const bread = validateAnswer('ich weiß nicht', sentence(['Das, bitte.'], { alternatives: ['Das hier, bitte.'] }), opts);
+    expect(bread.matched).toBe('Das, bitte.');
+    expect(bread.diff.map((entry) => entry.expected).filter(Boolean)).toEqual(['Das', 'bitte']);
+  });
+
+  it('is the alternative the learner nearly wrote, shown as the answer', () => {
+    const r = validateAnswer('Halo!', greeting, opts);
+    expect(r.verdict).toBe('almost');
+    expect(r.target).toBe('Hallo!');
+    const goodbye = validateAnswer('Guten Tag noch!', sentence(['Auf Wiedersehen!'], { alternatives: ['Schönen Tag noch!'] }), opts);
+    expect(goodbye.target).toBe('Schönen Tag noch!');
+  });
+
+  it('is shown as the answer when it is the second taught form', () => {
+    const r = validateAnswer('Mein Name sind Anna.', sentence(['Ich heiße Anna.', 'Mein Name ist Anna.']), opts);
+    expect(r.target).toBe('Mein Name ist Anna.');
+  });
+
+  it('still steers a right alternative to the taught form', () => {
+    const r = validateAnswer('Hallo!', greeting, opts);
+    expect(r.verdict).toBe('accepted-variant');
+    expect(r.target).toBe('Guten Morgen!');
+  });
+});
