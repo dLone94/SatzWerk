@@ -46,6 +46,26 @@ describe('a familiar word in a sentence', () => {
     expect(validateAnswer('Gute Nacht', step.answer, { lexicon: LEXICON }).verdict).toBe('correct');
   });
 
+  /*
+   * "Mein ___ ist Teo." wanted "Name" under "Fill the gap with the word you
+   * are practising" and a hint reading "the name"; the taught form, "der
+   * Name", was refused and the word lapsed.
+   */
+  it('says when a noun goes in without its article, and does not hint at one', () => {
+    const step = buildReviewExercises(recalled(['v-hallo', 'v-der-name'])).exercises[1]!.steps[0]!;
+    expect(step.scaffold).toBe('Mein ___ ist Teo.');
+    expect(step.instruction!.en).toBe('Type the noun alone, without der, die or das.');
+    expect(step.hints.map((hint) => hint.en).join(' ')).not.toMatch(/\bthe\b/);
+    expect(validateAnswer('Name', step.answer, { lexicon: LEXICON }).verdict).toBe('correct');
+  });
+
+  it('says when a noun goes in with its article', () => {
+    const step = buildReviewExercises(recalled(['v-hallo', 'v-das-haus'])).exercises[1]!.steps[0]!;
+    expect(step.scaffold).toBe('___ ist groß.');
+    expect(step.instruction!.en).toBe('Type the noun with its article.');
+    expect(validateAnswer('das Haus', step.answer, { lexicon: LEXICON }).verdict).not.toBe('incorrect');
+  });
+
   it('keeps the plain card when the sentence does not contain the word as written', () => {
     const step = buildReviewExercises(recalled(['v-hallo', 'v-heissen'])).exercises[1]!.steps[0]!;
     expect(step.id).toBe('rv-v-heissen-s1');

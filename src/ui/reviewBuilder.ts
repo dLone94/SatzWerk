@@ -24,9 +24,11 @@ const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&
 /**
  * The example sentence with the word cut out of it, or null when the word does
  * not appear in it as written. The answer keeps the sentence's own spelling, so
- * "Die Katze" at the start of a sentence is asked for with its capital.
+ * "Die Katze" at the start of a sentence is asked for with its capital. `bare`
+ * says a noun was found without its article: "Ich habe eine ___." wants
+ * "Tochter", because the sentence has its own article.
  */
-function exampleGap(entry: VocabEntry): { scaffold: string; answer: string } | null {
+function exampleGap(entry: VocabEntry): { scaffold: string; answer: string; bare: boolean } | null {
   const sentence = entry.example?.de;
   if (!sentence || !entry.example.gloss?.en) return null;
   for (const form of [entry.display, entry.german]) {
@@ -40,7 +42,11 @@ function exampleGap(entry: VocabEntry): { scaffold: string; answer: string } | n
     if (found) {
       const start = found.index + found[1]!.length;
       const answer = found[2]!;
-      return { scaffold: `${sentence.slice(0, start)}___${sentence.slice(start + answer.length)}`, answer };
+      return {
+        scaffold: `${sentence.slice(0, start)}___${sentence.slice(start + answer.length)}`,
+        answer,
+        bare: form !== entry.display,
+      };
     }
   }
   return null;
@@ -64,14 +70,26 @@ function vocabExercise(entry: VocabEntry, index: number, item: Pick<ReviewItem, 
    * the word is asked for, so the card tests the word it schedules. An
    * example that does not contain the word as written (a verb conjugated,
    * say) leaves the plain card below.
+   *
+   * A noun's gap says whether its article goes in too. Two thirds of the
+   * examples bring their own ("Mein ___ ist Teo."), and the taught form typed
+   * there, "der Name", was refused and the word lapsed; a hint reading "the
+   * name" pointed the same way. Where the gap is the noun alone, the card says
+   * so and its hint is the first letter.
    */
   const gap = index % 3 === 1 && item.kind === 'vocab' && item.successCount > 0 ? exampleGap(entry) : null;
   if (gap) {
+    const instruction = !needsArticle
+      ? bi('Fill the gap with the word you are practising.', 'Попълни празното място с думата, която упражняваш.')
+      : gap.bare
+        ? bi('Type the noun alone, without der, die or das.', 'Напиши само съществителното, без der, die или das.')
+        : bi('Type the noun with its article.', 'Напиши съществителното с члена.');
+    const hint = needsArticle && gap.bare
+      ? bi(`It starts with "${gap.answer.slice(0, 1)}".`, `Започва с „${gap.answer.slice(0, 1)}“.`)
+      : bi(`It means "${entry.translation.en}".`, `Означава „${entry.translation.bg}“.`);
     return { ...fillBlank(`rv-${entry.id}-context`, bi('Use it in a sentence', 'Използвай го в изречение'), [{
       id: `rv-${entry.id}-context-s1`, prompt: entry.example.gloss, scaffold: gap.scaffold,
-      instruction: bi('Fill the gap with the word you are practising.', 'Попълни празното място с думата, която упражняваш.'),
-      answer: gap.answer, reviewTargets: [entry.id],
-      hints: [bi(`It means "${entry.translation.en}".`, `Означава „${entry.translation.bg}“.`)],
+      instruction, answer: gap.answer, reviewTargets: [entry.id], hints: [hint],
     }]), level: entry.level };
   }
 
