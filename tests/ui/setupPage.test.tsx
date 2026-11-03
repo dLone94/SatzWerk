@@ -92,6 +92,68 @@ describe('setting the password', () => {
     expect(second).toHaveFocus();
   });
 
+  /*
+   * A refusal belongs to the try that was refused. It was once worked out
+   * again from the fields on every keystroke, so after one short try,
+   * typing past ten characters in the first field raised a new alert that
+   * the copies did not match and marked the untouched second field invalid.
+   */
+  it('says nothing more while the learner types after a refused try', async () => {
+    const user = userEvent.setup();
+    const { first, second, submit } = mount();
+    await user.type(first, 'short');
+    await user.click(submit);
+    expect(await screen.findByRole('alert')).toHaveTextContent(tr('setupTooShort', 'en'));
+
+    await user.type(first, 'erthanten');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(first).not.toHaveAttribute('aria-invalid');
+    expect(second).not.toHaveAttribute('aria-invalid');
+    expect(screen.queryByText(tr('setupMismatch', 'en'))).not.toBeInTheDocument();
+    // The rule is still there, as the quiet description it was at the start.
+    expect(first).toHaveAccessibleDescription(tr('setupTooShort', 'en'));
+
+    await user.clear(first);
+    await user.type(first, 'short');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('lets a mismatch go quiet once the second copy is edited', async () => {
+    const user = userEvent.setup();
+    const { first, second, submit } = mount();
+    await user.type(first, 'longenough1');
+    await user.type(second, 'longenough2');
+    await user.click(submit);
+    expect(await screen.findByRole('alert')).toHaveTextContent(tr('setupMismatch', 'en'));
+
+    await user.type(second, 'x');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(second).not.toHaveAttribute('aria-invalid');
+    // Still different, so the hint the field had while typing stays.
+    expect(second).toHaveAccessibleDescription(tr('setupMismatch', 'en'));
+  });
+
+  it('marks the field invalid before it moves the cursor there', async () => {
+    const user = userEvent.setup();
+    const { first, second, submit } = mount();
+    const marked: Record<string, (string | null)[]> = { first: [], second: [] };
+    first.addEventListener('focus', () => marked.first!.push(first.getAttribute('aria-invalid')));
+    second.addEventListener('focus', () => marked.second!.push(second.getAttribute('aria-invalid')));
+
+    await user.type(first, 'short');
+    await user.click(submit);
+    await screen.findByRole('alert');
+    expect(first).toHaveFocus();
+    expect(marked.first).toEqual(['true']);
+
+    await user.clear(first);
+    await user.type(first, 'longenough1');
+    await user.click(submit);
+    await screen.findByRole('alert');
+    expect(second).toHaveFocus();
+    expect(marked.second).toEqual(['true']);
+  });
+
   it('sets the password when both copies are long enough and match', async () => {
     const user = userEvent.setup();
     const { first, second, submit, choosePassword } = mount();

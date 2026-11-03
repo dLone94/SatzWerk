@@ -1,5 +1,12 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useApp } from '../../state/AppState.tsx';
+
+/** Why the last try was turned down, and which try that was. */
+interface Refusal {
+  reason: 'short' | 'mismatch';
+  /** Which refused try in a row: a new number mounts a new alert, so each is said afresh. */
+  n: number;
+}
 
 /**
  * First run on a hosted copy: choose the password.
@@ -17,8 +24,7 @@ export function SetupPage() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  /** Refused tries so far: each one is said afresh. */
-  const [refused, setRefused] = useState(0);
+  const [refusal, setRefusal] = useState<Refusal | null>(null);
   const first = useRef<HTMLInputElement>(null);
   const second = useRef<HTMLInputElement>(null);
 
@@ -29,18 +35,31 @@ export function SetupPage() {
    * and the rule appeared only once typing began, in a line no field pointed
    * to and nothing announced. Now a refused try says what is wrong, marks the
    * field and puts the cursor back in it.
+   *
+   * What is wrong is decided by the try, not by the typing after it. Worked
+   * out from the fields as they changed, a refusal turned into a running
+   * commentary: passing ten characters in the first field raised a fresh
+   * alert that the copies did not match, before the second had been touched.
+   * So the refusal stands until the learner edits a field it is about, and
+   * then the form goes back to its quiet hints.
    */
   const tooShort = password.length < 10;
   const differs = confirm !== password;
-  const problem = refused === 0 ? null : tooShort ? 'short' : differs ? 'mismatch' : null;
+  const problem = refusal?.reason ?? null;
   const showMismatch = problem === 'mismatch' || (confirm.length > 0 && differs);
+
+  // After the refusal has rendered, so the field is already marked invalid
+  // when focus arrives and a screen reader does not call it fine first.
+  useEffect(() => {
+    if (refusal) (refusal.reason === 'short' ? first : second).current?.focus();
+  }, [refusal]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (busy) return;
     if (tooShort || differs) {
-      setRefused((count) => count + 1);
-      (tooShort ? first : second).current?.focus();
+      const reason = tooShort ? 'short' : 'mismatch';
+      setRefusal((last) => ({ reason, n: (last?.n ?? 0) + 1 }));
       return;
     }
     setBusy(true);
@@ -52,7 +71,7 @@ export function SetupPage() {
       setPassword('');
       setConfirm('');
       // The server's refusal is the news now, not the emptied fields.
-      setRefused(0);
+      setRefusal(null);
       first.current?.focus();
     } finally {
       setBusy(false);
@@ -80,14 +99,18 @@ export function SetupPage() {
           autoFocus
           autoComplete="new-password"
           lang={lang === 'bg' ? 'bg' : 'en'}
-          onChange={(event) => setPassword(event.target.value)}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            // Both refusals are about this field: its length, or the pair.
+            setRefusal(null);
+          }}
           aria-describedby="new-password-rule"
           aria-invalid={problem === 'short' || undefined}
         />
         {/* Remounted as an alert on each refused try: an alert is announced
             when it arrives, not while it stays. */}
         <p
-          key={problem === 'short' ? `refused-${refused}` : 'rule'}
+          key={problem === 'short' ? `refused-${refusal?.n}` : 'rule'}
           id="new-password-rule"
           className={`login__hint${problem === 'short' ? ' login__hint--wrong' : ''}`}
           role={problem === 'short' ? 'alert' : undefined}
@@ -105,13 +128,16 @@ export function SetupPage() {
           type="password"
           value={confirm}
           autoComplete="new-password"
-          onChange={(event) => setConfirm(event.target.value)}
+          onChange={(event) => {
+            setConfirm(event.target.value);
+            if (problem === 'mismatch') setRefusal(null);
+          }}
           aria-describedby={showMismatch ? 'confirm-password-hint' : undefined}
           aria-invalid={problem === 'mismatch' || undefined}
         />
         {showMismatch ? (
           <p
-            key={problem === 'mismatch' ? `refused-${refused}` : 'typing'}
+            key={problem === 'mismatch' ? `refused-${refusal?.n}` : 'typing'}
             id="confirm-password-hint"
             className={`login__hint${problem === 'mismatch' ? ' login__hint--wrong' : ''}`}
             role={problem === 'mismatch' ? 'alert' : undefined}
