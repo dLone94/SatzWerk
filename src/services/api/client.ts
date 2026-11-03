@@ -260,10 +260,26 @@ const REQUEST_TIMEOUT_MS = 30_000;
  */
 const WRITE_TIMEOUT_MS = REQUEST_TIMEOUT_MS;
 
+/**
+ * For the German Coach: longer than the server's own deadline for the model
+ * (server/ai-claude.ts) with a cold start on top, so whatever the server says —
+ * the explanation, its note that the model could not be reached, or the
+ * rule-based writing review — arrives before the browser stops listening.
+ */
+export const COACH_TIMEOUT_MS = 35_000;
+
+/** What a timeout says when nothing more specific is known about the request. */
+const SLOW_SERVER = 'The server may still be starting up, or it cannot reach its database.';
+
 /** Header naming a write, the same on every try of it. See `QueuedWrite.id`. */
 export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
 
-async function request<T>(path: string, init?: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+  whenSlow = SLOW_SERVER,
+): Promise<T> {
   // Named in every failure below. An error that says only "HTTP 404" leaves
   // the one useful fact — *which* request failed — visible in a browser's
   // network panel and nowhere else, so it cannot be reported by whoever hit
@@ -285,7 +301,7 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = REQUEST_
     const timedOut = cause instanceof DOMException && cause.name === 'TimeoutError';
     throw new ApiError(
       timedOut
-        ? `${what} did not answer within ${timeoutMs / 1000} seconds. The server may still be starting up, or it cannot reach its database.`
+        ? `${what} did not answer within ${timeoutMs / 1000} seconds. ${whenSlow}`
         : `Could not reach the server for ${what}: ${cause instanceof Error ? cause.message : String(cause)}`,
       0,
     );
@@ -324,6 +340,18 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = REQUEST_
 
 const post = <T>(path: string, body?: unknown): Promise<T> =>
   request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
+
+/**
+ * A question for the German Coach. A slow model is not a database that cannot
+ * be reached, and saying so sent people looking for the wrong problem.
+ */
+const askCoach = <T>(path: string, body: unknown): Promise<T> =>
+  request<T>(
+    path,
+    { method: 'POST', body: JSON.stringify(body) },
+    COACH_TIMEOUT_MS,
+    'The German Coach is slow to answer right now. Nothing you did is lost; try again in a moment.',
+  );
 
 /**
  * A write the outbox can hold: sent with its key, and given up on sooner.
@@ -442,7 +470,7 @@ export const api = {
   coachStatus: () => request<CoachStatus>('/coach/status'),
 
   reviewWriting: (text: string, language: TeachingLanguage, level: string) =>
-    post<WritingEvaluation>('/coach/writing', { text, language, level }),
+    askCoach<WritingEvaluation>('/coach/writing', { text, language, level }),
 
   explainMistake: (payload: {
     expected: string;
@@ -450,7 +478,7 @@ export const api = {
     categories: ErrorCategory[];
     language: TeachingLanguage;
     level: string;
-  }) => post<MistakeExplanation>('/coach/explain', payload),
+  }) => askCoach<MistakeExplanation>('/coach/explain', payload),
 
   reset: () => post<AppStateSnapshot>('/reset'),
 };

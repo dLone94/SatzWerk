@@ -66,8 +66,20 @@ export const CLAUDE_EFFORT = 'medium';
  */
 const MAX_TOKENS = 1500;
 
-/** How long to wait before telling the learner it did not answer. */
-export const CLAUDE_TIMEOUT_MS = 30_000;
+/**
+ * How long to wait before telling the learner it did not answer — once, with
+ * no retry.
+ *
+ * The whole request has to finish inside the hosted function's 30 seconds
+ * (vercel.json), cold start included, and the browser stops listening at about
+ * the same time. This used to be 30 seconds with the SDK's default of two
+ * retries, and the SDK retries a timeout: a model that never answered took 91
+ * seconds, the function was killed long before, and the learner was told the
+ * database could not be reached. The explanation's own "could not be reached"
+ * note, and the writing review's rule-based result, never arrived at all.
+ */
+export const CLAUDE_TIMEOUT_MS = 18_000;
+export const CLAUDE_MAX_RETRIES = 0;
 
 export interface ClaudeConfig {
   apiKey: string;
@@ -126,7 +138,7 @@ export function createClaudeCaller(config: ClaudeConfig): ClaudeCaller {
   return async (request) => {
     if (!client) {
       const { default: Anthropic } = await import('@anthropic-ai/sdk');
-      client = new Anthropic({ apiKey: config.apiKey, timeout: CLAUDE_TIMEOUT_MS });
+      client = new Anthropic({ apiKey: config.apiKey, timeout: CLAUDE_TIMEOUT_MS, maxRetries: CLAUDE_MAX_RETRIES });
     }
     const anthropic = client as import('@anthropic-ai/sdk').default;
 
