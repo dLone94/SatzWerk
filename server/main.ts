@@ -66,20 +66,32 @@ const MIME: Record<string, string> = {
   '.map': 'application/json; charset=utf-8',
 };
 
+class BodyTooLarge extends Error {}
+
+/**
+ * The request's body, or a BodyTooLarge once it has all arrived.
+ *
+ * Past the limit the rest is read and thrown away rather than the socket
+ * destroyed. A destroyed socket reaches the browser as a reset connection with
+ * no status at all, which the outbox rightly reads as "offline" — so an
+ * accidental paste of a few hundred kilobytes sat at the front of the queue
+ * for good, with every later answer waiting behind it. Draining it means the
+ * 413 below actually arrives, and a 4xx is a refusal the outbox reports and
+ * moves past.
+ */
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolvePromise, reject) => {
     let size = 0;
-    const chunks: Buffer[] = [];
+    let chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => {
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
-        reject(new Error('Request body too large'));
-        req.destroy();
-        return;
-      }
-      chunks.push(chunk);
+      if (size > MAX_BODY_BYTES) chunks = [];
+      else chunks.push(chunk);
     });
-    req.on('end', () => resolvePromise(Buffer.concat(chunks).toString('utf8')));
+    req.on('end', () => {
+      if (size > MAX_BODY_BYTES) reject(new BodyTooLarge());
+      else resolvePromise(Buffer.concat(chunks).toString('utf8'));
+    });
     req.on('error', reject);
   });
 }
@@ -207,7 +219,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   try {
     let body: unknown;
     if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
-      const raw = await readBody(req);
+      let raw: string;
+      try {
+        raw = await readBody(req);
+      } catch (error) {
+        if (!(error instanceof BodyTooLarge)) throw error;
+        sendJson(res, 413, { error: `That is more than the server takes in one request (${MAX_BODY_BYTES / 1024} KB).` });
+        return;
+      }
       if (raw.length > 0) {
         try {
           body = JSON.parse(raw);

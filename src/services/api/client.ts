@@ -130,6 +130,30 @@ export interface AttemptPayload {
   tzOffsetMinutes?: number;
 }
 
+/**
+ * How much of an answer's text the server keeps: it stores the first 500
+ * characters of the prompt, the expected answer and what was typed.
+ */
+export const ATTEMPT_TEXT_LIMIT = 500;
+
+/**
+ * An answer cut to what the server keeps, before it is queued or sent.
+ *
+ * Nothing stops a learner pasting a whole page into an answer box, and the
+ * whole page went into the queue and out on the wire, where a body over the
+ * server's limit was refused — the answer lost over characters the database
+ * would have thrown away anyway.
+ */
+export function boundedAttempt(payload: AttemptPayload): AttemptPayload {
+  const cut = (text: string) => (text.length > ATTEMPT_TEXT_LIMIT ? text.slice(0, ATTEMPT_TEXT_LIMIT) : text);
+  return {
+    ...payload,
+    expected: cut(payload.expected),
+    given: cut(payload.given),
+    ...(payload.prompt === undefined ? {} : { prompt: cut(payload.prompt) }),
+  };
+}
+
 export interface CheckpointPayload {
   checkpointId: string;
   scope: string;
@@ -364,7 +388,10 @@ export const api = {
   updateProfile: (patch: Partial<Pick<Profile, 'teachingLanguage' | 'dailyTargetMinutes' | 'displayName' | 'onboarded'>>) =>
     request<Profile>('/profile', { method: 'PUT', body: JSON.stringify(patch) }),
 
-  recordAttempt: (payload: AttemptPayload, key?: string) => write<AttemptResponse>('/attempts', payload, key),
+  // Bounded here as well as when queued, for an answer queued by a version of
+  // the app that did not bound it and is still waiting on this phone.
+  recordAttempt: (payload: AttemptPayload, key?: string) =>
+    write<AttemptResponse>('/attempts', boundedAttempt(payload), key),
 
   markSectionSeen: (lessonId: string, sectionId: string, key?: string) =>
     write<LessonProgress>(

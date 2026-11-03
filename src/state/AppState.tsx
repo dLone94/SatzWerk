@@ -23,6 +23,7 @@ import { scheduleReview, type RecallGrade, type ReviewItem } from '../core/srs/s
 import { tr, type UiKey } from '../i18n.ts';
 import {
   api,
+  boundedAttempt,
   type AttemptResponse,
   type AppStateSnapshot,
   type Learner,
@@ -955,13 +956,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
        */
       submitAttempt: async (payload) => {
         // `payload` wins so a caller can state the time itself; none does yet.
-        const stamped: AttemptPayload = {
+        // Cut to what the server keeps before it is queued: a pasted page
+        // would otherwise sit in storage and go out too big to be taken.
+        const stamped: AttemptPayload = boundedAttempt({
           at: new Date().toISOString(),
           // Negated, because `getTimezoneOffset` counts from local to UTC and
           // everything downstream counts the other way.
           tzOffsetMinutes: -new Date().getTimezoneOffset(),
           ...payload,
-        };
+        });
         const write: outbox.PendingWrite = { kind: 'attempt', payload: stamped };
 
         if (!outbox.enqueue(write)) {
