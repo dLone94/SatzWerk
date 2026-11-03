@@ -175,13 +175,16 @@ a {
   white-space: nowrap;
 }
 
+/* Above everything that stays put while the page scrolls — the sticky top
+   bar and the fixed brand (30), the sidebar (20) — or it takes focus on the
+   first Tab and is drawn underneath them, where nobody can see it. */
 .skip-link {
   position: absolute;
   left: -999px;
   top: 0;
   background: var(--surface);
   padding: 0.5rem 0.75rem;
-  z-index: 10;
+  z-index: 40;
 }
 
 .skip-link:focus {
@@ -1652,9 +1655,13 @@ textarea.answer-field {
   font-size: 1.05rem;
 }
 
+/* Each label sits on the first line of what it labels. Centred on its row,
+   "Expected" drifted down beside the speaker button whenever the button
+   wrapped under the sentence, nearer "You wrote" than its own answer. */
 .feedback__compare {
   display: grid;
   grid-template-columns: minmax(5rem, auto) 1fr;
+  align-items: baseline;
   gap: 0.25rem 0.75rem;
   margin: 0;
   font-size: 0.95rem;
@@ -1665,7 +1672,6 @@ textarea.answer-field {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  align-self: center;
 }
 
 .feedback__compare dd {
@@ -2529,7 +2535,9 @@ textarea.answer-field {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  /* Never wider than the card: with the browser's text at 200%, 12rem is
+     wider than a phone's card, and the page scrolled sideways. */
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
   gap: 0.3rem;
   font-size: 0.92rem;
 }
@@ -2853,6 +2861,12 @@ textarea.answer-field {
   color: var(--ink-soft);
   font-size: 0.85rem;
   line-height: 1.45;
+}
+
+/* What a refused try is told. Two classes deep, or `.boot p` greys it. */
+.login .login__hint--wrong {
+  color: var(--bad);
+  font-weight: 600;
 }
 
 .login__note {
@@ -4072,8 +4086,12 @@ body {
   gap: 0.35rem;
 }
 
+/* The name keeps a little width that grows with the text size, as the badge
+   and the buttons beside it do; when they no longer fit, they wrap under it.
+   Without that, large text squeezed the learner's name to nothing. */
 .learners__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   padding: 0.45rem 0.6rem;
@@ -4090,7 +4108,7 @@ body {
 .learners__name {
   font-weight: 600;
   flex: 1;
-  min-width: 0;
+  min-width: 2.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -4378,8 +4396,11 @@ h4,
     color: #ffffff;
   }
 
+  /* A word may run half a rem into the room beside its tab before it is cut:
+     five equal tabs on a 320–360px phone leave 50–58px for each, and
+     "Повторение" needs 59. Its neighbours' words are short. */
   .nav__label {
-    max-width: 100%;
+    max-width: calc(100% + 1rem);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -5081,6 +5102,13 @@ h4,
   color: var(--on-hero);
   text-align: center;
   isolation: isolate;
+  /* The card is the same yellow in both themes, so what sits on it keeps the
+     light theme's green and blue. Dark mode's pastel ones measured 1.3:1
+     against the yellow: a washed-out score ring and a next-lesson button
+     with no edge. */
+  --good: #286c49;
+  --accent: #3159b9;
+  --on-accent: #ffffff;
 }
 
 .done-hero .score-ring {
@@ -5190,10 +5218,9 @@ h4,
 }
 
 .btn--on-hero {
-  border: 0;
+  border-color: color-mix(in srgb, var(--on-hero) 24%, transparent);
   background: transparent;
   color: var(--on-hero);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--on-hero) 24%, transparent);
 }
 
 .btn--on-hero:hover:not(:disabled) {
@@ -5875,10 +5902,14 @@ a:hover {
   border-radius: 12px;
 }
 
+/* These three have no fill of their own, so their outline is what makes
+   them buttons. It is the border, as on every other button, not an inset
+   shadow: the shadow is the layer that hover, focus and the studio layer's
+   `.btn { box-shadow: none }` all rewrite, and the last of those took the
+   outline away, leaving "Play a sample" and the rest as plain bold text. */
 .btn--ghost {
-  border: 0;
+  border-color: var(--line);
   background: var(--surface);
-  box-shadow: inset 0 0 0 1.5px var(--line);
 }
 
 .btn--ghost:hover:not(:disabled) {
@@ -5891,8 +5922,7 @@ a:hover {
 }
 
 .btn--danger {
-  border: 0;
-  box-shadow: inset 0 0 0 1.5px var(--bad);
+  border-color: var(--bad);
 }
 
 .audio-btn {

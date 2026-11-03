@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ScenarioBeat, ScenarioScript, TeachingLanguage } from '../../content/types.ts';
+import { scriptAnswerCount } from '../../content/browser.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AudioButton } from './bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from './ExercisePlayer.tsx';
@@ -72,6 +73,12 @@ export interface ScenarioPlayerProps {
 export function ScenarioPlayer({ script, onFinish, onExit }: ScenarioPlayerProps) {
   const { lang, say, t, tts } = useApp();
   const segments = useMemo(() => segmentsOf(script, lang), [script, lang]);
+  /*
+   * The header counts the things you say, as the introduction and the score
+   * do. It counted turns, and one turn can ask for two answers: the first
+   * bakery conversation read "3 of 3" with two answers still to give.
+   */
+  const answers = useMemo(() => scriptAnswerCount(script, lang), [script, lang]);
 
   const [cursor, setCursor] = useState(0);
   const [said, setSaid] = useState<Said[]>([]);
@@ -184,7 +191,7 @@ export function ScenarioPlayer({ script, onFinish, onExit }: ScenarioPlayerProps
       <header className="scenario__head">
         <div>
           <p className="scenario__progress">
-            {t('exerciseProgress', { done: Math.min(cursor + 1, segments.length), total: segments.length })}
+            {t('exerciseProgress', { done: Math.min(said.length + 1, answers), total: answers })}
           </p>
           <p className="scenario__goal">{say(script.goal)}</p>
         </div>

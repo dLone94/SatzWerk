@@ -298,6 +298,25 @@ function NavItem({
   );
 }
 
+/*
+ * Whether the learner has done anything on this page yet: pressed a key,
+ * pressed a pointer, or clicked. Heard on the window from the moment the app
+ * loads, before any handler of the app's own can navigate. A click counts on
+ * its own because a screen reader's "activate" arrives as a click with no
+ * key or pointer before it. (navigator.userActivation would be the obvious
+ * source, but Chromium reported a page opened by Playwright, untouched, as
+ * already used.)
+ */
+let learnerHasActed = false;
+const ACTS = ['keydown', 'pointerdown', 'click'] as const;
+function noticeAct() {
+  learnerHasActed = true;
+  for (const type of ACTS) window.removeEventListener(type, noticeAct, true);
+}
+if (typeof window !== 'undefined') {
+  for (const type of ACTS) window.addEventListener(type, noticeAct, true);
+}
+
 /**
  * A new page opens at its top. The router keeps the old scroll position, so a
  * word tapped far down the vocabulary list opened its own page part-way down,
@@ -310,6 +329,12 @@ export function ScrollToTop() {
   useEffect(() => {
     if (navigation !== 'POP') {
       window.scrollTo(0, 0);
+      // A first visit to / is sent on to /welcome before the learner has
+      // touched anything, and that redirect is not a POP. Nothing they did
+      // led there, and the page load already gave the document its focus;
+      // focus moved by a script at that point also draws the keyboard ring,
+      // which framed every new learner's welcome title in a thick blue box.
+      if (!learnerHasActed) return;
       // A client-side route does not give keyboard or screen-reader users
       // the new-document focus a normal navigation would. Start at its title.
       const focusTitle = () => {
