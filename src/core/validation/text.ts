@@ -23,6 +23,27 @@ export function tokenize(input: string): string[] {
   return cleaned.length === 0 ? [] : cleaned.split(' ');
 }
 
+/** A full stop, question mark or exclamation mark, with any closing quote after it. */
+const SENTENCE_END = /[.!?…]["“”'’»)\]]*$/u;
+
+/**
+ * For each word `tokenize` returns, whether it closes a sentence. `tokenize`
+ * drops the marks, and with them where one sentence ends and the next begins:
+ * in "Ich nehme das. Danke schön!" the capital of "Danke" belongs to a new
+ * sentence, not to a noun after "das". A number's full stop ("am 3. Mai") is
+ * a date, not the end of a sentence.
+ */
+export function sentenceEnds(input: string): boolean[] {
+  const ends: boolean[] = [];
+  for (const chunk of tidy(input).split(' ')) {
+    const closes = SENTENCE_END.test(chunk) && !/^\d+\.$/.test(chunk);
+    if (chunk.replace(PUNCTUATION, '').length > 0) ends.push(closes);
+    // A mark typed apart from its word ("Danke !") still closes that word's sentence.
+    else if (closes && ends.length > 0) ends[ends.length - 1] = true;
+  }
+  return ends;
+}
+
 /** Lowercase in a way that is safe for German (no locale surprises). */
 export function lower(input: string): string {
   return input.toLowerCase();
@@ -48,6 +69,9 @@ export function toDigraphs(input: string): string {
     .replace(/Ü/g, 'Ue')
     .replace(/ß/g, 'ss');
 }
+
+/** Each German special letter to the plain letter it is written without its dots. */
+export const PLAIN_VOWEL: Readonly<Record<string, string>> = { 'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 's' };
 
 const UMLAUT_DIGRAPH: Record<string, string> = {
   'ä': 'ae',

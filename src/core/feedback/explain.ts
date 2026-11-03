@@ -1,7 +1,7 @@
 import type { Bilingual, ErrorCategory, Gender } from '../../content/types.ts';
 import type { GermanLexicon } from '../validation/lexicon.ts';
 import { lower } from '../validation/text.ts';
-import { categorizePair, expectedAfter, type ValidationResult } from '../validation/validate.ts';
+import { categorizePair, pairContext, type TokenDiffEntry, type ValidationResult } from '../validation/validate.ts';
 
 /**
  * Turns a validation result into an explanation in the learner's language.
@@ -79,7 +79,10 @@ function changeFor(category: ErrorCategory, result: ValidationResult, ctx: Feedb
   }
   const own = entries.find(({ entry, index }) => {
     if (entry.status === 'case') return category === 'pronoun' && lower(entry.expected!) === 'sie';
-    return categorizePair(entry.expected!, entry.given!, ctx.lexicon, expectedAfter(result.diff, index)).includes(category);
+    // The validator's own reading, which saw the scaffold too. Only a diff it
+    // did not read word by word is read here again.
+    const reading = entry.reading ?? categorizePair(entry.expected!, entry.given!, ctx.lexicon, pairContext(result.diff, index));
+    return reading.includes(category);
   });
   if (own) return toChange(own);
   // A mistake the lexicon cannot place (an authored trap, say) still has its
@@ -115,13 +118,9 @@ function matchInitial(model: string, word: string): string {
   return model[0] === model[0]!.toUpperCase() ? word[0]!.toUpperCase() + word.slice(1) : word;
 }
 
-/** The noun that follows an article, used for gender explanations. */
-function nounAfter(result: ValidationResult, index: number): string | undefined {
-  for (let i = index + 1; i < result.diff.length; i += 1) {
-    const expected = result.diff[i]?.expected;
-    if (expected) return expected;
-  }
-  return undefined;
+/** The word that follows an article, the noun used for gender explanations. */
+function nounAfter(result: ValidationResult, index: number): TokenDiffEntry | undefined {
+  return result.diff.slice(index + 1).find((entry) => entry.expected);
 }
 
 function explainCategory(
@@ -139,7 +138,8 @@ function explainCategory(
       if (!change) {
         return [bi('Check the article in front of the noun.', 'Провери члена пред съществителното.')];
       }
-      const noun = nounAfter(result, change.index);
+      const after = nounAfter(result, change.index);
+      const noun = after?.expected;
       const info = noun ? ctx.describeNoun?.(noun) : undefined;
       const gender = info?.gender ?? (noun ? ctx.lexicon.nounGender.get(lower(noun)) : undefined);
       if (!noun || !gender) {
@@ -167,16 +167,19 @@ function explainCategory(
               ),
         );
       }
+      // The learner's side is quoted as it was typed: with the noun left out,
+      // "Eine Wasser" would be a phrase nobody wrote.
+      const written = after?.status === 'missing' ? given : `${given} ${noun}`;
       // "So" follows from the gender line; on its own the line starts plainly.
       lines.push(
         namesGender
           ? bi(
-              `So here German uses "${expected} ${noun}", not "${given} ${noun}".`,
-              `Затова тук на немски се използва „${expected} ${noun}“, а не „${given} ${noun}“.`,
+              `So here German uses "${expected} ${noun}", not "${written}".`,
+              `Затова тук на немски се използва „${expected} ${noun}“, а не „${written}“.`,
             )
           : bi(
-              `Here German uses "${expected} ${noun}", not "${given} ${noun}".`,
-              `Тук на немски се използва „${expected} ${noun}“, а не „${given} ${noun}“.`,
+              `Here German uses "${expected} ${noun}", not "${written}".`,
+              `Тук на немски се използва „${expected} ${noun}“, а не „${written}“.`,
             ),
       );
       // Right gender, wrong case: say that the article changes with the case.

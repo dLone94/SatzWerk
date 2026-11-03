@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnswerSpec } from '../../src/content/types.ts';
 import { createBaseLexicon, extendLexicon } from '../../src/core/validation/lexicon.ts';
 import { checkFreeWriting, validateAnswer } from '../../src/core/validation/validate.ts';
-import { compareUmlauts, editDistance, splitScaffold } from '../../src/core/validation/text.ts';
+import { compareUmlauts, editDistance, sentenceEnds, splitScaffold, tokenize } from '../../src/core/validation/text.ts';
 
 const lexicon = extendLexicon(createBaseLexicon(), [
   { german: 'Tochter', wordType: 'noun', gender: 'f', plural: 'die Töchter' },
@@ -287,6 +287,18 @@ describe('text helpers', () => {
       seed: '',
     });
     expect(splitScaffold('Ich w___ in Hamburg.').seed).toBe('w');
+  });
+
+  it('marks the words that close a sentence, one mark for each word', () => {
+    for (const [text, ends] of [
+      ['Ich nehme das. Danke schön!', [false, false, true, false, true]],
+      ['Danke ! Bis bald', [true, false, false]],
+      ['am 3. Mai.', [false, false, true]],
+      ['„Das“, sagt er.', [false, false, true]],
+    ] as const) {
+      expect(sentenceEnds(text), text).toEqual(ends);
+      expect(sentenceEnds(text).length, text).toBe(tokenize(text).length);
+    }
   });
 });
 
@@ -735,7 +747,6 @@ describe('sie at the start of a sentence', () => {
   });
 });
 
-
 /*
  * Two neighbouring letters swapped ("Nahct", "Dnake") are one slip of the
  * fingers. Counted as two edits, the swap went over a short word's budget and
@@ -817,6 +828,61 @@ describe('der, die and das on their own', () => {
     expect(r.categories).toEqual(['article']);
     const both = validateAnswer('bei die', word(['bei der']), { ...opts, scaffold: '___ Ärztin' });
     expect(both.categories).toEqual(['article']);
+    // A gap that ends its sentence has no noun after it, whatever comes next.
+    const closing = validateAnswer('die', word(['das']), { ...opts, scaffold: 'Ich nehme ___. Danke schön!' });
+    expect(closing.categories).toEqual(['pronoun']);
+  });
+
+  // The capital of the next sentence's first word is not a noun after "das".
+  it('stops at the end of the sentence', () => {
+    const spec = sentence(['Ich nehme das. Danke schön!']);
+    for (const given of ['Ich nehme es. Danke schön!', 'Ich nehme die. Danke schön!']) {
+      expect(validateAnswer(given, spec, opts).categories, given).toEqual(['pronoun']);
+    }
+    // A date's full stop does not end the sentence: the article still has its noun.
+    const date = validateAnswer('Die 3. Oktober ist ein Feiertag.', sentence(['Der 3. Oktober ist ein Feiertag.']), opts);
+    expect(date.categories).toContain('article');
+  });
+
+  // Only a one-word answer leaves the learner's word to decide.
+  it('reads an article word that ends a longer answer as a pronoun', () => {
+    for (const [given, answer] of [
+      ['Wie viel kostet die?', 'Wie viel kostet das?'],
+      ['Wer ist der?', 'Wer ist das?'],
+    ] as const) {
+      expect(validateAnswer(given, sentence([answer]), opts).categories, given).toEqual(['pronoun']);
+    }
+  });
+
+  // "Ich kaufe am Samstag ein.": an article word, but the end of einkaufen.
+  it('does not take the ein of a separable verb for a pronoun', () => {
+    const r = validateAnswer('der', word(['ein']), { ...opts, scaffold: 'Ich kaufe am Samstag ___.' });
+    expect(r.categories).toEqual(['vocabulary']);
+  });
+
+  // The learner's word stands for the whole phrase: no article was tried.
+  it('does not call a word in place of an article and its noun an article mistake', () => {
+    for (const given of ['Dann nehme ich es.', 'Dann nehme ich xyz.']) {
+      const r = validateAnswer(given, sentence(['Dann nehme ich das Haus.']), opts);
+      expect(r.categories, given).not.toContain('article');
+      expect(r.categories, given).toContain('missing-word');
+    }
+    // An article word typed without its noun is still the article it is.
+    expect(validateAnswer('Ich sehe die.', sentence(['Ich sehe den Tisch.']), opts).categories).toContain('article');
+  });
+
+  // "heiße" is a form of heißen and of heiß; in front of a noun it is the adjective.
+  it('reads past an adjective that is also a verb form', () => {
+    const withHot = extendLexicon(lexicon, [
+      { german: 'heiß', wordType: 'adjective' },
+      { german: 'heißen', wordType: 'verb' },
+      { german: 'Suppe', wordType: 'noun', gender: 'f' },
+    ]);
+    const r = validateAnswer('Der heiße Suppe', sentence(['Die heiße Suppe']), { lexicon: withHot });
+    expect(r.categories).toContain('article');
+    // "Das heiße ich gut.": the pronoun after it says heiße is the verb here.
+    const verb = validateAnswer('Es heiße ich gut.', sentence(['Das heiße ich gut.']), { lexicon: withHot });
+    expect(verb.categories).toEqual(['pronoun']);
   });
 });
 

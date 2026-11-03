@@ -322,6 +322,59 @@ describe('das standing on its own', () => {
     expect(en).toContain('The pronoun should be "Das", not "Sie".');
     expect(bg).toContain('Местоимението трябва да е „Das“, а не „Sie“.');
   });
+
+  // The next sentence's capital, or the end of the question, used to count
+  // as das's noun on these steps: "The article has to be "das" here".
+  it('is not explained as an article at the end of a sentence', () => {
+    const steps = new Map(
+      SCENARIO_SCRIPTS.flatMap((script) => script.beats.flatMap((beat) => (beat.who === 'you' ? beat.exercise.steps : [])))
+        .concat(allLessons().flatMap((lesson) => lesson.exercises.flatMap((exercise) => exercise.steps)))
+        .map((step) => [step.id, step]),
+    );
+    for (const [id, given, line] of [
+      ['sc-pharmacy-a1-t4-s1', 'Ich nehme es. Danke schön!', 'The pronoun should be "das", not "es".'],
+      ['sc-pharmacy-b1-t4-s1', 'Dann nehme ich es. Vielen Dank!', undefined],
+      ['u3l3-ex2-s3', 'Wie viel kostet die?', 'The pronoun should be "das", not "die".'],
+      ['u6l3-ex4-s1', 'Wer ist der?', 'The pronoun should be "das", not "der".'],
+    ] as const) {
+      const step = steps.get(id);
+      expect(step, id).toBeDefined();
+      const { result, en, bg } = explain(given, step!.answer, { scaffold: step!.scaffold });
+      expect(result.categories, given).not.toContain('article');
+      expect(en.join(' '), given).not.toContain('article');
+      expect(bg.join(' '), given).not.toContain('Член');
+      expect(microTip(result.categories), given).toBeUndefined();
+      if (line) expect(en, given).toContain(line);
+    }
+  });
+
+  // The noun of a gap's article is in the scaffold. The explanation read the
+  // answer without it, took "das" for a pronoun, and could not find the
+  // article it was asked to explain.
+  it('names the article the validator found, in a gap too', () => {
+    const { result, en } = explain('sie kleinen', spec('das kleine'), { scaffold: '___ Kind schläft.' });
+    expect(result.categories).toContain('article');
+    expect(en).toContain('The article has to be "das" here, not "sie".');
+  });
+});
+
+/*
+ * With the noun left out, the article line quoted the learner's word joined
+ * to the answer's noun: "not "xyz Wasser"", a phrase nobody typed.
+ */
+describe('an article whose noun was left out', () => {
+  it('quotes only what the learner wrote', () => {
+    const { en } = explain('Eine, bitte.', spec('Ein Wasser, bitte.'));
+    expect(en).toContain('So here German uses "Ein Wasser", not "Eine".');
+    expect(en.join(' ')).not.toContain('Eine Wasser');
+  });
+
+  it('does not call another word in its place an article mistake', () => {
+    const { result, en } = explain('xyz bitte.', spec('Ein Wasser, bitte.', { alternatives: ['Bitte ein Wasser.', 'Wasser, bitte.'] }));
+    expect(result.categories).not.toContain('article');
+    expect(en.join(' ')).not.toContain('xyz Wasser');
+    expect(microTip(result.categories)).toBeUndefined();
+  });
 });
 
 describe('an answer typed in Cyrillic letters', () => {

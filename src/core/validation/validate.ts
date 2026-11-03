@@ -1,6 +1,7 @@
 import type { AnswerSpec, Bilingual, ErrorCategory, ExerciseKind } from '../../content/types.ts';
 import {
   FREE_VARIANTS,
+  isAdjectiveForm,
   isFunctionWord,
   isNoun,
   isVerbForm,
@@ -13,6 +14,8 @@ import {
   editDistance,
   isReordering,
   lower,
+  PLAIN_VOWEL,
+  sentenceEnds,
   shapeKey,
   splitScaffold,
   stripPunctuation,
@@ -41,6 +44,16 @@ export interface TokenDiffEntry {
   status: DiffStatus;
   expected?: string;
   given?: string;
+  /**
+   * The expected word closes a sentence of the answer, so the words after
+   * it belong to the next one: "das" in "Ich nehme das. Danke schön!".
+   */
+  endsSentence?: boolean;
+  /**
+   * What the validator read a changed word as. The explanation quotes each
+   * mistake's own word by it, so the two cannot disagree.
+   */
+  reading?: ErrorCategory[];
 }
 
 export interface ValidationResult {
@@ -238,7 +251,7 @@ export function validateAnswer(
         categories: [],
         notes: [],
         requireRetype: false,
-        diff: buildDiff(tokenize(raw), tokenize(accepted)),
+        diff: buildDiff(raw, accepted),
       };
     }
   }
@@ -264,7 +277,7 @@ export function validateAnswer(
         categories: [trap.category],
         notes: [],
         requireRetype: true,
-        diff: buildDiff(tokenize(raw), tokenize(target)),
+        diff: buildDiff(raw, target),
         trapFeedback: trap.feedback,
       };
     }
@@ -321,7 +334,7 @@ function misheard(raw: string, target: string): ValidationResult {
     notes: [],
     // A choice is not retyped.
     requireRetype: false,
-    diff: buildDiff(tokenize(raw), tokenize(target)),
+    diff: buildDiff(raw, target),
     misheard: true,
   };
 }
@@ -370,7 +383,7 @@ function compareAgainst(
     matched: expected,
     notes: [] as ErrorCategory[],
     categories: [] as ErrorCategory[],
-    diff: buildDiff(gTokens, eTokens),
+    diff: buildDiff(raw, expectedTidy),
   };
 
   if (raw === expectedTidy) {
@@ -494,10 +507,7 @@ function compareAgainst(
     };
   }
 
-  // The words the scaffold shows after the gap, which the answer runs into:
-  // "das" typed into "___ Kind ist klein." stands in front of its noun.
-  const shown = options.scaffold ? tokenize(splitScaffold(options.scaffold).after) : [];
-  const analysis = classifyTokens(gTokens, eTokens, lexicon, shown);
+  const analysis = classifyTokens(buildDiff(raw, expectedTidy), lexicon, gapContext(options.scaffold));
   const categories = analysis.categories;
 
   if (categories.length === 0) {
@@ -830,8 +840,6 @@ function onlyFirstLetterCase(
   return true;
 }
 
-const PLAIN_VOWEL: Record<string, string> = { 'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 's' };
-
 /**
  * True when the learner wrote a, o, u or s where the answer has ä, ö, ü or ß,
  * and nothing else is different — and the plain word is not a word of its own.
@@ -991,17 +999,35 @@ function pairStretch(extras: string[], missing: string[]): TokenDiffEntry[] {
   return out;
 }
 
-function buildDiff(given: string[], expected: string[]): TokenDiffEntry[] {
-  return alignTokens(given, expected);
+/** The learner's words against the answer's, each answer word marked where its sentence ends. */
+function buildDiff(given: string, expected: string): TokenDiffEntry[] {
+  const diff = alignTokens(tokenize(given), tokenize(expected));
+  const ends = sentenceEnds(expected);
+  let word = 0;
+  for (const entry of diff) {
+    if (entry.expected === undefined) continue;
+    if (ends[word]) entry.endsSentence = true;
+    word += 1;
+  }
+  return diff;
 }
 
-function classifyTokens(
-  gTokens: string[],
-  eTokens: string[],
-  lexicon: GermanLexicon,
-  shown: string[],
-): TokenAnalysis {
-  const diff = alignTokens(gTokens, eTokens);
+/**
+ * The words a scaffold shows after the gap, as far as the gap's sentence
+ * runs: "das" typed into "___ Kind ist klein." stands in front of its noun,
+ * and one typed into "Ich nehme ___. Danke!" has nothing after it. Undefined
+ * without a scaffold.
+ */
+function gapContext(scaffold: string | undefined): string[] | undefined {
+  if (!scaffold) return undefined;
+  const after = splitScaffold(scaffold).after;
+  if (/^[.!?…]/u.test(after.trim())) return [];
+  const words = tokenize(after);
+  const close = sentenceEnds(after).indexOf(true);
+  return close < 0 ? words : words.slice(0, close + 1);
+}
+
+function classifyTokens(diff: TokenDiffEntry[], lexicon: GermanLexicon, gap: string[] | undefined): TokenAnalysis {
   const categories = new Set<ErrorCategory>();
 
   diff.forEach((entry, index) => {
@@ -1021,47 +1047,66 @@ function classifyTokens(
       categories.add('extra-word');
       return;
     }
-    for (const category of categorizePair(entry.expected!, entry.given!, lexicon, expectedAfter(diff, index), shown)) {
-      categories.add(category);
-    }
+    entry.reading = categorizePair(entry.expected!, entry.given!, lexicon, pairContext(diff, index, gap));
+    for (const category of entry.reading) categories.add(category);
   });
 
   return { categories: [...categories], diff };
 }
 
-/** The answer's words after the diff entry at `from`. */
-export function expectedAfter(diff: TokenDiffEntry[], from: number): string[] {
-  return diff.slice(from + 1).flatMap((entry) => (entry.expected ? [entry.expected] : []));
+/** What stands around a changed word, which tells an article from a pronoun. */
+export interface PairContext {
+  /** The answer's words after this one, up to the end of its sentence. */
+  following: TokenDiffEntry[];
+  /** The words the scaffold shows after the gap, when the sentence runs on into them. */
+  shown: string[];
+  /** The answer is this one word with no sentence around it, as a der, die or das chosen for a noun is. */
+  alone: boolean;
 }
 
 /**
- * Does an article word stand in front of a noun ("das Brot", "das frische
- * Brot"), or on its own as a pronoun ("Das, bitte.", "Das ist meine
- * Tochter.", "Ich nehme den.")? Its noun, which German writes with a
- * capital, comes before any verb or pronoun.
+ * The context of the diff entry at `from`: the answer's words after it in
+ * its sentence, then those of `gap`, the scaffold's words after the gap when
+ * the answer fills one. A full stop ends it, so in "Ich nehme das. Danke
+ * schön!" nothing follows "das".
  */
-function headsNoun(after: string[], lexicon: GermanLexicon): boolean {
-  for (const word of after) {
-    const key = lower(word);
-    if (lexicon.pronouns.has(key)) return false;
-    if (word[0] !== key[0]) return true;
-    if (isVerbForm(lexicon, word)) return false;
+export function pairContext(diff: TokenDiffEntry[], from: number, gap?: string[]): PairContext {
+  const following: TokenDiffEntry[] = [];
+  let closed = diff[from]?.endsSentence === true;
+  for (const entry of diff.slice(from + 1)) {
+    if (closed) break;
+    if (entry.expected === undefined) continue;
+    following.push(entry);
+    closed = entry.endsSentence === true;
   }
-  return false;
+  const words = diff.filter((entry) => entry.expected !== undefined).length;
+  return { following, shown: closed ? [] : (gap ?? []), alone: words === 1 && gap === undefined };
 }
 
 /**
- * Decide what kind of mistake turning `expected` into `given` represents.
- *
- * `following` is the rest of the answer after `expected`, and `shown` the
- * words the scaffold shows after the gap, when the answer fills one.
+ * Where the noun an article word stands in front of comes among the words
+ * after it ("das Brot", "das frische Brot"), or -1 when it stands on its own
+ * as a pronoun ("Das, bitte.", "Das ist meine Tochter.", "Ich nehme den.").
+ * The noun, which German writes with a capital, comes before any verb or
+ * pronoun.
  */
+function nounIndex(after: string[], lexicon: GermanLexicon): number {
+  for (const [index, word] of after.entries()) {
+    const key = lower(word);
+    if (lexicon.pronouns.has(key)) return -1;
+    if (word[0] !== key[0]) return index;
+    // "heiße" is a form of heißen and of heiß: "die heiße Suppe" goes on to its noun.
+    if (isVerbForm(lexicon, word) && !isAdjectiveForm(lexicon, word)) return -1;
+  }
+  return -1;
+}
+
+/** Decide what kind of mistake turning `expected` into `given` represents. */
 export function categorizePair(
   expected: string,
   given: string,
   lexicon: GermanLexicon,
-  following: string[] = [],
-  shown: string[] = [],
+  context: PairContext = { following: [], shown: [], alone: true },
 ): ErrorCategory[] {
   const le = lower(expected);
   const lg = lower(given);
@@ -1073,19 +1118,31 @@ export function categorizePair(
   // der, die and das are pronouns as well ("Das, bitte."), and only one in
   // front of its noun is an article; so are dies and dieser. In a pronoun's
   // place another pronoun, or an article word standing on its own, is the
-  // wrong pronoun. With nothing after it to tell (a lone "das" chosen from
-  // der, die and das), the learner's word says which it was.
+  // wrong pronoun. At the end of a sentence nothing follows it ("Wie viel
+  // kostet das?"), so it stands alone. Only an answer that is the one word
+  // and nothing else (a "das" chosen from der, die and das) gives nothing to
+  // tell by, and there the learner's word says which it was.
+  const { following, shown, alone } = context;
   const determiner = lexicon.articles.has(le) || /^dies(e[mnrs]?)?$/.test(le);
-  const after = [...following, ...shown];
+  const after = [...following.map((entry) => entry.expected!), ...shown];
+  const nounAt = determiner ? nounIndex(after, lexicon) : -1;
   const standsAlone =
-    determiner &&
-    (after.length > 0 ? !headsNoun(after, lexicon) : lexicon.pronouns.has(lg) && !lexicon.articles.has(lg));
-  const pronounPlace = standsAlone || (lexicon.pronouns.has(le) && !determiner);
+    determiner && (after.length > 0 || !alone ? nounAt < 0 : lexicon.pronouns.has(lg) && !lexicon.articles.has(lg));
+  // An "ein" in front of no noun is the end of a separable verb, not a
+  // pronoun: "Ich kaufe am Samstag ein."
+  const prefix = standsAlone && le === 'ein';
+  const pronounPlace = (standsAlone && !prefix) || (lexicon.pronouns.has(le) && !determiner);
   if (pronounPlace && (lexicon.pronouns.has(lg) || lexicon.articles.has(lg))) return ['pronoun'];
+
+  // An article whose noun the learner left out, with another kind of word in
+  // its place: that word stands for the whole phrase ("es" for "das
+  // Generikum", "xyz" for "Ein Wasser"), so no article was tried.
+  if (nounAt >= 0 && following[nounAt]?.status === 'missing' && !lexicon.articles.has(lg)) return ['vocabulary'];
 
   // Articles and determiners.
   if (!standsAlone && lexicon.articles.has(le) && lexicon.articles.has(lg)) {
-    const noun = following[0] ? lower(following[0]) : undefined;
+    const next = following[0]?.expected;
+    const noun = next ? lower(next) : undefined;
     const gender = noun ? lexicon.nounGender.get(noun) : undefined;
     const givenMarks = lexicon.articleGender.get(lg) ?? [];
     if (gender && !givenMarks.includes(gender)) return ['article', 'gender'];
