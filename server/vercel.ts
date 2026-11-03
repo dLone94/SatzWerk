@@ -93,6 +93,8 @@ interface Incoming {
    */
   authorization?: string;
   writeId?: string;
+  /** Which learner the tab is showing; see LEARNER_HEADER in api.ts. */
+  learner?: string;
   /** The raw body, already read. Empty for GET and HEAD. */
   text: string;
   /** What `crossSiteRefusal` reads: where a write came from, and what it carries. */
@@ -174,6 +176,7 @@ async function answerRequest(request: Incoming): Promise<Answer> {
           'x-forwarded-proto': request.forwardedProto,
           authorization: request.authorization,
           'idempotency-key': request.writeId,
+          'x-satzwerk-learner': request.learner,
         },
         secure: request.secure,
         ...(request.clientIp ? { clientIp: request.clientIp } : {}),
@@ -291,6 +294,7 @@ async function fromWeb(request: Request): Promise<Incoming> {
     forwardedProto: request.headers.get('x-forwarded-proto') ?? undefined,
     authorization: request.headers.get('authorization') ?? undefined,
     writeId: request.headers.get('idempotency-key') ?? undefined,
+    learner: request.headers.get('x-satzwerk-learner') ?? undefined,
     text: method === 'GET' || method === 'HEAD' ? '' : await request.text(),
     // A Web Request always knows its own host, from its URL.
     guard: { ...Object.fromEntries(GUARD_HEADERS.map((name) => [name, read(name)])), host: read('host') ?? url.host },
@@ -322,6 +326,7 @@ async function fromNode(request: IncomingMessage): Promise<Incoming> {
     forwardedProto,
     authorization: header('authorization'),
     writeId: header('idempotency-key'),
+    learner: header('x-satzwerk-learner'),
     text,
     guard: Object.fromEntries(GUARD_HEADERS.map((name) => [name, header(name)])),
     clientIp: clientAddress(header),

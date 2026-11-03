@@ -2,6 +2,7 @@ import type { RecallGrade } from '../../core/srs/scheduler.ts';
 import type { DailyRunInput } from '../../core/progress/daily.ts';
 import {
   ApiError,
+  learnerShown,
   type AttemptPayload,
   type CheckpointPayload,
   type ScenarioRunPayload,
@@ -96,6 +97,14 @@ export interface QueuedWrite {
   /** How many sends of it have met a 500 so far; absent until one has. */
   tries?: number;
   queuedAt?: string;
+  /**
+   * Who it was made for: the learner the tab showed when it was queued. The
+   * queue is shared by every tab, and the tab that sends a write may be
+   * showing somebody else by then. Absent on writes queued before this was
+   * kept, and on those made before the household had loaded; those go as the
+   * cookie says, as they always did.
+   */
+  learner?: number;
 }
 
 export interface RejectedAttempt {
@@ -302,7 +311,9 @@ export function answersWaiting(): number {
 export function enqueue(write_: PendingWrite, id: string = newWriteId()): boolean {
   const state = read();
   if (state.queued.length >= MAX_QUEUED) return false;
-  write({ ...state, queued: [...state.queued, { id, write: write_, queuedAt: new Date().toISOString() }] });
+  const learner = learnerShown();
+  const item: QueuedWrite = { id, write: write_, queuedAt: new Date().toISOString(), ...(learner === undefined ? {} : { learner }) };
+  write({ ...state, queued: [...state.queued, item] });
   return true;
 }
 
@@ -358,12 +369,13 @@ export interface FlushOutcome {
 /**
  * Send what is waiting, oldest first. Safe to call when nothing is.
  *
- * `send` gets the write's id to pass on as its idempotency key. `onSent` hears
- * about each accepted write after it has left the queue, so whatever it does
- * with the server's answer sees only what is still waiting behind it.
+ * `send` gets the write's id to pass on as its idempotency key, and the
+ * learner it was made for when that is known. `onSent` hears about each
+ * accepted write after it has left the queue, so whatever it does with the
+ * server's answer sees only what is still waiting behind it.
  */
 export async function flush(
-  send: (write: PendingWrite, id: string) => Promise<unknown>,
+  send: (write: PendingWrite, id: string, learner?: number) => Promise<unknown>,
   onSent?: (write: PendingWrite, result: unknown) => void,
 ): Promise<FlushOutcome> {
   return exclusively(() => pass(send, onSent));
@@ -385,7 +397,7 @@ async function exclusively<T>(work: () => Promise<T>): Promise<T> {
 }
 
 async function pass(
-  send: (write: PendingWrite, id: string) => Promise<unknown>,
+  send: (write: PendingWrite, id: string, learner?: number) => Promise<unknown>,
   onSent?: (write: PendingWrite, result: unknown) => void,
 ): Promise<FlushOutcome> {
   let sent = 0;
@@ -404,7 +416,7 @@ async function pass(
 
     let result: unknown;
     try {
-      result = await send(item.write, item.id);
+      result = await send(item.write, item.id, item.learner);
     } catch (cause) {
       const reason = cause instanceof Error ? cause.message : String(cause);
       const queuedAt = item.queuedAt ? Date.parse(item.queuedAt) : NaN;

@@ -44,9 +44,9 @@ export interface ApiRequest {
   path: string;
   body?: unknown;
   /**
-   * Lower-cased request headers. `cookie`, `x-forwarded-proto` and
-   * `authorization` are read; an adapter that drops one silently disables the
-   * feature that depends on it.
+   * Lower-cased request headers. `cookie`, `x-forwarded-proto`,
+   * `authorization`, `idempotency-key` and `x-satzwerk-learner` are read; an
+   * adapter that drops one silently disables the feature that depends on it.
    */
   headers?: Record<string, string | undefined>;
   /** Whether the request arrived over HTTPS, when the adapter knows directly. */
@@ -89,7 +89,32 @@ const TEACHING_LANGUAGES = new Set<string>(['en', 'bg']);
  */
 export const LEARNER_COOKIE = 'satzwerk_learner';
 
-async function resolveLearner(db: Db, request: ApiRequest): Promise<number> {
+/**
+ * Which learner a tab is showing, sent with every request it makes once it
+ * knows, and with each queued write as it was when the write was made.
+ *
+ * The cookie is the browser's, and every tab shares it. Adding or choosing
+ * somebody in one tab moved it for all of them, and a second tab still
+ * showing the first learner filed its next answer under the new one — then
+ * loaded their progress under the first one's name. So a request that names
+ * its learner is filed under them, and the cookie only says who a tab starts
+ * as. Like the cookie, it is not a security boundary: anybody signed in may
+ * study as anybody in the household already.
+ */
+export const LEARNER_HEADER = 'x-satzwerk-learner';
+
+/**
+ * The learner a request belongs to, or undefined when it names one who is
+ * not here (a tab left open across a reset of the database). That is refused
+ * rather than filed under the first learner, which would be the same mistake
+ * again.
+ */
+async function resolveLearner(db: Db, request: ApiRequest): Promise<number | undefined> {
+  const named = request.headers?.[LEARNER_HEADER];
+  if (named !== undefined && named !== '') {
+    const id = learnerId(named);
+    return id !== undefined && (await store.getLearner(db, id)) ? id : undefined;
+  }
   const raw = parseCookies(request.headers?.cookie)[LEARNER_COOKIE];
   const id = Number(raw);
   if (!Number.isInteger(id) || id < 1) return 1;
@@ -489,7 +514,14 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
    * learner's rows — and typed as a `Scope`, so a store call that forgets whose
    * data it wants does not compile.
    */
-  const scope: store.Scope = { db, userId: await resolveLearner(db, request) };
+  const learner = await resolveLearner(db, request);
+  if (learner === undefined) {
+    return {
+      status: 409,
+      body: { error: 'This page was open for a learner who is not in this household any more. Reload it to carry on.' },
+    };
+  }
+  const scope: store.Scope = { db, userId: learner };
 
   const writeId = request.headers?.['idempotency-key'];
   if (writeId !== undefined && isLearningWrite(method, path)) {

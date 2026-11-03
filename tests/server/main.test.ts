@@ -119,6 +119,12 @@ describe('the self-hosted server', () => {
     expect(next.status).toBe(200);
   });
 
+  it('forwards which learner a tab is showing', async () => {
+    // A learner the household does not have: refused only if the name arrived.
+    const response = await fetch(`${base}/api/learners`, { headers: { 'x-satzwerk-learner': '7' } });
+    expect(response.status).toBe(409);
+  });
+
   it('forwards retry IDs to the API instead of duplicating HTTP writes', async () => {
     const send = () => fetch(`${base}/api/study`, {
       method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'SatzWerk', 'idempotency-key': 'http-study' },

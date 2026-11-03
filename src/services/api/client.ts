@@ -274,6 +274,34 @@ const SLOW_SERVER = 'The server may still be starting up, or it cannot reach its
 /** Header naming a write, the same on every try of it. See `QueuedWrite.id`. */
 export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
 
+/**
+ * Header naming the learner a request belongs to.
+ *
+ * Every tab in a browser shares the cookie that says who is studying, so
+ * adding or choosing somebody in one tab changed it under every other tab: a
+ * tab still showing the first learner filed its next answer under the new
+ * one. So a tab says who it is showing on everything it sends, and a queued
+ * write says who it was made for, whichever tab ends up sending it.
+ */
+export const LEARNER_HEADER = 'X-SatzWerk-Learner';
+
+/** The learner this tab is showing, once it knows; see `showingLearner`. */
+let tabLearner: number | undefined;
+
+/**
+ * Say which learner this tab is showing from now on. Called when the household
+ * is loaded and on every switch; until then requests carry no name and the
+ * server goes by the cookie, which is how a fresh tab finds out who it is.
+ */
+export function showingLearner(id: number | undefined): void {
+  tabLearner = id;
+}
+
+/** The learner this tab is showing, or undefined before it has loaded. */
+export function learnerShown(): number | undefined {
+  return tabLearner;
+}
+
 async function request<T>(
   path: string,
   init?: RequestInit,
@@ -293,6 +321,7 @@ async function request<T>(
       signal: AbortSignal.timeout(timeoutMs),
       headers: {
         ...CLIENT_HEADERS,
+        ...(tabLearner === undefined ? {} : { [LEARNER_HEADER]: String(tabLearner) }),
         ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
         ...init?.headers,
       },
@@ -355,15 +384,20 @@ const askCoach = <T>(path: string, body: unknown): Promise<T> =>
 
 /**
  * A write the outbox can hold: sent with its key, and given up on sooner.
- * `key` is optional so a caller that has none still works.
+ * `key` is optional so a caller that has none still works. `learner` is who
+ * the write was made for, when it waited in the queue; without it the write
+ * goes as the learner this tab is showing.
  */
-const write = <T>(path: string, body: unknown, key: string | undefined): Promise<T> =>
+const write = <T>(path: string, body: unknown, key: string | undefined, learner?: number): Promise<T> =>
   request<T>(
     path,
     {
       method: 'POST',
       body: body === undefined ? undefined : JSON.stringify(body),
-      headers: key ? { [IDEMPOTENCY_HEADER]: key } : undefined,
+      headers: {
+        ...(key ? { [IDEMPOTENCY_HEADER]: key } : {}),
+        ...(learner === undefined ? {} : { [LEARNER_HEADER]: String(learner) }),
+      },
     },
     WRITE_TIMEOUT_MS,
   );
@@ -418,24 +452,25 @@ export const api = {
 
   // Bounded here as well as when queued, for an answer queued by a version of
   // the app that did not bound it and is still waiting on this phone.
-  recordAttempt: (payload: AttemptPayload, key?: string) =>
-    write<AttemptResponse>('/attempts', boundedAttempt(payload), key),
+  recordAttempt: (payload: AttemptPayload, key?: string, learner?: number) =>
+    write<AttemptResponse>('/attempts', boundedAttempt(payload), key, learner),
 
-  markSectionSeen: (lessonId: string, sectionId: string, key?: string) =>
+  markSectionSeen: (lessonId: string, sectionId: string, key?: string, learner?: number) =>
     write<LessonProgress>(
       `/lessons/${encodeURIComponent(lessonId)}/sections/${encodeURIComponent(sectionId)}`,
       undefined,
       key,
+      learner,
     ),
 
-  recordMastery: (lessonId: string, accuracy: number, passAccuracy: number, key?: string) =>
-    write<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/mastery`, { accuracy, passAccuracy }, key),
+  recordMastery: (lessonId: string, accuracy: number, passAccuracy: number, key?: string, learner?: number) =>
+    write<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/mastery`, { accuracy, passAccuracy }, key, learner),
 
-  recordRecovery: (lessonId: string, key?: string) =>
-    write<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/recovery`, undefined, key),
+  recordRecovery: (lessonId: string, key?: string, learner?: number) =>
+    write<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/recovery`, undefined, key, learner),
 
-  completeLesson: (lessonId: string, key?: string) =>
-    write<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/complete`, undefined, key),
+  completeLesson: (lessonId: string, key?: string, learner?: number) =>
+    write<LessonProgress>(`/lessons/${encodeURIComponent(lessonId)}/complete`, undefined, key, learner),
 
   ensureReviewItems: (targets: TargetSpec[]) =>
     post<{ created: ReviewItem[]; reviewItems: ReviewItem[] }>('/reviews/ensure', { targets }),
@@ -444,28 +479,28 @@ export const api = {
    * `gradedAt` is when the learner graded it. A grade given offline and sent
    * hours later is scheduled from the moment of recall, not of delivery.
    */
-  gradeReview: (id: string, grade: RecallGrade, gradedAt?: string, key?: string) =>
-    write<ReviewItem>(`/reviews/${encodeURIComponent(id)}/grade`, { grade, gradedAt }, key),
+  gradeReview: (id: string, grade: RecallGrade, gradedAt?: string, key?: string, learner?: number) =>
+    write<ReviewItem>(`/reviews/${encodeURIComponent(id)}/grade`, { grade, gradedAt }, key, learner),
 
   resolveMistake: (id: string) => post<MistakeRecord[]>(`/mistakes/${encodeURIComponent(id)}/resolve`),
 
   setFavorite: (vocabId: string, favorite: boolean) =>
     post<{ favorites: string[] }>(`/vocabulary/${encodeURIComponent(vocabId)}/favorite`, { favorite }),
 
-  recordCheckpoint: (payload: CheckpointPayload, key?: string) =>
-    write<{ results: CheckpointResult[] }>('/checkpoints', payload, key),
+  recordCheckpoint: (payload: CheckpointPayload, key?: string, learner?: number) =>
+    write<{ results: CheckpointResult[] }>('/checkpoints', payload, key, learner),
 
-  recordScenarioRun: (payload: ScenarioRunPayload, key?: string) =>
-    write<{ scenarioRuns: ScenarioRun[] }>('/scenario-runs', payload, key),
-  recordDailyRun: (payload: DailyRunInput, key?: string) =>
-    write<{ dailyRuns: DailyRun[] }>('/daily-runs', payload, key),
+  recordScenarioRun: (payload: ScenarioRunPayload, key?: string, learner?: number) =>
+    write<{ scenarioRuns: ScenarioRun[] }>('/scenario-runs', payload, key, learner),
+  recordDailyRun: (payload: DailyRunInput, key?: string, learner?: number) =>
+    write<{ dailyRuns: DailyRun[] }>('/daily-runs', payload, key, learner),
 
   /**
    * `at` is when the time was spent, which is not when it was sent if it
    * waited for a connection — minutes belong to the day they were studied.
    */
-  addStudyTime: (seconds: number, at?: string, tzOffsetMinutes?: number, key?: string) =>
-    write<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds, at, tzOffsetMinutes }, key),
+  addStudyTime: (seconds: number, at?: string, tzOffsetMinutes?: number, key?: string, learner?: number) =>
+    write<{ stats: Stats; studyDays: StudyDay[] }>('/study', { seconds, at, tzOffsetMinutes }, key, learner),
 
   coachStatus: () => request<CoachStatus>('/coach/status'),
 

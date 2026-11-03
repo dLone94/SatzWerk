@@ -120,6 +120,44 @@ describe('who is studying', () => {
   });
 });
 
+/*
+ * Two tabs in one browser share one cookie. Adding or choosing somebody in
+ * one tab changed it for both, and the other tab — still showing the first
+ * learner — filed its next answer under the new one, then loaded their
+ * progress under the first learner's name. So a tab names the learner it is
+ * showing on every request, and the server files the request under them.
+ */
+describe('a tab that names who it is showing', () => {
+  const fromTab = (shows: string, cookieLearner: number, method: string, path: string, body?: unknown) =>
+    handleRequest(ctx(), {
+      method,
+      path,
+      body,
+      headers: { cookie: `${LEARNER_COOKIE}=${cookieLearner}`, 'x-satzwerk-learner': shows },
+    });
+
+  it('has its answer filed under that learner, whoever the cookie has moved on to', async () => {
+    await store.createLearner(db, 'Bob');
+    const saved = await fromTab('1', 2, 'POST', '/api/attempts', answer('u1l2-ex2-1', 'Antwort von Me im ersten Tab', 'incorrect'));
+    expect(saved.status).toBe(200);
+    expect((await as(1, 'GET', '/api/attempts-recent')).body).toMatchObject([{ given: 'Antwort von Me im ersten Tab' }]);
+    expect((await as(2, 'GET', '/api/attempts-recent')).body).toEqual([]);
+
+    // And what it reads is that learner's too, so it does not show one
+    // person's progress under another's name.
+    expect((await fromTab('1', 2, 'GET', '/api/learners')).body).toMatchObject({ studyingAs: 1 });
+    expect((await fromTab('1', 2, 'GET', '/api/state')).body).toMatchObject({ stats: { totalAnswers: 1 } });
+  });
+
+  it('is refused, not filed under somebody else, when that learner is not here', async () => {
+    for (const shows of ['7', 'nonsense', '1e30']) {
+      const response = await fromTab(shows, 1, 'POST', '/api/attempts', answer('s', 'Hallo'));
+      expect(response.status, shows).toBe(409);
+    }
+    expect((await as(1, 'GET', '/api/attempts-recent')).body).toEqual([]);
+  });
+});
+
 describe('two learners in one database', () => {
   beforeEach(async () => {
     await store.createLearner(db, 'Papa');

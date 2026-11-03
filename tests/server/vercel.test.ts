@@ -66,6 +66,14 @@ describe('the Vercel function', () => {
     expect(await (await handler(request())).json()).toEqual(first);
     expect(first.stats.totalStudySeconds).toBe(20);
   });
+  it('forwards which learner a tab is showing', async () => {
+    const handler = await loadHandler();
+    // A learner the household does not have: refused only if the name arrived.
+    const response = await handler(new Request('https://satzwerk.test/api/learners', {
+      headers: { 'x-satzwerk-learner': '7' },
+    }));
+    expect(response.status).toBe(409);
+  });
   it('answers health without touching the database', async () => {
     const handler = await loadHandler();
     const response = await handler(get('/api/health'));

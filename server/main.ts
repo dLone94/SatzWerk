@@ -279,6 +279,8 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           // The reminder job carries a bearer token rather than a cookie.
           authorization: req.headers.authorization,
           'idempotency-key': header('idempotency-key'),
+          // Which learner the tab is showing; see LEARNER_HEADER.
+          'x-satzwerk-learner': header('x-satzwerk-learner'),
         },
         // The socket's own address. Forwarded headers are not trusted here:
         // anyone can send them to a server with no proxy in front of it.
