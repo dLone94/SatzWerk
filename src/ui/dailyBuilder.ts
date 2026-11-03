@@ -62,7 +62,7 @@ export function phraseRecall(script: ScenarioScript, lang: TeachingLanguage): Ex
     objective: { en: 'Use the same building block in a new sentence', bg: 'Използвай същия модел в ново изречение' },
     steps: [{ id: `daily-transfer-${card.step.id}`, prompt: swap.gloss,
       instruction: { en: 'Keep the pattern. Change what you say.', bg: 'Запази модела. Промени това, което казваш.' },
-      answer: { accepted: [swap.de], shape: card.step.answer.shape },
+      answer: { accepted: [swap.de], alternatives: swap.alternatives, shape: card.step.answer.shape },
       hints: [{ en: `The pattern is "${frame.template}".`, bg: `Моделът е „${frame.template}“.` }],
       reviewTargets: [dailyPatternId(card.step.id)] }],
   });

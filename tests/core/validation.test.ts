@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnswerSpec } from '../../src/content/types.ts';
 import { createBaseLexicon, extendLexicon } from '../../src/core/validation/lexicon.ts';
 import { checkFreeWriting, validateAnswer } from '../../src/core/validation/validate.ts';
-import { compareUmlauts, splitScaffold } from '../../src/core/validation/text.ts';
+import { compareUmlauts, editDistance, sentenceEnds, splitScaffold, tokenize } from '../../src/core/validation/text.ts';
 
 const lexicon = extendLexicon(createBaseLexicon(), [
   { german: 'Tochter', wordType: 'noun', gender: 'f', plural: 'die Töchter' },
@@ -287,6 +287,18 @@ describe('text helpers', () => {
       seed: '',
     });
     expect(splitScaffold('Ich w___ in Hamburg.').seed).toBe('w');
+  });
+
+  it('marks the words that close a sentence, one mark for each word', () => {
+    for (const [text, ends] of [
+      ['Ich nehme das. Danke schön!', [false, false, true, false, true]],
+      ['Danke ! Bis bald', [true, false, false]],
+      ['am 3. Mai.', [false, false, true]],
+      ['„Das“, sagt er.', [false, false, true]],
+    ] as const) {
+      expect(sentenceEnds(text), text).toEqual(ends);
+      expect(sentenceEnds(text).length, text).toBe(tokenize(text).length);
+    }
   });
 });
 
@@ -735,3 +747,265 @@ describe('sie at the start of a sentence', () => {
   });
 });
 
+/*
+ * Two neighbouring letters swapped ("Nahct", "Dnake") are one slip of the
+ * fingers. Counted as two edits, the swap went over a short word's budget and
+ * was filed as a different word, while a wrong or a doubled letter in the
+ * same word was a spelling slip.
+ */
+describe('two neighbouring letters swapped', () => {
+  const swaps = extendLexicon(createBaseLexicon(), [
+    { german: 'Nacht', wordType: 'noun', gender: 'f' },
+    { german: 'Lied', wordType: 'noun', gender: 'n' },
+    { german: 'Leid', wordType: 'noun', gender: 'n' },
+  ]);
+
+  it('is a spelling slip in a short word', () => {
+    for (const [given, answer] of [
+      ['Gute Nahct', 'Gute Nacht'],
+      ['Dnake!', 'Danke!'],
+      ['Guten Mrogen!', 'Guten Morgen!'],
+    ] as const) {
+      const r = validateAnswer(given, sentence([answer]), { lexicon: swaps });
+      expect(r.verdict, given).toBe('almost');
+      expect(r.categories, given).toEqual(['spelling']);
+    }
+  });
+
+  it('counts as one edit', () => {
+    expect(editDistance('nahct', 'nacht')).toBe(1);
+    expect(editDistance('dnake', 'danke')).toBe(1);
+    // Two swaps, or letters carried further, are still more.
+    expect(editDistance('ahcnt', 'nacht')).toBeGreaterThan(1);
+    expect(editDistance('cab', 'abc')).toBe(2);
+  });
+
+  it('is still a different word when the swap spells one', () => {
+    const r = validateAnswer('das Leid', sentence(['das Lied']), { lexicon: swaps });
+    expect(r.categories).toEqual(['vocabulary']);
+  });
+});
+
+/*
+ * der, die and das are pronouns as well as articles: "Das, bitte." and "Das
+ * ist meine Tochter." have no noun for an article to belong to. A pronoun or
+ * a noun in their place was told "The article has to be …", given the
+ * "der Termin" tip and filed with the article mistakes.
+ */
+describe('der, die and das on their own', () => {
+  it('calls another pronoun in place of das a pronoun mistake', () => {
+    for (const given of ['Sie ist meine Tochter.', 'Es ist meine Tochter.', 'Dies ist meine Tochter.']) {
+      const r = validateAnswer(given, sentence(['Das ist meine Tochter.']), opts);
+      expect(r.categories, given).toEqual(['pronoun']);
+    }
+  });
+
+  it('does not call a noun in place of "Das, bitte." an article mistake', () => {
+    const r = validateAnswer('Brot, bitte.', sentence(['Das, bitte.'], { alternatives: ['Das hier, bitte.'] }), opts);
+    expect(r.categories).not.toContain('article');
+  });
+
+  it('calls das in place of the pronoun sie a pronoun mistake', () => {
+    const r = validateAnswer('Das ist meine Tochter.', sentence(['Sie ist meine Tochter.']), opts);
+    expect(r.categories).toEqual(['pronoun']);
+  });
+
+  it('still calls an article in front of its noun an article', () => {
+    expect(validateAnswer('Die Tisch ist groß.', sentence(['Der Tisch ist groß.']), opts).categories).toContain('article');
+    expect(validateAnswer('Der kleine Haus', sentence(['Das kleine Haus']), opts).categories).toContain('article');
+    expect(validateAnswer('Ich sehe Tisch.', sentence(['Ich sehe den Tisch.']), opts).categories).toContain('missing-word');
+  });
+
+  // "Which article goes with Haus?", answered from der, die and das.
+  it('lets a lone article chosen for a lone article be an article', () => {
+    expect(validateAnswer('der', word(['das']), opts).categories).toEqual(['article']);
+    expect(validateAnswer('du', word(['ihr']), opts).categories).toEqual(['pronoun']);
+  });
+
+  // The gap stands in front of the noun the scaffold shows.
+  it('reads the scaffold when the article fills a gap', () => {
+    const r = validateAnswer('die', word(['der']), { ...opts, scaffold: '___ Tisch' });
+    expect(r.categories).toEqual(['article']);
+    const both = validateAnswer('bei die', word(['bei der']), { ...opts, scaffold: '___ Ärztin' });
+    expect(both.categories).toEqual(['article']);
+    // A gap that ends its sentence has no noun after it, whatever comes next.
+    const closing = validateAnswer('die', word(['das']), { ...opts, scaffold: 'Ich nehme ___. Danke schön!' });
+    expect(closing.categories).toEqual(['pronoun']);
+  });
+
+  // The capital of the next sentence's first word is not a noun after "das".
+  it('stops at the end of the sentence', () => {
+    const spec = sentence(['Ich nehme das. Danke schön!']);
+    for (const given of ['Ich nehme es. Danke schön!', 'Ich nehme die. Danke schön!']) {
+      expect(validateAnswer(given, spec, opts).categories, given).toEqual(['pronoun']);
+    }
+    // A date's full stop does not end the sentence: the article still has its noun.
+    const date = validateAnswer('Die 3. Oktober ist ein Feiertag.', sentence(['Der 3. Oktober ist ein Feiertag.']), opts);
+    expect(date.categories).toContain('article');
+  });
+
+  // Only a one-word answer leaves the learner's word to decide.
+  it('reads an article word that ends a longer answer as a pronoun', () => {
+    for (const [given, answer] of [
+      ['Wie viel kostet die?', 'Wie viel kostet das?'],
+      ['Wer ist der?', 'Wer ist das?'],
+    ] as const) {
+      expect(validateAnswer(given, sentence([answer]), opts).categories, given).toEqual(['pronoun']);
+    }
+  });
+
+  // "Ich kaufe am Samstag ein.": an article word, but the end of einkaufen.
+  it('does not take the ein of a separable verb for a pronoun', () => {
+    const r = validateAnswer('der', word(['ein']), { ...opts, scaffold: 'Ich kaufe am Samstag ___.' });
+    expect(r.categories).toEqual(['vocabulary']);
+  });
+
+  // The learner's word stands for the whole phrase: no article was tried.
+  it('does not call a word in place of an article and its noun an article mistake', () => {
+    for (const given of ['Dann nehme ich es.', 'Dann nehme ich xyz.']) {
+      const r = validateAnswer(given, sentence(['Dann nehme ich das Haus.']), opts);
+      expect(r.categories, given).not.toContain('article');
+      expect(r.categories, given).toContain('missing-word');
+    }
+    // An article word typed without its noun is still the article it is.
+    expect(validateAnswer('Ich sehe die.', sentence(['Ich sehe den Tisch.']), opts).categories).toContain('article');
+  });
+
+  // "heiße" is a form of heißen and of heiß; in front of a noun it is the adjective.
+  it('reads past an adjective that is also a verb form', () => {
+    const withHot = extendLexicon(lexicon, [
+      { german: 'heiß', wordType: 'adjective' },
+      { german: 'heißen', wordType: 'verb' },
+      { german: 'Suppe', wordType: 'noun', gender: 'f' },
+    ]);
+    const r = validateAnswer('Der heiße Suppe', sentence(['Die heiße Suppe']), { lexicon: withHot });
+    expect(r.categories).toContain('article');
+    // "Das heiße ich gut.": the pronoun after it says heiße is the verb here.
+    const verb = validateAnswer('Es heiße ich gut.', sentence(['Das heiße ich gut.']), { lexicon: withHot });
+    expect(verb.categories).toEqual(['pronoun']);
+  });
+});
+
+/*
+ * A learner who has left the keyboard on Bulgarian types the right German in
+ * Cyrillic letters ("Дас", "Гутен Морген"). That is the keyboard, not German:
+ * it was graded as an article or vocabulary mistake, stored in the mistake
+ * bank and counted against a checkpoint.
+ */
+describe('an answer typed in Cyrillic letters', () => {
+  it('is not graded', () => {
+    for (const [given, answer] of [
+      ['Дас', 'Das'],
+      ['Гутен Морген', 'Guten Morgen!'],
+      ['Дер Тиш ист грос.', 'Der Tisch ist groß.'],
+    ] as const) {
+      const r = validateAnswer(given, sentence([answer]), { ...opts, scaffold: answer === 'Das' ? '___ Kind ist klein.' : undefined });
+      expect(r.verdict, given).toBe('empty');
+      expect(r.credit, given).toBe(0);
+      expect(r.categories, given).toEqual([]);
+      expect(r.requireRetype, given).toBe(false);
+      expect(r.script, given).toBe('cyrillic');
+    }
+  });
+
+  // The two alphabets share letters that look the same; one typed on the
+  // wrong layout made a right-looking answer wrong for no visible reason.
+  it('notices a single Cyrillic letter in Latin text', () => {
+    const r = validateAnswer('Dаs', word(['Das']), opts);
+    expect(r.verdict).toBe('empty');
+    expect(r.script).toBe('cyrillic');
+  });
+
+  it('leaves an empty answer as it was', () => {
+    expect(validateAnswer(' ', word(['Das']), opts).script).toBeUndefined();
+  });
+});
+
+/*
+ * The first listening exercise asks which of "die Tochter" and "die Töchter"
+ * the recording said. Tapping the wrong one is a sound not yet heard, but the
+ * validator read it as grammar: a plural mistake with the plural tip.
+ */
+describe('a wrong choice in a listening exercise', () => {
+  const listening = { ...opts, exerciseKind: 'listenChoose' as const };
+
+  it('is an umlaut not heard, not a plural mistake', () => {
+    const r = validateAnswer('die Tochter', sentence(['die Töchter']), listening);
+    expect(r.verdict).toBe('incorrect');
+    expect(r.credit).toBe(0);
+    expect(r.categories).toEqual(['umlaut']);
+    expect(r.misheard).toEqual({ chose: 'die Tochter' });
+  });
+
+  it('is a different word heard when more than the dots differ', () => {
+    const r = validateAnswer('wir', word(['vier']), listening);
+    expect(r.verdict).toBe('incorrect');
+    expect(r.categories).toEqual(['vocabulary']);
+    expect(r.misheard).toEqual({ chose: 'wir' });
+  });
+
+  // Only the dots are the special letter: a capital or a moved mark is not.
+  it('is filed as an umlaut only when the dots alone differ', () => {
+    expect(validateAnswer('Sie', word(['sie']), listening).categories).toEqual(['vocabulary']);
+    expect(validateAnswer('73:0', word(['7:30']), listening).categories).toEqual(['vocabulary']);
+  });
+
+  it('is right when the right one is tapped', () => {
+    expect(validateAnswer('die Töchter', sentence(['die Töchter']), listening).verdict).toBe('correct');
+  });
+
+  // Outside listening, a choice between singular and plural is grammar.
+  it('leaves an ordinary choice to the grammar', () => {
+    const r = validateAnswer('die Tochter', sentence(['die Töchter']), { ...opts, exerciseKind: 'multipleChoice' });
+    expect(r.categories).toEqual(['plural']);
+    expect(r.misheard).toBeUndefined();
+  });
+});
+
+/*
+ * The validator compares the answer with the taught form and with each
+ * authored alternative, and kept whichever came closest — but then showed
+ * the taught form as the answer. "xyz" for "Guten Morgen!" was told "The word
+ * German uses here is "Hallo"", from an alternative the learner never saw.
+ */
+describe('the answer a wrong attempt is compared with', () => {
+  const greeting = sentence(['Guten Morgen!'], { alternatives: ['Guten Tag!', 'Hallo!'] });
+
+  it('is the taught form when no alternative is closer', () => {
+    for (const given of ['xyz', 'Tschüss!']) {
+      const r = validateAnswer(given, greeting, opts);
+      expect(r.target, given).toBe('Guten Morgen!');
+      expect(r.matched, given).toBe('Guten Morgen!');
+    }
+    const bread = validateAnswer('ich weiß nicht', sentence(['Das, bitte.'], { alternatives: ['Das hier, bitte.'] }), opts);
+    expect(bread.matched).toBe('Das, bitte.');
+    expect(bread.diff.map((entry) => entry.expected).filter(Boolean)).toEqual(['Das', 'bitte']);
+  });
+
+  it('is the alternative the learner nearly wrote, shown as the answer', () => {
+    const r = validateAnswer('Halo!', greeting, opts);
+    expect(r.verdict).toBe('almost');
+    expect(r.target).toBe('Hallo!');
+    const goodbye = validateAnswer('Guten Tag noch!', sentence(['Auf Wiedersehen!'], { alternatives: ['Schönen Tag noch!'] }), opts);
+    expect(goodbye.target).toBe('Schönen Tag noch!');
+  });
+
+  it('is shown as the answer when it is the second taught form', () => {
+    const r = validateAnswer('Mein Name sind Anna.', sentence(['Ich heiße Anna.', 'Mein Name ist Anna.']), opts);
+    expect(r.target).toBe('Mein Name ist Anna.');
+    expect(r.taught).toBeUndefined();
+    // A tie goes to the first taught form here too.
+    expect(validateAnswer('xyz', sentence(['Guten Tag!', 'Hallo!']), opts).target).toBe('Guten Tag!');
+  });
+
+  it('names the taught form beside an alternative', () => {
+    expect(validateAnswer('Halo!', greeting, opts).taught).toBe('Guten Morgen!');
+    expect(validateAnswer('xyz', greeting, opts).taught).toBeUndefined();
+  });
+
+  it('still steers a right alternative to the taught form', () => {
+    const r = validateAnswer('Hallo!', greeting, opts);
+    expect(r.verdict).toBe('accepted-variant');
+    expect(r.target).toBe('Guten Morgen!');
+  });
+});

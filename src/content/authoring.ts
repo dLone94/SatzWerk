@@ -214,9 +214,11 @@ export function nounWithArticle(
       {
         id: `${id}-${index + 1}b`,
         prompt: item.prompt,
+        // Not "Correct.": the bare noun may have been almost right, or shown,
+        // and a lesson picked up again can open on this stage.
         instruction: bi(
-          'Correct. Now write the full noun with its article.',
-          'Вярно. Сега напиши цялото съществително с члена.',
+          'Now write the full noun with its article.',
+          'Сега напиши цялото съществително с члена.',
         ),
         answer: item.withArticle,
         shape: 'phrase' as AnswerShape,

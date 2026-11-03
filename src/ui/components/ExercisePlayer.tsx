@@ -442,9 +442,20 @@ export function ExercisePlayer({
       exerciseKind: exercise.kind,
     });
     if (validation.verdict === 'empty') {
-      setFeedback(buildFeedback(validation, { lexicon, describeNoun }));
+      const notGraded = buildFeedback(validation, { lexicon, describeNoun });
+      setFeedback(notGraded);
       setResult(validation);
       inputRef.current?.focus();
+      /*
+       * The question stays open, so nothing that follows a verdict happens
+       * here: focus stays in the field and the panel opened below it, off a
+       * phone's screen. Enter seemed to do nothing, to the learner whose
+       * keyboard was still on Bulgarian above all. The message is read out,
+       * and brought into view once it is drawn, without taking the field's
+       * focus.
+       */
+      announce(notGraded, false);
+      window.requestAnimationFrame(() => feedbackRef.current?.scrollIntoView?.({ block: 'nearest' }));
       return;
     }
 
@@ -1099,7 +1110,15 @@ export function ExercisePlayer({
   /** Submitting a multiple-choice option runs it through the same validator. */
   async function submitChoice(chosen: string): Promise<void> {
     if (!current || finishedRef.current) return;
-    const validation = validateAnswer(chosen, current.step.answer, { lexicon });
+    // A choice is about a sound heard only when the step plays a recording it
+    // does not show. A listenChoose step with nothing to hear (u5l3-ex1 asks
+    // what "halb acht" means) is graded as an ordinary choice, and its wrong
+    // taps are not sent back to a recording that is not there.
+    const heard = current.step.audio?.hideText === true;
+    const validation = validateAnswer(chosen, current.step.answer, {
+      lexicon,
+      exerciseKind: heard ? current.exercise.kind : undefined,
+    });
     const message = buildFeedback(validation, { lexicon, describeNoun });
     setBusy(true);
     try {
