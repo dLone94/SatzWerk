@@ -464,16 +464,51 @@ describe('where focus goes as a lesson moves on', () => {
     expect(title).toHaveAccessibleDescription(tr('exerciseScore', 'en', { correct: total, total }));
   });
 
-  it('lands on the way on from a failed check, and says why', async () => {
+  /*
+   * The way on from a failed check is the last thing on its card. Focused,
+   * it scrolled itself into view, and on a short phone the score and "Not
+   * passed yet" went up above the screen with the page's top.
+   */
+  it('lands on the result of a failed check, says why, and leaves the page at its top', async () => {
     const user = userEvent.setup();
-    render(<Harness lessonId={L2.id} initial={allButCheck(L2)} calls={newCalls()} />);
-    await user.click(screen.getByRole('button', { name: tr('lessonMastery', 'en') }));
-    await play(user, L2.mastery.exercises, {
-      right: () => false,
-      done: () => Boolean(screen.queryByRole('button', { name: tr('lessonMasteryRetry', 'en') })),
-    });
-    const again = screen.getByRole('button', { name: tr('lessonReplay', 'en') });
-    expect(again).toHaveFocus();
-    expect(again).toHaveAccessibleDescription(new RegExp(tr('lessonMasteryFailed', 'en').slice(0, 20)));
+    const focus = watchFocus();
+    try {
+      render(<Harness lessonId={L2.id} initial={allButCheck(L2)} calls={newCalls()} />);
+      await user.click(screen.getByRole('button', { name: tr('lessonMastery', 'en') }));
+      await play(user, L2.mastery.exercises, {
+        right: () => false,
+        done: () => Boolean(screen.queryByRole('button', { name: tr('lessonMasteryRetry', 'en') })),
+      });
+      const title = screen.getByRole('heading', { level: 2, name: tr('lessonMastery', 'en') });
+      expect(title).toHaveFocus();
+      expect(focus.calls.at(-1)).toEqual({ element: title, scrolls: false });
+      const total = masterySteps(L2).length;
+      expect(title).toHaveAccessibleDescription(
+        `${tr('lessonMasteryFailed', 'en')} ${tr('exerciseScore', 'en', { correct: 0, total })}`,
+      );
+      // Practising again is still where Enter does not go by accident.
+      expect(screen.getByRole('button', { name: tr('lessonReplay', 'en') })).not.toHaveFocus();
+    } finally {
+      focus.restore();
+    }
+  });
+
+  it('lands on the result of a passed check with something left, and says what', async () => {
+    const user = userEvent.setup();
+    const calls = newCalls();
+    const focus = watchFocus();
+    try {
+      const open = L2.exercises.find((exercise) => exercise.kind === 'articleRecall')!.steps[0]!.id;
+      render(<Harness lessonId={L2.id} initial={allButCheck(L2, [open])} calls={calls} />);
+      await user.click(screen.getByRole('button', { name: tr('lessonMastery', 'en') }));
+      await play(user, L2.mastery.exercises, { right: () => true, done: () => calls.mastery.length > 0 });
+      await screen.findByText(tr('lessonStepsLeft', 'en', { n: 1 }));
+      const title = screen.getByRole('heading', { level: 2, name: tr('lessonMastery', 'en') });
+      expect(title).toHaveFocus();
+      expect(focus.calls.at(-1)).toEqual({ element: title, scrolls: false });
+      expect(title).toHaveAccessibleDescription(expect.stringContaining(tr('lessonStepsLeft', 'en', { n: 1 })));
+    } finally {
+      focus.restore();
+    }
   });
 });

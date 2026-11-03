@@ -83,6 +83,7 @@ export function Card({
   actions,
   tone,
   titleRef,
+  titleDescribedBy,
 }: {
   title?: ReactNode;
   subtitle?: ReactNode;
@@ -91,16 +92,24 @@ export function Card({
   tone?: 'plain' | 'accent';
   /**
    * For a card whose content is swapped in place (the next section, the next
-   * phrase): focus goes to its title, so the change is announced and seen.
+   * phrase, a check's result): focus goes to its title, so the change is
+   * announced and seen.
    */
   titleRef?: Ref<HTMLHeadingElement>;
+  /** What the title is described by once it has focus: a result's score, say. */
+  titleDescribedBy?: string;
 }) {
   return (
     <section className={`card${tone === 'accent' ? ' card--accent' : ''}`}>
       {title ? (
         <header className="card__head">
           <div>
-            <h2 className="card__title" ref={titleRef} tabIndex={titleRef ? -1 : undefined}>
+            <h2
+              className="card__title"
+              ref={titleRef}
+              tabIndex={titleRef ? -1 : undefined}
+              aria-describedby={titleDescribedBy}
+            >
               {title}
             </h2>
             {subtitle ? <p className="card__subtitle">{subtitle}</p> : null}

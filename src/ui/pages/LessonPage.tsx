@@ -92,11 +92,14 @@ function LessonView() {
    * put at the top, and Back should keep its place.
    *
    * Focus goes with it, to what the new content is called: a section's
-   * title, the lesson's on the overview, the result once a check is over.
+   * title, the lesson's on the overview, the result's once a check is over.
    * Focus used to stay on Next, now far below the screen, so nothing was
    * announced and Space, meant to scroll, skipped the section unread; the
    * result arrived with focus on the page. (A question's own field or
-   * options take focus in the player.)
+   * options take focus in the player.) All of those are on the page's first
+   * screen, so focusing one must not scroll it: the result once took focus at
+   * its foot, and on a short phone that carried the page back down, the score
+   * and the verdict above the screen.
    */
   const arrived = useRef(false);
   const sectionTitle = useRef<HTMLHeadingElement | null>(null);
@@ -113,7 +116,7 @@ function LessonView() {
     window.scrollTo(0, 0);
     const target =
       stage === 'sections' ? sectionTitle.current : stage === 'overview' ? lessonTitle.current : stage === 'done' ? result.current : null;
-    target?.focus();
+    target?.focus({ preventScroll: true });
   }, [stage, sectionIndex]);
 
   // Mark a section as read once it is actually on screen.
@@ -454,13 +457,14 @@ function LessonView() {
     const unreadSections = lesson.sections.filter((item) => !progress.sectionsSeen.includes(item.id)).length;
     const firstUnread = sections.findIndex((item) => !progress.sectionsSeen.includes(item.id));
     const finishReading = Boolean(masteryPassed) && !complete && !finishOpen && unreadSections > 0 && firstUnread >= 0;
-    // The way on takes focus when the result opens, described by the result
-    // itself: the score and what it means.
+    // The result's title takes focus when it opens, described by the result
+    // itself: what it means and the score. Not the way on, at the card's
+    // foot, which can be below a short phone's screen; it is a few Tabs on.
     const noted = !masteryPassed || complete || finishOpen || finishReading;
     const resultIds = [noted ? 'lesson-result' : '', lastSummary ? 'lesson-score' : ''].filter(Boolean).join(' ') || undefined;
     return (
       <div className="page">
-        <Card title={t('lessonMastery')} tone="accent">
+        <Card title={t('lessonMastery')} tone="accent" titleRef={holdResult} titleDescribedBy={resultIds}>
           {lastSummary ? (
             <ScoreRing
               value={lastSummary.accuracy}
@@ -504,8 +508,6 @@ function LessonView() {
                 type="button"
                 className="btn btn--primary"
                 onClick={startPractice}
-                ref={holdResult}
-                aria-describedby={resultIds}
               >
                 {t('lessonFinishRemaining', { n: openSteps })}
               </button>
@@ -518,13 +520,11 @@ function LessonView() {
                   setReadingToFinish(true);
                   setStage('sections');
                 }}
-                ref={holdResult}
-                aria-describedby={resultIds}
               >
                 {t('lessonReadRemaining', { n: unreadSections })}
               </button>
             ) : masteryPassed ? (
-              <Link className="btn btn--primary" to="/" ref={holdResult} aria-describedby={resultIds}>
+              <Link className="btn btn--primary" to="/">
                 {t('navToday')}
               </Link>
             ) : (
@@ -548,8 +548,6 @@ function LessonView() {
                   type="button"
                   className="btn btn--primary"
                   onClick={startPractice}
-                  ref={holdResult}
-                  aria-describedby={resultIds}
                 >
                   {t('lessonReplay')}
                 </button>
