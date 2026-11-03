@@ -95,6 +95,19 @@ describe('the sidebar on a desktop', () => {
   });
 });
 
+describe('the course level tabs', () => {
+  /*
+   * The tabs once ran to the screen edges as a borderless scroller, which is
+   * what their -1rem side margins were for. They became a bordered box and
+   * kept the margins, so the box sat 16px left of every other card.
+   */
+  it.each(named(PHONE, DESKTOP))('line up with the cards below them (%s)', (_, viewer) => {
+    const page = styledPage(viewer, '<main class="main"><div class="course"><div class="levels"></div></div></main>');
+    expect(page.px('.levels', 'margin-left')).toBe(0);
+    expect(page.px('.levels', 'margin-right')).toBe(0);
+  });
+});
+
 describe('the finished-lesson card', () => {
   /*
    * The card is the same yellow in both themes, but the score ring and the
@@ -158,5 +171,66 @@ describe('the dachshund', () => {
     expect(Number(disc.getAttribute('r')) * 2).toBe(viewBox[2]);
     const ink = svg.querySelector('path')!.getAttribute('stroke')!;
     expect(contrast(ink, disc.getAttribute('fill')!)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('the answer comparison after a wrong answer', () => {
+  /*
+   * "Expected" was centred on its row. On a phone the speaker button wraps
+   * under the expected sentence, the row doubles in height, and the label
+   * ended up beside the button rather than the sentence — closer to "You
+   * wrote" than to its own answer. The labels now sit on the first line of
+   * what they label.
+   */
+  it.each(named(PHONE, DESKTOP))('puts each label on the first line of its answer (%s)', (_, viewer) => {
+    const page = styledPage(
+      viewer,
+      `<dl class="feedback__compare"><dt>You wrote</dt><dd class="feedback__given">Guten Morgen</dd>
+       <dt>Expected</dt><dd class="feedback__expected">Ja, einen Kaffee, bitte.<button class="audio-btn">Play</button></dd></dl>`,
+    );
+    for (const item of document.querySelectorAll('.feedback__compare > *')) {
+      const own = page.value(item, 'align-self');
+      const aligned = own === 'auto' || own === 'normal' ? page.value('.feedback__compare', 'align-items') : own;
+      expect(aligned, item.textContent!).toMatch(/baseline/);
+    }
+  });
+});
+
+describe('the phone tab bar in Bulgarian', () => {
+  /*
+   * Five equal tabs on a 320–360px phone leave 50–58px for each word, and
+   * "Повторение" needs 59: it showed as "Повторе…" on the most common
+   * Android width. Its neighbours' words are short, so a label may now use a
+   * little of the space beside it before it is cut.
+   */
+  it.each([320, 360])('lets a long word use some of its neighbours’ room (%ipx)', (width) => {
+    const page = styledPage({ width }, SHELL);
+    const room = page.value('.nav__label', 'max-width');
+    expect(room).toMatch(/^calc\(100% \+ /);
+    const extra = room.replace(/^calc\(100% \+ (.*)\)$/, '$1');
+    // Nine pixels is what "Повторение" lacks at 320px.
+    expect(extra.endsWith('rem') ? parseFloat(extra) * 16 : parseFloat(extra)).toBeGreaterThanOrEqual(9);
+  });
+});
+
+describe('Settings with large text', () => {
+  /*
+   * With the browser's text size at 200%, the badge and the Rename button
+   * grow with it, and the learner's name — which has no width of its own —
+   * was squeezed to nothing; the content figures were laid out in 12rem
+   * columns that no longer fit the card, so the page scrolled sideways.
+   */
+  it.each(named(PHONE, DESKTOP))('wraps the learner row and the figures rather than losing them (%s)', (_, viewer) => {
+    const page = styledPage(
+      viewer,
+      `<ul class="learners"><li class="learners__row is-active"><span class="learners__name">Me</span>
+        <span class="learners__badge">studying now</span><button class="btn btn--quiet btn--sm">Rename</button></li></ul>
+       <ul class="content-stats"><li>Lessons written: <strong>84</strong></li></ul>`,
+    );
+    expect(page.value('.learners__row', 'flex-wrap')).toBe('wrap');
+    // A name keeps a width that grows with the text, so it is the row that
+    // wraps when the text is large, not the name that vanishes.
+    expect(page.declared('.learners__name', 'min-width')).toMatch(/^[\d.]+rem$/);
+    expect(page.value('.content-stats', 'grid-template-columns')).toMatch(/minmax\(min\(12rem,\s*100%\)/);
   });
 });

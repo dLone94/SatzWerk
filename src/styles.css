@@ -1655,9 +1655,13 @@ textarea.answer-field {
   font-size: 1.05rem;
 }
 
+/* Each label sits on the first line of what it labels. Centred on its row,
+   "Expected" drifted down beside the speaker button whenever the button
+   wrapped under the sentence, nearer "You wrote" than its own answer. */
 .feedback__compare {
   display: grid;
   grid-template-columns: minmax(5rem, auto) 1fr;
+  align-items: baseline;
   gap: 0.25rem 0.75rem;
   margin: 0;
   font-size: 0.95rem;
@@ -1668,7 +1672,6 @@ textarea.answer-field {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  align-self: center;
 }
 
 .feedback__compare dd {
@@ -2532,7 +2535,9 @@ textarea.answer-field {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  /* Never wider than the card: with the browser's text at 200%, 12rem is
+     wider than a phone's card, and the page scrolled sideways. */
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
   gap: 0.3rem;
   font-size: 0.92rem;
 }
@@ -4075,8 +4080,12 @@ body {
   gap: 0.35rem;
 }
 
+/* The name keeps a little width that grows with the text size, as the badge
+   and the buttons beside it do; when they no longer fit, they wrap under it.
+   Without that, large text squeezed the learner's name to nothing. */
 .learners__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   padding: 0.45rem 0.6rem;
@@ -4093,7 +4102,7 @@ body {
 .learners__name {
   font-weight: 600;
   flex: 1;
-  min-width: 0;
+  min-width: 2.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -4381,8 +4390,11 @@ h4,
     color: #ffffff;
   }
 
+  /* A word may run half a rem into the room beside its tab before it is cut:
+     five equal tabs on a 320–360px phone leave 50–58px for each, and
+     "Повторение" needs 59. Its neighbours' words are short. */
   .nav__label {
-    max-width: 100%;
+    max-width: calc(100% + 1rem);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
