@@ -23,8 +23,11 @@ import { buildLessonViews, buildVocabViews, nextAction, sessionBuild, skillProgr
  * progress" until there is something in them.
  */
 export function DashboardPage() {
-  const { t, say, lang, lessons, reviewItems, mistakes, favorites, stats, studyDays, profile, checkpointResults } =
+  const { t, say, lang, lessons, reviewItems, mistakes, favorites, stats, studyDays, profile, checkpointResults, dailyRuns } =
     useApp();
+  // Today's finished practice. The card used to ask "Start today" all day,
+  // however much of it had been done.
+  const dailyDone = dailyRuns.find((run) => run.day === todayHere() && run.stage === 5);
 
   const onPath = reviewItemsForPath(reviewItems, lang);
   const action = nextAction(lessons, onPath, mistakes, profile.onboarded, checkpointResults);
@@ -89,9 +92,12 @@ export function DashboardPage() {
       </header>
 
       <section className="daily-dashboard" aria-labelledby="daily-dashboard-title">
-        <div className="daily-dashboard__copy"><p className="section-eyebrow">{t('playToday')}</p><h2 id="daily-dashboard-title">{t('dailyDashboardTitle')}</h2>
-          <p>{t('dailyDashboardNote')}</p>
-          <Link to="/daily" className="btn btn--primary">{t('dailyStart')}<Icon name="arrow" size={20} /></Link></div>
+        <div className="daily-dashboard__copy"><p className="section-eyebrow">{t('playToday')}</p>
+          <h2 id="daily-dashboard-title">{t(dailyDone ? 'dailyDashboardDone' : 'dailyDashboardTitle')}</h2>
+          <p>{dailyDone
+            ? `${dailyDone.total > 0 ? `${t('exerciseScore', { correct: dailyDone.firstTryCorrect, total: dailyDone.total })}. ` : ''}${t('dailyDashboardDoneNote')}`
+            : t('dailyDashboardNote')}</p>
+          <Link to="/daily" className="btn btn--primary">{t(dailyDone ? 'dailyPractiseAgain' : 'dailyStart')}<Icon name="arrow" size={20} /></Link></div>
         <DackelScene className="daily-dashboard__scene" />
       </section>
       <div className="today-overview">
