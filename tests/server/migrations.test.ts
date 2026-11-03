@@ -7,7 +7,8 @@ import { allCheckpoints, allLessons } from '../../src/content/browser.ts';
 import { migrate, openDatabase, SCHEMA_VERSION, type Db } from '../../server/db.ts';
 import { openSqlite } from '../../server/driver-sqlite.ts';
 import { toPositional } from '../../server/driver.ts';
-import { listMistakes } from '../../server/store.ts';
+import { listMistakes, listReviewItems } from '../../server/store.ts';
+import { KNOWN_INTERVAL_DAYS, stateForInterval } from '../../src/core/srs/scheduler.ts';
 
 /**
  * Migrations normally run from zero in the tests, which leaves the upgrade
@@ -183,24 +184,28 @@ describe('more than one learner', () => {
 });
 
 /** SQLite always; Postgres too when TEST_DATABASE_URL is set, in a schema of its own. */
-const databases: Array<[string, (upTo: number) => Promise<Db>]> = [
-  ['sqlite', (upTo) => openDatabase({ path: ':memory:' }, upTo)],
-];
-if (process.env.TEST_DATABASE_URL) {
-  databases.push([
-    'postgres',
-    async (upTo) => {
-      // The parity tests drop and recreate `public` while other files run.
-      const url = process.env.TEST_DATABASE_URL!;
-      const admin = new pg.Client({ connectionString: url });
-      await admin.connect();
-      await admin.query('DROP SCHEMA IF EXISTS placement_mistakes CASCADE; CREATE SCHEMA placement_mistakes;');
-      await admin.end();
-      const separator = url.includes('?') ? '&' : '?';
-      return openDatabase({ databaseUrl: `${url}${separator}options=-c%20search_path%3Dplacement_mistakes` }, upTo);
-    },
-  ]);
+function databasesIn(schema: string): Array<[string, (upTo: number) => Promise<Db>]> {
+  const out: Array<[string, (upTo: number) => Promise<Db>]> = [
+    ['sqlite', (upTo) => openDatabase({ path: ':memory:' }, upTo)],
+  ];
+  if (process.env.TEST_DATABASE_URL) {
+    out.push([
+      'postgres',
+      async (upTo) => {
+        // The parity tests drop and recreate `public` while other files run.
+        const url = process.env.TEST_DATABASE_URL!;
+        const admin = new pg.Client({ connectionString: url });
+        await admin.connect();
+        await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`);
+        await admin.end();
+        const separator = url.includes('?') ? '&' : '?';
+        return openDatabase({ databaseUrl: `${url}${separator}options=-c%20search_path%3D${schema}` }, upTo);
+      },
+    ]);
+  }
+  return out;
 }
+const databases = databasesIn('placement_mistakes');
 
 describe.each(databases)('mistakes the placement check filed, on %s', (_name, open) => {
   /*
@@ -222,6 +227,58 @@ describe.each(databases)('mistakes the placement check filed, on %s', (_name, op
     // Put away, not deleted, and dated when it was last seen.
     expect((await listMistakes(scope, true)).find((mistake) => mistake.stepId === 'pl-b2-1')?.resolvedAt)
       .toBe('2026-10-01T09:00:00.000Z');
+    await db.close();
+  });
+});
+
+describe.each(databasesIn('honest_review_states'))('review items stored before "known" meant anything, on %s', (_name, open) => {
+  /*
+   * One clean answer used to make a word just taught known, with a four-day
+   * interval: after one lesson eight of twelve words were known. The rows
+   * written then must read the way the rule reads now, and nothing a learner
+   * did may be lost.
+   */
+  it('are re-derived from their own intervals, keeping everything else', async () => {
+    const db = await open(9);
+    const add = (id: string, state: string, interval: number, step: number, successes: number, lapses = 0) => db.run(
+      `INSERT INTO review_items (id, user_id, kind, ref_id, lesson_id, level, state, ease, interval_days, due_at,
+         last_review_at, success_count, failure_count, lapses, learning_step, created_at)
+       VALUES (?, 1, 'vocab', ?, 'pre-a1-u1-l2', 'pre-a1', ?, 2.65, ?, '2026-11-01T10:00:00.000Z',
+         '2026-10-28T10:00:00.000Z', ?, 1, ?, ?, '2026-10-20T10:00:00.000Z')`,
+      `vocab:${id}`, id, state, interval, successes, lapses, step);
+    await add('v-one-lesson', 'known', 4, 2, 9); // the easy jump on the day it was taught
+    await add('v-graduated', 'known', 2, 2, 2); // recalled the next day, once
+    await add('v-at-the-line', 'known', KNOWN_INTERVAL_DAYS, 2, 3);
+    await add('v-spaced', 'known', 14, 2, 4);
+    await add('v-forgotten', 'lapsed', 0, 0, 3, 1);
+    await add('v-stepping', 'learning', 0, 1, 1);
+    await add('v-fresh', 'new', 0, 0, 0);
+    const list = async () => (await listReviewItems({ db, userId: 1 })).sort((a, b) => a.id.localeCompare(b.id));
+    const before = await list();
+
+    expect(await migrate(db)).toBe(SCHEMA_VERSION);
+    const after = await list();
+    const states = Object.fromEntries(after.map((item) => [item.refId, item.state]));
+    expect(states).toEqual({
+      'v-one-lesson': 'learning',
+      'v-graduated': 'learning',
+      'v-at-the-line': 'known',
+      'v-spaced': 'known',
+      'v-forgotten': 'lapsed',
+      'v-stepping': 'learning',
+      'v-fresh': 'new',
+    });
+    // Every graduated item reads as the shared rule says.
+    for (const item of after.filter((entry) => entry.intervalDays > 0)) {
+      expect(item.state, item.refId).toBe(stateForInterval(item.intervalDays));
+    }
+    // Only the state moved.
+    const strip = ({ state: _state, ...rest }: (typeof before)[number]) => rest;
+    expect(after.map(strip)).toEqual(before.map(strip));
+
+    // And opening again changes nothing.
+    expect(await migrate(db)).toBe(SCHEMA_VERSION);
+    expect(await list()).toEqual(after);
     await db.close();
   });
 });

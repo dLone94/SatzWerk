@@ -49,11 +49,13 @@ export function ReviewPage() {
    * One sitting at a time: a beginner's first bad day can make thirty words
    * due at once, and the most overdue come first, so the rest can wait.
    *
-   * The round is cut from what can be typed. Grammar items are graded in
-   * their own card below, and taken into the twenty first they made "20 in
-   * this round" a round of 17 and left typable words for the next one.
+   * The round is cut from what can be typed, due grammar included: it is
+   * asked as one of the course's own steps, in the learner's path. Only a
+   * concept with no such step is left to the card below, and taken into the
+   * twenty first those made "20 in this round" a round of 17 and left typable
+   * words for the next one.
    */
-  const build = useMemo(() => buildReviewExercises(queue.map((entry) => entry.item)), [queue]);
+  const build = useMemo(() => buildReviewExercises(queue.map((entry) => entry.item), lang), [queue, lang]);
 
   const start = (exercises: Exercise[], isEarly: boolean) => {
     setSummary(null);

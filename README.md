@@ -498,13 +498,23 @@ sentence with a small letter, counts as right there — a noun's capital and
 
 **A real review queue.** A documented SM-2 derivative (see the header comment in
 `src/core/srs/scheduler.ts`): learning steps of 10 minutes and one day, then
-`interval × ease × gradeFactor` with ease clamped to [1.3, 2.8]. Recall quality
+`interval × ease × gradeFactor` with ease clamped to [1.3, 2.8]. A word counts
+as **known** only once its interval reaches five days, which takes recall on
+two separate days after the one it was taught; answers given on a single day,
+however many and however clean, never get it there. A learner who practises
+early every day gets there too: each day a word is remembered adds a day to its
+interval until it is known. A right answer graded hard can shorten the interval
+and take a word back to learning. A review answered late is
+credited with the days the word actually lasted, up to twice its interval, and
+a word forgotten goes back through the learning steps. Recall quality
 is derived from the verdict, hint usage and whether the answer was revealed — an
 answer produced only after revealing the solution can never grade better than
 `again`. Due items come back as **typing** tasks, not flashcards: a due noun is
 prompted in the teaching language and must be typed *with its article*, and every
-third item comes back as dictation. Grammar concepts, which cannot be typed, get
-explicit Again / Hard / Good / Easy buttons.
+third item comes back as dictation. A due grammar concept is asked as one of the
+course's own steps that practise it, a different one at each review, and its
+rule is shown only once the answer is graded; Again / Hard / Good / Easy remain only
+for a concept that no step on the learner's path asks for.
 
 **A mistake bank driven by real attempts.** Grouped by the 15+ error categories,
 showing what was written, what was correct, how many times it happened and how

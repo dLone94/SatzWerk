@@ -707,6 +707,15 @@ export const UI = {
   vocabFilterAny: s('Any', 'Всички'),
   vocabEmpty: s('No words match those filters.', 'Няма думи, отговарящи на тези филтри.'),
   vocabCount: s('{n} words', '{n} думи'),
+  vocabKnownRule: s(
+    'A word counts as known once you have remembered it on two later days, a few days apart.',
+    'Думата минава в „Научени“, когато си я спомниш в два по-късни дни, с няколко дни между тях.',
+  ),
+  // Only on the Learning tab, where a whole clean lesson is waiting.
+  vocabSameDayRule: s(
+    'Answers on the day a word is taught do not make it known.',
+    'Отговорите в деня, в който думата е въведена, не я правят научена.',
+  ),
   vocabCountOne: s('{n} word', '{n} дума'),
   vocabFavorite: s('Add to favourites', 'Добави в любими'),
   vocabUnfavorite: s('Remove from favourites', 'Премахни от любими'),
@@ -725,6 +734,26 @@ export const UI = {
   wordCollocations: s('Common combinations', 'Чести съчетания'),
   wordLearningState: s('Learning state', 'Състояние на учене'),
   wordNextReview: s('Next review', 'Следващо повторение'),
+  // What each state means, so "Learning" after a whole clean lesson reads as
+  // the rule it is rather than as a fault.
+  wordStateLearningHow: s(
+    'It counts as known once you have remembered it on two later days, a few days apart.',
+    'Става „Научено“, когато си спомниш думата в два по-късни дни, с няколко дни между тях.',
+  ),
+  // A word past its learning steps: one good review may be all that is left,
+  // as it is for the words that migration 10 took back from known.
+  wordStateLearningNextHow: s(
+    'It has passed its first reviews. Remember it again at its next review, a few days on, and it will usually count as known.',
+    'Мина първите си повторения. Ако си я спомниш и при следващото, след няколко дни, обикновено става „Научено“.',
+  ),
+  wordStateLapsedHow: s(
+    'You forgot it at its last review, so it is being learnt again from the start.',
+    'Забрави я при последното повторение, затова се учи отначало.',
+  ),
+  wordStateKnownHow: s(
+    'You have remembered it on separate days, so its reviews are now spaced further apart.',
+    'Спомни си я в различни дни, затова повторенията ѝ вече са по-нарядко.',
+  ),
   wordMistakeHistory: s('Your mistakes with this word', 'Твоите грешки с тази дума'),
   wordMasteryHistory: s('Recall history', 'История на припомнянето'),
   wordSuccesses: s('{n} successful recalls', '{n} успешни припомняния'),

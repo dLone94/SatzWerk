@@ -5,8 +5,10 @@ import {
   dueReason,
   gradeFromAttempt,
   hintPenalty,
+  KNOWN_INTERVAL_DAYS,
   orderQueue,
   scheduleReview,
+  stateForInterval,
   summarizeQueue,
   type ReviewItem,
 } from '../../src/core/srs/scheduler.ts';
@@ -40,10 +42,16 @@ describe('scheduler', () => {
     expect(step1.state).toBe('learning');
     expect(minutesBetween(step1.dueAt, T0)).toBe(1440);
 
-    // The second step is answered when it falls due, a day later.
+    // The second step is answered when it falls due, a day later. Graduated,
+    // it is reviewed two days on, and it is still being learnt.
     const graduated = scheduleReview(step1, 'good', new Date(step1.dueAt));
-    expect(graduated.state).toBe('known');
+    expect(graduated.state).toBe('learning');
     expect(graduated.intervalDays).toBe(2);
+
+    // Remembered again when that falls due: a second day, after a real gap.
+    const known = scheduleReview(graduated, 'good', new Date(graduated.dueAt));
+    expect(known.state).toBe('known');
+    expect(known.intervalDays).toBe(5);
   });
 
   it('repeats the same learning step on "hard"', () => {
@@ -53,10 +61,14 @@ describe('scheduler', () => {
     expect(minutesBetween(first.dueAt, T0)).toBe(10);
   });
 
-  it('graduates straight away on "easy"', () => {
-    const jumped = scheduleReview(item(), 'easy', T0);
-    expect(jumped.state).toBe('known');
-    expect(jumped.intervalDays).toBe(4);
+  it('does not let "easy" skip a learning step', () => {
+    // Every clean answer is graded easy. It used to jump a word just taught
+    // to "known" with a four-day interval.
+    const first = scheduleReview(item(), 'easy', T0);
+    expect(first.state).toBe('learning');
+    expect(first.learningStep).toBe(1);
+    expect(minutesBetween(first.dueAt, T0)).toBe(1440);
+    expect(first.ease).toBe(item().ease);
   });
 
   it('grows the interval multiplicatively for known items', () => {
@@ -77,6 +89,19 @@ describe('scheduler', () => {
     expect(lapsed.intervalDays).toBe(0);
     expect(minutesBetween(lapsed.dueAt, T0)).toBe(5);
     expect(lapsed.ease).toBeLessThan(known.ease);
+  });
+
+  it('counts forgetting a graduated item as a lapse even before it is known', () => {
+    const graduated = item({ state: 'learning', intervalDays: 2, learningStep: 2 });
+    const lapsed = scheduleReview(graduated, 'again', T0);
+    expect(lapsed.state).toBe('lapsed');
+    expect(lapsed.lapses).toBe(1);
+  });
+
+  it('keeps a slip on the learning steps out of the lapse count', () => {
+    const slipped = scheduleReview(item({ state: 'learning', learningStep: 1 }), 'again', T0);
+    expect(slipped.state).toBe('learning');
+    expect(slipped.lapses).toBe(0);
   });
 
   it('keeps the ease inside its bounds', () => {
@@ -172,6 +197,167 @@ describe('reviews made before the item is due', () => {
   });
 });
 
+/*
+ * What "known" means.
+ *
+ * One lesson called eight of its twelve words known: every clean answer was
+ * graded easy, and easy took a word just taught straight to a four-day
+ * interval. Known now takes recall on two separate days after the day it was
+ * taught, and nothing done in one day gets an item there.
+ */
+describe('known', () => {
+  const minute = 60_000;
+  const day = 86_400_000;
+  const at = (ms: number) => new Date(T0.getTime() + ms);
+
+  it('is one rule, by interval', () => {
+    expect(KNOWN_INTERVAL_DAYS).toBe(5);
+    expect(stateForInterval(2)).toBe('learning');
+    expect(stateForInterval(4)).toBe('learning');
+    expect(stateForInterval(5)).toBe('known');
+    expect(stateForInterval(40)).toBe('known');
+  });
+
+  it('is never reached by answers given on the day the item was taught', () => {
+    for (const grade of ['good', 'easy'] as const) {
+      let current = item();
+      // A lesson, its final check, a redo and a review round: every twenty
+      // minutes until just before midnight.
+      for (let n = 0; n < 40; n += 1) current = scheduleReview(current, grade, at(n * 20 * minute));
+      expect(current.state, grade).toBe('learning');
+      expect(current.intervalDays, grade).toBe(0);
+    }
+  });
+
+  it('is never reached again on the day an item was forgotten', () => {
+    let current = scheduleReview(item({ state: 'known', intervalDays: 15, ease: 2.5 }), 'again', T0);
+    for (let n = 1; n < 40; n += 1) current = scheduleReview(current, 'easy', at(n * 20 * minute));
+    expect(current.state).not.toBe('known');
+    expect(current.intervalDays).toBe(0);
+  });
+
+  it('is not reached by early practice inside one day after graduating', () => {
+    let current = item({
+      state: 'learning',
+      intervalDays: 2,
+      learningStep: 2,
+      ease: 2.8,
+      lastReviewAt: T0.toISOString(),
+      dueAt: at(2 * day).toISOString(),
+    });
+    for (let n = 1; n < 24; n += 1) current = scheduleReview(current, 'easy', at(n * 59 * minute));
+    expect(current.state).toBe('learning');
+    expect(current.intervalDays).toBeLessThan(KNOWN_INTERVAL_DAYS);
+  });
+
+  /*
+   * Practising early every day pushed the due date out each time, so the word
+   * was never due, and a day's early growth (three days) never reached five:
+   * remembered on thirty separate days, it still read "Learning".
+   */
+  it('is reached by a clean answer every day, in a few days', () => {
+    for (const grade of ['good', 'easy'] as const) {
+      let current = item();
+      let knownOn: number | undefined;
+      for (let d = 0; d <= 30 && knownOn === undefined; d += 1) {
+        current = scheduleReview(current, grade, at(d * day));
+        if (current.state === 'known') knownOn = d;
+      }
+      expect(knownOn, grade).toBeDefined();
+      expect(knownOn!, grade).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it('is not hurried by a day held on an answer that only just survived', () => {
+    const graduated = item({
+      state: 'learning',
+      intervalDays: 3,
+      learningStep: 2,
+      ease: 2.5,
+      lastReviewAt: T0.toISOString(),
+      dueAt: at(3 * day).toISOString(),
+    });
+    expect(scheduleReview(graduated, 'hard', at(day)).intervalDays).toBe(3);
+    expect(scheduleReview(graduated, 'good', at(day)).intervalDays).toBe(4);
+    // Less than a whole day is still the same day's practice.
+    expect(scheduleReview(graduated, 'easy', at(day - 60_000)).intervalDays).toBe(3);
+  });
+
+  it('can be lost on a right answer that only just survived', () => {
+    const shaky = item({
+      state: 'known',
+      intervalDays: 5,
+      learningStep: 2,
+      ease: 1.3,
+      lastReviewAt: T0.toISOString(),
+      dueAt: at(5 * day).toISOString(),
+    });
+    const next = scheduleReview(shaky, 'hard', at(5 * day));
+    expect(next.intervalDays).toBe(4); // round(5 * 1.3 * 0.6)
+    expect(next.state).toBe('learning');
+    expect(next.lapses).toBe(0);
+  });
+
+  it('is reached by clean answers on the day after and two days after that', () => {
+    let current = scheduleReview(item(), 'easy', T0);
+    current = scheduleReview(current, 'easy', at(day));
+    expect(current.state).toBe('learning');
+    current = scheduleReview(current, 'easy', at(3 * day));
+    expect(current.state).toBe('known');
+  });
+});
+
+/*
+ * Late reviews.
+ *
+ * der Hund was last seen on a four-day interval and recalled cleanly nine
+ * days later, and its next interval was worked out from the four days it was
+ * given, not the nine it had lasted.
+ */
+describe('reviews made after the item fell due', () => {
+  const day = 86_400_000;
+  const at = (ms: number) => new Date(T0.getTime() + ms);
+  const lateBy = (elapsed: number) =>
+    item({
+      state: 'known',
+      intervalDays: 4,
+      ease: 2.5,
+      learningStep: 2,
+      lastReviewAt: at(-elapsed * day).toISOString(),
+      dueAt: at((4 - elapsed) * day).toISOString(),
+    });
+
+  it('counts the days it was actually remembered', () => {
+    expect(scheduleReview(lateBy(9), 'good', T0).intervalDays).toBe(20); // 8 held, not 4
+    expect(scheduleReview(lateBy(6), 'good', T0).intervalDays).toBe(15); // 6 * 2.5
+    expect(scheduleReview(lateBy(9), 'easy', T0).intervalDays).toBe(28); // round(8 * 2.65 * 1.3)
+  });
+
+  it('gives an on-time review exactly what it always had', () => {
+    expect(scheduleReview(lateBy(4), 'good', T0).intervalDays).toBe(10);
+  });
+
+  it('credits at most twice the interval after a long break', () => {
+    expect(scheduleReview(lateBy(120), 'good', T0).intervalDays).toBe(20);
+  });
+
+  it('gives a hard answer no credit for lateness', () => {
+    expect(scheduleReview(lateBy(9), 'hard', T0).intervalDays).toBe(scheduleReview(lateBy(4), 'hard', T0).intervalDays);
+  });
+
+  it('still resets a late item that was forgotten', () => {
+    const lapsed = scheduleReview(lateBy(60), 'again', T0);
+    expect(lapsed.state).toBe('lapsed');
+    expect(lapsed.intervalDays).toBe(0);
+    expect(lapsed.learningStep).toBe(0);
+    expect(minutesBetween(lapsed.dueAt, T0)).toBe(5);
+    // And it has to come back through the steps before it is known again.
+    const relearnt = scheduleReview(lapsed, 'easy', new Date(lapsed.dueAt));
+    expect(relearnt.state).toBe('learning');
+    expect(minutesBetween(relearnt.dueAt, new Date(lapsed.dueAt))).toBe(1440);
+  });
+});
+
 describe('grading an attempt', () => {
   it('never rewards an answer that was revealed first', () => {
     expect(gradeFromAttempt({ verdict: 'correct', hintsUsed: 0, revealed: true })).toBe('again');
@@ -224,6 +410,13 @@ describe('why an item is due', () => {
     expect(dueReason(item({ state: 'new', dueAt: late }), now)).toBe('new');
     expect(dueReason(item({ state: 'learning', dueAt: late }), now)).toBe('learning');
     expect(dueReason(item({ state: 'lapsed', dueAt: late }), now)).toBe('lapsed');
+  });
+
+  it('reads a graduated item that is not known yet by the calendar', () => {
+    // Four days on an interval, it has not been asked for three of them.
+    const graduated = item({ state: 'learning', intervalDays: 4, learningStep: 2, dueAt: new Date(2026, 9, 30, 9, 0).toISOString() });
+    expect(dueReason(graduated, now)).toBe('overdue');
+    expect(dueReason({ ...graduated, dueAt: new Date(2026, 10, 2, 8, 0).toISOString() }, now)).toBe('scheduled');
   });
 });
 

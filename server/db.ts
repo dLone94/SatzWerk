@@ -449,6 +449,19 @@ const MIGRATIONS: Migration[] = [
     // check's step ids begin with "pl-".
     sql: `UPDATE mistakes SET resolved_at = last_seen_at WHERE step_id LIKE 'pl-%' AND resolved_at IS NULL;`,
   },
+  {
+    version: 10,
+    name: 'known only after recall on separate days',
+    // Every clean answer used to move a word just taught straight to "known"
+    // with a four-day interval, so one lesson made most of its words known.
+    // Known now means an interval of at least five days (stateForInterval in
+    // src/core/srs/scheduler.ts, KNOWN_INTERVAL_DAYS), which only recall on
+    // separate days reaches. Items below it go back to learning, keeping
+    // their interval, due date, history and ease, so the scheduler carries
+    // on from where each item is; nothing else changes. The five is written
+    // out because a migration records what was true when it ran.
+    sql: `UPDATE review_items SET state = 'learning' WHERE state = 'known' AND interval_days < 5;`,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

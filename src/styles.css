@@ -1695,6 +1695,23 @@ textarea.answer-field {
   margin-bottom: 0;
 }
 
+/* A grammar review's rule, shown once the answer is in. */
+.feedback__reminder {
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: var(--surface);
+  line-height: 1.45;
+}
+
+.feedback__reminder p {
+  margin: 0;
+}
+
+.feedback__reminder .feedback__reminder-title {
+  margin-bottom: 0.2rem;
+  font-weight: 700;
+}
+
 .diff {
   display: inline-flex;
   flex-wrap: wrap;
@@ -2138,6 +2155,11 @@ textarea.answer-field {
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.6rem;
+}
+
+.state-row__how {
+  margin: -0.2rem 0 0.75rem;
+  line-height: 1.45;
 }
 
 .collocations {
@@ -6517,6 +6539,13 @@ a:hover {
   margin: 0;
   color: var(--ink-faint);
   font-size: 0.85rem;
+}
+
+.vocab__rule {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .word-list {

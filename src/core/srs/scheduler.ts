@@ -9,21 +9,44 @@ import type { Verdict } from '../validation/validate.ts';
  * A deliberately small, SM-2-derived scheme. It is documented here so it can be
  * tuned later without anyone having to reverse-engineer it.
  *
- * States: `new` -> `learning` -> `known`, with `lapsed` for a known item that
- * was forgotten.
+ * States: `new` -> `learning` -> `known`, with `lapsed` for an item that had
+ * reached spaced review and was then forgotten.
  *
  * Learning steps (minutes): 10, then 1440 (one day). A `good` answer moves to
- * the next step; after the last step the item graduates to `known`.
+ * the next step; after the last step the item graduates to spaced review with
+ * an interval of two days. `easy` is worth the same as `good` while the item is
+ * on its steps: every clean answer is graded `easy`, and when `easy` jumped
+ * straight to a four-day interval, one lesson called eight of its twelve words
+ * known and the one-day step was never asked.
  *
- * Once `known`, the interval grows multiplicatively:
+ * Once graduated, the interval grows multiplicatively:
  *
- *     interval' = clamp(interval * ease * gradeFactor, 1, 365)
+ *     interval' = clamp(held * ease * gradeFactor, 1, 365)
  *
  * with gradeFactor 0.6 for `hard`, 1.0 for `good` and 1.3 for `easy`, and
- * `ease` moving by -0.15 / 0 / +0.15 within [1.3, 2.8].
+ * `ease` moving by -0.15 / 0 / +0.15 within [1.3, 2.8]. `held` is the
+ * interval, or, when the review came late and was answered `good` or `easy`,
+ * the days actually remembered, up to twice the interval: a word recalled
+ * after nine days on a four-day interval has shown it lasts eight days at
+ * least, and one right answer after a long break is not proof of a hundred.
+ * A `hard` answer gets no such credit; it only just survived the gap it had.
+ * It can even shorten the interval (times 0.6, at an ease that has fallen),
+ * and when that takes a known item below five days it is learning again,
+ * though the answer was right: an item that only just survived is not secure.
+ *
+ * ## What "known" means
+ *
+ * An item is `known` once its interval reaches KNOWN_INTERVAL_DAYS (five).
+ * The interval only grows that far after recall on two separate days after
+ * the day the item was taught: the one-day step, then the two-day interval
+ * grown at the next spaced success. Graduated items below that are still
+ * `learning`. `stateForInterval` is that rule, and the scheduler, the server
+ * and every count in the app go through it.
  *
  * `again` always sends the item back to learning step 0 with a 5-minute delay,
- * counts a lapse and drops the ease by 0.2.
+ * and drops the ease by 0.2. For an item that had graduated it counts a lapse
+ * and marks it `lapsed`; it has to come through the steps, and back up to five
+ * days, before it is known again.
  *
  * A review made before the item is due is an *early* review, and it is not
  * worth what an on-time one is. A lesson asks for the same word many times in
@@ -31,14 +54,24 @@ import type { Verdict } from '../validation/validate.ts';
  * interval again and again, so one clean sitting pushed a word just taught a
  * year away. An early success therefore:
  *
- * - leaves a learning item on its current step, due no sooner than that step's
- *   delay from now (the step exists to test recall after a gap, and an answer
- *   given inside the gap does not);
- * - grows a known item only by the time that has actually passed since it was
- *   last reviewed, `interval' = max(interval, elapsedDays * ease * gradeFactor)`,
- *   so it never shrinks, and is due that interval from now;
+ * - leaves an item on its learning steps on its current step, due no sooner
+ *   than that step's delay from now (the step exists to test recall after a
+ *   gap, and an answer given inside the gap does not);
+ * - grows a graduated item only by the time that has actually passed since it
+ *   was last reviewed, `interval' = max(interval, elapsedDays * ease *
+ *   gradeFactor)`, so it never shrinks, and is due that interval from now;
+ * - adds at least a day to a graduated item that is not known yet, when a
+ *   whole day has passed since it was last reviewed and the answer was `good`
+ *   or `easy`;
  * - leaves the ease alone.
  *
+ * Inside one day that growth is at most four days (under a day times 2.8
+ * times 1.3), so repetitions on the same day never make an item known. The
+ * extra day is there for the learner who practises every day: each answer
+ * pushed the due date out again, so the word was never due, and a day's
+ * growth (one day times 2.5 times 1.3, three days) never reached five. It
+ * was remembered on thirty separate days and still read "Learning". With a
+ * day added for each day it is remembered, it is known on the fourth.
  * Practising early still moves the item back in the queue, and `again` demotes
  * at any time, so a slip in a lesson still brings the word back soon.
  *
@@ -79,6 +112,12 @@ export const MIN_EASE = 1.3;
 export const MAX_EASE = 2.8;
 export const DEFAULT_EASE = 2.5;
 export const MAX_INTERVAL_DAYS = 365;
+/** The interval a graduating item starts its spaced review with. */
+export const GRADUATING_INTERVAL_DAYS = 2;
+/** The interval from which an item counts as known; see the notes at the top. */
+export const KNOWN_INTERVAL_DAYS = 5;
+/** A late success is credited with at most this many intervals held. */
+export const LATE_CREDIT_LIMIT = 2;
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 86_400_000;
@@ -92,6 +131,25 @@ function clamp(value: number, min: number, max: number): number {
 
 function iso(date: Date): string {
   return date.toISOString();
+}
+
+/**
+ * Whether a graduated item is learning or known, by its interval. The one
+ * place the rule lives (see the notes at the top); migration 10 applied it to
+ * the items stored before it existed.
+ */
+export function stateForInterval(intervalDays: number): 'learning' | 'known' {
+  return intervalDays >= KNOWN_INTERVAL_DAYS ? 'known' : 'learning';
+}
+
+/**
+ * Whether an item has left its learning steps for spaced review. Read from
+ * the interval rather than the state, because a graduated item can still be
+ * `learning`; `known` is checked too for items written by hand in old tests
+ * and fixtures with no interval.
+ */
+function graduated(item: ReviewItem): boolean {
+  return item.intervalDays > 0 || item.state === 'known';
 }
 
 export interface NewItemInput {
@@ -133,13 +191,14 @@ export function createReviewItem(input: NewItemInput): ReviewItem {
  */
 export function scheduleReview(item: ReviewItem, grade: RecallGrade, now = new Date()): ReviewItem {
   const next: ReviewItem = { ...item, lastReviewAt: iso(now) };
+  const spaced = graduated(item);
 
   if (grade === 'again') {
-    next.state = item.state === 'known' ? 'lapsed' : 'learning';
+    next.state = spaced ? 'lapsed' : 'learning';
     next.learningStep = 0;
     next.intervalDays = 0;
     next.failureCount = item.failureCount + 1;
-    if (item.state === 'known') next.lapses = item.lapses + 1;
+    if (spaced) next.lapses = item.lapses + 1;
     next.ease = clamp(item.ease + EASE_DELTA.again, MIN_EASE, MAX_EASE);
     next.dueAt = iso(new Date(now.getTime() + 5 * MINUTE_MS));
     return next;
@@ -151,11 +210,14 @@ export function scheduleReview(item: ReviewItem, grade: RecallGrade, now = new D
   // moment it is created, and an item never reviewed has nothing to measure
   // from, so both are always treated as on time.
   const reviewedAt = item.lastReviewAt ? new Date(item.lastReviewAt).getTime() : Number.NaN;
-  if (item.state !== 'new' && Number.isFinite(reviewedAt) && !isDue(item, now)) {
-    if (item.state === 'known') {
-      const elapsedDays = Math.max(0, (now.getTime() - reviewedAt) / DAY_MS);
+  const elapsedDays = Number.isFinite(reviewedAt) ? Math.max(0, (now.getTime() - reviewedAt) / DAY_MS) : undefined;
+  if (item.state !== 'new' && elapsedDays !== undefined && !isDue(item, now)) {
+    if (spaced) {
       const earned = Math.round(elapsedDays * item.ease * GRADE_FACTOR[grade]);
-      const interval = clamp(Math.max(item.intervalDays, earned), 1, MAX_INTERVAL_DAYS);
+      const dayHeld =
+        elapsedDays >= 1 && grade !== 'hard' && item.intervalDays < KNOWN_INTERVAL_DAYS ? item.intervalDays + 1 : 0;
+      const interval = clamp(Math.max(item.intervalDays, earned, dayHeld), 1, MAX_INTERVAL_DAYS);
+      next.state = stateForInterval(interval);
       next.intervalDays = interval;
       next.dueAt = iso(new Date(now.getTime() + interval * DAY_MS));
       return next;
@@ -166,24 +228,16 @@ export function scheduleReview(item: ReviewItem, grade: RecallGrade, now = new D
     return next;
   }
 
-  next.ease = clamp(item.ease + EASE_DELTA[grade], MIN_EASE, MAX_EASE);
-
-  const inLearning = item.state === 'new' || item.state === 'learning' || item.state === 'lapsed';
-
-  if (inLearning) {
-    if (grade === 'easy') {
-      next.state = 'known';
-      next.learningStep = LEARNING_STEPS_MINUTES.length;
-      next.intervalDays = 4;
-      next.dueAt = iso(new Date(now.getTime() + 4 * DAY_MS));
-      return next;
-    }
-    const step = grade === 'hard' ? item.learningStep : item.learningStep + 1;
+  if (!spaced) {
+    // On the steps a clean answer is `good`: `easy` may not skip a step.
+    const stepGrade = grade === 'easy' ? 'good' : grade;
+    next.ease = clamp(item.ease + EASE_DELTA[stepGrade], MIN_EASE, MAX_EASE);
+    const step = stepGrade === 'hard' ? item.learningStep : item.learningStep + 1;
     if (step >= LEARNING_STEPS_MINUTES.length) {
-      next.state = 'known';
+      next.state = stateForInterval(GRADUATING_INTERVAL_DAYS);
       next.learningStep = LEARNING_STEPS_MINUTES.length;
-      next.intervalDays = 2;
-      next.dueAt = iso(new Date(now.getTime() + 2 * DAY_MS));
+      next.intervalDays = GRADUATING_INTERVAL_DAYS;
+      next.dueAt = iso(new Date(now.getTime() + GRADUATING_INTERVAL_DAYS * DAY_MS));
       return next;
     }
     next.state = 'learning';
@@ -194,10 +248,17 @@ export function scheduleReview(item: ReviewItem, grade: RecallGrade, now = new D
     return next;
   }
 
-  // Known item reviewed on time (or late).
-  const previous = Math.max(item.intervalDays, 1);
-  const interval = clamp(Math.round(previous * next.ease * GRADE_FACTOR[grade]), 1, MAX_INTERVAL_DAYS);
-  next.state = 'known';
+  // Graduated item reviewed on time or late. A late `good` or `easy` is
+  // credited with the days it was really held, up to LATE_CREDIT_LIMIT
+  // intervals; an item never reviewed has no measure and keeps its interval.
+  next.ease = clamp(item.ease + EASE_DELTA[grade], MIN_EASE, MAX_EASE);
+  const scheduled = Math.max(item.intervalDays, 1);
+  const held =
+    grade === 'hard' || elapsedDays === undefined
+      ? scheduled
+      : clamp(elapsedDays, scheduled, scheduled * LATE_CREDIT_LIMIT);
+  const interval = clamp(Math.round(held * next.ease * GRADE_FACTOR[grade]), 1, MAX_INTERVAL_DAYS);
+  next.state = stateForInterval(interval);
   next.intervalDays = interval;
   next.dueAt = iso(new Date(now.getTime() + interval * DAY_MS));
   return next;
@@ -260,6 +321,10 @@ export function dueItems(items: ReviewItem[], now = new Date()): ReviewItem[] {
  * calendar. It used to be anything later than its whole interval, so a word
  * on a four-day interval that fell due three days ago read "Scheduled for
  * today".
+ *
+ * "Learning" is kept for an item still on its learning steps. One that has
+ * graduated is reviewed by the calendar like a known one, so it is overdue
+ * or scheduled too, though it is not known yet.
  */
 export function dueReason(
   item: ReviewItem,
@@ -267,7 +332,7 @@ export function dueReason(
 ): 'new' | 'learning' | 'overdue' | 'scheduled' | 'lapsed' {
   if (item.state === 'new') return 'new';
   if (item.state === 'lapsed') return 'lapsed';
-  if (item.state === 'learning') return 'learning';
+  if (!graduated(item)) return 'learning';
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   return new Date(item.dueAt).getTime() < startOfToday ? 'overdue' : 'scheduled';
 }
