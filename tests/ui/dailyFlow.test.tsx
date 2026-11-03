@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
-import { SCENARIO_SCRIPTS, scriptAnswerCount } from '../../src/content/browser.ts';
+import { lessonsInOrder, SCENARIO_SCRIPTS, scriptAnswerCount } from '../../src/content/browser.ts';
 import type { ScenarioScript } from '../../src/content/types.ts';
 import { todayHere } from '../../src/core/progress/days.ts';
 import { mergeDailyRun, type DailyRunInput } from '../../src/core/progress/daily.ts';
@@ -258,6 +258,83 @@ describe('a new goal or level while a round is open', () => {
     // Paused, the round in hand is estimated from its own script.
     expect(estimateOnScreen()).toBe(shown);
     expect(shown).not.toBe(freshEstimate);
+  });
+
+  /*
+   * Trying B2 and going back left two rounds open, and the page only looked
+   * at the latest: going back offered "Start today" and stranded the parts
+   * already done in the round that fitted.
+   */
+  it('continues the round that fits the plan when another was begun later', async () => {
+    const travel = { ...saved, id: 'travel-round', scriptId: chooseDailyScript('travel', 'b2', [], todayHere()).id,
+      goal: 'travel' as const, stage: 1, updatedAt: new Date(Date.now() + 60_000).toISOString() };
+    for (const [chosen, round, part] of [
+      [{ ...profile, learningGoal: 'everyday' as const, practiceLevel: 'pre-a1' as const }, saved, 'dailyRecall'],
+      [profile, travel, 'dailyReview'],
+    ] as const) {
+      const progress = vi.fn(async (_: DailyRunInput) => undefined);
+      const view = render(<AppStateContext.Provider value={stubState({ profile: chosen, dailyRuns: [travel, saved], recordDailyRun: progress })}>
+        <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+      expect(screen.queryByRole('button', { name: tr('dailyStart', 'en') })).not.toBeInTheDocument();
+      expect(document.querySelector('.daily-plan__earlier')).toBeNull();
+      await userEvent.setup().click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+      expect(await screen.findByRole('heading', { name: tr(part, 'en') })).toBeInTheDocument();
+      expect(progress.mock.calls[0]![0]).toMatchObject({ id: round.id, stage: round.stage });
+      view.unmount();
+    }
+  });
+
+  it('does the same when the round set aside is the one paused on this screen', async () => {
+    const recorded: DailyRunInput[] = [];
+    // Saved parts reach the state, as they do in the app.
+    function Mirrored({ chosen }: { chosen: Profile }) {
+      const [runs, setRuns] = useState<AppStateValue['dailyRuns']>([saved]);
+      return <AppStateContext.Provider value={stubState({ profile: chosen, dailyRuns: runs, recordDailyRun: async payload => {
+        recorded.push(payload);
+        setRuns(runs => mergeDailyRun(runs, { ...payload, updatedAt: new Date().toISOString() }));
+      } })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>;
+    }
+    const everyday = { ...profile, learningGoal: 'everyday' as const, practiceLevel: 'pre-a1' as const };
+    const view = render(<Mirrored chosen={profile} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+    await user.click(await screen.findByRole('button', { name: tr('dailyPause', 'en') }));
+    const travel = recorded[0]!;
+    expect(travel).toMatchObject({ goal: 'travel', stage: 0 });
+
+    view.rerender(<Mirrored chosen={everyday} />);
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+    expect(await screen.findByRole('heading', { name: tr('dailyRecall', 'en') })).toBeInTheDocument();
+    expect(recorded.at(-1)).toMatchObject({ id: saved.id, stage: 2 });
+
+    // And back again: the B2 round is still there, not begun a third time.
+    await user.click(screen.getByRole('button', { name: tr('dailyPause', 'en') }));
+    view.rerender(<Mirrored chosen={profile} />);
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+    expect(await screen.findByText(tr('dailyPhraseCount', 'en', { n: 1, total: 3 }))).toBeInTheDocument();
+    expect(recorded.at(-1)).toMatchObject({ id: travel.id, stage: 0 });
+    expect(new Set(recorded.map(round => round.id))).toEqual(new Set([saved.id, travel.id]));
+  });
+
+  // Only a chosen level is a new plan. The level read from the lessons moved
+  // as soon as a lesson of the next level was opened, and set the round aside.
+  it('keeps the round under way when the level was only inferred from the lessons', () => {
+    const next = lessonsInOrder().find(lesson => lesson.level === 'a1' && lesson.status === 'available')!;
+    const lessons = { [next.id]: { lessonId: next.id, sectionsSeen: [next.sections[0]!.id], practice: {},
+      mastery: { attempts: 0, bestAccuracy: 0, passed: false }, recoveryRounds: 0 } };
+    const unchosen = { ...profile, learningGoal: 'everyday' as const, practiceLevel: undefined };
+    const view = render(<AppStateContext.Provider value={stubState({ profile: unchosen, lessons, dailyRuns: [saved] })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByText('Everyday life · PRE-A1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: tr('dailyResume', 'en') })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: tr('dailyStart', 'en') })).not.toBeInTheDocument();
+
+    // Chosen, the same level is a new plan.
+    view.rerender(<AppStateContext.Provider value={stubState({ profile: { ...unchosen, practiceLevel: 'a1' }, lessons, dailyRuns: [saved] })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByText('Everyday life · A1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: tr('dailyStart', 'en') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: tr('dailyResumeEarlier', 'en', { plan: 'Everyday life · PRE-A1' }) })).toBeInTheDocument();
   });
 });
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { scriptById, scriptAnswerCount, patternById } from '../../content/browser.ts';
 import { phraseFrame } from '../../content/phraseFrames.ts';
 import { todayHere } from '../../core/progress/days.ts';
-import { GOAL_LABELS, type DailyRun, type DailyRunInput } from '../../core/progress/daily.ts';
+import { GOAL_LABELS, type DailyRunInput } from '../../core/progress/daily.ts';
 import { secondsPerAnswer } from '../../core/progress/session.ts';
 import { newWriteId } from '../../services/api/outbox.ts';
 import { useApp } from '../../state/AppState.tsx';
@@ -34,7 +34,6 @@ function DailyPractice() {
   const goal = profile.learningGoal ?? 'everyday';
   const level = profile.practiceLevel ?? inferredPracticeLevel(lessons);
   const script = chooseDailyScript(goal, level, scenarioRuns, day);
-  const saved = dailyRuns.find(run => run.day === day && run.stage < 5 && scriptById(run.scriptId));
   const finished = dailyRuns.find(run => run.day === day && run.stage === 5);
   const [run, setRun] = useState<DailyRunInput | null>(null);
   const [paused, setPaused] = useState(false);
@@ -44,23 +43,30 @@ function DailyPractice() {
   const [listeningSummary, setListeningSummary] = useState<PlayerSummary | null>(null);
   const busyRef = useRef(false);
   const retryRef = useRef<(() => Promise<void>) | null>(null);
-  // Today's open round: the one in hand once begun here, otherwise the saved one.
-  const open = run ?? saved;
-  const openScript = open ? scriptById(open.scriptId)! : undefined;
   /*
-   * A goal or level chosen since that round began is a new plan. Choosing one
+   * A goal or level chosen since a round began is a new plan. Choosing one
    * used to change nothing: the card went on showing the open round, offered
    * only to continue it, and estimated the time of the new plan instead. The
    * new plan now comes first, and the open round stays one tap away, unless
-   * the new plan is the very conversation already under way.
+   * the new plan is the very conversation already under way. A level the app
+   * only inferred from the lessons was never chosen, so opening a lesson of
+   * the next level does not set aside the round under way.
    */
-  const keepsPlan = (round: DailyRunInput) => round.goal === goal && scriptById(round.scriptId)!.level === level;
-  const replanned = Boolean(open && !keepsPlan(open) && open.scriptId !== script.id);
-  // The script on screen: the round being played, or the one the plan offers.
-  const currentScript = openScript && !((!run || paused) && replanned) ? openScript : script;
-  // What the plan offers once this round is finished. A beginner has a single
-  // conversation, and "Try another practice" used to bring back the same one.
-  const nextScript = saved && saved.id !== run?.id && keepsPlan(saved) ? scriptById(saved.scriptId)! : script;
+  const fitsPlan = (round: DailyRunInput) => round.scriptId === script.id
+    || round.goal === goal && (!profile.practiceLevel || scriptById(round.scriptId)!.level === profile.practiceLevel);
+  // Today's unfinished rounds, the one in hand first. Switching to a new plan
+  // and back leaves two of them, and the one that fits the plan is the one to
+  // continue: the latest alone would start that plan over and strand its parts.
+  const openToday = [...(run && run.stage < 5 ? [run] : []), ...dailyRuns.filter(round =>
+    round.id !== run?.id && round.day === day && round.stage < 5 && scriptById(round.scriptId))];
+  const fitting = openToday.find(fitsPlan);
+  // With none that fits, the plan card starts a new round and keeps the latest one tap away.
+  const earlier = fitting ? undefined : openToday[0];
+  // What the plan card offers. Also what follows a finished round: a beginner
+  // has a single conversation, and "Try another practice" brought back the same one.
+  const planScript = fitting ? scriptById(fitting.scriptId)! : script;
+  // The script on screen: the round being played, or the plan card's.
+  const currentScript = run && !paused ? scriptById(run.scriptId)! : planScript;
   const phrases = dailyPhrases(currentScript, lang);
   const review = useMemo(() => dailyReview(reviewItems, mistakes, currentScript.level, lang,
     Math.max(2, Math.min(6, Math.round(profile.dailyTargetMinutes / 3)))),
@@ -106,7 +112,7 @@ function DailyPractice() {
     try { await work(); retryRef.current = null; } catch { setProblem(true); retryRef.current = work; }
     finally { setBusy(false); busyRef.current = false; }
   }
-  function start(prior?: DailyRun) {
+  function start(prior?: DailyRunInput) {
     void change(async () => {
       const next: DailyRunInput = prior ?? { id: newWriteId(), day, scriptId: script.id, goal,
         stage: 0, total: 0, firstTryCorrect: 0, listeningCompleted: false };
@@ -116,9 +122,9 @@ function DailyPractice() {
       setListeningSummary(null);
     });
   }
-  function resume() {
-    if (run) setPaused(false);
-    else start(saved);
+  function resume(round: DailyRunInput) {
+    if (round.id === run?.id) setPaused(false);
+    else start(round);
   }
   function advance(stage: number, summary?: PlayerSummary, listened = false) {
     if (!run) return;
@@ -145,7 +151,7 @@ function DailyPractice() {
       <p className="daily-finished__ability">{say(currentScript.goal)}</p>
       <p className="muted">{t('dailyFinishedNote')}</p>
       <div className="section-nav"><Link className="btn btn--primary" to="/">{t('navToday')}</Link>
-        <button type="button" className="btn btn--ghost" onClick={() => { setRun(null); setPaused(false); }}>{t(nextScript.id === currentScript.id ? 'dailyAgain' : 'dailyAnother')}</button></div>
+        <button type="button" className="btn btn--ghost" onClick={() => { setRun(null); setPaused(false); }}>{t(planScript.id === currentScript.id ? 'dailyAgain' : 'dailyAnother')}</button></div>
     </section><PracticalProgress /></div>;
 
   if (!run || paused) return <div className="page daily-page">
@@ -158,17 +164,17 @@ function DailyPractice() {
         {fitsGoal(currentScript, goal) ? null : <p>{t('dailyGoalElsewhere')}</p>}
         <p>{t('dailyPlanNote')}</p>
         <button type="button" className="btn daily-plan__start" disabled={busy}
-          onClick={() => open && !replanned ? resume() : start()}>
-          {t(busy ? 'loading' : open && !replanned ? 'dailyResume' : 'dailyStart')}<Icon name="arrow" size={20} /></button>
+          onClick={() => fitting ? resume(fitting) : start()}>
+          {t(busy ? 'loading' : fitting ? 'dailyResume' : 'dailyStart')}<Icon name="arrow" size={20} /></button>
         <p className="daily-plan__estimate">{t('dailyEstimate', { n: estimate })}</p>
-        {open && replanned ? <button type="button" className="btn btn--ghost daily-plan__earlier" disabled={busy} onClick={resume}>
-          {t('dailyResumeEarlier', { plan: `${say(GOAL_LABELS[open.goal])} · ${openScript!.level.toUpperCase()}` })}</button> : null}
+        {earlier ? <button type="button" className="btn btn--ghost daily-plan__earlier" disabled={busy} onClick={() => resume(earlier)}>
+          {t('dailyResumeEarlier', { plan: `${say(GOAL_LABELS[earlier.goal])} · ${scriptById(earlier.scriptId)!.level.toUpperCase()}` })}</button> : null}
       </div><div className="daily-plan__world"><DackelScene />
         <p className="daily-plan__world-note">{t('playAdventureNote')}</p></div>
     </section>{notice}
     <ol className="daily-plan__steps">{STAGES.map((key, index) => <li key={key}>
       <span>{String(index + 1).padStart(2, '0')}</span><strong>{t(key)}</strong></li>)}</ol>
-    {finished && !saved && !run ? <p className="daily-already"><Icon name="check" size={18} />{t('dailyAlreadyDone')}</p> : null}
+    {finished && openToday.length === 0 ? <p className="daily-already"><Icon name="check" size={18} />{t('dailyAlreadyDone')}</p> : null}
     <details className="daily-settings"><summary>{t('dailyPersonalise')}</summary><LearningPreferences /></details>
     <PracticalProgress />
     <Link className="daily-targeted-link" to="/session">{t('dailyOnlyReview')}<Icon name="arrow" size={18} /></Link>
