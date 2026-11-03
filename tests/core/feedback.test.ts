@@ -323,3 +323,14 @@ describe('das standing on its own', () => {
     expect(bg).toContain('Местоимението трябва да е „Das“, а не „Sie“.');
   });
 });
+
+describe('an answer typed in Cyrillic letters', () => {
+  it('asks for the German keyboard instead of explaining a mistake', () => {
+    const { result, feedback, en, bg } = explain('Гутен Морген', spec('Guten Morgen!'));
+    expect(result.verdict).toBe('empty');
+    expect(feedback.askRetype).toBe(false);
+    expect(en.join(' ')).toContain('Cyrillic');
+    expect(bg.join(' ')).toContain('кирилица');
+    expect(en.join(' ')).not.toContain('Guten');
+  });
+});

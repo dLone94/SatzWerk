@@ -479,6 +479,21 @@ function dedupeLines(lines: Bilingual[]): Bilingual[] {
 
 /** Build the feedback the learner sees after submitting an answer. */
 export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): FeedbackMessage {
+  if (result.script === 'cyrillic') {
+    return {
+      tone: 'almost',
+      headline: bi('Switch the keyboard first.', 'Първо превключи клавиатурата.'),
+      lines: [
+        bi(
+          'Your answer is in Cyrillic letters. Switch the keyboard to Latin (German) letters and type it again.',
+          'Отговорът ти е на кирилица. Превключи клавиатурата на латиница (немска) и го напиши отново.',
+        ),
+      ],
+      correction: result.target,
+      askRetype: false,
+    };
+  }
+
   if (result.verdict === 'empty') {
     return {
       tone: 'almost',

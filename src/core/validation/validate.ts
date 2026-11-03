@@ -32,6 +32,7 @@ export type Verdict =
   | 'almost'
   /** A grammar or vocabulary mistake. No credit, retyping required. */
   | 'incorrect'
+  /** Nothing to grade: no answer, or one typed in another alphabet (see `script`). */
   | 'empty';
 
 export type DiffStatus = 'same' | 'changed' | 'missing' | 'extra' | 'case';
@@ -66,6 +67,11 @@ export interface ValidationResult {
    * one the lexicon knows.
    */
   wordOrder?: { verbSecond: boolean; opening: string };
+  /**
+   * The answer was typed in Cyrillic letters, with the keyboard still on
+   * Bulgarian. Like an empty answer it is not graded.
+   */
+  script?: 'cyrillic';
 }
 
 export interface ValidateOptions {
@@ -185,6 +191,9 @@ function closer(candidate: ValidationResult, current: ValidationResult): boolean
   return false;
 }
 
+/** Any Cyrillic letter, several of which look exactly like Latin ones. */
+const CYRILLIC = /\p{Script=Cyrillic}/u;
+
 /**
  * Check a typed German answer.
  *
@@ -201,6 +210,14 @@ export function validateAnswer(
   const target = spec.accepted[0] ?? '';
   const raw = tidy(given);
   if (raw.length === 0) return emptyResult(target);
+
+  // The right German typed with the keyboard still on Bulgarian ("Дас",
+  // "Гутен Морген") is the keyboard, not a mistake in German. It is not
+  // graded, so it costs nothing and leaves nothing in the mistake bank; the
+  // learner is asked to switch and type it again.
+  if (CYRILLIC.test(raw) && !spec.accepted.some((answer) => CYRILLIC.test(answer))) {
+    return { ...emptyResult(target), script: 'cyrillic' };
+  }
 
   // An exact match with a taught answer always wins. This has to come before
   // the trap check: a trap that differs from the correct answer only in case

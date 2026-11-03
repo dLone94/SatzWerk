@@ -821,6 +821,41 @@ describe('der, die and das on their own', () => {
 });
 
 /*
+ * A learner who has left the keyboard on Bulgarian types the right German in
+ * Cyrillic letters ("Дас", "Гутен Морген"). That is the keyboard, not German:
+ * it was graded as an article or vocabulary mistake, stored in the mistake
+ * bank and counted against a checkpoint.
+ */
+describe('an answer typed in Cyrillic letters', () => {
+  it('is not graded', () => {
+    for (const [given, answer] of [
+      ['Дас', 'Das'],
+      ['Гутен Морген', 'Guten Morgen!'],
+      ['Дер Тиш ист грос.', 'Der Tisch ist groß.'],
+    ] as const) {
+      const r = validateAnswer(given, sentence([answer]), { ...opts, scaffold: answer === 'Das' ? '___ Kind ist klein.' : undefined });
+      expect(r.verdict, given).toBe('empty');
+      expect(r.credit, given).toBe(0);
+      expect(r.categories, given).toEqual([]);
+      expect(r.requireRetype, given).toBe(false);
+      expect(r.script, given).toBe('cyrillic');
+    }
+  });
+
+  // The two alphabets share letters that look the same; one typed on the
+  // wrong layout made a right-looking answer wrong for no visible reason.
+  it('notices a single Cyrillic letter in Latin text', () => {
+    const r = validateAnswer('Dаs', word(['Das']), opts);
+    expect(r.verdict).toBe('empty');
+    expect(r.script).toBe('cyrillic');
+  });
+
+  it('leaves an empty answer as it was', () => {
+    expect(validateAnswer(' ', word(['Das']), opts).script).toBeUndefined();
+  });
+});
+
+/*
  * The validator compares the answer with the taught form and with each
  * authored alternative, and kept whichever came closest — but then showed
  * the taught form as the answer. "xyz" for "Guten Morgen!" was told "The word
