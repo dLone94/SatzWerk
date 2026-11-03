@@ -109,6 +109,36 @@ describe('dass can be left out', () => {
     }
   });
 
+  it('credits the verb-second sentence wherever the English has no "that"', () => {
+    // Every typed step whose answer is glauben, denken or finden with a dass
+    // clause. B1 Unit 6 asked "I think we should do more." and rejected
+    // "Ich finde, wir sollten mehr tun." at no credit, after A2 had said it
+    // is right.
+    const typed = [
+      ...availableLessons().flatMap((lesson) => lessonExercises(lesson)),
+      ...allCheckpoints().flatMap((checkpoint) => checkpoint.exercises),
+    ].filter((exercise) => exercise.kind === 'type');
+    const missing: string[] = [];
+    let checked = 0;
+    for (const entry of typed.flatMap((exercise) => exercise.steps)) {
+      const clause = /^(.*\b(?:glaube|denke|finde)), dass (\S+) (.*) (\S+)\.$/.exec(entry.answer.accepted[0]!);
+      if (!clause || /\bthat\b/i.test(entry.prompt?.en ?? '')) continue;
+      checked += 1;
+      const verbSecond = `${clause[1]}, ${clause[2]} ${clause[4]} ${clause[3]}.`;
+      if (!isRight(verbSecond, entry.id)) missing.push(`${entry.id}: ${verbSecond}`);
+    }
+    expect(checked).toBeGreaterThanOrEqual(3);
+    expect(missing).toEqual([]);
+    // And any of the three verbs, as A2 teaches them, with or without dass.
+    for (const id of ['b1u6l1-ex2-s1', 'b1u6l1-m1-s2', 'cp-b1u6-1-s2']) {
+      for (const verb of ['denke', 'glaube']) {
+        expect(isRight(`Ich ${verb}, dass wir mehr tun sollten.`, id), `${id}: ${verb}`).toBe(true);
+        expect(isRight(`Ich ${verb}, wir sollten mehr tun.`, id), `${id}: ${verb}`).toBe(true);
+      }
+      expect(isRight('Ich finde, dass wir sollten mehr tun.', id), id).toBe(false);
+    }
+  });
+
   it('credits the dass-less sentence where the English "that" is only a pronoun', () => {
     expect(isRight('Ich denke, das ist gut.', 'a2u3l1-ex2-s2')).toBe(true);
     // Where the English does say "that", the lesson still wants the dass.
