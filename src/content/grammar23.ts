@@ -26,7 +26,8 @@ const bi = (en: string, bg: string): Bilingual => ({ en, bg });
  * bitte um …* Each is a Konjunktiv II the learner already owns from B1, doing
  * a job neither path's own formal register does in the same way — English
  * asks with questions ("Could you possibly …?"), Bulgarian asks with „бихте
- * ли“, and German states its request as a fact about itself.
+ * ли“. German can ask with Könnten Sie … too, but a firm letter usually
+ * states its request as a fact about the writer, and that is what is new.
  */
 
 /* ------------------------------------------------------------------ *
@@ -212,8 +213,8 @@ const hoeflichkeitBlocks: Block[] = [
   {
     t: 'p',
     text: bi(
-      'A German letter asks for things by stating facts about itself. It does not ask questions, and it never says what it wants.',
-      'Немското писмо иска нещо, като съобщава факти за себе си. То не задава въпроси и никога не казва какво „иска“.',
+      'A German letter can ask with a polite question — "Könnten Sie mir bitte … mitteilen?" — or with a fixed frame that states the request as a fact about the writer. Complaints and firm requests usually take the frames, and these are the four that carry most letters.',
+      'Немското писмо може да помоли с учтив въпрос — „Könnten Sie mir bitte … mitteilen?“ — или с утвърдена рамка, която съобщава молбата като факт за пишещия. Оплакванията и настоятелните молби обикновено използват рамките, а ето четирите, на които се крепят повечето писма.',
     ),
   },
   {
@@ -255,9 +256,9 @@ const hoeflichkeitBlocks: Block[] = [
     t: 'callout',
     tone: 'warn',
     only: ['en'],
-    title: bi('Do not translate your own politeness', 'Do not translate your own politeness'),
+    title: bi('Do not translate the hedging', 'Do not translate the hedging'),
     text: bi(
-      'English asks by questioning: "Could you possibly let me know …?", "I was wondering whether …". Translated into German those come out either odd or weak.\n\nGerman states: **Ich bitte um …** is not rude, it is standard, and it reads as businesslike rather than demanding. The politeness is carried by the Konjunktiv and by the fixed frame, not by hedging.',
+      'English asks by questioning: "Could you possibly let me know …?", "I was wondering whether …". German has the plain question too — "Könnten Sie mir bitte … mitteilen?" is polite and correct — but the extra hedges do not carry over, and stacked up in German they read as weak.\n\nWhen a letter has to be firm, German states: **Ich bitte um …** is not rude, it is standard, and it reads as businesslike rather than demanding. The politeness is carried by the Konjunktiv and by the fixed frame, not by hedging.',
       '',
     ),
   },
@@ -265,10 +266,10 @@ const hoeflichkeitBlocks: Block[] = [
     t: 'callout',
     tone: 'warn',
     only: ['bg'],
-    title: bi('„Бихте ли“ не е немската рамка', '„Бихте ли“ не е немската рамка'),
+    title: bi('„Бихте ли“ и немските рамки', '„Бихте ли“ и немските рамки'),
     text: bi(
       '',
-      'Българското официално писмо моли с въпрос: „Бихте ли ми потвърдили …“. Немското не пита — то съобщава: **Ich bitte um eine Bestätigung.**\n\nФормата *Könnten Sie mir bitte …* съществува и е учтива, но в писмо е по-скоро разговорна. За писмо вземи рамката с ich bitte um или Ich wäre Ihnen dankbar, wenn …',
+      'Българското официално писмо моли с въпрос: „Бихте ли ми потвърдили …“. Немският има същия въпрос — „Könnten Sie mir bitte … bestätigen?“ е учтив и правилен.\n\nКогато обаче писмото трябва да е твърдо — оплакване, срок, последица — немското по-често съобщава: **Ich bitte um eine Bestätigung.** За такова писмо вземи рамката с Ich bitte um или Ich wäre Ihnen dankbar, wenn …',
     ),
   },
   {
@@ -296,8 +297,8 @@ const SCHRIFTLICHE_HOEFLICHKEIT: GrammarConcept = {
   title: bi('Asking firmly in writing', 'Настоятелна молба в писмен вид'),
   level: 'b2',
   summary: bi(
-    'Ich bitte um …, Ich wäre Ihnen dankbar, wenn …, Ich möchte Sie darauf hinweisen, dass … — statements, not questions.',
-    'Ich bitte um …, Ich wäre Ihnen dankbar, wenn …, Ich möchte Sie darauf hinweisen, dass … — твърдения, а не въпроси.',
+    'Ich bitte um …, Ich wäre Ihnen dankbar, wenn …, Ich möchte Sie darauf hinweisen, dass … — the fixed frames for a firm request, beside the polite question Könnten Sie …?',
+    'Ich bitte um …, Ich wäre Ihnen dankbar, wenn …, Ich möchte Sie darauf hinweisen, dass … — утвърдените рамки за настоятелна молба, редом с учтивия въпрос Könnten Sie …?',
   ),
   blocks: hoeflichkeitBlocks,
   tags: ['politeness', 'register', 'formal'],

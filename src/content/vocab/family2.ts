@@ -110,7 +110,7 @@ const NARRATING: VocabEntry[] = [
     plural: 'die Schultage',
     wordType: 'noun',
     translation: { en: 'school day', bg: 'учебен ден' },
-    pronunciation: { en: 'SHOOL-tahk', bg: 'ШУЛ-таг' },
+    pronunciation: { en: 'SHOOL-tahk', bg: 'ШУЛ-так' },
     example: {
       de: 'Der erste Schultag war sehr aufregend.',
       gloss: { en: 'The first day at school was very exciting.', bg: 'Първият учебен ден беше много вълнуващ.' },
@@ -365,7 +365,7 @@ const DAILY: VocabEntry[] = [
     plural: 'die Elternabende',
     wordType: 'noun',
     translation: { en: 'parents’ evening', bg: 'родителска среща' },
-    pronunciation: { en: 'EL-tern-ah-bent', bg: 'ЕЛ-терн-абенд' },
+    pronunciation: { en: 'EL-tern-ah-bent', bg: 'ЕЛ-терн-абент' },
     example: {
       de: 'Der Elternabend findet am Dienstag statt.',
       gloss: { en: 'The parents’ evening takes place on Tuesday.', bg: 'Родителската среща е във вторник.' },
@@ -453,7 +453,7 @@ const DAILY: VocabEntry[] = [
     plural: 'die Alltage',
     wordType: 'noun',
     translation: { en: 'everyday life, daily routine', bg: 'ежедневие' },
-    pronunciation: { en: 'AL-tahk', bg: 'АЛ-таг' },
+    pronunciation: { en: 'AL-tahk', bg: 'АЛ-так' },
     example: {
       de: 'Der Alltag mit zwei Kindern ist anstrengend.',
       gloss: {
@@ -477,7 +477,7 @@ const DAILY: VocabEntry[] = [
     display: 'anstrengend',
     wordType: 'adjective',
     translation: { en: 'exhausting, demanding', bg: 'изморителен, напрегнат' },
-    pronunciation: { en: 'AN-shtreng-ent', bg: 'АН-щренг-енд' },
+    pronunciation: { en: 'AN-shtreng-ent', bg: 'АН-щренг-ент' },
     example: {
       de: 'Die Woche war sehr anstrengend.',
       gloss: { en: 'The week was very exhausting.', bg: 'Седмицата беше много изморителна.' },

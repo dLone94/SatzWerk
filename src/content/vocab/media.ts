@@ -52,7 +52,7 @@ const NEWS: VocabEntry[] = [
     plural: 'die Schlagzeilen',
     wordType: 'noun',
     translation: { en: 'headline', bg: 'заглавие (във вестник)' },
-    pronunciation: { en: 'SHLAHK-tsy-luh', bg: 'ШЛАГ-цай-ле' },
+    pronunciation: { en: 'SHLAHK-tsy-luh', bg: 'ШЛАК-цай-ле' },
     example: {
       de: 'Die Schlagzeile stand auf der ersten Seite.',
       gloss: {
@@ -183,6 +183,30 @@ const NEWS: VocabEntry[] = [
     lessonId: L1,
     difficulty: 3,
     perfect: { auxiliary: 'haben', participle: 'veröffentlicht' },
+  },
+  {
+    // The verb behind the lesson's model block, "die geplante Reform". The
+    // exercises name it ("planen — passive, singular") and ask for its
+    // participle, so the word list has to have it too.
+    id: 'v-planen',
+    german: 'planen',
+    display: 'planen',
+    wordType: 'verb',
+    translation: { en: 'to plan', bg: 'да планирам' },
+    pronunciation: { en: 'PLAH-nen', bg: 'ПЛА-нен' },
+    example: {
+      de: 'Die Regierung plant eine neue Reform.',
+      gloss: {
+        en: 'The government is planning a new reform.',
+        bg: 'Правителството планира нова реформа.',
+      },
+    },
+    tags: ['media'],
+    level: 'b2',
+    unitId: U,
+    lessonId: L1,
+    difficulty: 1,
+    perfect: { auxiliary: 'haben', participle: 'geplant' },
   },
   {
     id: 'v-die-quelle',

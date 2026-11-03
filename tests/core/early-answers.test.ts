@@ -219,6 +219,24 @@ describe('answers the lessons teach', () => {
       // The Kino card teaches "Wir gehen ins Kino."
       ['a1u5l2-ex3-s3', 'Wir fahren mit dem Auto ins Kino.'],
       ['cp-a1u5-2-s3', 'Wir fahren mit dem Auto ins Kino.'],
+      // zu for "closed" is taught only in the Museum card's example, and the
+      // final check, where one slip is allowed, called geschlossen a
+      // vocabulary mistake.
+      ['a1u5l1-m1-s2', 'Das Museum ist heute geschlossen.'],
+      ['a1u5l1-m1-s2', 'Heute ist das Museum geschlossen.'],
+      // The A1 bakery conversation orders with "Ich hätte gern …", and the
+      // daily phrase cards teach "Ich hätte gern einen Kaffee." for the same
+      // English; the lesson and both checkpoints said German does not need
+      // gern here.
+      ['a1u3l1-ex2-s1', 'Ich hätte gern einen Kaffee, bitte.'],
+      ['cp-a1u3-1-s1', 'Ich hätte gern einen Kaffee, bitte.'],
+      ['a1-lcp-3-s1', 'Ich hätte gerne einen Kaffee, bitte.'],
+      // The Bulgarian prompt is literally "Срещам се с приятелите си", and
+      // sich mit jemandem treffen is standard German; the feedback called
+      // the dative after mit a wrong article.
+      ['a1u4l2-ex1-s4', 'Ich treffe mich mit meinen Freunden.'],
+      ['cp-a1u4-2-s3', 'Ich treffe mich mit meinen Freunden.'],
+      ['a1u4l2-m1-s3', 'Ich treffe mich mit meinem Freund.'],
     ];
     for (const [id, answer] of cases) {
       expect(validateAnswer(answer, stepById(id).answer, opts).credit, `${id}: ${answer}`).toBe(1);

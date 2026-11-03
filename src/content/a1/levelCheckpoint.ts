@@ -118,6 +118,7 @@ export const A1_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('I would like a coffee, please.', 'Бих искал едно кафе, моля.'),
         answer: 'Ich möchte einen Kaffee, bitte.',
+        alternatives: ['Ich hätte gern einen Kaffee, bitte.', 'Ich hätte gerne einen Kaffee, bitte.'],
         hints: [],
       },
       {

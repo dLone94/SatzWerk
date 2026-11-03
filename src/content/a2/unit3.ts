@@ -142,7 +142,11 @@ const lesson1: Lesson = {
           t: 'list',
           items: [
             bi('dass: comma in front, verb at the end.', 'dass: запетая отпред, глагол в края.'),
-            bi('glauben, denken, wissen are what need it.', 'glauben, denken, wissen са тези, които го изискват.'),
+            bi('glauben, denken, wissen are the verbs it follows most.', 'glauben, denken, wissen са глаголите, след които идва най-често.'),
+            bi(
+              'Without dass the verb stays second: Ich glaube, Deutsch ist schwer.',
+              'Без dass глаголът остава втори: Ich glaube, Deutsch ist schwer.',
+            ),
             bi('dass with ss is the conjunction; das with one s is the article.', 'dass с ss е съюзът; das с едно s е членът.'),
             bi('wissen a fact, kennen a person.', 'wissen за факт, kennen за човек.'),
           ],
@@ -202,7 +206,16 @@ const lesson1: Lesson = {
           {
             prompt: bi('I think that is good.', 'Мисля, че това е добре.'),
             answer: 'Ich denke, dass das gut ist.',
-            alternatives: ['Ich glaube, dass das gut ist.', 'Ich finde, dass das gut ist.'],
+            // The "that" in this prompt is the pronoun, not the conjunction,
+            // so the literal translation leaves dass out and keeps the verb
+            // second — standard German, as the grammar section says.
+            alternatives: [
+              'Ich glaube, dass das gut ist.',
+              'Ich finde, dass das gut ist.',
+              'Ich denke, das ist gut.',
+              'Ich glaube, das ist gut.',
+              'Ich finde, das ist gut.',
+            ],
             reviewTargets: ['v-denken'],
             hints: [bi('Both spellings appear in this one.', 'И двата правописа се появяват тук.')],
           },
@@ -443,6 +456,9 @@ const lesson2: Lesson = {
           {
             prompt: bi('The exam was easy.', 'Изпитът беше лесен.'),
             answer: 'Die Prüfung war einfach.',
+            // Unit 1 teaches that the Perfekt of sein is not wrong, only
+            // heavier; it is credited, with war still shown.
+            alternatives: ['Die Prüfung ist einfach gewesen.'],
             reviewTargets: ['v-die-pruefung', 'v-einfach'],
             hints: [],
           },

@@ -5,6 +5,7 @@ import {
   LEXICON,
   PLACEMENT_CHECKPOINT,
   allCheckpoints,
+  allUnits,
   availableLessons,
   lessonExercises,
 } from '../../src/content/index.ts';
@@ -146,20 +147,16 @@ describe('the placement questions', () => {
     'pl-a1-1': ['Heute arbeite ich zuhause.'],
     'pl-a2-1': ['Gestern kaufte ich Brot.', 'Ich kaufte gestern Brot.'],
     'pl-a2-2': ['Weil ich krank bin, bleibe ich zu Hause.', 'Ich bleibe zuhause, weil ich krank bin.'],
-    'pl-b1-1': [
-      'Ich hätte gerne einen Termin.',
-      'Ich würde gerne einen Termin vereinbaren.',
-      'Ich möchte einen Termin machen.',
+    'pl-b1-relative': ['Das ist der Vermieter, den ich anrief.'],
+    'pl-b1-um-zu': [
+      'Um den Antrag abzugeben, brauche ich einen Termin.',
+      'Ich brauche einen Termin, um den Antrag einzureichen.',
+      'Ich brauche einen Termin, damit ich den Antrag abgeben kann.',
     ],
-    'pl-b1-2': [
-      'Ich glaube, dass die Miete zu hoch ist.',
-      'Ich meine, dass die Miete zu hoch ist.',
-      'Ich finde, die Miete ist zu hoch.',
-    ],
-    'pl-b1-3': [
-      'Ich komme mit, wenn ich Zeit habe.',
-      'Wenn ich Zeit habe, werde ich mitkommen.',
-      'Falls ich Zeit habe, komme ich mit.',
+    'pl-b1-konjunktiv': [
+      'Ich würde zum Arzt gehen, wenn ich mehr Zeit hätte.',
+      'Hätte ich mehr Zeit, würde ich zum Arzt gehen.',
+      'Hätte ich mehr Zeit, ginge ich zum Arzt.',
     ],
     // würden is Konjunktiv II too, and just as polite.
     'pl-b1-4': ['Könnten Sie das bitte noch einmal wiederholen?', 'Würden Sie das bitte wiederholen?'],
@@ -202,6 +199,70 @@ describe('the placement questions', () => {
     const result = placementResult(answers, LEVELS);
     expect(result.toppedOut).toBe(true);
     expect(result.startAt).toBe('b2');
+  });
+
+  /*
+   * Three of the four B1 questions used to be answerable with A1 and A2
+   * German: "Ich möchte einen Termin." is an A1 lesson answer word for word,
+   * the dass clause and the wenn clause are A2 Unit 3. A learner who had
+   * finished A2 and missed the one real B1 question scored 3/4, passed B1 and
+   * was told to start at B2, skipping relative clauses, the passive,
+   * zu-infinitives and the Konjunktiv II.
+   */
+  it('places a learner who only has A1 and A2 German at B1, whatever they try', () => {
+    // Everything such a learner might reasonably type at B1: the sentences
+    // from the report, and A2-shaped answers to every B1 prompt.
+    const attempts = [
+      'Ich möchte einen Termin.',
+      'Ich finde, die Miete ist zu hoch.',
+      'Ich finde, dass die Miete zu hoch ist.',
+      'Wenn ich Zeit habe, komme ich mit.',
+      'Kannst du das wiederholen?',
+      'Können Sie das bitte wiederholen?',
+      'Das ist der Vermieter. Ich habe ihn angerufen.',
+      'Ich brauche einen Termin, weil ich den Antrag abgeben will.',
+      'Wenn ich mehr Zeit habe, gehe ich zum Arzt.',
+    ];
+    const answers: PlacementAnswer[] = steps.map(({ level, step }) => ({
+      stepId: step.id,
+      level,
+      correct:
+        level === 'b1'
+          ? attempts.some((attempt) => isRight(attempt, step.id))
+          : level !== 'b2' && isRight(step.answer.accepted[0]!, step.id),
+    }));
+    const result = placementResult(answers, LEVELS);
+    expect(result.bands.find((band) => band.level === 'b1')!.passed).toBe(false);
+    expect(result.startAt).toBe('b1');
+  });
+
+  it('accepts nothing at B1 that an A1 or A2 step already accepts', () => {
+    const fold = (text: string) => text.toLowerCase().replace(/[^\p{L} ]/gu, '').trim();
+    const before = new Set(['pre-a1', 'a1', 'a2']);
+    // A checkpoint's level is the level of what it checks: its unit's, or the
+    // level itself for a level checkpoint.
+    const unitLevel = new Map(allUnits().map((unit) => [unit.id, unit.level as string]));
+    const earlier = new Set(
+      [
+        ...availableLessons()
+          .filter((lesson) => before.has(lesson.level))
+          .flatMap((lesson) => lessonExercises(lesson)),
+        ...allCheckpoints()
+          .filter((checkpoint) => before.has(unitLevel.get(checkpoint.targetId) ?? checkpoint.targetId))
+          .flatMap((checkpoint) => checkpoint.exercises),
+      ]
+        .flatMap((exercise) => exercise.steps)
+        .flatMap((step) => [...step.answer.accepted, ...(step.answer.alternatives ?? [])])
+        .map(fold),
+    );
+    const found = steps
+      .filter(({ level }) => level === 'b1')
+      .flatMap(({ step }) =>
+        [...step.answer.accepted, ...(step.answer.alternatives ?? [])]
+          .filter((answer) => earlier.has(fold(answer)))
+          .map((answer) => `${step.id}: ${answer}`),
+      );
+    expect(found).toEqual([]);
   });
 
   it('marks the register where only one form of address is right', () => {

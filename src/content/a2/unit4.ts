@@ -133,8 +133,8 @@ const lesson1: Lesson = {
           t: 'callout',
           tone: 'tip',
           text: bi(
-            'The reflexive word stays right behind the verb, whatever else happens to the sentence — even when the verb splits (ruhe … aus) or the Perfekt sends a participle to the end.',
-            'Възвратната дума си стои веднага след глагола, каквото и да става с изречението — дори когато глаголът се дели (ruhe … aus) или перфектът праща причастие в края.',
+            'Look at the second one: it starts with Heute, so ich moves behind the verb, and mich follows ich — "Heute fühle ich mich besser". Otherwise the reflexive word comes right behind the verb, and it stays there when the verb splits (ruhe … aus) or the Perfekt sends a participle to the end.',
+            'Виж второто: започва с Heute, затова ich минава след глагола, а mich идва след ich — „Heute fühle ich mich besser“. Иначе възвратната дума е веднага след глагола и остава там, когато глаголът се дели (ruhe … aus) или перфектът праща причастие в края.',
           ),
         },
       ],
@@ -149,7 +149,10 @@ const lesson1: Lesson = {
           items: [
             bi('mich, dich, sich, uns, euch, sich.', 'mich, dich, sich, uns, euch, sich.'),
             bi('It is part of the verb, so learn sich fühlen as one word.', 'Част е от глагола, затова учи sich fühlen като едно цяло.'),
-            bi('It goes straight after the conjugated verb.', 'Идва веднага след спрегнатия глагол.'),
+            bi(
+              'It goes straight after the conjugated verb, or after ich when ich follows the verb: Heute fühle ich mich besser.',
+              'Идва веднага след спрегнатия глагол или след ich, когато ich е след глагола: Heute fühle ich mich besser.',
+            ),
             bi('Ich fühle mich gut — never Ich fühle gut.', 'Ich fühle mich gut — никога Ich fühle gut.'),
           ],
         },
@@ -288,8 +291,8 @@ const lesson1: Lesson = {
     {
       t: 'p',
       text: bi(
-        'The reflexive word is part of the verb and changes with the person. That is the whole rule, and the six forms are pronouns you already had.',
-        'Възвратната дума е част от глагола и се мени по лице. Това е цялото правило, а шестте форми са местоимения, които вече имаше.',
+        'The reflexive word is part of the verb and changes with the person. That is the whole rule, and four of the six forms — mich, dich, uns, euch — are also the German for "me", "you", "us" and "you all".',
+        'Възвратната дума е част от глагола и се мени по лице. Това е цялото правило, а четири от шестте форми — mich, dich, uns, euch — са и немските думи за „мен“, „теб“, „нас“ и „вас“.',
       ),
     },
   ],
@@ -608,8 +611,8 @@ const lesson3: Lesson = {
           t: 'callout',
           tone: 'tip',
           text: bi(
-            'Look at the third one: weil sends fühle to the end, and the reflexive word mich goes with it. "…, weil ich mich nicht gut fühle."',
-            'Виж третото: weil праща fühle в края, а възвратната дума mich върви с него. „…, weil ich mich nicht gut fühle.“',
+            'Look at the third one: weil sends fühle to the end, but the reflexive word mich does not go with it — it stays up front, right after ich. "…, weil ich mich nicht gut fühle."',
+            'Виж третото: weil праща fühle в края, но възвратната дума mich не отива с него — остава отпред, веднага след ich. „…, weil ich mich nicht gut fühle.“',
           ),
         },
       ],

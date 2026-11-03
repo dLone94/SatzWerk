@@ -1199,7 +1199,19 @@ export function categorizePair(
   if (!isNoun(lexicon, le) && !isNoun(lexicon, lg)) {
     const shared = sharedInflection(lexicon, le, lg);
     if (shared === 'verb') return ['verb-conjugation'];
-    if (shared === 'adjective') return ['adjective-ending'];
+    if (shared === 'adjective') {
+      // A participle takes adjective endings only in front of a noun, and
+      // "heiße" is a form of heiß as well as of heißen. Where the answer
+      // wants the verb itself ("Die Heizung funktioniert nicht", "Ich habe
+      // den Zug verpasst", "Ich heiße Anna"), the ending the learner changed
+      // is the verb's. On a participle without ge-, which is also the
+      // present tense, -te or -ten makes the simple past: "funktionierte" is
+      // a tense slip, not a wrong adjective ending.
+      if (!isVerbForm(lexicon, le)) return ['adjective-ending'];
+      const finite = (lexicon.inflections.get(le) ?? []).some((word) => word.startsWith('verb:'));
+      const past = finite && le.endsWith('t') && (lg === `${le}e` || lg === `${le}en`);
+      return past ? ['verb-tense'] : ['verb-conjugation'];
+    }
   }
 
   // Anything that is a grammatical choice is never downgraded to a typo.

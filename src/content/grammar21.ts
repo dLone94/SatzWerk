@@ -335,12 +335,12 @@ const partikelBlocks: Block[] = [
       ],
       [
         'eben',
-        bi('exactly — that is the point', 'точно така — това е въпросът'),
-        'Eben deshalb brauchen wir mehr Zeit.',
+        bi('matter-of-fact: that is simply how it is', 'констатира: просто така стоят нещата'),
+        'Das sehe ich eben anders.',
       ],
       [
         'halt',
-        bi('resigned: that is just how it is', 'примирено: просто така е'),
+        bi('the same, more resigned and more southern', 'същото, по-примирено и по-южняшко'),
         'Das dauert halt.',
       ],
     ],
@@ -350,8 +350,8 @@ const partikelBlocks: Block[] = [
     tone: 'tip',
     title: bi('Where they go', 'Къде застават'),
     text: bi(
-      'In the middle of the sentence, after the verb and the pronouns, before the new information. Never in first position, and never stressed.\n\n**Sagen Sie doch einfach, was Sie denken.** — Schauen Sie **mal** auf Seite drei.',
-      'В средата на изречението, след глагола и местоименията, преди новата информация. Никога на първо място и никога под ударение.\n\n**Sagen Sie doch einfach, was Sie denken.** — Schauen Sie **mal** auf Seite drei.',
+      'In the middle of the sentence, after the verb and the pronouns, before the new information. Never in first position, and never stressed.\n\n**Sagen Sie doch einfach, was Sie denken.** — Schauen Sie **mal** auf Seite drei.\n\nSo "Eben deshalb …", with eben first and stressed, is a different word: there eben means "precisely" — "precisely for that reason".',
+      'В средата на изречението, след глагола и местоименията, преди новата информация. Никога на първо място и никога под ударение.\n\n**Sagen Sie doch einfach, was Sie denken.** — Schauen Sie **mal** auf Seite drei.\n\nЗатова „Eben deshalb …“, с eben отпред и под ударение, е друга дума: там eben значи „точно“ — „точно затова“.',
     ),
   },
   {
@@ -376,10 +376,10 @@ const partikelBlocks: Block[] = [
   },
   {
     t: 'de',
-    de: 'Das ist ja nicht neu. Eben deshalb brauchen wir mehr Zeit.',
+    de: 'Das ist ja nicht neu. Deshalb brauchen wir eben mehr Zeit.',
     gloss: bi(
-      'That is hardly new. Which is exactly why we need more time.',
-      'Това не е нещо ново. Точно затова ни трябва повече време.',
+      'That is hardly new. So we simply need more time.',
+      'Това не е нещо ново. Затова просто ни трябва повече време.',
     ),
     audio: true,
   },

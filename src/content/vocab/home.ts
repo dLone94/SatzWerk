@@ -713,7 +713,7 @@ const ROUTINE: VocabEntry[] = [
     display: 'spät',
     wordType: 'adverb',
     translation: { en: 'late', bg: 'късно' },
-    pronunciation: { en: 'shpayt', bg: 'щпет' },
+    pronunciation: { en: 'shpayt', bg: 'шпет' },
     example: {
       de: 'Am Wochenende stehe ich spät auf.',
       gloss: { en: 'At the weekend I get up late.', bg: 'През уикенда ставам късно.' },

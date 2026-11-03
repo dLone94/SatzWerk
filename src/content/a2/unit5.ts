@@ -27,8 +27,10 @@ import type { Checkpoint, Exercise, Lesson, SentencePattern, Unit } from '../typ
  *
  * The adjective endings are kept as small as A1 kept the dative: definite
  * article only, nominative and accusative only, and the lesson says out loud
- * that this is one corner rather than the system. Five of the six forms are -e,
- * which makes the working rule short enough to hold under pressure.
+ * that this is one corner rather than the system. Five of the six singular
+ * forms are -e, which makes the working rule short enough to hold under
+ * pressure. The plural row is there because die is also the plural article,
+ * and a rule silent about it gave *die schnelle Züge.
  */
 
 /** The shorthands default to pre-a1; everything in this file is A2. */
@@ -236,6 +238,13 @@ const lesson1: Lesson = {
           {
             prompt: bi('The flight was cheaper than the train.', 'Полетът беше по-евтин от влака.'),
             answer: 'Der Flug war billiger als der Zug.',
+            /*
+             * Unit 1 teaches that the Perfekt of sein and haben is not wrong,
+             * only heavier, so every war and hatte sentence in this unit and
+             * its checkpoint credits it, with the simple past still shown.
+             * The als part may also follow gewesen.
+             */
+            alternatives: ['Der Flug ist billiger als der Zug gewesen.', 'Der Flug ist billiger gewesen als der Zug.'],
             reviewTargets: ['v-der-flug'],
             hints: [],
           },
@@ -284,6 +293,7 @@ const lesson1: Lesson = {
           {
             prompt: bi('The hotel was better.', 'Хотелът беше по-добър.'),
             answer: 'Das Hotel war besser.',
+            alternatives: ['Das Hotel ist besser gewesen.'],
             hints: [],
           },
         ]),
@@ -396,7 +406,10 @@ const lesson2: Lesson = {
             bi('Alone: am schnellsten.', 'Самостоятелно: am schnellsten.'),
             bi('Before a noun: der schnellste Zug.', 'Пред съществително: der schnellste Zug.'),
             bi('gut, besser, am besten.', 'gut, besser, am besten.'),
-            bi('After der/die/das the ending is -e.', 'След der/die/das окончанието е -e.'),
+            bi(
+              'After der/die/das the ending is -e, except den …en and the plural: die schnellen Züge.',
+              'След der/die/das окончанието е -e, освен den …en и множественото число: die schnellen Züge.',
+            ),
           ],
         },
       ],
@@ -442,6 +455,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('That was the best hotel.', 'Това беше най-добрият хотел.'),
             answer: 'Das war das beste Hotel.',
+            alternatives: ['Das ist das beste Hotel gewesen.'],
             hints: [],
           },
           {
@@ -453,6 +467,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('The train was on time.', 'Влакът беше навреме.'),
             answer: 'Der Zug war pünktlich.',
+            alternatives: ['Der Zug ist pünktlich gewesen.'],
             reviewTargets: ['v-puenktlich'],
             hints: [],
           },
@@ -521,6 +536,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('That was the best hotel.', 'Това беше най-добрият хотел.'),
             answer: 'Das war das beste Hotel.',
+            alternatives: ['Das ist das beste Hotel gewesen.'],
             hints: [],
           },
           {
@@ -536,8 +552,8 @@ const lesson2: Lesson = {
     {
       t: 'p',
       text: bi(
-        'Two shapes for the superlative, and one corner of the adjective endings: -e after der, die and das, except the masculine object.',
-        'Две форми за превъзходната степен и едно ъгълче от окончанията: -e след der, die и das, освен при мъжкото допълнение.',
+        'Two shapes for the superlative, and one corner of the adjective endings: -e after der, die and das, except the masculine object and the plural, which take -en.',
+        'Две форми за превъзходната степен и едно ъгълче от окончанията: -e след der, die и das, освен при мъжкото допълнение и множественото число, които взимат -en.',
       ),
     },
   ],
@@ -681,6 +697,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('I missed the train because the bus was delayed.', 'Изпуснах влака, защото автобусът закъсня.'),
             answer: 'Ich habe den Zug verpasst, weil der Bus Verspätung hatte.',
+            alternatives: ['Ich habe den Zug verpasst, weil der Bus Verspätung gehabt hat.'],
             hints: [],
           },
           {
@@ -814,6 +831,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('That was the best hotel.', 'Това беше най-добрият хотел.'),
           answer: 'Das war das beste Hotel.',
+          alternatives: ['Das ist das beste Hotel gewesen.'],
           hints: [],
         },
       ]),
@@ -833,6 +851,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I missed the train because the bus was delayed.', 'Изпуснах влака, защото автобусът закъсня.'),
           answer: 'Ich habe den Zug verpasst, weil der Bus Verspätung hatte.',
+          alternatives: ['Ich habe den Zug verpasst, weil der Bus Verspätung gehabt hat.'],
           hints: [],
         },
       ]),

@@ -227,6 +227,10 @@ const lesson1: Lesson = {
           {
             prompt: bi('I would like a coffee, please.', 'Бих искал едно кафе, моля.'),
             answer: 'Ich möchte einen Kaffee, bitte.',
+            // The other polite order, which the bakery conversation teaches
+            // at the same counter. gern and gerne are the same word, but the
+            // validator does not know that, so both are listed.
+            alternatives: ['Ich hätte gern einen Kaffee, bitte.', 'Ich hätte gerne einen Kaffee, bitte.'],
             reviewTargets: ['v-moechten', 'p-ich-moechte'],
             hints: [bi('Kaffee is masculine and it is the object.', 'Kaffee е мъжки род и е допълнение.')],
             traps: [
@@ -876,6 +880,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I would like a coffee, please.', 'Бих искал едно кафе, моля.'),
           answer: 'Ich möchte einen Kaffee, bitte.',
+          alternatives: ['Ich hätte gern einen Kaffee, bitte.', 'Ich hätte gerne einen Kaffee, bitte.'],
           hints: [],
         },
         {

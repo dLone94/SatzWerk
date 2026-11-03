@@ -899,7 +899,7 @@ const lesson3: Lesson = {
         {
           t: 'de',
           de: 'Das sehe ich eben anders.',
-          gloss: bi('That is exactly where I see it differently.', 'Точно тук го виждам различно.'),
+          gloss: bi('Well, I just see it differently.', 'Е, аз просто го виждам различно.'),
           audio: true,
         },
         {
@@ -952,9 +952,12 @@ const lesson3: Lesson = {
           hints: [],
         },
         {
-          prompt: bi('exactly — that is the point', 'точно така — това е въпросът'),
-          scaffold: '___ deshalb brauchen wir mehr Zeit.',
-          answer: 'Eben',
+          // A modal particle never comes first, so the drill does not put
+          // one there. halt says the same, more resigned, and is credited.
+          prompt: bi('matter-of-fact: that is simply how it is', 'констатира: просто така стоят нещата'),
+          scaffold: 'Das sehe ich ___ anders.',
+          answer: 'eben',
+          alternatives: ['halt'],
           shape: 'word',
           hints: [],
         },

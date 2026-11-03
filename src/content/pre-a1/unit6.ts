@@ -50,7 +50,7 @@ const lesson1: Lesson = {
   ),
   outcomes: [
     bi('I can use all nine pronouns.', 'Мога да използвам всичките девет местоимения.'),
-    bi('I can conjugate sein and haben without thinking.', 'Мога да спрягам sein и haben без да мисля.'),
+    bi('I can conjugate sein and haben without thinking.', 'Мога да спрягам sein и haben, без да мисля.'),
     bi('I can choose between du, ihr and Sie.', 'Мога да избирам между du, ihr и Sie.'),
     bi('I know that er, sie and es follow the article, not the meaning.', 'Знам, че er, sie и es следват члена, не значението.'),
   ],

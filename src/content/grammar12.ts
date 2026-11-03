@@ -55,8 +55,8 @@ const reflexiveBlocks: Block[] = [
       ['sie / Sie', 'sich', 'Sie fühlen sich gut.'],
     ],
     caption: bi(
-      'Only the third person and the formal Sie share a form — sich. The rest are the accusative pronouns you already know.',
-      'Само третото лице и учтивото Sie споделят форма — sich. Останалите са винителните местоимения, които вече знаеш.',
+      'Only the third person and the formal Sie share a form — sich. The other four, mich, dich, uns and euch, are new here, and they are worth learning well: they are also how German says "me", "you", "us" and "you all" as the object of a verb.',
+      'Само третото лице и учтивото Sie споделят форма — sich. Другите четири — mich, dich, uns и euch — са нови тук и си струва да ги научиш добре: със същите думи немският казва „мен“, „теб“, „нас“ и „вас“ като допълнение на глагол.',
     ),
   },
   {
@@ -66,7 +66,7 @@ const reflexiveBlocks: Block[] = [
     title: bi('', 'Знаеш идеята — внимавай с формата'),
     text: bi(
       '',
-      'Българското „се“ прави точно същото: „чувствам се“, „почивам си“, „настивам“. Значи не трябва да те убеждаваме, че думата е нужна — тя ти е съвсем естествена.\n\nРазликата е една и е важна: българското „се“ не се мени. Казваш „аз се чувствам“, „ти се чувстваш“, „той се чувства“ — „се“ си стои.\n\nНемското се мени по лице: mich, dich, sich, uns, euch, sich. „Ich fühle **sich** gut“ е грешката, която идва от навика да не се мени нищо. Правилното е „Ich fühle **mich** gut“.\n\nДобрата новина: това не са нови думи. Това са винителните местоимения от A1.',
+      'Българското „се“ прави точно същото: „чувствам се“, „почивам си“, „настивам“. Значи не трябва да те убеждаваме, че думата е нужна — тя ти е съвсем естествена.\n\nРазликата е една и е важна: българското „се“ не се мени. Казваш „аз се чувствам“, „ти се чувстваш“, „той се чувства“ — „се“ си стои.\n\nНемското се мени по лице: mich, dich, sich, uns, euch, sich. „Ich fühle **sich** gut“ е грешката, която идва от навика да не се мени нищо. Правилното е „Ich fühle **mich** gut“.\n\nДобрата новина: четирите нови думи — mich, dich, uns, euch — ще ти трябват и другаде, защото със същите немският казва „мен“, „теб“, „нас“ и „вас“.',
     ),
   },
   {
@@ -84,8 +84,8 @@ const reflexiveBlocks: Block[] = [
     tone: 'tip',
     title: bi('Where the word goes', 'Къде отива думата'),
     text: bi(
-      'Straight after the conjugated verb: "Ich fühle mich gut", "Ich ruhe mich aus", "Ich habe mich erkältet". Even when the verb splits or the Perfekt sends a participle to the end, the reflexive word stays in second place behind the verb.',
-      'Веднага след спрегнатия глагол: „Ich fühle mich gut“, „Ich ruhe mich aus“, „Ich habe mich erkältet“. Дори когато глаголът се дели или перфектът праща причастие в края, възвратната дума си остава веднага след глагола.',
+      'Straight after the conjugated verb: "Ich fühle mich gut", "Ich ruhe mich aus", "Ich habe mich erkältet". When the sentence starts with something else, a pronoun subject moves behind the verb and the reflexive word follows the pronoun: "Heute fühle ich mich besser." Either way it stays near the front: when the verb splits or the Perfekt sends a participle to the end, the reflexive word does not go with it.',
+      'Веднага след спрегнатия глагол: „Ich fühle mich gut“, „Ich ruhe mich aus“, „Ich habe mich erkältet“. Когато изречението започва с нещо друго, подлогът местоимение минава след глагола, а възвратната дума идва след него: „Heute fühle ich mich besser.“ И в двата случая тя стои отпред: когато глаголът се дели или перфектът праща причастие в края, възвратната дума не отива с тях.',
     ),
   },
 ];

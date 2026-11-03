@@ -689,12 +689,20 @@ const lesson3: Lesson = {
              * The Perfekt was a trap here, at no credit, although the lesson
              * before teaches "Ich bin in Berlin gewesen" as its model sentence
              * and the grammar says the Perfekt forms are not wrong. Credited,
-             * with war shown as the form this lesson is about.
+             * with war shown as the form this lesson is about — and the same
+             * goes for every war, hatte and es gab step below, in the final
+             * check and in both checkpoints, which had been left calling the
+             * Perfekt the wrong tense. "Am letzten Wochenende" is the other
+             * ordinary way to say "last weekend".
              */
             alternatives: [
               'Ich war letztes Wochenende in Berlin.',
               'Letztes Wochenende bin ich in Berlin gewesen.',
               'Ich bin letztes Wochenende in Berlin gewesen.',
+              'Am letzten Wochenende war ich in Berlin.',
+              'Ich war am letzten Wochenende in Berlin.',
+              'Am letzten Wochenende bin ich in Berlin gewesen.',
+              'Ich bin am letzten Wochenende in Berlin gewesen.',
             ],
             reviewTargets: ['p-war-hatte'],
             hints: [],
@@ -702,17 +710,20 @@ const lesson3: Lesson = {
           {
             prompt: bi('I had no time.', 'Нямах време.'),
             answer: 'Ich hatte keine Zeit.',
+            alternatives: ['Ich habe keine Zeit gehabt.'],
             hints: [],
           },
           {
             prompt: bi('There was a concert.', 'Имаше концерт.'),
             answer: 'Es gab ein Konzert.',
+            alternatives: ['Es hat ein Konzert gegeben.'],
             reviewTargets: ['v-das-konzert'],
             hints: [],
           },
           {
             prompt: bi('The film was boring.', 'Филмът беше скучен.'),
             answer: 'Der Film war langweilig.',
+            alternatives: ['Der Film ist langweilig gewesen.'],
             reviewTargets: ['v-langweilig', 'v-der-film'],
             hints: [],
           },
@@ -796,17 +807,27 @@ const lesson3: Lesson = {
           {
             prompt: bi('Last weekend I was at home.', 'Миналия уикенд бях вкъщи.'),
             answer: 'Letztes Wochenende war ich zu Hause.',
-            alternatives: ['Ich war letztes Wochenende zu Hause.'],
+            alternatives: [
+              'Ich war letztes Wochenende zu Hause.',
+              'Letztes Wochenende bin ich zu Hause gewesen.',
+              'Ich bin letztes Wochenende zu Hause gewesen.',
+              'Am letzten Wochenende war ich zu Hause.',
+              'Ich war am letzten Wochenende zu Hause.',
+              'Am letzten Wochenende bin ich zu Hause gewesen.',
+              'Ich bin am letzten Wochenende zu Hause gewesen.',
+            ],
             hints: [],
           },
           {
             prompt: bi('There was a party.', 'Имаше парти.'),
             answer: 'Es gab eine Party.',
+            alternatives: ['Es hat eine Party gegeben.'],
             hints: [],
           },
           {
             prompt: bi('It was great.', 'Беше супер.'),
             answer: 'Es war super.',
+            alternatives: ['Es ist super gewesen.'],
             hints: [],
           },
         ]),
@@ -888,17 +909,23 @@ const checkpoint: Checkpoint = {
             'Ich war letztes Wochenende in Berlin.',
             'Letztes Wochenende bin ich in Berlin gewesen.',
             'Ich bin letztes Wochenende in Berlin gewesen.',
+            'Am letzten Wochenende war ich in Berlin.',
+            'Ich war am letzten Wochenende in Berlin.',
+            'Am letzten Wochenende bin ich in Berlin gewesen.',
+            'Ich bin am letzten Wochenende in Berlin gewesen.',
           ],
           hints: [],
         },
         {
           prompt: bi('I had no time.', 'Нямах време.'),
           answer: 'Ich hatte keine Zeit.',
+          alternatives: ['Ich habe keine Zeit gehabt.'],
           hints: [],
         },
         {
           prompt: bi('There was a concert.', 'Имаше концерт.'),
           answer: 'Es gab ein Konzert.',
+          alternatives: ['Es hat ein Konzert gegeben.'],
           hints: [],
         },
       ]),

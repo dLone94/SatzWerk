@@ -286,7 +286,7 @@ const APPLYING: VocabEntry[] = [
     plural: 'die Anträge',
     wordType: 'noun',
     translation: { en: 'application', bg: 'заявление' },
-    pronunciation: { en: 'AN-trahk', bg: 'АН-траг' },
+    pronunciation: { en: 'AN-trahk', bg: 'АН-трак' },
     example: {
       de: 'Der Antrag muss bis Freitag eingereicht werden.',
       gloss: {
@@ -385,7 +385,7 @@ const APPLYING: VocabEntry[] = [
     plural: 'die Aufenthaltserlaubnisse',
     wordType: 'noun',
     translation: { en: 'residence permit', bg: 'разрешение за пребиваване' },
-    pronunciation: { en: 'OWF-ent-halts-er-lowp-nis', bg: 'АУФ-ент-халтс-ер-лаубнис' },
+    pronunciation: { en: 'OWF-ent-halts-er-lowp-nis', bg: 'АУФ-ент-халтс-ер-лаупнис' },
     example: {
       de: 'Die Aufenthaltserlaubnis wird für zwei Jahre erteilt.',
       gloss: {

@@ -749,6 +749,8 @@ const lesson2: Lesson = {
           {
             prompt: bi('The flat is on the third floor and there is no lift.', 'Апартаментът е на третия етаж и няма асансьор.'),
             answer: 'Die Wohnung ist im dritten Stock und es gibt keinen Aufzug.',
+            // Fahrstuhl is the other everyday word for the same lift.
+            alternatives: ['Die Wohnung ist im dritten Stock und es gibt keinen Fahrstuhl.'],
             reviewTargets: ['v-der-stock', 'v-der-aufzug'],
             hints: [],
           },
