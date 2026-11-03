@@ -105,7 +105,12 @@ export function compareUmlauts(given: string, expected: string): UmlautDiff {
   return sawDigraphSubstitution ? 'digraph-for-umlaut' : 'other';
 }
 
-/** Levenshtein distance with an early exit once `max` is exceeded. */
+/**
+ * Edit distance with an early exit once `max` is exceeded.
+ *
+ * Two neighbouring letters swapped ("Nahct" for "Nacht") count as one edit,
+ * not two: it is one slip of the fingers, as a letter missed or doubled is.
+ */
 export function editDistance(a: string, b: string, max = Infinity): number {
   if (a === b) return 0;
   if (Math.abs(a.length - b.length) > max) return max + 1;
@@ -114,6 +119,8 @@ export function editDistance(a: string, b: string, max = Infinity): number {
   if (m === 0) return n;
   if (n === 0) return m;
 
+  // Three rows: the swap reaches back two letters.
+  let before = new Array<number>(n + 1).fill(0);
   let prev = new Array<number>(n + 1);
   let curr = new Array<number>(n + 1);
   for (let j = 0; j <= n; j += 1) prev[j] = j;
@@ -124,12 +131,18 @@ export function editDistance(a: string, b: string, max = Infinity): number {
     for (let j = 1; j <= n; j += 1) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
       curr[j] = Math.min(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        curr[j] = Math.min(curr[j]!, before[j - 2]! + 1);
+      }
       if (curr[j]! < rowMin) rowMin = curr[j]!;
     }
+    // A swap from two rows back costs at least what the row in between
+    // does, so a row past `max` still means the distance is.
     if (rowMin > max) return max + 1;
-    const swap = prev;
+    const recycled = before;
+    before = prev;
     prev = curr;
-    curr = swap;
+    curr = recycled;
   }
   return prev[n]!;
 }

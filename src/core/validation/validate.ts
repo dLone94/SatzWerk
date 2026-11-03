@@ -1041,7 +1041,8 @@ export function categorizePair(
  * Typo tolerance, deliberately narrow.
  *
  * Short words are excluded because at that length almost every German function
- * word is one edit from another. Longer words get two edits.
+ * word is one edit from another. Longer words get two edits. Two neighbouring
+ * letters swapped ("Nahct") count as one edit, like a letter missed.
  */
 export function isTypo(expected: string, given: string): boolean {
   if (expected.length < 4) return false;

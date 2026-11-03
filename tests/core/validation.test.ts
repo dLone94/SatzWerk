@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnswerSpec } from '../../src/content/types.ts';
 import { createBaseLexicon, extendLexicon } from '../../src/core/validation/lexicon.ts';
 import { checkFreeWriting, validateAnswer } from '../../src/core/validation/validate.ts';
-import { compareUmlauts, splitScaffold } from '../../src/core/validation/text.ts';
+import { compareUmlauts, editDistance, splitScaffold } from '../../src/core/validation/text.ts';
 
 const lexicon = extendLexicon(createBaseLexicon(), [
   { german: 'Tochter', wordType: 'noun', gender: 'f', plural: 'die Töchter' },
@@ -735,3 +735,42 @@ describe('sie at the start of a sentence', () => {
   });
 });
 
+
+/*
+ * Two neighbouring letters swapped ("Nahct", "Dnake") are one slip of the
+ * fingers. Counted as two edits, the swap went over a short word's budget and
+ * was filed as a different word, while a wrong or a doubled letter in the
+ * same word was a spelling slip.
+ */
+describe('two neighbouring letters swapped', () => {
+  const swaps = extendLexicon(createBaseLexicon(), [
+    { german: 'Nacht', wordType: 'noun', gender: 'f' },
+    { german: 'Lied', wordType: 'noun', gender: 'n' },
+    { german: 'Leid', wordType: 'noun', gender: 'n' },
+  ]);
+
+  it('is a spelling slip in a short word', () => {
+    for (const [given, answer] of [
+      ['Gute Nahct', 'Gute Nacht'],
+      ['Dnake!', 'Danke!'],
+      ['Guten Mrogen!', 'Guten Morgen!'],
+    ] as const) {
+      const r = validateAnswer(given, sentence([answer]), { lexicon: swaps });
+      expect(r.verdict, given).toBe('almost');
+      expect(r.categories, given).toEqual(['spelling']);
+    }
+  });
+
+  it('counts as one edit', () => {
+    expect(editDistance('nahct', 'nacht')).toBe(1);
+    expect(editDistance('dnake', 'danke')).toBe(1);
+    // Two swaps, or letters carried further, are still more.
+    expect(editDistance('ahcnt', 'nacht')).toBeGreaterThan(1);
+    expect(editDistance('cab', 'abc')).toBe(2);
+  });
+
+  it('is still a different word when the swap spells one', () => {
+    const r = validateAnswer('das Leid', sentence(['das Lied']), { lexicon: swaps });
+    expect(r.categories).toEqual(['vocabulary']);
+  });
+});
