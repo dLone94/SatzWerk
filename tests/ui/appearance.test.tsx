@@ -81,15 +81,20 @@ describe('buttons that are drawn with an outline', () => {
   });
 });
 
-describe('the sidebar on a desktop', () => {
+describe('the navigation\u2019s backdrop filter', () => {
   /*
    * playful.css switches the navigation's backdrop filter off, but it wrote
    * the plain property and then the -webkit- one, and the minifier kept only
    * the prefixed copy, which Chromium ignores. The older saturate-and-blur
-   * filter stayed on, and in dark mode the sidebar showed a bluer rectangle
-   * behind its links.
+   * filter stayed on, and in dark mode the desktop sidebar showed a bluer
+   * rectangle behind its links.
+   *
+   * The same rule covers the phone's tab bar, which had kept studio.css's
+   * blur in Chromium (Safari already drew it without one). The bar is 96%
+   * opaque, so the blur was all but invisible there; it is off by design, as
+   * playful.css always meant.
    */
-  it.each(EVERY)('has no backdrop filter in the shipped CSS (%s)', (_, viewer) => {
+  it.each(EVERY)('is off in the shipped CSS, on the desktop sidebar and the phone tab bar (%s)', (_, viewer) => {
     const page = styledPage(viewer, SHELL);
     expect(page.value('.nav', 'backdrop-filter')).toBe('none');
   });

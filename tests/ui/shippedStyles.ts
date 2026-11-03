@@ -7,9 +7,9 @@ import { transform } from 'lightningcss';
  *
  * Three things stand between the CSS files and what a learner sees, and jsdom
  * does none of them. The build runs the three layers through Vite's own
- * minifier (lightningcss, which Vite depends on), and that minifier has
- * dropped a declaration before. The media queries decide which rules apply,
- * and jsdom ignores every rule inside one. And the colours are tokens, which
+ * minifier (lightningcss), and that minifier has dropped a declaration
+ * before. The media queries decide which rules apply, and jsdom ignores
+ * every rule inside one. And the colours are tokens, which
  * jsdom leaves as var(). So the files are minified here exactly as the build
  * does it, the media queries are settled for one viewport and colour scheme,
  * and values are read back with their tokens filled in.
@@ -23,9 +23,25 @@ import { transform } from 'lightningcss';
 /** In the order src/main.tsx imports them, which is the order they ship in. */
 const LAYERS = ['src/styles.css', 'src/studio.css', 'src/playful.css'];
 
-/** Vite's default build targets ("baseline widely available"), as Vite hands them to lightningcss. */
-const version = (major: number, minor = 0) => (major << 16) | (minor << 8);
-const TARGETS = { chrome: version(111), edge: version(111), firefox: version(114), safari: version(16, 4), ios_saf: version(16, 4) };
+/**
+ * The browsers the build writes its CSS for, in Vite's own terms: Vite's
+ * default ("baseline widely available"), which vite.config.ts leaves alone.
+ * Written down rather than read from Vite, because Vite only works it out
+ * asynchronously while loading its config. tests/ui/shippedStyles.test.ts
+ * holds this, the minifier and its copy of lightningcss against what Vite
+ * resolves, so a new Vite or a target set in the config fails there instead
+ * of leaving these tests checking CSS the build no longer ships.
+ */
+export const BUILD_CSS_TARGET = ['chrome111', 'edge111', 'firefox114', 'safari16.4', 'ios16.4'];
+
+/** The same list as lightningcss takes it, converted the way Vite converts it. */
+const BROWSERS: Record<string, string> = { chrome: 'chrome', edge: 'edge', firefox: 'firefox', safari: 'safari', ios: 'ios_saf', opera: 'opera' };
+const TARGETS = Object.fromEntries(
+  BUILD_CSS_TARGET.map((entry) => {
+    const [, browser, major, minor = '0'] = entry.match(/^([a-z]+)(\d+)(?:\.(\d+))?$/)!;
+    return [BROWSERS[browser!]!, (Number(major) << 16) | (Number(minor) << 8)];
+  }),
+);
 
 let shipped: string | undefined;
 

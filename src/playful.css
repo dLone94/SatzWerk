@@ -27,7 +27,9 @@ html { scroll-padding-top: calc(var(--topbar-height) + 8px); }
 .lang-toggle__btn.is-active { background: var(--accent); color: var(--on-accent); }
 /* The unprefixed property only: the build adds the -webkit- copy itself, and
    given both in this order it kept only that copy, which Chromium ignores, so
-   the old saturate filter tinted the dark sidebar blue. */
+   the old saturate filter tinted the dark sidebar blue. Off at every width:
+   the phone's tab bar loses studio.css's blur too, which its near-opaque
+   background barely showed. */
 .nav { backdrop-filter: none; }
 .nav__item { border-radius: 14px; min-height: 47px; }
 .nav__item.is-active { background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
