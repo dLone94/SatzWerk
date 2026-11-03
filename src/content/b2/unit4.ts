@@ -641,11 +641,11 @@ const lesson3: Lesson = {
   estimatedMinutes: 30,
   title: bi('I would be grateful if you would', 'Бих Ви бил благодарен, ако'),
   objective: bi(
-    'After this lesson you can ask for something in writing the way German asks: as a statement about yourself, at a polite distance, with a consequence attached.',
-    'След този урок можеш да поискаш нещо в писмен вид така, както го прави немският: като твърдение за себе си, от учтива дистанция и с посочена последица.',
+    'After this lesson you can ask for something firmly in writing with the frames German letters use: a statement about yourself, at a polite distance, with a consequence attached.',
+    'След този урок можеш настоятелно да поискаш нещо в писмен вид с рамките, които използват немските писма: твърдение за себе си, от учтива дистанция и с посочена последица.',
   ),
   outcomes: [
-    bi('I use Ich bitte um … instead of asking a question.', 'Използвам Ich bitte um … вместо въпрос.'),
+    bi('I can ask with Ich bitte um …, not only with a polite question.', 'Мога да помоля с Ich bitte um …, а не само с учтив въпрос.'),
     bi('I can raise the pressure without raising the voice.', 'Мога да повиша натиска, без да повишавам тон.'),
     bi('I can point out an error politely.', 'Мога да посоча грешка учтиво.'),
     bi('I can state a consequence with Sollte …', 'Мога да посоча последица със Sollte …'),

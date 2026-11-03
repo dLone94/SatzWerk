@@ -3,6 +3,7 @@ import {
   LEXICON,
   allCheckpoints,
   availableLessons,
+  grammarById,
   lessonById,
   lessonExercises,
   sectionBlocks,
@@ -53,7 +54,10 @@ function blockText(block: Block, lang: TeachingLanguage): string[] {
   }
 }
 
-/** Everything one lesson shows on one path: sections, shared grammar and the closing summary. */
+/**
+ * Everything one lesson shows on one path: its objective and outcomes, the
+ * sections with the shared grammar they pull in, and the closing summary.
+ */
 function lessonText(id: string, lang: TeachingLanguage): string {
   const lesson = lessonById(id) as Lesson | undefined;
   if (!lesson) throw new Error(`no lesson ${id}`);
@@ -61,7 +65,11 @@ function lessonText(id: string, lang: TeachingLanguage): string {
     ...lesson.sections.filter((section) => shown(section, lang)).flatMap((section) => sectionBlocks(section, lang)),
     ...(lesson.summary ?? []),
   ];
-  return blocks.flatMap((block) => blockText(block, lang)).join('\n');
+  return [
+    lesson.objective[lang],
+    ...lesson.outcomes.map((outcome) => outcome[lang]),
+    ...blocks.flatMap((block) => blockText(block, lang)),
+  ].join('\n');
 }
 
 const STEPS = new Map<string, ExerciseStep>();
@@ -183,5 +191,27 @@ describe('where the reflexive word goes, and where it comes from', () => {
       expect(lessonText('a2-u4-l3', lang), lang).not.toMatch(/mich goes with it|mich върви с него/);
     }
     expect(isRight('Heute fühle mich ich besser.', 'a2u4l1-ex2-s2')).toBe(false);
+  });
+});
+
+describe('a German letter may ask a question', () => {
+  /*
+   * docs/TEACHING_REVIEW.md records the claim that German does not use
+   * questions for polite requests as corrected, but only the B2 lesson's
+   * intro was changed. The shared concept it shows two screens later still
+   * said "It does not ask questions, and it never says what it wants", the
+   * English callout said question requests "come out either odd or weak",
+   * and the summary and an outcome said "statements, not questions".
+   */
+  it('says so everywhere the formal-letter lesson shows it, on both paths', () => {
+    for (const lang of PATHS) {
+      const text = lessonText('b2-u4-l3', lang);
+      expect(text, lang).toContain('Könnten Sie mir bitte');
+      expect(text, lang).not.toMatch(
+        /does not ask questions|never says what it wants|odd or weak|not questions|instead of asking a question|не задава въпроси|не пита|а не въпроси|вместо въпрос/,
+      );
+    }
+    const concept = grammarById('g-schriftliche-hoeflichkeit')!;
+    for (const lang of PATHS) expect(concept.summary[lang], lang).not.toMatch(/not questions|а не въпроси/);
   });
 });
