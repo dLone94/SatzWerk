@@ -173,8 +173,8 @@ const PLACES: VocabEntry[] = [
     difficulty: 4,
     related: ['v-stehen', 'v-liegen'],
     notes: {
-      en: 'The one verb that is both halves of the pair: hängen means both "to hang" and "to hang something up". The case after the preposition is what tells them apart.',
-      bg: 'Единственият глагол, който е и двете половини на двойката: hängen значи и „вися“, и „закачам нещо“. Падежът след предлога е това, което ги различава.',
+      en: 'The one verb that is both halves of the pair: hängen means both "to hang" and "to hang something up". The case after the preposition is what tells them apart, and so does the past. Hanging is irregular — hing, hat gehangen: Das Bild hat an der Wand gehangen. Hanging something up is regular — hängte, hat gehängt: Ich habe das Bild an die Wand gehängt.',
+      bg: 'Единственият глагол, който е и двете половини на двойката: hängen значи и „вися“, и „закачам нещо“. Падежът след предлога е това, което ги различава — и миналото също. „Вися“ е неправилен глагол — hing, hat gehangen: Das Bild hat an der Wand gehangen. „Закачам“ е правилен — hängte, hat gehängt: Ich habe das Bild an die Wand gehängt.',
     },
   },
   {

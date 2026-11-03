@@ -7,6 +7,7 @@ import {
   lessonById,
   lessonExercises,
   sectionBlocks,
+  vocabById,
 } from '../../src/content/index.ts';
 import type { Block, ExerciseStep, Lesson, TeachingLanguage } from '../../src/content/types.ts';
 import { validateAnswer } from '../../src/core/validation/validate.ts';
@@ -253,5 +254,19 @@ describe('small claims about single words', () => {
     const drill = STEPS.get('b2u2l3-ex1-s4')!;
     expect(drill.scaffold).not.toMatch(/^___/);
     expect(isRight('eben', 'b2u2l3-ex1-s4')).toBe(true);
+  });
+});
+
+describe('the word page for hängen', () => {
+  it('gives the Perfekt of both meanings it says the verb has', () => {
+    // The page showed only "hat gehangen" next to a note saying hängen also
+    // means "to hang something up", whose Perfekt is gehängt: a learner
+    // would copy *Ich habe das Bild an die Wand gehangen.
+    const entry = vocabById('v-haengen')!;
+    expect(entry.perfect?.participle).toBe('gehangen');
+    for (const lang of PATHS) {
+      expect(entry.notes?.[lang], lang).toContain('hat gehängt');
+      expect(entry.notes?.[lang], lang).toContain('hat gehangen');
+    }
   });
 });
