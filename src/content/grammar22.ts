@@ -181,8 +181,8 @@ const statistikBlocks: Block[] = [
     tone: 'tip',
     title: bi('The counting phrases', 'Изразите за броене'),
     text: bi(
-      '**die Zahl der** + genitive plural: *die Zahl der Anträge*. **jeder dritte**: *jeder dritte Haushalt* — one in three households. **doppelt so viele wie**: twice as many as.\n\nAll three take the singular verb they look like they should not: *Die Zahl der Anträge **ist** gesunken.*',
-      '**die Zahl der** + родителен падеж, мн. ч.: *die Zahl der Anträge*. **jeder dritte**: *jeder dritte Haushalt* — всяко трето домакинство. **doppelt so viele wie**: двойно повече от.\n\nИ трите искат глагол в единствено число, макар да изглежда обратното: *Die Zahl der Anträge **ist** gesunken.*',
+      '**die Zahl der** + genitive plural: *die Zahl der Anträge*. **jeder dritte**: *jeder dritte Haushalt* — one in three households. **doppelt so viele wie**: twice as many as.\n\nThe first two take a singular verb, although they are about many: *Die Zahl der Anträge **ist** gesunken.* *Jeder dritte Haushalt **hat** ein Auto.* doppelt so viele is plural, as it looks: *Doppelt so viele Menschen wie 2020 **arbeiten** im Homeoffice.*',
+      '**die Zahl der** + родителен падеж, мн. ч.: *die Zahl der Anträge*. **jeder dritte**: *jeder dritte Haushalt* — всяко трето домакинство. **doppelt so viele wie**: двойно повече от.\n\nПървите два искат глагол в единствено число, макар да говорят за много: *Die Zahl der Anträge **ist** gesunken.* *Jeder dritte Haushalt **hat** ein Auto.* doppelt so viele е в множествено число, както и изглежда: *Doppelt so viele Menschen wie 2020 **arbeiten** im Homeoffice.*',
     ),
   },
   {

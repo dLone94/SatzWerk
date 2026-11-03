@@ -215,3 +215,43 @@ describe('a German letter may ask a question', () => {
     for (const lang of PATHS) expect(concept.summary[lang], lang).not.toMatch(/not questions|а не въпроси/);
   });
 });
+
+describe('small claims about single words', () => {
+  it('does not give doppelt so viele a singular verb', () => {
+    // "All three take the singular verb": true of die Zahl der and jeder
+    // dritte, wrong for doppelt so viele, which is plural and takes a plural
+    // verb.
+    for (const lang of PATHS) {
+      const text = lessonText('b2-u3-l2', lang);
+      expect(text, lang).not.toMatch(/All three take the singular|И трите искат глагол в единствено/);
+      expect(text, lang).toMatch(/Doppelt so viele Menschen [^.]*arbeiten/);
+    }
+  });
+
+  it('shows the genitive after innerhalb, and says when von takes over', () => {
+    // "innerhalb von zwei Wochen", in bold beside "während der" and "wegen
+    // des", was the example of a preposition that takes the genitive.
+    for (const lang of PATHS) {
+      const text = lessonText('b1-u4-l1', lang);
+      expect(text, lang).not.toContain('**innerhalb von**');
+      expect(text, lang).toContain('**innerhalb eines** Monats');
+      expect(text, lang).toContain('innerhalb von zwei Wochen');
+    }
+  });
+
+  it('teaches eben as the modal particle, where the particle rule puts it', () => {
+    // The table glossed eben as "exactly — that is the point" with "Eben
+    // deshalb …", eben first and stressed, right above "never in first
+    // position, never stressed"; the drill asked for it in first position,
+    // and "Das sehe ich eben anders." was glossed "That is exactly where I
+    // see it differently".
+    for (const lang of PATHS) {
+      const text = lessonText('b2-u2-l3', lang);
+      expect(text, lang).not.toMatch(/exactly — that is the point|точно така — това е въпросът|exactly where I see it|Точно тук го виждам/);
+      expect(text, lang).not.toMatch(/^Eben deshalb/m);
+    }
+    const drill = STEPS.get('b2u2l3-ex1-s4')!;
+    expect(drill.scaffold).not.toMatch(/^___/);
+    expect(isRight('eben', 'b2u2l3-ex1-s4')).toBe(true);
+  });
+});
