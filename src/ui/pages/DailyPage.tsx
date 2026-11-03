@@ -51,10 +51,11 @@ function DailyPractice() {
    * A goal or level chosen since that round began is a new plan. Choosing one
    * used to change nothing: the card went on showing the open round, offered
    * only to continue it, and estimated the time of the new plan instead. The
-   * new plan now comes first, and the open round stays one tap away.
+   * new plan now comes first, and the open round stays one tap away, unless
+   * the new plan is the very conversation already under way.
    */
   const keepsPlan = (round: DailyRunInput) => round.goal === goal && scriptById(round.scriptId)!.level === level;
-  const replanned = Boolean(open && !keepsPlan(open));
+  const replanned = Boolean(open && !keepsPlan(open) && open.scriptId !== script.id);
   // The script on screen: the round being played, or the one the plan offers.
   const currentScript = openScript && !((!run || paused) && replanned) ? openScript : script;
   // What the plan offers once this round is finished. A beginner has a single

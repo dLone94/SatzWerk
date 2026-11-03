@@ -229,6 +229,14 @@ describe('a new goal or level while a round is open', () => {
     expect(await screen.findByText(tr('dailyPhraseCount', 'en', { n: 2, total: 3 }))).toBeInTheDocument();
   });
 
+  it('just continues when the new goal brings the same conversation', () => {
+    // Pre-A1 has one conversation for every goal: starting it over would only lose the parts done.
+    render(<AppStateContext.Provider value={stubState({ profile: { ...profile, learningGoal: 'work', practiceLevel: 'pre-a1' }, dailyRuns: [saved] })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByRole('button', { name: tr('dailyResume', 'en') })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: tr('dailyResumeEarlier', 'en', { plan: 'Everyday life · PRE-A1' }) })).not.toBeInTheDocument();
+  });
+
   it('estimates the round the card shows, not the one a fresh plan would pick', async () => {
     const answers = (script: ScenarioScript) => scriptAnswerCount(script, 'en') + phraseRecall(script, 'en').length + dailyListening(script, 'en').length;
     const fresh = chooseDailyScript('everyday', 'a1', [], todayHere());
