@@ -64,6 +64,13 @@ export interface ValidationResult {
   target: string;
   /** Which accepted answer we compared against (best match). */
   matched?: string;
+  /**
+   * The form the lesson practises, when a wrong answer was compared with an
+   * authored alternative the learner nearly wrote instead, which is then the
+   * target: "Ich möchte einen Kafee." against "Ich möchte einen Kaffee.",
+   * where the lesson practises "Ich hätte gern einen Kaffee.".
+   */
+  taught?: string;
   /** Mistakes that cost credit. */
   categories: ErrorCategory[];
   /** Observations on an otherwise accepted answer. */
@@ -180,25 +187,18 @@ const VERDICT_RANK: Record<Verdict, number> = {
   empty: 0,
 };
 
-function better(a: ValidationResult, b: ValidationResult): ValidationResult {
-  if (VERDICT_RANK[a.verdict] !== VERDICT_RANK[b.verdict]) {
-    return VERDICT_RANK[a.verdict] > VERDICT_RANK[b.verdict] ? a : b;
-  }
-  if (a.credit !== b.credit) return a.credit > b.credit ? a : b;
-  return a.categories.length <= b.categories.length ? a : b;
-}
-
 /** How many of the answer's words the learner wrote in their place, as written or in another case. */
 function wordsInCommon(result: ValidationResult, status: 'same' | 'case'): number {
   return result.diff.filter((entry) => entry.status === status).length;
 }
 
 /**
- * Does a reading against an authored alternative beat the one against the
- * taught form? Only when it makes the answer more right, or when the learner
- * plainly wrote the alternative: "Guten Tag noch!" is "Schönen Tag noch!"
- * with one word changed, not "Auf Wiedersehen!" with three. A tie goes to the
- * taught form, so that "xyz" is not explained against "Hallo!".
+ * Does a reading against another accepted form or an authored alternative
+ * beat the one against the taught form? Only when it makes the answer more
+ * right, or when the learner plainly wrote that form: "Guten Tag noch!" is
+ * "Schönen Tag noch!" with one word changed, not "Auf Wiedersehen!" with
+ * three. A tie goes to the taught form, so that "xyz" is not explained
+ * against "Hallo!".
  */
 function closer(candidate: ValidationResult, current: ValidationResult): boolean {
   if (VERDICT_RANK[candidate.verdict] !== VERDICT_RANK[current.verdict]) {
@@ -289,7 +289,7 @@ export function validateAnswer(
   let best: ValidationResult | null = null;
   for (const accepted of spec.accepted) {
     const result = compareAgainst(raw, accepted, spec, options, false);
-    best = best ? better(best, result) : result;
+    if (!best || closer(result, best)) best = result;
   }
   for (const alt of spec.alternatives ?? []) {
     const result = compareAgainst(raw, alt, spec, options, true);
@@ -318,8 +318,10 @@ export function validateAnswer(
 
   // A right answer is steered to the taught form, even an accepted variant.
   // A wrong one keeps the answer it was compared with, so that the expected
-  // line, the explanation under it and the retype all name the same German.
-  return right ? { ...result, target } : result;
+  // line, the explanation under it and the retype all name the same German;
+  // when that is an alternative, the taught form is named beside it.
+  if (right) return { ...result, target };
+  return spec.accepted.includes(result.target) ? result : { ...result, taught: target };
 }
 
 /**

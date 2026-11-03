@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { LEXICON, SCENARIO_SCRIPTS, SENTENCE_PATTERNS } from '../../src/content/index.ts';
+import { LEXICON, SCENARIO_SCRIPTS, SENTENCE_PATTERNS, describeNoun } from '../../src/content/index.ts';
 import { dailyPatternId } from '../../src/content/dailyPatterns.ts';
+import { buildFeedback } from '../../src/core/feedback/explain.ts';
 import { createReviewItem } from '../../src/core/srs/scheduler.ts';
 import { validateAnswer } from '../../src/core/validation/validate.ts';
 import { phraseRecall } from '../../src/ui/dailyBuilder.ts';
@@ -73,5 +74,16 @@ describe('the transfer step of a phrase frame', () => {
       expect(r.categories, scriptId).toEqual([]);
       expect(r.target, scriptId).toBe(practised);
     }
+  });
+
+  // A slip in the other frame is explained against that frame, and the drill
+  // still names the one it practises.
+  it('names the practised frame under a slip in the other one', () => {
+    const step = transfer('sc-pharmacy-a1');
+    const r = validateAnswer('Ich möchte einen Kafee.', step.answer, { lexicon: LEXICON });
+    expect(r.verdict).toBe('almost');
+    expect(r.target).toBe('Ich möchte einen Kaffee.');
+    const lines = buildFeedback(r, { lexicon: LEXICON, describeNoun }).lines.map((line) => line.en);
+    expect(lines).toContain('The form this lesson practises is "Ich hätte gern einen Kaffee.".');
   });
 });

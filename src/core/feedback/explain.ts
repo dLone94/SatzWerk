@@ -502,6 +502,10 @@ function misheardLine(result: ValidationResult, chosen: string): Bilingual {
   );
 }
 
+function practisedLine(form: string): Bilingual {
+  return bi(`The form this lesson practises is "${form}".`, `Формата, която този урок упражнява, е „${form}“.`);
+}
+
 /** Build the feedback the learner sees after submitting an answer. */
 export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): FeedbackMessage {
   if (result.script === 'cyrillic') {
@@ -548,12 +552,7 @@ export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): F
     return {
       tone: 'note',
       headline: bi('Correct — that is good German too.', 'Вярно — това също е добър немски.'),
-      lines: [
-        bi(
-          `The form this lesson practises is "${result.target}".`,
-          `Формата, която този урок упражнява, е „${result.target}“.`,
-        ),
-      ],
+      lines: [practisedLine(result.target)],
       correction: result.target,
       askRetype: false,
     };
@@ -603,6 +602,9 @@ export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): F
       bi(`Standard spelling: ${result.target}`, `Стандартен правопис: ${result.target}`),
     );
   }
+  // Explained against an alternative the learner nearly wrote, the answer
+  // would otherwise never name the form the lesson is there to practise.
+  if (result.taught) lines.push(practisedLine(result.taught));
 
   return {
     tone,

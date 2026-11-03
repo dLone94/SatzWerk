@@ -993,6 +993,14 @@ describe('the answer a wrong attempt is compared with', () => {
   it('is shown as the answer when it is the second taught form', () => {
     const r = validateAnswer('Mein Name sind Anna.', sentence(['Ich heiße Anna.', 'Mein Name ist Anna.']), opts);
     expect(r.target).toBe('Mein Name ist Anna.');
+    expect(r.taught).toBeUndefined();
+    // A tie goes to the first taught form here too.
+    expect(validateAnswer('xyz', sentence(['Guten Tag!', 'Hallo!']), opts).target).toBe('Guten Tag!');
+  });
+
+  it('names the taught form beside an alternative', () => {
+    expect(validateAnswer('Halo!', greeting, opts).taught).toBe('Guten Morgen!');
+    expect(validateAnswer('xyz', greeting, opts).taught).toBeUndefined();
   });
 
   it('still steers a right alternative to the taught form', () => {

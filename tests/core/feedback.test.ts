@@ -266,12 +266,26 @@ describe('the explanation and the expected answer agree', () => {
     ] as const) {
       const { feedback, en } = explain(given, spec(answer, { alternatives: [...alternatives] }));
       const shown = feedback.correction.toLowerCase();
-      for (const word of quoted(en)) {
+      // The line naming the taught form beside an alternative is the one
+      // that quotes something else, and says so.
+      const explaining = en.filter((line) => !line.startsWith('The form this lesson practises'));
+      for (const word of quoted(explaining)) {
         // A word the learner typed may be quoted back too.
         if (given.toLowerCase().includes(word.toLowerCase())) continue;
         expect(shown, `${given}: "${word}"`).toContain(word.toLowerCase());
       }
     }
+  });
+
+  // "Halo!" is explained against "Hallo!", which the panel shows; the
+  // greeting the lesson practises is named after it.
+  it('names the taught form when an alternative is the answer shown', () => {
+    const { feedback, en, bg } = explain('Halo!', spec('Guten Morgen!', { alternatives: ['Guten Tag!', 'Hallo!'] }));
+    expect(feedback.correction).toBe('Hallo!');
+    expect(en.at(-1)).toBe('The form this lesson practises is "Guten Morgen!".');
+    expect(bg.at(-1)).toBe('Формата, която този урок упражнява, е „Guten Morgen!“.');
+    // Against the taught form itself there is nothing more to name.
+    expect(explain('xyz', spec('Guten Morgen!', { alternatives: ['Hallo!'] })).en.join(' ')).not.toContain('practises');
   });
 
   // Across the course, whatever a wrong answer is compared with is what the
