@@ -7,7 +7,7 @@ sections, answering authored exercises, retyping corrections, passing mastery
 checks, and revisiting words and grammar through spaced repetition. English
 and Bulgarian are separate teaching paths. Progress belongs to a household
 learner and lives in SQLite locally or PostgreSQL when hosted. The curriculum
-currently includes 84 lessons across Pre-A1–B2, 654 vocabulary entries, and
+currently includes 84 lessons across Pre-A1–B2, 655 vocabulary entries, and
 13 playable real-life conversations.
 
 The strongest parts are the correction loop, the authored curriculum, durable

@@ -78,8 +78,8 @@ const partizipBlocks: Block[] = [
     tone: 'tip',
     title: bi('Two participles, two meanings', 'Две причастия, две значения'),
     text: bi(
-      '**Partizip II** is passive — the noun has it done to it: *die geplante Reform* (the reform that is planned).\n\n**Partizip I** is active — the noun does it: *die steigenden Mieten* (the rising rents). Partizip I is the infinitive plus -d, plus the adjective ending: steigen → steigend → steigende.',
-      '**Partizip II** е страдателно — нещо се прави на съществителното: *die geplante Reform* (реформата, която се планира).\n\n**Partizip I** е деятелно — съществителното само върши действието: *die steigenden Mieten* (покачващите се наеми). Partizip I е инфинитив плюс -d, плюс окончанието за прилагателно: steigen → steigend → steigende.',
+      '**Partizip II** is passive — the noun has it done to it: *die geplante Reform* (the reform that is planned).\n\n**Partizip I** is active — the noun does it: *die steigenden Mieten* (the rising rents). Partizip I is the infinitive plus -d, plus the adjective ending, which follows the same rules as any adjective: steigen → steigend → die steigenden Mieten (plural after die: -en), eine steigende Miete.',
+      '**Partizip II** е страдателно — нещо се прави на съществителното: *die geplante Reform* (реформата, която се планира).\n\n**Partizip I** е деятелно — съществителното само върши действието: *die steigenden Mieten* (покачващите се наеми). Partizip I е инфинитив плюс -d, плюс окончанието за прилагателно, което следва същите правила като при всяко прилагателно: steigen → steigend → die steigenden Mieten (мн. число след die: -en), eine steigende Miete.',
     ),
   },
   {

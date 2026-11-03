@@ -105,3 +105,56 @@ describe('dass can be left out', () => {
     expect(isRight('Ich glaube, dass Deutsch ist schwer.', 'a2u3l1-ex2-s1')).toBe(false);
   });
 });
+
+describe('adjective endings, the plural included', () => {
+  /*
+   * A2 said "after der/die/das, write -e", which gives *die schnelle Züge,
+   * and promised the rest for B1. B1 then said "everywhere else the ending is
+   * the one you already learnt", so no lesson ever taught the plural or the
+   * dative. B2 derived "steigen → steigend → steigende" beside "die
+   * steigenden Mieten", and a wrong ending on a participle was graded as a
+   * spelling slip, with credit, because the validator did not know that a
+   * participle takes adjective endings.
+   */
+  it('gives the plural its -en at A2', () => {
+    for (const lang of PATHS) {
+      const text = lessonText('a2-u5-l2', lang);
+      expect(text, lang).toContain('die schnellen Züge');
+      expect(text, lang).not.toContain('after der/die/das, write -e.');
+      expect(text, lang).not.toContain('After der/die/das the ending is -e.');
+      expect(text, lang).not.toContain('след der/die/das пиши -e.');
+      expect(text, lang).not.toContain('След der/die/das окончанието е -e.');
+    }
+  });
+
+  it('teaches the dative and the plural at B1, as A2 promised', () => {
+    for (const lang of PATHS) {
+      const text = lessonText('b1-u1-l2', lang);
+      expect(text, lang).toContain('mit dem hellen Raum');
+      expect(text, lang).toContain('die hellen Zimmer');
+    }
+  });
+
+  it('derives the B2 participle with the ending the plural needs', () => {
+    for (const lang of PATHS) {
+      const text = lessonText('b2-u3-l1', lang);
+      expect(text, lang).not.toContain('steigend → steigende.');
+      expect(text, lang).toContain('steigend → die steigenden Mieten');
+    }
+  });
+
+  it('grades a wrong ending on a participle as an ending, without credit', () => {
+    const cases: Array<[string, string]> = [
+      ['cp-b2u3-1-s2', 'steigende'],
+      ['b2u3l1-ex1-s3', 'steigende'],
+      ['cp-b2u3-1-s1', 'geplanten'],
+      ['b2u3l1-ex1-s2', 'geplante'],
+      ['cp-b2u3-1-s3', 'veröffentlichten'],
+    ];
+    for (const [id, given] of cases) {
+      const result = validateAnswer(given, STEPS.get(id)!.answer, opts);
+      expect(result.categories, `${id}: ${given}`).toEqual(['adjective-ending']);
+      expect(result.credit, `${id}: ${given}`).toBe(0);
+    }
+  });
+});

@@ -172,18 +172,19 @@ const adjEndingBlocks: Block[] = [
       [bi('masculine', 'мъжки'), 'der schnelle Zug', 'den schnellen Zug'],
       [bi('feminine', 'женски'), 'die schöne Stadt', 'die schöne Stadt'],
       [bi('neuter', 'среден'), 'das gute Hotel', 'das gute Hotel'],
+      [bi('plural', 'мн. число'), 'die schnellen Züge', 'die schnellen Züge'],
     ],
     caption: bi(
-      'Five of the six are -e. Only the masculine object is different, and it takes -en — the same place der became den in A1.',
-      'Пет от шестте са -e. Само мъжкото допълнение е различно и взима -en — същото място, където der стана den в A1.',
+      'In the singular, five of the six are -e. Only the masculine object is different, and it takes -en — the same place der became den in A1. The plural is -en in both columns.',
+      'В единствено число пет от шестте са -e. Само мъжкото допълнение е различно и взима -en — същото място, където der стана den в A1. В множествено число е -en и в двете колони.',
     ),
   },
   {
     t: 'callout',
     tone: 'tip',
     text: bi(
-      'A working rule for now: after der/die/das, write -e. The exception is the masculine accusative, where it is -en — and that is the one corner of German where masculine has always behaved differently.',
-      'Работещо правило засега: след der/die/das пиши -e. Изключението е мъжкият винителен падеж, където е -en — и точно там мъжкият род винаги се е държал различно.',
+      'A working rule for now: after der/die/das in the singular, write -e. The exceptions are the masculine accusative, where it is -en — the one corner of German where masculine has always behaved differently — and the plural, where it is always -en: die schnellen Züge.',
+      'Работещо правило засега: след der/die/das в единствено число пиши -e. Изключенията са мъжкият винителен падеж, където е -en — точно там мъжкият род винаги се е държал различно — и множественото число, където винаги е -en: die schnellen Züge.',
     ),
   },
   {
@@ -234,8 +235,8 @@ export const GRAMMAR_CONCEPTS_13: GrammarConcept[] = [
     title: bi('The first adjective endings', 'Първите окончания на прилагателните'),
     level: 'a2',
     summary: bi(
-      'After der, die or das: -e everywhere except the masculine object, which takes -en.',
-      'След der, die или das: -e навсякъде освен при мъжкото допълнение, което взима -en.',
+      'After der, die or das: -e in the singular except the masculine object, which takes -en, as the whole plural does.',
+      'След der, die или das: -e в единствено число освен при мъжкото допълнение, което взима -en, както и цялото множествено число.',
     ),
     tags: ['adjective-ending', 'case'],
     blocks: adjEndingBlocks,
