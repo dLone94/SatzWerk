@@ -10,6 +10,7 @@ import {
   lessonsInOrder,
   patternById,
   practiceForCategory,
+  scriptById,
   unitById,
   unitForLesson,
   vocabById,
@@ -27,7 +28,7 @@ import {
   type Unit,
   type VocabEntry,
 } from '../content/types.ts';
-import type { DailyRun } from '../core/progress/daily.ts';
+import type { DailyRun, DailyRunInput, LearningGoal } from '../core/progress/daily.ts';
 import { todayHere } from '../core/progress/days.ts';
 import { allStepIds, isLessonComplete, lessonRequirements, type LessonProgress } from '../core/progress/lesson.ts';
 import type { SessionSources } from '../core/progress/session.ts';
@@ -410,6 +411,25 @@ export const REVIEW_BACKLOG = 10;
 /** The daily practice's five parts, in order: a run's stage is an index into these. */
 export const DAILY_STAGES: UiKey[] = ['dailyLearn', 'dailyReview', 'dailyRecall', 'dailyConversation', 'dailyListen'];
 
+/**
+ * Whether a practice begun today still fits the plan the practice page offers.
+ *
+ * A goal or level chosen since the practice began is a new plan, and the
+ * practice page leads with it, keeping the earlier practice one tap away.
+ * Today asks the same question, so it never says "Continue your practice"
+ * while the practice page offers a new one. A level the app only inferred
+ * from the lessons was never chosen, so it sets nothing aside.
+ */
+export function fitsDailyPlan(
+  run: DailyRunInput,
+  planScriptId: string,
+  goal: LearningGoal,
+  chosenLevel?: CefrLevel | null,
+): boolean {
+  return run.scriptId === planScriptId
+    || run.goal === goal && (!chosenLevel || scriptById(run.scriptId)?.level === chosenLevel);
+}
+
 export type TodayStepKind = Exclude<NextActionKind, 'idle'> | 'daily' | 'continue-daily' | 'done';
 
 export interface TodayInput {
@@ -422,6 +442,8 @@ export interface TodayInput {
   dailyRuns: DailyRun[];
   minutesToday: number;
   targetMinutes: number;
+  /** Whether an open practice fits today's plan; see fitsDailyPlan. Every one does without it. */
+  fitsPlan?: (run: DailyRun) => boolean;
   now?: Date;
 }
 
@@ -461,7 +483,11 @@ export function todayStep(input: TodayInput): TodayStep {
   const day = todayHere(now);
   const course = nextAction(input.lessons, input.reviewItems, input.mistakes, input.onboarded, input.checkpointResults, now);
   const runs = input.dailyRuns.filter((candidate) => candidate.day === day);
-  const run = runs.find((candidate) => candidate.stage < 5);
+  // The practice the practice page would continue: one whose conversation
+  // still exists and that fits the plan. One that does not fit is set aside
+  // there for a new practice, so here it is a practice still to start.
+  const run = runs.find((candidate) =>
+    candidate.stage < 5 && scriptById(candidate.scriptId) && (input.fitsPlan?.(candidate) ?? true));
   const practice = runs.some((candidate) => candidate.stage >= 5) ? 'done' : run ? 'open' : 'todo';
   const due = dueItems(input.reviewItems, now).length;
   const goalMet = input.minutesToday >= Math.max(1, input.targetMinutes);
@@ -479,7 +505,10 @@ export function todayStep(input: TodayInput): TodayStep {
   }
   if (due >= REVIEW_BACKLOG) return { ...base, kind: 'review', to: '/review', then: afterCourse };
   if (practice === 'todo') return { ...base, kind: 'daily', to: '/daily', then: courseLeads ? 'course' : undefined };
-  return { ...base, kind: course.kind as TodayStepKind, to: course.to, then: afterCourse };
+  // Only a finished practice with the course leading reaches this line, and
+  // a course that leads is never idle; the check says so to the compiler.
+  if (course.kind === 'idle') return { ...base, kind: 'done', to: '/' };
+  return { ...base, kind: course.kind, to: course.to, then: afterCourse };
 }
 
 /**

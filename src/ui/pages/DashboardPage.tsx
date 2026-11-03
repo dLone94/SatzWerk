@@ -20,6 +20,7 @@ import {
   earlyReviewExercises,
   sessionBuild,
   skillProgress,
+  fitsDailyPlan,
   todayStep,
   type NextAction,
 } from '../selectors.ts';
@@ -46,8 +47,14 @@ export function DashboardPage() {
   const minutesLeft = Math.max(0, target - minutesToday);
 
   const onPath = reviewItemsForPath(reviewItems, lang);
+  // The conversation the practice page would offer, chosen the way that page
+  // chooses it, and the open practice it would continue.
+  const goal = profile.learningGoal ?? 'everyday';
+  const planScript = chooseDailyScript(goal, profile.practiceLevel ?? inferredPracticeLevel(lessons, checkpointResults),
+    scenarioRuns, day);
   const step = todayStep({ lessons, reviewItems: onPath, mistakes, onboarded: profile.onboarded, checkpointResults,
-    dailyRuns, minutesToday, targetMinutes: target });
+    dailyRuns, minutesToday, targetMinutes: target,
+    fitsPlan: (run) => fitsDailyPlan(run, planScript.id, goal, profile.practiceLevel) });
   const action = step.course;
   // The same plan the round itself will build, so the two never disagree.
   const round = planSession(
@@ -59,11 +66,8 @@ export function DashboardPage() {
   const lessonViews = buildLessonViews(lessons);
   const hasActivity = stats.totalAnswers > 0;
 
-  // Today's conversation: the one under way, or the one the practice page
-  // will offer, chosen the way that page chooses it.
-  const script = (step.run && scriptById(step.run.scriptId)) ||
-    chooseDailyScript(profile.learningGoal ?? 'everyday', profile.practiceLevel ?? inferredPracticeLevel(lessons, checkpointResults),
-      scenarioRuns, day);
+  // Today's conversation: the one under way, or the one the practice page will offer.
+  const script = (step.run && scriptById(step.run.scriptId)) || planScript;
   const scenario = SCENARIOS.find((candidate) => candidate.id === script.scenarioId);
   const finished = dailyRuns.find((run) => run.day === day && run.stage >= 5);
   // Nothing answered and no practice begun: the practice is this learner's first German.
@@ -81,6 +85,16 @@ export function DashboardPage() {
             : next.kind === 'checkpoint'
               ? t(checkpointById(next.to.slice('/checkpoint/'.length))?.scope === 'level' ? 'levelCheckpoint' : 'unitCheckpoint')
               : t('onboardingStart');
+  /*
+   * The course's next step named after the day's first one: as a link, its
+   * name; as the keep-going button, what to do and to what. A review is named
+   * by what is waiting, the way the card names it, because the course's own
+   * title counts "items"; a mistakes practice already says what to do.
+   */
+  const courseName = (next: NextAction) =>
+    next.kind === 'review' ? t('todayReviewTitle', { n: step.due }) : say(next.title);
+  const courseOffer = (next: NextAction) =>
+    next.kind === 'review' || next.kind === 'mistakes' ? courseName(next) : `${courseLabel(next)}: ${say(next.title)}`;
 
   // The lesson the course step is about, or failing that the first one not
   // done: its unit is the strip of stops further down.
@@ -156,7 +170,8 @@ export function DashboardPage() {
           </h2>
           {practising ? (
             <>
-              <p className="today-plan__detail">{say(script.goal)}</p>
+              {/* On day one, what daily practice is matters more than this one's goal. */}
+              {firstTime ? null : <p className="today-plan__detail">{say(script.goal)}</p>}
               {step.kind === 'continue-daily' && step.run ? (
                 <div className="today-plan__progress">
                   <Meter value={step.run.stage / DAILY_STAGES.length} label={t('dailyPlanProgress')} />
@@ -216,7 +231,7 @@ export function DashboardPage() {
             <div className="today-plan__more">
               <p>{t('todayKeepGoing')}</p>
               <Link className="btn btn--ghost today-plan__keep" to={step.then === 'daily' ? '/daily' : action.to}>
-                {step.then === 'daily' ? practiceLabel : `${courseLabel(action)}: ${say(action.title)}`}
+                {step.then === 'daily' ? practiceLabel : courseOffer(action)}
                 <Icon name="arrow" size={18} />
               </Link>
             </div>
@@ -224,7 +239,7 @@ export function DashboardPage() {
             <p className="today-plan__then">
               {t('todayThen')}:{' '}
               <Link to={step.then === 'daily' ? '/daily' : action.to}>
-                {step.then === 'daily' ? practiceLabel : say(action.title)}
+                {step.then === 'daily' ? practiceLabel : courseName(action)}
               </Link>
             </p>
           ) : practiceDone && step.kind !== 'done' ? (
@@ -249,10 +264,11 @@ export function DashboardPage() {
         </div>
         <Link className="today-tile today-tile--review" to="/review">
           <Icon name="arrow" size={18} className="today-tile__arrow" />
+          {/* Named first, as the goal tile beside it is, so the two line up. */}
+          <span className="today-tile__eyebrow">{t('navReview')}</span>
           <span className="today-tile__icon">
             <Icon name="review" />
           </span>
-          <span className="today-tile__eyebrow">{t('navReview')}</span>
           <p className="today-tile__main">
             {queue.total > 0 ? t('todayDue', { n: queue.total }) : t('todayNothingDue')}
           </p>

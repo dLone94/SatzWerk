@@ -4405,13 +4405,17 @@ h4,
   /* A word may run half a rem into the room beside its tab before it is cut:
      five equal tabs on a 320–360px phone leave 50–58px for each, and
      "Повторение" needs 59. A name of two words, "Дневна практика", takes
-     two lines rather than losing its second word to an ellipsis. */
+     two lines rather than losing its second word to an ellipsis; the
+     ellipsis stays for a single word too long for its tab. The line height
+     and the sliver of padding keep the second line's descenders (р, y)
+     inside the clip, which cut them at 1.15. */
   .nav__label {
     max-width: calc(100% + 1rem);
     overflow: hidden;
     text-overflow: ellipsis;
     text-align: center;
-    line-height: 1.15;
+    line-height: 1.2;
+    padding-bottom: 0.1em;
     white-space: normal;
   }
 

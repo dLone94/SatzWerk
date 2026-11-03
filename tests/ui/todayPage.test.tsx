@@ -91,6 +91,30 @@ describe.each(LANGS)('Today in %s', (lang) => {
     expect(keepGoing).toHaveClass('btn--ghost');
   });
 
+  it('names review by what is waiting when it follows the step, never as "items are due"', () => {
+    // Seven due: the course's next step is review, though not a backlog that
+    // leads the day, so it is what follows today's practice.
+    const due = Array.from({ length: 7 }, (_, index) =>
+      createReviewItem({ id: `vocab:v-${index}`, kind: 'vocab', refId: 'v-hallo', level: 'pre-a1', now: new Date(Date.now() - 86_400_000) }));
+    const waiting = tr('todayReviewTitle', lang, { n: 7 });
+    const before = today({ reviewItems: due }, lang);
+    const plan = before.container.querySelector<HTMLElement>('.today-plan')!;
+    expect(primaries(before.container)[0]).toHaveAccessibleName(tr('todayPracticeStart', lang));
+    expect(within(plan).getByRole('link', { name: waiting })).toHaveAttribute('href', '/review');
+    expect(plan).not.toHaveTextContent(lang === 'en' ? 'items are due' : 'елемента');
+    before.unmount();
+
+    // The goal met and the practice done: review is the way to keep going.
+    const done = today({ reviewItems: due, dailyRuns: [run(5)],
+      studyDays: [{ day: todayHere(), secondsActive: 25 * 60, answers: 20, correct: 18 }] }, lang);
+    const card = done.container.querySelector<HTMLElement>('.today-plan')!;
+    expect(primaries(done.container)).toHaveLength(0);
+    const keepGoing = within(card).getByRole('link', { name: waiting });
+    expect(keepGoing).toHaveAttribute('href', '/review');
+    expect(keepGoing).toHaveClass('btn--ghost');
+    expect(card).not.toHaveTextContent(tr('dashboardReviewDue', lang));
+  });
+
   it('offers the mixed round below the one step once there is something to put in it, and says what it is', () => {
     const due = Array.from({ length: 3 }, (_, index) =>
       createReviewItem({ id: `vocab:v-${index}`, kind: 'vocab', refId: 'v-hallo', level: 'pre-a1', now: new Date(Date.now() - 86_400_000) }));

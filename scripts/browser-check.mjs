@@ -206,6 +206,26 @@ try {
   assert.ok(await page.locator('#main .btn--primary').count() <= 1, 'Today still has at most one primary action');
   await page.screenshot({ path: report + '/today-after-practice.png', fullPage: true });
   observations.push({ journey: 'Today leads into daily practice and moves on once it is done', passed: true });
+  // The daily goal met: Today is done for the day, says what was done, and
+  // offers more only as a quiet button. That card was never scanned, so it is
+  // here, in both schemes, with the minutes a quick headless run cannot earn.
+  const tzOffsetMinutes = await page.evaluate(() => -new Date().getTimezoneOffset());
+  const studied = await context.request.post(base + '/api/study', {
+    headers: { 'X-Requested-With': 'SatzWerk' }, data: { seconds: 25 * 60, tzOffsetMinutes },
+  });
+  assert.equal(studied.status(), 200);
+  for (const colorScheme of ['light', 'dark']) {
+    await page.emulateMedia({ colorScheme });
+    await open('/');
+    await page.locator('.today-plan--done').waitFor();
+    assert.equal(await page.locator('#main .btn--primary').count(), 0, 'A finished day has no primary action');
+    assert.equal(await page.locator('.today-plan .btn--ghost').count(), 1, 'Keeping going is offered, quietly');
+    const doneAxe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    observations.push({ path: '/#done', colorScheme, violations: doneAxe.violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => node.target) })) });
+    await page.screenshot({ path: report + `/today-done-${colorScheme}.png`, fullPage: true });
+  }
+  await page.emulateMedia({ colorScheme: 'light' });
+  observations.push({ journey: 'Today is done for the day once the goal is met', passed: true });
 
   await open('/lesson/' + lesson.id);
   await page.locator('.section-nav .btn--primary').click();

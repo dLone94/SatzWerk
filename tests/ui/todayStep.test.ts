@@ -79,6 +79,18 @@ describe('the one step Today puts first', () => {
     expect(todayStep(state({ dailyRuns: [run(3, yesterday)] }))).toMatchObject({ kind: 'daily', practice: 'todo' });
   });
 
+  it('starts a new practice, as the practice page does, when the one begun no longer fits the plan', () => {
+    // A goal chosen since the practice began: the practice page leads with the
+    // new plan, so Today must not say "Continue your practice".
+    const open = run(2);
+    const step = todayStep(state({ dailyRuns: [open], fitsPlan: () => false }));
+    expect(step).toMatchObject({ kind: 'daily', practice: 'todo' });
+    expect(step.run).toBeUndefined();
+    expect(todayStep(state({ dailyRuns: [open], fitsPlan: (candidate) => candidate.id === open.id })).kind).toBe('continue-daily');
+    // Nor one whose conversation is no longer in the course.
+    expect(todayStep(state({ dailyRuns: [{ ...open, scriptId: 'sc-gone' }] })).kind).toBe('daily');
+  });
+
   it('finishes a lesson already started, with today\'s practice offered after it', () => {
     const step = todayStep(state({ lessons: { [first.id]: opened(first.id) } }));
     expect(step).toMatchObject({ kind: 'continue-lesson', to: `/lesson/${first.id}`, then: 'daily' });
