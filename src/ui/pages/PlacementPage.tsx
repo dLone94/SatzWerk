@@ -50,9 +50,12 @@ export function PlacementPage() {
     return (
       <div className="page page--player">
         <h1 className="page__title">{say(PLACEMENT_CHECKPOINT.title)}</h1>
+        {/* Its own context: as a checkpoint, every guess above the learner's
+            level went into the mistake bank and onto a new learner's Today,
+            and "Practise these" then drilled B2 sentences nobody had taught. */}
         <ExercisePlayer
           exercises={PLACEMENT_CHECKPOINT.exercises}
-          context="checkpoint"
+          context="placement"
           level="pre-a1"
           allowHints={false}
           allowSkip

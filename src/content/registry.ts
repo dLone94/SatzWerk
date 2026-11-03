@@ -121,11 +121,28 @@ export function createRegistry(CURRICULUM: Level[], SENTENCE_PATTERNS: SentenceP
    *
    * Step ids are preserved on purpose: an attempt here counts towards the same
    * review item and the same mistake as the original task.
+   *
+   * `taught`, when given, names the lessons the learner has been taught. Only
+   * those are drawn on, with the checkpoints of units and levels made of
+   * nothing else. The whole course used to be, in course order: a beginner
+   * three lessons in who asked to practise vocabulary got "Die Lampe steht in
+   * der Ecke" and comparatives from A2, and not one task from the lessons
+   * actually taken.
    */
-  function practiceForCategory(category: ErrorCategory, limit = 10): Exercise[] {
+  function practiceForCategory(category: ErrorCategory, limit = 10, taught?: ReadonlySet<string>): Exercise[] {
+    const covered = (checkpoint: Checkpoint) => {
+      if (!taught) return true;
+      const lessons =
+        checkpoint.scope === 'unit'
+          ? UNIT_BY_ID.get(checkpoint.targetId)?.lessons
+          : checkpoint.scope === 'level'
+            ? LEVEL_BY_ID.get(checkpoint.targetId as CefrLevel)?.units.flatMap((unit) => unit.lessons)
+            : undefined;
+      return Boolean(lessons?.every((lesson) => lesson.status !== 'available' || taught.has(lesson.id)));
+    };
     const sources: Exercise[] = [
-      ...availableLessons().flatMap(lessonExercises),
-      ...CHECKPOINTS.flatMap((checkpoint) => checkpoint.exercises),
+      ...availableLessons().filter((lesson) => !taught || taught.has(lesson.id)).flatMap(lessonExercises),
+      ...CHECKPOINTS.filter(covered).flatMap((checkpoint) => checkpoint.exercises),
     ];
     const wanted = new Set<ErrorCategory>([category, ...(RELATED_CATEGORIES[category] ?? [])]);
 

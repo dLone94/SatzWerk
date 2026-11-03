@@ -1,6 +1,13 @@
-import { patternById, vocabById } from '../content/browser.ts';
+import {
+  SENTENCE_PATTERNS,
+  VOCABULARY,
+  allCheckpoints,
+  allLessons,
+  patternById,
+  vocabById,
+} from '../content/browser.ts';
 import { bi, dictation, exercise, typeIt } from '../content/authoring.ts';
-import type { Exercise, TeachingLanguage, VocabEntry } from '../content/types.ts';
+import type { Exercise, ExerciseStep, TeachingLanguage, VocabEntry } from '../content/types.ts';
 import type { ReviewItem } from '../core/srs/scheduler.ts';
 
 /**
@@ -12,7 +19,7 @@ import type { ReviewItem } from '../core/srs/scheduler.ts';
  * listening stays in the rotation.
  */
 
-function vocabExercise(entry: VocabEntry, index: number, item: ReviewItem): Exercise {
+function vocabExercise(entry: VocabEntry, index: number, item: Pick<ReviewItem, 'kind' | 'successCount'>): Exercise {
   const needsArticle = entry.wordType === 'noun' && Boolean(entry.article);
   const accepted = [entry.display];
   // A noun may also be typed bare, but that is not the taught form, so it only
@@ -130,35 +137,126 @@ export function buildReviewExercises(items: ReviewItem[], lang?: TeachingLanguag
   return { exercises, conceptItems };
 }
 
+/** Every authored step, by id, with its exercise: lesson practice, final checks and checkpoints. */
+let stepIndex: Map<string, { exercise: Exercise; step: ExerciseStep }> | null = null;
+export function authoredStep(id: string): { exercise: Exercise; step: ExerciseStep } | undefined {
+  if (!stepIndex) {
+    stepIndex = new Map();
+    const exercises = [
+      ...allLessons().flatMap((lesson) => [...lesson.exercises, ...lesson.mastery.exercises]),
+      ...allCheckpoints().flatMap((checkpoint) => checkpoint.exercises),
+    ];
+    for (const exercise of exercises) for (const step of exercise.steps) stepIndex.set(step.id, { exercise, step });
+  }
+  return stepIndex.get(id);
+}
+
+/** What practice needs to know about a row of the mistake bank. */
+export interface PractisedMistake {
+  id: string;
+  expected: string;
+  lastGiven: string;
+  category: string;
+  stepId?: string | null;
+  occurrences?: number;
+}
+
 /**
- * Practice built from the mistake bank: retype the correct German for each
- * recurring mistake, with the correction visible as the last hint only.
+ * The exercise id a mistake's practice card carries. The server reads it back:
+ * a clean right answer on that card puts the mistake away (recordAttempt in
+ * server/store.ts), and nothing else in an attempt says which mistake a card
+ * was for.
  */
-export function buildMistakePractice(
-  mistakes: Array<{ id: string; expected: string; lastGiven: string; category: string }>,
-): Exercise[] {
-  return mistakes.slice(0, 12).map((mistake) =>
-    exercise({
-      id: `mp-${mistake.id}`,
-      kind: 'type',
-      objective: bi('Practise a recurring mistake', 'Упражни повтаряща се грешка'),
-      steps: [
-        {
-          id: `mp-${mistake.id}-s1`,
-          prompt: bi(
-            `You wrote "${mistake.lastGiven}" here. Type the correct German.`,
-            `Тук написа „${mistake.lastGiven}“. Напиши правилния немски.`,
-          ),
-          answer: mistake.expected,
-          shape: mistake.expected.includes(' ') ? 'sentence' : 'word',
-          hints: [
-            bi(
-              `It starts with "${mistake.expected.slice(0, 3)}".`,
-              `Започва с „${mistake.expected.slice(0, 3)}“.`,
-            ),
-          ],
-        },
-      ],
-    }),
+export function mistakePracticeId(mistakeId: string): string {
+  return `mp-${mistakeId}`;
+}
+
+/**
+ * Practice built from the mistake bank: the question that went wrong, asked
+ * again.
+ *
+ * Every card used to read "You wrote "der" here. Type the correct German." and
+ * nothing else. An article mistake was a guess between the two articles left,
+ * three answers of "ich weiß nicht" made three cards worded the same that
+ * wanted three different answers, and the only hint ("It starts with "die"")
+ * was the whole answer. The mistake row keeps the step it came from, so the
+ * authored question comes back instead, with its prompt, gap, choices and
+ * hints, and what the learner answered last time beside it. A step that is
+ * not authored, a review card say, is rebuilt from the word or sentence it
+ * asked for; only when nothing is known is the bare correction left.
+ *
+ * The step keeps its own id, so a slip here counts as that mistake happening
+ * again rather than as a new mistake about a practice card. Its review
+ * targets stay behind: this is the mistake bank, not the review schedule.
+ */
+export function buildMistakePractice(mistakes: PractisedMistake[]): Exercise[] {
+  const out: Exercise[] = [];
+  const seen = new Set<string>();
+  for (const mistake of mistakes) {
+    // One question filed under two categories is still one question.
+    const key = `${mistake.stepId ?? mistake.id}|${mistake.expected}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(mistakeExercise(mistake));
+    if (out.length === 12) break;
+  }
+  return out;
+}
+
+function mistakeExercise(mistake: PractisedMistake): Exercise {
+  // Made once, it is a mistake to fix; only a second time makes it recurring.
+  const objective =
+    (mistake.occurrences ?? 1) > 1
+      ? bi('Practise a recurring mistake', 'Упражни повтаряща се грешка')
+      : bi('Fix a mistake', 'Поправи грешка');
+  const stepId = mistake.stepId ?? `mp-${mistake.id}-s1`;
+  const lastTime = bi(
+    `Last time you answered "${mistake.lastGiven}".`,
+    `Миналия път отговори „${mistake.lastGiven}“.`,
   );
+  const asMistake = (card: Exercise, step: ExerciseStep): Exercise => {
+    const replay: ExerciseStep = {
+      ...step,
+      id: stepId,
+      instruction: step.instruction
+        ? bi(`${step.instruction.en} ${lastTime.en}`.trim(), `${step.instruction.bg} ${lastTime.bg}`.trim())
+        : lastTime,
+    };
+    delete replay.reviewTargets;
+    return { ...card, id: mistakePracticeId(mistake.id), objective, steps: [replay] };
+  };
+
+  // A daily round asks an authored step under its own prefixed id.
+  const authored = mistake.stepId ? authoredStep(mistake.stepId.replace(/^daily-target-/, '')) : undefined;
+  if (authored) return asMistake(authored.exercise, authored.step);
+
+  const entry = VOCABULARY.find((candidate) => candidate.display === mistake.expected || candidate.german === mistake.expected);
+  if (entry) {
+    const card = vocabExercise(entry, 0, { kind: 'vocab', successCount: 0 });
+    return asMistake(card, card.steps[0]!);
+  }
+  const pattern = SENTENCE_PATTERNS.find((candidate) => candidate.example === mistake.expected);
+  const sentence = pattern ? patternExercise(pattern.id) : null;
+  if (sentence) return asMistake(sentence, sentence.steps[0]!);
+
+  // Nothing to rebuild the question from. The hint gives at most a third of
+  // the answer, so a three-letter article is not handed over whole.
+  const start = mistake.expected.slice(0, Math.max(1, Math.floor(mistake.expected.length / 3)));
+  return exercise({
+    id: mistakePracticeId(mistake.id),
+    kind: 'type',
+    objective,
+    steps: [
+      {
+        id: stepId,
+        prompt: bi(
+          `You wrote "${mistake.lastGiven}" here. Type the correct German.`,
+          `Тук написа „${mistake.lastGiven}“. Напиши правилния немски.`,
+        ),
+        answer: mistake.expected,
+        shape: mistake.expected.includes(' ') ? 'sentence' : 'word',
+        hints: [bi(`It starts with "${start}".`, `Започва с „${start}“.`)],
+      },
+    ],
+  });
 }

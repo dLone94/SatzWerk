@@ -418,7 +418,9 @@ teaches rather than calling it a typo.
 **Practice targeted at a kind of mistake, not just at sentences.** Once the
 mistake bank shows a real pattern (three or more of the same error category),
 the dashboard and the mistakes page offer a round drilling that category,
-assembled from the authored trap answers across the whole level. Related skills
+assembled from the authored trap answers in the lessons the learner has
+already taken, never from further on; when those have none, the round replays
+the learner's own mistakes of that kind. Related skills
 are pulled in so a round is never thin — asking for article practice also draws
 on gender and case, because they are the same skill. The steps keep their
 original ids, so an attempt inside a targeted round counts towards the same
@@ -507,7 +509,11 @@ explicit Again / Hard / Good / Easy buttons.
 **A mistake bank driven by real attempts.** Grouped by the 15+ error categories,
 showing what was written, what was correct, how many times it happened and how
 many times it was retyped correctly — and it can be practised either as a round
-of exactly those sentences, or as a round drilling the whole category.
+of exactly those sentences, or as a round drilling the whole category. A
+practice card asks the original question again, with the earlier answer
+beside it; answered right with no hint, the mistake is put away, and it comes
+back if it is made again. Placement answers are never filed here: that check
+is looking for where the learner's German runs out.
 
 **An honest dashboard.** Every figure is derived from database rows. A fresh
 profile shows `—` and "No data yet", not a zero dressed up as progress. The

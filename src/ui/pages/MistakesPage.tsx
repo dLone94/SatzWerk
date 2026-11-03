@@ -6,6 +6,7 @@ import { useApp } from '../../state/AppState.tsx';
 import { AudioButton, Card, EmptyState, Meter, formatRelativeDate } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 import { buildMistakePractice } from '../reviewBuilder.ts';
+import { taughtLessons } from '../selectors.ts';
 
 /**
  * The mistake bank.
@@ -15,7 +16,7 @@ import { buildMistakePractice } from '../reviewBuilder.ts';
  * and it distinguishes an original mistake from a successful retyping.
  */
 export function MistakesPage() {
-  const { t, say, lang, mistakes, stats, resolveMistake } = useApp();
+  const { t, say, lang, lessons, mistakes, stats, resolveMistake } = useApp();
   const [category, setCategory] = useState<ErrorCategory | ''>('');
   const [mode, setMode] = useState<'mistakes' | 'category'>('mistakes');
   /*
@@ -35,6 +36,15 @@ export function MistakesPage() {
 
   const exercises = useMemo(() => buildMistakePractice(filtered), [filtered]);
   const maxCount = stats.categoryCounts.reduce((max, entry) => Math.max(max, entry.count), 0);
+
+  // Practice for a kind of mistake: the course's own tasks for it, from the
+  // lessons already taught, never from further on; when those have none, the
+  // learner's own mistakes of that kind.
+  const taught = useMemo(() => taughtLessons(lessons), [lessons]);
+  const kindPractice = (kind: ErrorCategory): Exercise[] => {
+    const authored = practiceForCategory(kind, 10, taught);
+    return authored.length > 0 ? authored : buildMistakePractice(mistakes.filter((mistake) => mistake.category === kind));
+  };
 
   const start = (next: Exercise[]) => {
     setSummary(null);
@@ -105,14 +115,11 @@ export function MistakesPage() {
                     <button
                       type="button"
                       className="btn btn--ghost btn--sm"
-                      disabled={practiceForCategory(entry.category).length === 0}
+                      disabled={kindPractice(entry.category).length === 0}
                       onClick={() => {
                         setCategory(entry.category);
                         setMode('category');
-                        // Practice built from the course's own tasks for this
-                        // kind of mistake, rather than a replay of the exact
-                        // sentences the learner got wrong.
-                        start(practiceForCategory(entry.category));
+                        start(kindPractice(entry.category));
                       }}
                       // One per row, so each needs the row's name to be told apart.
                       aria-label={`${t('mistakesPractiseCategory')}: ${say(CATEGORY_LABELS[entry.category] ?? CATEGORY_LABELS.unknown)}`}

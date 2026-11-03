@@ -720,8 +720,8 @@ export const UI = {
   mistakesPractise: s('Practise these', 'Упражнявай тези'),
   mistakesPractiseCategory: s('Practise this kind', 'Упражнявай този вид'),
   mistakesCategoryIntro: s(
-    'Practice for a whole kind of mistake uses the course\u2019s own tasks for that skill, not a replay of the sentences you got wrong.',
-    'Упражнението за цял вид грешка използва задачите на курса за това умение, а не повторение на изреченията, които си сбъркал.',
+    'Practice for a whole kind of mistake uses the course\u2019s own tasks for that skill, from the lessons you have taken. When they have none, it replays your own mistakes of that kind.',
+    'Упражнението за цял вид грешка използва задачите на курса за това умение от уроците, които си минал. Ако в тях няма такива, повтаря твоите грешки от този вид.',
   ),
   mistakesResolve: s('Mark as sorted', 'Отбележи като решено'),
   mistakesByCategory: s('By kind of mistake', 'По вид грешка'),

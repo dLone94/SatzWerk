@@ -92,7 +92,7 @@ export interface TargetSpec {
 }
 
 export interface AttemptPayload {
-  context: 'lesson' | 'mastery' | 'review' | 'checkpoint' | 'practice' | 'scenario';
+  context: 'lesson' | 'mastery' | 'review' | 'checkpoint' | 'placement' | 'practice' | 'scenario';
   lessonId?: string;
   exerciseId?: string;
   stepId: string;

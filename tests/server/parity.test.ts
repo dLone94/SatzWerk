@@ -141,6 +141,19 @@ async function scenario(db: Db) {
   });
   await store.setFavorite(scopeOf(db), 'v-die-tochter', true);
 
+  // A placement guess files no mistake, and a mistake practised right on its
+  // own card is put away: the second is an UPDATE matched by id or by step.
+  await store.recordAttempt(scopeOf(db), attempt({
+    context: 'placement', lessonId: undefined, exerciseId: 'pl-b2', stepId: 'pl-b2-1',
+    expected: 'Der Bericht', given: 'Die Bericht', categories: ['article'],
+  }), day(5));
+  await store.recordAttempt(scopeOf(db), attempt({ stepId: 'u1l2-ex2-3', expected: 'die', given: 'der', categories: ['article'] }), day(5));
+  const practised = (await store.listMistakes(scopeOf(db))).find((mistake) => mistake.expected === 'die')!;
+  await store.recordAttempt(scopeOf(db), attempt({
+    context: 'practice', lessonId: undefined, exerciseId: `mp-${practised.id}`, stepId: 'u1l2-ex2-3',
+    expected: 'die', given: 'die', verdict: 'correct', credit: 1, categories: [], resolved: true,
+  }), day(5));
+
   /*
    * Push subscriptions, which are stored with an ON CONFLICT upsert keyed on
    * the endpoint. A browser that re-subscribes returns the same endpoint with
@@ -188,6 +201,9 @@ async function scenario(db: Db) {
       occurrences: m.occurrences,
       correctedCount: m.correctedCount,
     })),
+    resolvedMistakes: (await store.listMistakes(scopeOf(db), true))
+      .filter((m) => m.resolvedAt !== null)
+      .map((m) => m.expected),
     stats: {
       totalAnswers: stats.totalAnswers,
       correctAnswers: stats.correctAnswers,
@@ -263,6 +279,9 @@ describeParity('SQLite and Postgres agree', () => {
     // Compared whole rather than field by field: a new field that diverges
     // should fail this test without anyone remembering to add an assertion.
     expect(fromPostgres).toEqual(fromSqlite);
+    // And agreeing on nothing would agree too.
+    expect(fromPostgres.resolvedMistakes).toEqual(['die']);
+    expect(fromPostgres.mistakes.map((mistake) => mistake.category)).toEqual(['article']);
   }, 60_000);
 
   it('applies the same schema on both', async () => {

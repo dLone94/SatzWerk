@@ -2,7 +2,6 @@ import {
   GRAMMAR_CONCEPTS,
   VOCABULARY,
   allCheckpoints,
-  allLessons,
   availableLessons,
   grammarById,
   lessonExercises,
@@ -19,7 +18,7 @@ import { dueItems, dueReason, orderQueue, type ReviewItem } from '../core/srs/sc
 import { toDigraphs } from '../core/validation/text.ts';
 import { CATEGORY_LABELS } from '../i18n.ts';
 import type { CheckpointResult, MistakeRecord } from '../services/api/client.ts';
-import { buildMistakePractice, buildReviewExercises } from './reviewBuilder.ts';
+import { authoredStep, buildMistakePractice, buildReviewExercises } from './reviewBuilder.ts';
 
 /**
  * Everything the dashboard, vocabulary page and review queue show is derived
@@ -68,19 +67,7 @@ export function buildVocabViews(
   });
 }
 
-/** Every authored step, by id: lesson practice, final checks and checkpoints. */
-let stepIndex: Map<string, ExerciseStep> | null = null;
-function stepById(id: string): ExerciseStep | undefined {
-  if (!stepIndex) {
-    stepIndex = new Map();
-    const exercises = [
-      ...allLessons().flatMap((lesson) => [...lesson.exercises, ...lesson.mastery.exercises]),
-      ...allCheckpoints().flatMap((checkpoint) => checkpoint.exercises),
-    ];
-    for (const exercise of exercises) for (const step of exercise.steps) stepIndex.set(step.id, step);
-  }
-  return stepIndex.get(id);
-}
+const stepById = (id: string): ExerciseStep | undefined => authoredStep(id)?.step;
 
 /** Lower-case words, split on anything that is not a letter (umlauts and ß are letters). */
 function words(text: string): string[] {
@@ -188,6 +175,18 @@ export function buildLessonViews(lessons: Record<string, LessonProgress>): Lesso
         unitTitle: unitForLesson(lesson.id)?.title ?? { en: '', bg: '' },
       };
     });
+}
+
+/**
+ * The lessons whose teaching the learner has been through: finished, or
+ * practised in. Practice drawn from the course stays inside these.
+ */
+export function taughtLessons(lessons: Record<string, LessonProgress>): Set<string> {
+  return new Set(
+    buildLessonViews(lessons)
+      .filter((view) => view.complete || Object.keys(view.progress.practice).length > 0)
+      .map((view) => view.lesson.id),
+  );
 }
 
 export type NextActionKind = 'onboard' | 'continue-lesson' | 'start-lesson' | 'review' | 'mistakes' | 'checkpoint' | 'idle';
