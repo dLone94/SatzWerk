@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -102,5 +102,48 @@ describe('the welcome screen on a first visit', () => {
     await userEvent.click(screen.getByRole('button', { name: tr('onboardingStart', 'en') }));
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveFocus());
     expect(screen.getByRole('heading', { level: 1 })).not.toHaveTextContent(tr('onboardingTitle', 'en'));
+  });
+});
+
+describe('the language of a first visit', () => {
+  /*
+   * A new profile is created with English, which nobody chose. On a phone
+   * set to Bulgarian — or for a learner added from the Bulgarian app — the
+   * loading screen spoke Bulgarian, then the welcome screen opened in English
+   * with English selected, and the device's own memory of its language was
+   * overwritten with that English before anyone had picked anything.
+   */
+  it('starts in the language this device was using, and keeps that memory', async () => {
+    localStorage.setItem('satzwerk.lang', 'bg');
+    visit('/');
+    expect(await screen.findByRole('heading', { level: 1, name: tr('onboardingTitle', 'bg') })).toBeInTheDocument();
+    // The path card, not the switch in the top bar.
+    expect(within(screen.getByRole('main')).getByRole('button', { name: /Български/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(profileWrites).toContainEqual({ teachingLanguage: 'bg' });
+    expect(localStorage.getItem('satzwerk.lang')).toBe('bg');
+  });
+
+  it('starts in the phone\u2019s own language when this device has none remembered', async () => {
+    vi.spyOn(navigator, 'language', 'get').mockReturnValue('bg-BG');
+    visit('/');
+    expect(await screen.findByRole('heading', { level: 1, name: tr('onboardingTitle', 'bg') })).toBeInTheDocument();
+  });
+
+  it('remembers a language the learner picks there, so a reload keeps it', async () => {
+    localStorage.setItem('satzwerk.lang', 'bg');
+    visit('/');
+    await screen.findByRole('heading', { level: 1, name: tr('onboardingTitle', 'bg') });
+    await userEvent.click(within(screen.getByRole('main')).getByRole('button', { name: /^English/ }));
+    expect(await screen.findByRole('heading', { level: 1, name: tr('onboardingTitle', 'en') })).toBeInTheDocument();
+    expect(localStorage.getItem('satzwerk.lang')).toBe('en');
+  });
+
+  it('leaves alone a profile that is already set up', async () => {
+    localStorage.setItem('satzwerk.lang', 'bg');
+    profile = { teachingLanguage: 'en', onboarded: true };
+    visit('/');
+    await screen.findByRole('navigation');
+    await waitFor(() => expect(localStorage.getItem('satzwerk.lang')).toBe('en'));
+    expect(profileWrites).toEqual([]);
   });
 });

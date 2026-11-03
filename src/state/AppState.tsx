@@ -465,10 +465,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const profile = snapshot?.profile ?? fallbackProfile;
   const lang = profile.teachingLanguage;
   const knowsLanguage = snapshot !== null;
+  // Remembered once somebody chose it. A profile that has not been through
+  // the welcome screen carries the server's default, and writing that here
+  // replaced the language this device was really using.
+  const chosen = knowsLanguage && profile.onboarded;
   useEffect(() => {
     markPageLanguage(lang);
-    if (knowsLanguage) rememberLanguage(lang);
-  }, [lang, knowsLanguage]);
+    if (chosen) rememberLanguage(lang);
+  }, [lang, chosen]);
 
   const t = useCallback(
     (key: UiKey, vars?: Record<string, string | number>) => tr(key, lang, vars),
@@ -929,6 +933,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setTeachingLanguage: async (next) => {
         await reporting('notSavedProfile', async () => {
           patchSnapshot({ profile: await api.updateProfile({ teachingLanguage: next }) });
+          // A choice, even before the welcome screen is finished.
+          rememberLanguage(next);
         });
       },
 
