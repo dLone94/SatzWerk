@@ -8,11 +8,15 @@ import type { VocabEntry } from './types.ts';
  * "steigenden") is a form of no taught adjective, and it fell through to a
  * spelling slip with credit instead of the ending mistake it is. Partizip I
  * is the infinitive plus -d; sein and tun, which do not end in -en, -ln or
- * -rn, are left alone rather than given a wrong one.
+ * -rn, are left alone rather than given a wrong one, and so is a verb that
+ * still has a preposition after it ("sich freuen auf"). A reflexive verb
+ * keeps both: its sich is not part of either participle (die angemeldeten
+ * Teilnehmer).
  */
 function attributiveParticiples(entry: VocabEntry): string[] {
-  if (entry.wordType !== 'verb' || /\s/.test(entry.german)) return [];
-  const present = /(en|[lr]n)$/.test(entry.german) ? [`${entry.german}d`] : [];
+  if (entry.wordType !== 'verb') return [];
+  const verb = entry.german.replace(/^sich\s+/, '');
+  const present = !/\s/.test(verb) && /(en|[lr]n)$/.test(verb) ? [`${verb}d`] : [];
   return [...present, ...(entry.perfect ? [entry.perfect.participle] : [])];
 }
 

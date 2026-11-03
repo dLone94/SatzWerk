@@ -167,6 +167,42 @@ describe('adjective endings, the plural included', () => {
       expect(result.credit, `${id}: ${given}`).toBe(0);
     }
   });
+
+  /*
+   * Knowing the participles as adjectives made every ending on a verb look
+   * like one. A participle without ge- is also the present tense, so
+   * "funktionierte" for "funktioniert" (a simple past) was told "the
+   * adjective ending follows the article, the gender and the case", and so
+   * was an -e left on the participle of a Perfekt.
+   */
+  it('grades an ending changed on a verb as the verb’s mistake', () => {
+    const tense: Array<[string, string]> = [
+      ['a2u2l3-ex1-s1', 'Die Heizung funktionierte nicht.'],
+      ['b2u2l1-ex3-s3', 'Er behauptete, er habe die E-Mail nie bekommen.'],
+      ['a1u4l1-ex2-s2', 'studierte'],
+      ['a2u1l3-ex3-s1', 'passierten'],
+      ['a2u5l3-ex3-s1', 'Ich habe den Zug verpasste, weil der Bus Verspätung hatte.'],
+    ];
+    for (const [id, given] of tense) {
+      const result = validateAnswer(given, STEPS.get(id)!.answer, opts);
+      expect(result.categories, `${id}: ${given}`).toEqual(['verb-tense']);
+      expect(result.credit, `${id}: ${given}`).toBe(0);
+    }
+    const form: Array<[string, string]> = [
+      ['a2u1l1-ex2-s3', 'Wir haben eine Party gemachte.'],
+      ['b1u1l1-ex3-s2', STEPS.get('b1u1l1-ex3-s2')!.answer.accepted[0]!.replace('angerufen', 'angerufenen')],
+    ];
+    for (const [id, given] of form) {
+      expect(validateAnswer(given, STEPS.get(id)!.answer, opts).categories, `${id}: ${given}`).toEqual([
+        'verb-conjugation',
+      ]);
+    }
+  });
+
+  it('knows the participles of a reflexive verb too', () => {
+    expect(LEXICON.inflections.get('angemeldeten')).toContain('adjective:angemeldet');
+    expect(LEXICON.inflections.get('erkältete')).toContain('adjective:erkältet');
+  });
 });
 
 describe('where the reflexive word goes, and where it comes from', () => {
