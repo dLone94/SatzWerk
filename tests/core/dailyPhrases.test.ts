@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { SENTENCE_PATTERNS } from '../../src/content/index.ts';
+import { LEXICON, SCENARIO_SCRIPTS, SENTENCE_PATTERNS } from '../../src/content/index.ts';
 import { dailyPatternId } from '../../src/content/dailyPatterns.ts';
 import { createReviewItem } from '../../src/core/srs/scheduler.ts';
+import { validateAnswer } from '../../src/core/validation/validate.ts';
+import { phraseRecall } from '../../src/ui/dailyBuilder.ts';
 import { buildReviewExercises } from '../../src/ui/reviewBuilder.ts';
 
 /*
@@ -41,6 +43,35 @@ describe('the pattern of a daily phrase', () => {
         expect(hint.en, pattern.id).not.toContain(pattern.example);
         expect(hint.bg, pattern.id).not.toContain(pattern.example);
       }
+    }
+  });
+});
+
+/*
+ * "Ich hätte gern …" and "Ich möchte …" are both "I would like …", and the
+ * transfer step after each frame asks for "I would like a coffee." The
+ * pharmacy refused "Ich möchte einen Kaffee." and the bank refused "Ich hätte
+ * gern einen Kaffee.", each as a vocabulary mistake that went to the bank.
+ */
+describe('the transfer step of a phrase frame', () => {
+  const transfer = (scriptId: string) => {
+    const script = SCENARIO_SCRIPTS.find((candidate) => candidate.id === scriptId)!;
+    return phraseRecall(script, 'en').find((exercise) => exercise.id.startsWith('daily-transfer-'))!.steps[0]!;
+  };
+
+  it('accepts the other frame for the same English, and shows the one it practises', () => {
+    for (const [scriptId, practised, other] of [
+      ['sc-pharmacy-a1', 'Ich hätte gern einen Kaffee.', 'Ich möchte einen Kaffee.'],
+      ['sc-bank-a2', 'Ich möchte einen Kaffee.', 'Ich hätte gern einen Kaffee.'],
+      ['sc-supermarket-b1', 'Ich möchte einen Kaffee.', 'Ich hätte gern einen Kaffee.'],
+    ] as const) {
+      const step = transfer(scriptId);
+      expect(step.prompt?.en, scriptId).toBe('I would like a coffee.');
+      expect(step.answer.accepted, scriptId).toEqual([practised]);
+      const r = validateAnswer(other, step.answer, { lexicon: LEXICON });
+      expect(r.verdict, scriptId).toBe('accepted-variant');
+      expect(r.categories, scriptId).toEqual([]);
+      expect(r.target, scriptId).toBe(practised);
     }
   });
 });
