@@ -739,6 +739,9 @@ export function ExercisePlayer({
   };
   const isChoice = exercise.kind === 'multipleChoice' || exercise.kind === 'listenChoose';
   const isFree = exercise.kind === 'freeWriting';
+  // The question is still open while the phase is 'answer', whatever the
+  // panel below says, so the rule waits for the phase to move on.
+  const reminderShown = Boolean(exercise.reminder) && phase !== 'answer';
   const tone =
     phase === 'answer' || phase === 'retype'
       ? 'neutral'
@@ -1117,9 +1120,13 @@ export function ExercisePlayer({
           ) : null}
 
           {result && microTip(result.categories) ? <p className="micro-tip">{say(microTip(result.categories))}</p> : null}
-          {/* A grammar review's rule, kept back until the answer is in. */}
-          {exercise.reminder ? (
-            <div className="feedback__reminder">
+          {/*
+            A grammar review's rule, kept back until the answer is graded. An
+            empty submit opens this panel too, but leaves the question open,
+            and the rule under "Try first" was the answer.
+          */}
+          {reminderShown && exercise.reminder ? (
+            <div className="feedback__reminder" id="player-reminder">
               <p className="feedback__reminder-title">{say(exercise.reminder.title)}</p>
               <p>{say(exercise.reminder.body)}</p>
             </div>
@@ -1215,7 +1222,9 @@ export function ExercisePlayer({
                 type="button"
                 className="btn btn--primary"
                 onClick={advance}
-                aria-describedby={retyped ? 'player-retyped' : 'player-verdict'}
+                aria-describedby={[retyped ? 'player-retyped' : 'player-verdict', reminderShown ? 'player-reminder' : '']
+                  .filter(Boolean)
+                  .join(' ')}
               >
                 {t('exerciseContinue')}
               </button>

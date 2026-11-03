@@ -217,8 +217,20 @@ describe('grammar in review', () => {
     expect(document.querySelector(`[data-step-id="${step.id}"]`)).not.toBeNull();
     expect(screen.queryByText(concept.summary[lang])).toBeNull();
 
+    // Enter on an empty field opens the feedback panel ("Try first") but
+    // leaves the question open, and the rule there would be the answer.
+    await user.type(screen.getByRole('textbox'), '{Enter}');
+    expect(document.querySelector('.feedback')).not.toBeNull();
+    expect(screen.queryByText(concept.summary[lang])).toBeNull();
+    expect(attempts).toHaveLength(0);
+
     await user.type(screen.getByRole('textbox'), `${step.answer.accepted[0]}{Enter}`);
     expect(await screen.findByText(concept.summary[lang])).toBeInTheDocument();
+    // Focus moves to Continue, and Continue is described by the rule too, so
+    // a screen reader hears why the card was there.
+    const reminder = screen.getByText(concept.summary[lang]).closest('.feedback__reminder')!;
+    const described = screen.getByRole('button', { name: tr('exerciseContinue', lang) }).getAttribute('aria-describedby') ?? '';
+    expect(described.split(' ')).toContain(reminder.id);
     expect(attempts).toHaveLength(1);
     expect(attempts[0]).toMatchObject({ context: 'review', stepId: step.id });
     expect((attempts[0] as { reviewTargets: Array<{ refId: string; kind: string }> }).reviewTargets)
