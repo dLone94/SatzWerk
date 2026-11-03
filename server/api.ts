@@ -1,5 +1,5 @@
-import { ERROR_CATEGORIES, type ErrorCategory, type TeachingLanguage } from '../src/content/types.ts';
-import type { RecallGrade } from '../src/core/srs/scheduler.ts';
+import { CEFR_ORDER, ERROR_CATEGORIES, type ErrorCategory, type TeachingLanguage } from '../src/content/types.ts';
+import type { RecallGrade, ReviewKind } from '../src/core/srs/scheduler.ts';
 import { createProvider, withDailyLimit, type AiProvider } from './ai.ts';
 import {
   authState,
@@ -152,6 +152,58 @@ function asRecord(body: unknown): Record<string, unknown> {
 }
 
 /**
+ * The body with every NUL character taken out of its strings.
+ *
+ * Postgres refuses a NUL in a text column outright, and SQLite stores it, so
+ * an answer with one in it — pasted from somewhere, or typed on a keyboard
+ * that sends one — was lost with a 500 when hosted and kept locally. No
+ * German sentence needs one. Bounded in depth, because nothing the app sends
+ * nests deeply and a hand-made body should not be able to exhaust the stack.
+ */
+function withoutNul(value: unknown, depth = 0): unknown {
+  if (typeof value === 'string') return value.includes('\0') ? value.replace(/\0/g, '') : value;
+  if (depth > 16 || !value || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((item) => withoutNul(item, depth + 1));
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, withoutNul(item, depth + 1)]));
+}
+
+/** A learner id as the database can hold one, or undefined. */
+function learnerId(raw: unknown): number | undefined {
+  const id = Number(raw);
+  return Number.isSafeInteger(id) && id >= 1 ? id : undefined;
+}
+
+const REVIEW_KINDS = new Set<ReviewKind>(['vocab', 'noun-article', 'sentence', 'pattern', 'grammar', 'mistake']);
+const LEVELS = new Set<string>(CEFR_ORDER);
+
+/**
+ * One review target, or undefined when what arrived is not one: not an object,
+ * no refId, a kind or level the app does not have, or a difficulty that is not
+ * a number. A NaN difficulty became a NaN ease, which SQLite refused with a
+ * 500 and Postgres stored. `defaults` fill in what an older client left out.
+ */
+function reviewTarget(
+  value: unknown,
+  defaults: Partial<Pick<store.TargetSpec, 'kind' | 'level'>> = {},
+): store.TargetSpec | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const refId = String(record.refId ?? '');
+  const kind = String(record.kind ?? defaults.kind ?? '');
+  const level = String(record.level ?? defaults.level ?? '');
+  const difficulty = record.difficulty === undefined || record.difficulty === null ? undefined : Number(record.difficulty);
+  if (!refId || !REVIEW_KINDS.has(kind as ReviewKind) || !LEVELS.has(level)) return undefined;
+  if (difficulty !== undefined && !Number.isFinite(difficulty)) return undefined;
+  return {
+    refId,
+    kind: kind as ReviewKind,
+    level: level as store.TargetSpec['level'],
+    lessonId: record.lessonId ? String(record.lessonId) : undefined,
+    difficulty,
+  };
+}
+
+/**
  * Everything the client needs to render the whole app, in one round trip.
  *
  * The eight queries are independent, so they go out together. Awaiting them one
@@ -283,6 +335,11 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   // Routes decode their ids with decodeURIComponent, which throws on broken
   // percent-encoding; that surfaced as a 500 for what is a bad request.
   if (!route.every(decodable)) return badRequest('The address is not valid percent-encoding.');
+  // Every id in an address goes into a query, and Postgres refuses a NUL.
+  if (route.some((segment) => decodeURIComponent(segment).includes('\0'))) {
+    return badRequest('The address contains a character that cannot be stored.');
+  }
+  request = { ...request, body: withoutNul(request.body) };
 
   // Health stays public: it must answer before a session exists, so that a
   // deployment can be checked without logging in.
@@ -461,8 +518,9 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       };
     }
     if (route.length === 2 && method === 'POST' && route[1] === 'select') {
-      const id = Number(asRecord(request.body).id);
-      if (!(await store.getLearner(db, id))) return badRequest('No such learner.');
+      // Checked before the query: Postgres refuses 1e30 as a bigint with a 500.
+      const id = learnerId(asRecord(request.body).id);
+      if (id === undefined || !(await store.getLearner(db, id))) return badRequest('No such learner.');
       await followedByReminders(db, request.body, id);
       return {
         status: 200,
@@ -471,9 +529,10 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       };
     }
     if (route.length === 2 && method === 'PUT') {
-      const id = Number(route[1]);
+      const id = learnerId(route[1]);
       const name = String(asRecord(request.body).name ?? '').trim();
       if (!name) return badRequest('A learner needs a name.');
+      if (id === undefined) return notFound('No such learner.');
       const learner = await store.renameLearner(db, id, name);
       if (!learner) return notFound('No such learner.');
       return ok({ learners: await store.listLearners(db), studyingAs: scope.userId });
@@ -556,7 +615,10 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
         patch.dailyTargetMinutes = minutes;
       }
       if (body.displayName !== undefined) {
-        patch.displayName = body.displayName === null ? null : String(body.displayName).slice(0, 80);
+        // Text or nothing. An object's own toString was called on, and one
+        // that was not a function took the request down with a 500.
+        if (body.displayName !== null && typeof body.displayName !== 'string') return badRequest('displayName must be text');
+        patch.displayName = body.displayName === null ? null : body.displayName.slice(0, 80);
       }
       if (body.onboarded !== undefined) patch.onboarded = Boolean(body.onboarded);
       return ok(await store.updateProfile(scope, patch));
@@ -603,8 +665,12 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     if (route.length === 1 && method === 'GET') return ok(await store.listReviewItems(scope));
     if (route.length === 2 && route[1] === 'ensure' && method === 'POST') {
       const body = asRecord(request.body);
-      const targets = Array.isArray(body.targets) ? (body.targets as store.TargetSpec[]) : [];
-      const created = await store.ensureReviewItems(scope, targets);
+      const raw: unknown[] = Array.isArray(body.targets) ? body.targets : [];
+      const targets = raw.map((target) => reviewTarget(target));
+      if (targets.some((target) => target === undefined)) {
+        return badRequest('Each review target needs a refId, and a kind, level and difficulty the app knows.');
+      }
+      const created = await store.ensureReviewItems(scope, targets as store.TargetSpec[]);
       return ok({ created, reviewItems: await store.listReviewItems(scope) });
     }
     if (route.length === 3 && route[2] === 'grade' && method === 'POST') {
@@ -677,10 +743,15 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
   if (route.length === 1 && route[0] === 'scenario-runs' && method === 'POST') {
     const body = asRecord(request.body);
     if (!body.scriptId) return badRequest('scriptId is required');
+    // Held to what daily-runs already asks: one of the conversations that
+    // exist, and whole counts of turns. 1e300 turns was stored as it came, and
+    // 1e12 was a 500 on Postgres, whose column is a 32-bit integer.
+    if (!SCENARIO_SCRIPTS.some((script) => script.id === body.scriptId)) return badRequest('Unknown conversation.');
     const turns = Number(body.turns ?? 0);
     const firstTryCorrect = Number(body.firstTryCorrect ?? 0);
-    if (!Number.isFinite(turns) || !Number.isFinite(firstTryCorrect)) {
-      return badRequest('turns and firstTryCorrect must be numbers');
+    if (!Number.isInteger(turns) || turns < 0 || turns > 500 ||
+      !Number.isInteger(firstTryCorrect) || firstTryCorrect < 0 || firstTryCorrect > turns) {
+      return badRequest('turns and firstTryCorrect must be whole numbers, with no more right than there were turns');
     }
     await store.recordScenarioRun(scope, { scriptId: String(body.scriptId), turns, firstTryCorrect });
     return ok({ scenarioRuns: await store.listScenarioRuns(scope) });
@@ -868,6 +939,9 @@ export function gradeTime(raw: unknown, now: Date): Date {
   return new Date(Math.min(now.getTime(), Math.max(now.getTime() - GRADE_BACKDATE_LIMIT_MS, millis)));
 }
 
+/** More hints than any step has; only a hand-made request sends more. */
+const MAX_HINTS = 100;
+
 /** A step nobody spent two hours on, and nobody finished in negative time. */
 const MAX_STEP_MS = 2 * 60 * 60 * 1000;
 
@@ -931,7 +1005,9 @@ function validateAttempt(body: Record<string, unknown>): AttemptValidation {
       verdict: verdict as store.AttemptInput['verdict'],
       credit,
       categories: categories as store.AttemptInput['categories'],
-      hintsUsed: Math.max(0, Number(body.hintsUsed ?? 0)) || 0,
+      // A whole number, as the column is. 1.5 was a 500 on Postgres and
+      // fine on SQLite, so the same answer was lost hosted and kept locally.
+      hintsUsed: Math.min(MAX_HINTS, Math.max(0, Math.round(Number(body.hintsUsed ?? 0)))) || 0,
       revealed: Boolean(body.revealed),
       isRetype: Boolean(body.isRetype),
       resolved: Boolean(body.resolved),
@@ -943,16 +1019,10 @@ function validateAttempt(body: Record<string, unknown>): AttemptValidation {
       durationMs: plausibleDuration(body.durationMs),
       // Where the answer was typed, so it lands on the learner's own day.
       tzOffsetMinutes: plausibleOffset(body.tzOffsetMinutes),
-      reviewTargets: targets.map((target) => {
-        const record = asRecord(target);
-        return {
-          refId: String(record.refId ?? ''),
-          kind: String(record.kind ?? 'vocab') as store.TargetSpec['kind'],
-          level: String(record.level ?? 'pre-a1') as store.TargetSpec['level'],
-          lessonId: record.lessonId ? String(record.lessonId) : undefined,
-          difficulty: record.difficulty === undefined ? undefined : Number(record.difficulty),
-        };
-      }).filter((target) => target.refId.length > 0),
+      // Dropped rather than refused when malformed, like an unknown
+      // category: the answer is the learner's work, the targets only follow
+      // from it.
+      reviewTargets: targets.flatMap((target) => reviewTarget(target, { kind: 'vocab', level: 'pre-a1' }) ?? []),
     },
   };
 }
