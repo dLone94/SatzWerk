@@ -334,3 +334,20 @@ describe('an answer typed in Cyrillic letters', () => {
     expect(en.join(' ')).not.toContain('Guten');
   });
 });
+
+describe('a wrong choice in a listening exercise', () => {
+  it('is explained by its sound, without a grammar tip', () => {
+    const { result, en, bg } = explain('die Tochter', spec('die Töchter'), { exerciseKind: 'listenChoose' });
+    expect(en.join(' ')).not.toContain('Here German needs');
+    expect(en.join(' ')).toContain('ö');
+    expect(en.join(' ')).toContain('plain o');
+    expect(bg.join(' ')).toContain('ö');
+    expect(microTip(result.categories)).toBeUndefined();
+  });
+
+  it('names what was said when more than the dots differ', () => {
+    const { en, bg } = explain('wir', spec('vier'), { exerciseKind: 'listenChoose' });
+    expect(en.join(' ')).toContain('It was "vier", not "wir".');
+    expect(bg.join(' ')).toContain('Беше „vier“, а не „wir“.');
+  });
+});

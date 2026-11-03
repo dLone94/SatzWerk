@@ -1099,7 +1099,8 @@ export function ExercisePlayer({
   /** Submitting a multiple-choice option runs it through the same validator. */
   async function submitChoice(chosen: string): Promise<void> {
     if (!current || finishedRef.current) return;
-    const validation = validateAnswer(chosen, current.step.answer, { lexicon });
+    // The kind says whether the choice was about a sound heard.
+    const validation = validateAnswer(chosen, current.step.answer, { lexicon, exerciseKind: current.exercise.kind });
     const message = buildFeedback(validation, { lexicon, describeNoun });
     setBusy(true);
     try {

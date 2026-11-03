@@ -72,6 +72,11 @@ export interface ValidationResult {
    * Bulgarian. Like an empty answer it is not graded.
    */
   script?: 'cyrillic';
+  /**
+   * A wrong choice in a listening exercise: the learner heard one word for
+   * another, which is explained by its sound rather than its grammar.
+   */
+  misheard?: boolean;
 }
 
 export interface ValidateOptions {
@@ -290,10 +295,35 @@ export function validateAnswer(
   const result = best ?? emptyResult(target);
   const right = VERDICT_RANK[result.verdict] >= VERDICT_RANK['accepted-variant'];
 
+  // A listening choice asks what the recording said, so a wrong one was
+  // misheard: "die Tochter" for "die Töchter" is an ö not yet heard, not a
+  // plural rule broken.
+  if (options.exerciseKind === 'listenChoose' && !right) return misheard(raw, target);
+
   // A right answer is steered to the taught form, even an accepted variant.
   // A wrong one keeps the answer it was compared with, so that the expected
   // line, the explanation under it and the retype all name the same German.
   return right ? { ...result, target } : result;
+}
+
+/**
+ * A wrong choice in a listening exercise. When only the dots tell the two
+ * apart, what was missed is the sound of the special letter.
+ */
+function misheard(raw: string, target: string): ValidationResult {
+  const plain = (text: string) => shapeKey(text).replace(/[äöü]/g, (letter) => PLAIN_VOWEL[letter]!);
+  return {
+    verdict: 'incorrect',
+    credit: 0,
+    target,
+    matched: target,
+    categories: [plain(raw) === plain(target) ? 'umlaut' : 'vocabulary'],
+    notes: [],
+    // A choice is not retyped.
+    requireRetype: false,
+    diff: buildDiff(tokenize(raw), tokenize(target)),
+    misheard: true,
+  };
 }
 
 /** The answer with each word of a FREE_VARIANTS pair swapped for its partner. */

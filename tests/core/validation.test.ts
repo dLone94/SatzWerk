@@ -856,6 +856,41 @@ describe('an answer typed in Cyrillic letters', () => {
 });
 
 /*
+ * The first listening exercise asks which of "die Tochter" and "die Töchter"
+ * the recording said. Tapping the wrong one is a sound not yet heard, but the
+ * validator read it as grammar: a plural mistake with the plural tip.
+ */
+describe('a wrong choice in a listening exercise', () => {
+  const listening = { ...opts, exerciseKind: 'listenChoose' as const };
+
+  it('is an umlaut not heard, not a plural mistake', () => {
+    const r = validateAnswer('die Tochter', sentence(['die Töchter']), listening);
+    expect(r.verdict).toBe('incorrect');
+    expect(r.credit).toBe(0);
+    expect(r.categories).toEqual(['umlaut']);
+    expect(r.misheard).toBe(true);
+  });
+
+  it('is a different word heard when more than the dots differ', () => {
+    const r = validateAnswer('wir', word(['vier']), listening);
+    expect(r.verdict).toBe('incorrect');
+    expect(r.categories).toEqual(['vocabulary']);
+    expect(r.misheard).toBe(true);
+  });
+
+  it('is right when the right one is tapped', () => {
+    expect(validateAnswer('die Töchter', sentence(['die Töchter']), listening).verdict).toBe('correct');
+  });
+
+  // Outside listening, a choice between singular and plural is grammar.
+  it('leaves an ordinary choice to the grammar', () => {
+    const r = validateAnswer('die Tochter', sentence(['die Töchter']), { ...opts, exerciseKind: 'multipleChoice' });
+    expect(r.categories).toEqual(['plural']);
+    expect(r.misheard).toBeUndefined();
+  });
+});
+
+/*
  * The validator compares the answer with the taught form and with each
  * authored alternative, and kept whichever came closest — but then showed
  * the taught form as the answer. "xyz" for "Guten Morgen!" was told "The word

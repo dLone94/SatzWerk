@@ -477,6 +477,31 @@ function dedupeLines(lines: Bilingual[]): Bilingual[] {
   });
 }
 
+const PLAIN_VOWEL: Record<string, string> = { 'ä': 'a', 'ö': 'o', 'ü': 'u' };
+
+/**
+ * A wrong choice in a listening exercise, explained by what was said. When
+ * only the dots tell the two apart, the line names the letter: that sound is
+ * what the exercise is training the ear for.
+ */
+function misheardLine(result: ValidationResult): Bilingual {
+  const said = result.target;
+  const chosen = result.diff.flatMap((entry) => (entry.given ? [entry.given] : [])).join(' ');
+  const word = result.diff.find((entry) => entry.status === 'changed' && /[äöü]/i.test(entry.expected ?? ''));
+  if (!result.categories.includes('umlaut') || !word) {
+    return bi(
+      `It was "${said}", not "${chosen}". Play it again and listen for the difference.`,
+      `Беше „${said}“, а не „${chosen}“. Пусни го отново и чуй разликата.`,
+    );
+  }
+  const special = [...new Set(lower(word.expected!).match(/[äöü]/g) ?? [])];
+  const plain = special.map((letter) => PLAIN_VOWEL[letter]);
+  return bi(
+    `It was "${said}", with ${special.join(', ')}. "${chosen}" has a plain ${plain.join(', ')}. The dots change the sound: play it again and listen for the difference.`,
+    `Беше „${said}“, с ${special.join(', ')}. „${chosen}“ е с обикновено ${plain.join(', ')}. Точките променят звука: пусни го отново и чуй разликата.`,
+  );
+}
+
 /** Build the feedback the learner sees after submitting an answer. */
 export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): FeedbackMessage {
   if (result.script === 'cyrillic') {
@@ -541,6 +566,16 @@ export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): F
       lines: [result.trapFeedback],
       correction: result.target,
       askRetype: result.requireRetype,
+    };
+  }
+
+  if (result.misheard) {
+    return {
+      tone: 'error',
+      headline: HEADLINES.error,
+      lines: [misheardLine(result)],
+      correction: result.target,
+      askRetype: false,
     };
   }
 
