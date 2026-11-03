@@ -456,6 +456,9 @@ const lesson2: Lesson = {
           {
             prompt: bi('The exam was easy.', 'Изпитът беше лесен.'),
             answer: 'Die Prüfung war einfach.',
+            // Unit 1 teaches that the Perfekt of sein is not wrong, only
+            // heavier; it is credited, with war still shown.
+            alternatives: ['Die Prüfung ist einfach gewesen.'],
             reviewTargets: ['v-die-pruefung', 'v-einfach'],
             hints: [],
           },

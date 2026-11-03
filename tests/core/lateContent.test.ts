@@ -136,16 +136,18 @@ describe('the Perfekt that A2 Unit 1 calls not wrong', () => {
     );
   });
 
-  it('leaves no war, hatte or es gab sentence in the lesson or its checkpoints without it', () => {
-    // The lesson itself, its unit checkpoint's past-tense exercise and the
-    // level checkpoint's: every typed sentence there that uses the simple
-    // past of sein, haben or es gibt.
-    const lesson = availableLessons().find((entry) => entry.id === 'a2-u1-l3')!;
+  it('leaves no war, hatte or es gab sentence anywhere in A2 without it', () => {
+    // Every typed sentence in an A2 lesson or checkpoint that uses the simple
+    // past of sein, haben or es gibt. Units 3 and 5 kept calling the Perfekt
+    // the wrong tense after this lesson had said it was not, so the scan
+    // covers the whole level rather than the lesson that says so.
     const exercises = [
-      ...lessonExercises(lesson),
+      ...availableLessons()
+        .filter((lesson) => lesson.level === 'a2')
+        .flatMap((lesson) => lessonExercises(lesson)),
       ...allCheckpoints()
-        .flatMap((checkpoint) => checkpoint.exercises)
-        .filter((exercise) => ['cp-a2u1-3', 'a2-lcp-1'].includes(exercise.id)),
+        .filter((checkpoint) => checkpoint.targetId.startsWith('a2'))
+        .flatMap((checkpoint) => checkpoint.exercises),
     ].filter((exercise) => exercise.kind === 'type');
     const missing: string[] = [];
     let checked = 0;
@@ -157,8 +159,23 @@ describe('the Perfekt that A2 Unit 1 calls not wrong', () => {
         if (perfekt.length === 0 || !perfekt.every((answer) => isRight(answer, entry.id))) missing.push(entry.id);
       }
     }
-    expect(checked).toBeGreaterThanOrEqual(10);
+    expect(checked).toBeGreaterThanOrEqual(22);
     expect(missing).toEqual([]);
+  });
+
+  it('credits it in the later units too, with the simple past still shown', () => {
+    expect(
+      rejected({
+        'a2u3l2-ex2-s4': ['Die Prüfung ist einfach gewesen.'],
+        'a2u5l1-m1-s3': ['Das Hotel ist besser gewesen.'],
+        'a2u5l2-m1-s2': ['Das ist das beste Hotel gewesen.'],
+        'cp-a2u5-2-s2': ['Das ist das beste Hotel gewesen.'],
+        'cp-a2u5-3-s3': ['Ich habe den Zug verpasst, weil der Bus Verspätung gehabt hat.'],
+      }),
+    ).toEqual([]);
+    expect(validateAnswer('Das Hotel ist besser gewesen.', step('a2u5l1-m1-s3').answer, opts).target).toBe(
+      'Das Hotel war besser.',
+    );
   });
 });
 

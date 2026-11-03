@@ -153,6 +153,7 @@ export const A2_LEVEL_CHECKPOINT: Checkpoint = {
       {
         prompt: bi('That was the best hotel.', 'Това беше най-добрият хотел.'),
         answer: 'Das war das beste Hotel.',
+        alternatives: ['Das ist das beste Hotel gewesen.'],
         hints: [],
       },
       {

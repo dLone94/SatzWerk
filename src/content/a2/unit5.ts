@@ -238,6 +238,13 @@ const lesson1: Lesson = {
           {
             prompt: bi('The flight was cheaper than the train.', 'Полетът беше по-евтин от влака.'),
             answer: 'Der Flug war billiger als der Zug.',
+            /*
+             * Unit 1 teaches that the Perfekt of sein and haben is not wrong,
+             * only heavier, so every war and hatte sentence in this unit and
+             * its checkpoint credits it, with the simple past still shown.
+             * The als part may also follow gewesen.
+             */
+            alternatives: ['Der Flug ist billiger als der Zug gewesen.', 'Der Flug ist billiger gewesen als der Zug.'],
             reviewTargets: ['v-der-flug'],
             hints: [],
           },
@@ -286,6 +293,7 @@ const lesson1: Lesson = {
           {
             prompt: bi('The hotel was better.', 'Хотелът беше по-добър.'),
             answer: 'Das Hotel war besser.',
+            alternatives: ['Das Hotel ist besser gewesen.'],
             hints: [],
           },
         ]),
@@ -447,6 +455,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('That was the best hotel.', 'Това беше най-добрият хотел.'),
             answer: 'Das war das beste Hotel.',
+            alternatives: ['Das ist das beste Hotel gewesen.'],
             hints: [],
           },
           {
@@ -458,6 +467,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('The train was on time.', 'Влакът беше навреме.'),
             answer: 'Der Zug war pünktlich.',
+            alternatives: ['Der Zug ist pünktlich gewesen.'],
             reviewTargets: ['v-puenktlich'],
             hints: [],
           },
@@ -526,6 +536,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('That was the best hotel.', 'Това беше най-добрият хотел.'),
             answer: 'Das war das beste Hotel.',
+            alternatives: ['Das ist das beste Hotel gewesen.'],
             hints: [],
           },
           {
@@ -686,6 +697,7 @@ const lesson3: Lesson = {
           {
             prompt: bi('I missed the train because the bus was delayed.', 'Изпуснах влака, защото автобусът закъсня.'),
             answer: 'Ich habe den Zug verpasst, weil der Bus Verspätung hatte.',
+            alternatives: ['Ich habe den Zug verpasst, weil der Bus Verspätung gehabt hat.'],
             hints: [],
           },
           {
@@ -819,6 +831,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('That was the best hotel.', 'Това беше най-добрият хотел.'),
           answer: 'Das war das beste Hotel.',
+          alternatives: ['Das ist das beste Hotel gewesen.'],
           hints: [],
         },
       ]),
@@ -838,6 +851,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I missed the train because the bus was delayed.', 'Изпуснах влака, защото автобусът закъсня.'),
           answer: 'Ich habe den Zug verpasst, weil der Bus Verspätung hatte.',
+          alternatives: ['Ich habe den Zug verpasst, weil der Bus Verspätung gehabt hat.'],
           hints: [],
         },
       ]),
