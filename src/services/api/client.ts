@@ -377,7 +377,9 @@ const post = <T>(path: string, body?: unknown): Promise<T> =>
 
 /**
  * A question for the German Coach. A slow model is not a database that cannot
- * be reached, and saying so sent people looking for the wrong problem.
+ * be reached, and saying so sent people looking for the wrong problem. The
+ * text is for whoever reads the console; the coach's screens tell the learner
+ * in their own language (`coachNoAnswer`).
  */
 const askCoach = <T>(path: string, body: unknown): Promise<T> =>
   request<T>(

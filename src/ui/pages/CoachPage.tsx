@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CATEGORY_LABELS, type UiKey } from '../../i18n.ts';
-import { api, type WritingEvaluation } from '../../services/api/client.ts';
+import { ApiError, api, type WritingEvaluation } from '../../services/api/client.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AnswerInput } from '../components/AnswerInput.tsx';
 import { Card } from '../components/bits.tsx';
@@ -39,7 +39,14 @@ export function CoachPage() {
         evaluation.findings.length === 0 ? t('coachNoFindings') : t('coachFindingsCount', { n: evaluation.findings.length });
       window.setTimeout(() => setAnnouncement(summary), 50);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      // As in ExplainWhy: no answer at all is said in the learner's language,
+      // and the client's English text about the request goes to the console.
+      if (cause instanceof ApiError && cause.status === 0) {
+        console.info(cause.message);
+        setError(t('coachNoAnswer'));
+      } else {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      }
     } finally {
       setBusy(false);
     }

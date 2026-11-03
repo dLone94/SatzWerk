@@ -567,6 +567,11 @@ export const UI = {
     'No explanation came back. Your answer and your progress are unaffected.',
     'Не се върна обяснение. Отговорът и напредъкът ти не са засегнати.',
   ),
+  // A question for the coach that got no answer at all: too slow, or no signal.
+  coachNoAnswer: s(
+    'The German Coach did not answer. Nothing you did is lost; try again in a moment.',
+    'Немският наставник не отговори. Нищо от направеното не е загубено; опитай отново след малко.',
+  ),
 
   // Speaking. The wording is careful on purpose: the app checks whether a
   // recogniser understood the words, which is not the same as scoring an
