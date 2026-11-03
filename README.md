@@ -498,7 +498,12 @@ sentence with a small letter, counts as right there — a noun's capital and
 
 **A real review queue.** A documented SM-2 derivative (see the header comment in
 `src/core/srs/scheduler.ts`): learning steps of 10 minutes and one day, then
-`interval × ease × gradeFactor` with ease clamped to [1.3, 2.8]. Recall quality
+`interval × ease × gradeFactor` with ease clamped to [1.3, 2.8]. A word counts
+as **known** only once its interval reaches five days, which takes recall on
+two separate days after the one it was taught; answers given on a single day,
+however many and however clean, never get it there. A review answered late is
+credited with the days the word actually lasted, up to twice its interval, and
+a word forgotten goes back through the learning steps. Recall quality
 is derived from the verdict, hint usage and whether the answer was revealed — an
 answer produced only after revealing the solution can never grade better than
 `again`. Due items come back as **typing** tasks, not flashcards: a due noun is
