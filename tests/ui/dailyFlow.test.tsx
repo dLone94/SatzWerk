@@ -116,3 +116,40 @@ it('a learner handover clears the open daily round', async () => {
   expect(screen.getByRole('button', { name: tr('dailyStart', 'en') })).toBeInTheDocument();
   expect(screen.queryByText('Guten Morgen!')).not.toBeInTheDocument();
 });
+
+/*
+ * The parts swap in place under the same address, and the page kept the
+ * scroll of the one before: on a phone Finish sits under a long card, and the
+ * celebration opened with its picture and tick above the screen.
+ */
+it('opens each part and the finish at the top, before the conversation scrolls to its line', async () => {
+  const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+  const scrollIntoView = vi.fn();
+  Element.prototype.scrollIntoView = scrollIntoView;
+  try {
+    const run = { id: 'scroll', day: todayHere(), scriptId: 'sc-bakery-pre-a1', goal: 'everyday' as const,
+      total: 4, firstTryCorrect: 4, listeningCompleted: false, updatedAt: new Date().toISOString() };
+    const conversation = render(<AppStateContext.Provider value={stubState({ dailyRuns: [{ ...run, stage: 3 }] })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(scrollTo).not.toHaveBeenCalled();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+    await screen.findByText(tr('dailyConversationNote', 'en'));
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+    expect(scrollIntoView).toHaveBeenCalled();
+    // The conversation's own scroll to its first line comes last and stays.
+    expect(scrollTo.mock.invocationCallOrder.at(-1)!).toBeLessThan(scrollIntoView.mock.invocationCallOrder.at(-1)!);
+    conversation.unmount();
+
+    render(<AppStateContext.Provider value={stubState({ dailyRuns: [{ ...run, stage: 4 }] })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+    await user.click(await screen.findByRole('button', { name: tr('dailyFinish', 'en') }));
+    expect(await screen.findByRole('heading', { name: tr('dailyFinished', 'en') })).toHaveFocus();
+    expect(scrollTo).toHaveBeenLastCalledWith(0, 0);
+    expect(scrollTo.mock.invocationCallOrder.at(-1)!).toBeGreaterThan(scrollIntoView.mock.invocationCallOrder.at(-1)!);
+  } finally {
+    scrollTo.mockRestore();
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  }
+});

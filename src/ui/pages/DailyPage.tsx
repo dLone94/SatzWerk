@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { scriptById, scriptAnswerCount, patternById } from '../../content/browser.ts';
 import { phraseFrame } from '../../content/phraseFrames.ts';
@@ -57,6 +57,22 @@ function DailyPractice() {
     * secondsPerAnswer(stats).seconds / 60 + 2));
 
   useEffect(() => () => tts.cancel(), [tts]);
+  /*
+   * Each part, and the finish, starts at the top of the page. They swap in
+   * place under the same address, so the page kept the scroll of the part
+   * before: Finish sits under a long card on a phone, and the celebration
+   * opened with its picture and tick above the screen. A layout effect, so it
+   * runs before the conversation scrolls its first line into view. Not on
+   * arrival: the route has already been put at the top.
+   */
+  const arrived = useRef(false);
+  useLayoutEffect(() => {
+    if (!arrived.current) {
+      arrived.current = true;
+      return;
+    }
+    window.scrollTo(0, 0);
+  }, [run?.stage, paused]);
   useEffect(() => {
     const heading = document.querySelector<HTMLElement>('.daily-page h1');
     if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
