@@ -291,7 +291,13 @@ const lesson1: Lesson = {
           {
             prompt: bi('The museum is closed today.', 'Музеят е затворен днес.'),
             answer: 'Das Museum ist heute zu.',
-            alternatives: ['Heute ist das Museum zu.'],
+            // zu is the everyday word, and the lesson shows it only in the
+            // Museum card's example; geschlossen is the word on the door.
+            alternatives: [
+              'Heute ist das Museum zu.',
+              'Das Museum ist heute geschlossen.',
+              'Heute ist das Museum geschlossen.',
+            ],
             hints: [],
           },
           {

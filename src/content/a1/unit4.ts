@@ -453,6 +453,14 @@ const lesson2: Lesson = {
           {
             prompt: bi('I am meeting my friends.', 'Срещам се с приятелите си.'),
             answer: 'Ich treffe meine Freunde.',
+            /*
+             * The lesson teaches treffen with a direct object, and that stays
+             * the target. But sich mit jemandem treffen is standard German too,
+             * and it is word for word what the Bulgarian prompt says; it was a
+             * wrong answer whose feedback called the dative after mit a wrong
+             * article.
+             */
+            alternatives: ['Ich treffe mich mit meinen Freunden.'],
             reviewTargets: ['v-treffen'],
             hints: [bi('No preposition after treffen.', 'Без предлог след treffen.')],
           },
@@ -559,6 +567,7 @@ const lesson2: Lesson = {
           {
             prompt: bi('I am meeting my friend. (male)', 'Срещам се с приятеля си.'),
             answer: 'Ich treffe meinen Freund.',
+            alternatives: ['Ich treffe mich mit meinem Freund.'],
             hints: [],
           },
         ]),
@@ -835,6 +844,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I am meeting my friends.', 'Срещам се с приятелите си.'),
           answer: 'Ich treffe meine Freunde.',
+          alternatives: ['Ich treffe mich mit meinen Freunden.'],
           hints: [],
         },
       ]),

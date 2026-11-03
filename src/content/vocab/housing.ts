@@ -377,6 +377,10 @@ const CONTRACT: VocabEntry[] = [
     unitId: U,
     lessonId: L2,
     difficulty: 2,
+    notes: {
+      en: 'der Fahrstuhl is the other everyday word for it, and just as common.',
+      bg: 'der Fahrstuhl е другата всекидневна дума за него и е също толкова честа.',
+    },
   },
   {
     id: 'v-unterschreiben',

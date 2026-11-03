@@ -52,12 +52,18 @@ export const A2_LEVEL_CHECKPOINT: Checkpoint = {
           'Ich war letztes Wochenende in Berlin.',
           'Letztes Wochenende bin ich in Berlin gewesen.',
           'Ich bin letztes Wochenende in Berlin gewesen.',
+          'Am letzten Wochenende war ich in Berlin.',
+          'Ich war am letzten Wochenende in Berlin.',
+          'Am letzten Wochenende bin ich in Berlin gewesen.',
+          'Ich bin am letzten Wochenende in Berlin gewesen.',
         ],
         hints: [],
       },
       {
         prompt: bi('There was a concert.', 'Имаше концерт.'),
         answer: 'Es gab ein Konzert.',
+        // A2 Unit 1 says the Perfekt forms are not wrong, only heavier.
+        alternatives: ['Es hat ein Konzert gegeben.'],
         hints: [],
       },
     ]),
