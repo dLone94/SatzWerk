@@ -102,7 +102,22 @@ function sendJson(
   res.end(payload);
 }
 
-function serveStatic(res: ServerResponse, urlPath: string): void {
+/**
+ * Whether the copy the browser already holds is this file. An ETag decides
+ * when one was sent; the date only when none was (RFC 9110, 13.1.3).
+ */
+function unchanged(req: IncomingMessage, etag: string, modified: Date): boolean {
+  const ifNoneMatch = req.headers['if-none-match'];
+  if (ifNoneMatch) {
+    const opaque = (tag: string) => tag.trim().replace(/^W\//, '');
+    return ifNoneMatch.split(',').some((tag) => tag.trim() === '*' || opaque(tag) === opaque(etag));
+  }
+  const since = Date.parse(req.headers['if-modified-since'] ?? '');
+  // HTTP dates have whole seconds; the file's time has fractions.
+  return Number.isFinite(since) && Math.floor(modified.getTime() / 1000) * 1000 <= since;
+}
+
+function serveStatic(req: IncomingMessage, res: ServerResponse, urlPath: string): void {
   if (!existsSync(DIST)) {
     res.writeHead(404, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('No build found. Run "npm run build", or use "npm run dev" for development.');
@@ -146,11 +161,27 @@ function serveStatic(res: ServerResponse, urlPath: string): void {
 
   const type = MIME[extname(filePath)] ?? 'application/octet-stream';
   const immutable = filePath.includes(`${join(DIST, 'assets')}`);
-  res.writeHead(200, {
+  /*
+   * `no-cache` means "ask before using what you have", and asking needs
+   * something to ask with. Without these the answer was always the whole
+   * file: the half-megabyte illustration on Today came down again on every
+   * app open. Size and modification time change with every build of a file.
+   */
+  const stats = statSync(filePath);
+  const etag = `W/"${stats.size.toString(16)}-${Math.floor(stats.mtimeMs).toString(16)}"`;
+  const headers = {
     ...SECURITY_HEADERS,
     'Content-Type': type,
     'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
-  });
+    ETag: etag,
+    'Last-Modified': stats.mtime.toUTCString(),
+  };
+  if (unchanged(req, etag, stats.mtime)) {
+    res.writeHead(304, headers);
+    res.end();
+    return;
+  }
+  res.writeHead(200, headers);
   // A file removed mid-read (a rebuild of dist, say) ends this response
   // rather than surfacing as an unhandled 'error' event.
   createReadStream(filePath)
@@ -182,7 +213,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       sendJson(res, 405, { error: 'Method not allowed' });
       return;
     }
-    serveStatic(res, url.pathname);
+    serveStatic(req, res, url.pathname);
     return;
   }
 
