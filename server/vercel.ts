@@ -156,7 +156,10 @@ async function answerRequest(request: Incoming): Promise<Answer> {
       const stale = cached;
       cached = undefined;
       stale?.then((late) => late.close()).catch(() => {});
-      diagnose('database_unavailable');
+      // Logged as what it was. A schema that could not be brought up to date
+      // is not a database that cannot be reached, and the log is where an
+      // operator looks first.
+      diagnose(error instanceof MigrationFailure ? 'migration_failed' : 'database_unavailable');
       return {
         status: 503,
         body: { error: explain(error as Error) },
