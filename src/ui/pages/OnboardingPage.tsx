@@ -81,6 +81,9 @@ export function OnboardingPage() {
             type="button"
             className={`path-card${lang === code ? ' is-active' : ''}`}
             aria-pressed={lang === code}
+            // Each card is written in its own language, whichever path is
+            // chosen, so it is read in that language's voice.
+            lang={code}
             onClick={() => void choose(code)}
           >
             <span className="path-card__flagword">{code === 'en' ? 'English' : 'Български'}</span>
@@ -88,7 +91,7 @@ export function OnboardingPage() {
               {code === 'en' ? UI.onboardingPathEn[code] : UI.onboardingPathBg[code]}
             </span>
             <span className="path-card__german">
-              <Icon name="arrow" size={16} /> Deutsch
+              <Icon name="arrow" size={16} /> <span lang="de">Deutsch</span>
             </span>
           </button>
         ))}

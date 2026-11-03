@@ -496,6 +496,9 @@ export const UI = {
     'Type the correction to continue.',
     'Напиши поправката, за да продължиш.',
   ),
+  // Shown, and read out, once the retyped correction is accepted: the verdict
+  // above it still says what the first answer was.
+  exerciseRetypeDone: s('Correction typed.', 'Поправката е написана.'),
   exerciseTypeAnswer: s('Type your answer in German', 'Напиши отговора си на немски'),
   // Read out in place of the gap in a fill-in sentence: "blank Kind ist klein."
   exerciseBlank: s('blank', 'празно'),

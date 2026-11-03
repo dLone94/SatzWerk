@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactElement } from 'react';
@@ -985,6 +985,25 @@ describe('what is shown to a screen reader', () => {
     expect(document.querySelector('.cat-bars [role="progressbar"]')).toBeNull();
     const label = tr('mistakesPractiseCategory', 'en');
     expect(screen.getAllByRole('button', { name: new RegExp(`^${label}: `) })).toHaveLength(2);
+  });
+
+  /*
+   * "Български" on an English page and "English" on a Bulgarian one were read
+   * in the page's voice. A language picker names each language in itself, as
+   * the header's toggle already did.
+   */
+  it.each(LANGS)('names each language in itself on the %s path', (lang) => {
+    mount(<SettingsPage />, lang);
+    expect(screen.getByRole('button', { name: 'English' })).toHaveAttribute('lang', 'en');
+    expect(screen.getByRole('button', { name: 'Български' })).toHaveAttribute('lang', 'bg');
+    cleanup();
+
+    mount(<OnboardingPage />, lang, {
+      profile: { teachingLanguage: lang, dailyTargetMinutes: 20, displayName: null, onboarded: false, createdAt: now },
+    });
+    expect(screen.getByText('English').closest('[lang]')).toHaveAttribute('lang', 'en');
+    expect(screen.getByText('Български').closest('[lang]')).toHaveAttribute('lang', 'bg');
+    for (const german of screen.getAllByText('Deutsch')) expect(german.closest('[lang]')).toHaveAttribute('lang', 'de');
   });
 });
 

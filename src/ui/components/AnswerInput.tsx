@@ -26,8 +26,10 @@ import { useApp } from '../../state/AppState.tsx';
 const SPECIAL_CHARACTERS = ['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü'];
 
 export interface AnswerInputHandle {
-  focus: () => void;
+  focus: (options?: FocusOptions) => void;
   insert: (text: string) => void;
+  /** Scroll the field, with its letter keys, into view. */
+  scrollIntoView: (options: ScrollIntoViewOptions) => void;
 }
 
 export interface AnswerInputProps {
@@ -53,6 +55,12 @@ export interface AnswerInputProps {
    * sentences: on a single word it would capitalise "das" into a mistake.
    */
   capitalizeSentences?: boolean;
+  /**
+   * The question this field answers, read before the words around the gap:
+   * without it every question's field sounded the same, so a new one was
+   * never noticed and what it asked had to be found by reading backwards.
+   */
+  questionIds?: string;
   describedBy?: string;
 }
 
@@ -70,6 +78,7 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
     compact = false,
     tone = 'neutral',
     focusKey,
+    questionIds,
     describedBy,
     capitalizeSentences = false,
   },
@@ -77,13 +86,15 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
 ) {
   const { t, lang } = useApp();
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const labelId = useId();
   const scaffoldId = useId();
   const scaffolded = Boolean(prefix || suffix);
 
-  const focus = useCallback(() => {
+  const focus = useCallback((options?: FocusOptions) => {
     const element = inputRef.current;
     if (!element) return;
-    element.focus();
+    element.focus(options);
     // Put the caret at the end so continuing to type just works.
     const end = element.value.length;
     try {
@@ -117,7 +128,10 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
     [onChange, value],
   );
 
-  useImperativeHandle(ref, () => ({ focus, insert }), [focus, insert]);
+  // An optional call: jsdom has no scrollIntoView at all.
+  const scrollIntoView = useCallback((options: ScrollIntoViewOptions) => boxRef.current?.scrollIntoView?.(options), []);
+
+  useImperativeHandle(ref, () => ({ focus, insert, scrollIntoView }), [focus, insert, scrollIntoView]);
 
   // Focus on mount and whenever the caller says the task changed.
   useEffect(() => {
@@ -159,8 +173,12 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
     placeholder: placeholder ?? '',
     onChange: (event: { target: { value: string } }) => onChange(event.target.value),
     onKeyDown: handleKeyDown,
-    'aria-label': label,
-    'aria-describedby': [scaffolded ? scaffoldId : '', describedBy ?? ''].filter(Boolean).join(' ') || undefined,
+    // Named by the element below rather than by an aria-label: an aria-label
+    // takes the field's language, which is German, so a screen reader read
+    // "Type your answer in German" in a German voice.
+    'aria-labelledby': labelId,
+    'aria-describedby':
+      [questionIds ?? '', scaffolded ? scaffoldId : '', describedBy ?? ''].filter(Boolean).join(' ') || undefined,
     // German text, so the browser should not autocorrect it as English.
     autoComplete: 'off',
     autoCapitalize: capitalizeSentences ? 'sentences' : 'off',
@@ -171,7 +189,10 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
   };
 
   return (
-    <div className="answer">
+    <div className="answer" ref={boxRef}>
+      <span id={labelId} className="visually-hidden" lang={lang}>
+        {label}
+      </span>
       {/*
         The words around the gap, for a screen reader.
 

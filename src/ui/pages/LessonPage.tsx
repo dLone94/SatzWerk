@@ -90,14 +90,33 @@ function LessonView() {
    * page scrolled: the new section opened at its end, its title and first
    * paragraphs above the screen. Not on arrival — the route has already been
    * put at the top, and Back should keep its place.
+   *
+   * Focus goes with it, to what the new content is called: a section's
+   * title, the lesson's on the overview, the result's once a check is over.
+   * Focus used to stay on Next, now far below the screen, so nothing was
+   * announced and Space, meant to scroll, skipped the section unread; the
+   * result arrived with focus on the page. (A question's own field or
+   * options take focus in the player.) All of those are on the page's first
+   * screen, so focusing one must not scroll it: the result once took focus at
+   * its foot, and on a short phone that carried the page back down, the score
+   * and the verdict above the screen.
    */
   const arrived = useRef(false);
+  const sectionTitle = useRef<HTMLHeadingElement | null>(null);
+  const lessonTitle = useRef<HTMLHeadingElement | null>(null);
+  const result = useRef<HTMLElement | null>(null);
+  const holdResult = useCallback((element: HTMLElement | null) => {
+    result.current = element;
+  }, []);
   useEffect(() => {
     if (!arrived.current) {
       arrived.current = true;
       return;
     }
     window.scrollTo(0, 0);
+    const target =
+      stage === 'sections' ? sectionTitle.current : stage === 'overview' ? lessonTitle.current : stage === 'done' ? result.current : null;
+    target?.focus({ preventScroll: true });
   }, [stage, sectionIndex]);
 
   // Mark a section as read once it is actually on screen.
@@ -323,7 +342,7 @@ function LessonView() {
           </span>
         </div>
 
-        <Card title={say(section.title)}>
+        <Card title={say(section.title)} titleRef={sectionTitle}>
           <Blocks blocks={sectionBlocks(section, lang)} />
 
           {section.vocabIds && section.vocabIds.length > 0 ? (
@@ -347,20 +366,15 @@ function LessonView() {
             {t('lessonPrevSection')}
           </button>
           {sectionIndex + 1 < sections.length ? (
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={() => setSectionIndex((index) => index + 1)}
-              autoFocus
-            >
+            <button type="button" className="btn btn--primary" onClick={() => setSectionIndex((index) => index + 1)}>
               {t('lessonNextSection')}
             </button>
           ) : readingToFinish ? (
-            <button type="button" className="btn btn--primary" onClick={() => void onReadingFinish()} autoFocus>
+            <button type="button" className="btn btn--primary" onClick={() => void onReadingFinish()}>
               {t('lessonFinishLesson')}
             </button>
           ) : (
-            <button type="button" className="btn btn--primary" onClick={startPractice} autoFocus>
+            <button type="button" className="btn btn--primary" onClick={startPractice}>
               {exercisesLabel}
             </button>
           )}
@@ -386,11 +400,18 @@ function LessonView() {
               value={lastSummary.accuracy}
               passed
               caption={t('exerciseScore', { correct: lastSummary.firstTryCorrect, total: lastSummary.total })}
+              captionId="lesson-score"
             />
             <p className="done-hero__de" lang="de">
               {lastSummary.accuracy >= 0.8 ? 'Gut gemacht!' : 'Geschafft!'}
             </p>
-            <h1 className="done-hero__title" id="done-hero-title">
+            <h1
+              className="done-hero__title"
+              id="done-hero-title"
+              ref={holdResult}
+              tabIndex={-1}
+              aria-describedby="lesson-score"
+            >
               {t('lessonDoneTitle')}
               <span>{say(lesson.title)}</span>
             </h1>
@@ -436,9 +457,14 @@ function LessonView() {
     const unreadSections = lesson.sections.filter((item) => !progress.sectionsSeen.includes(item.id)).length;
     const firstUnread = sections.findIndex((item) => !progress.sectionsSeen.includes(item.id));
     const finishReading = Boolean(masteryPassed) && !complete && !finishOpen && unreadSections > 0 && firstUnread >= 0;
+    // The result's title takes focus when it opens, described by the result
+    // itself: what it means and the score. Not the way on, at the card's
+    // foot, which can be below a short phone's screen; it is a few Tabs on.
+    const noted = !masteryPassed || complete || finishOpen || finishReading;
+    const resultIds = [noted ? 'lesson-result' : '', lastSummary ? 'lesson-score' : ''].filter(Boolean).join(' ') || undefined;
     return (
       <div className="page">
-        <Card title={t('lessonMastery')} tone="accent">
+        <Card title={t('lessonMastery')} tone="accent" titleRef={holdResult} titleDescribedBy={resultIds}>
           {lastSummary ? (
             <ScoreRing
               value={lastSummary.accuracy}
@@ -447,19 +473,28 @@ function LessonView() {
                 correct: lastSummary.firstTryCorrect,
                 total: lastSummary.total,
               })}
+              captionId="lesson-score"
             />
           ) : null}
 
           {masteryPassed ? (
             complete ? (
-              <p className="done-note">{t('lessonCompleted')}</p>
+              <p className="done-note" id="lesson-result">
+                {t('lessonCompleted')}
+              </p>
             ) : finishOpen ? (
-              <p className="done-note done-note--warn">{t('lessonStepsLeft', { n: openSteps })}</p>
+              <p className="done-note done-note--warn" id="lesson-result">
+                {t('lessonStepsLeft', { n: openSteps })}
+              </p>
             ) : finishReading ? (
-              <p className="done-note done-note--warn">{t('lessonSectionsLeft', { n: unreadSections })}</p>
+              <p className="done-note done-note--warn" id="lesson-result">
+                {t('lessonSectionsLeft', { n: unreadSections })}
+              </p>
             ) : null
           ) : (
-            <p className="done-note done-note--warn">{t('lessonMasteryFailed')}</p>
+            <p className="done-note done-note--warn" id="lesson-result">
+              {t('lessonMasteryFailed')}
+            </p>
           )}
 
           <Requirements lesson={lesson} />
@@ -469,7 +504,11 @@ function LessonView() {
               {t('navCourse')}
             </Link>
             {finishOpen ? (
-              <button type="button" className="btn btn--primary" onClick={startPractice} autoFocus>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={startPractice}
+              >
                 {t('lessonFinishRemaining', { n: openSteps })}
               </button>
             ) : finishReading ? (
@@ -481,7 +520,6 @@ function LessonView() {
                   setReadingToFinish(true);
                   setStage('sections');
                 }}
-                autoFocus
               >
                 {t('lessonReadRemaining', { n: unreadSections })}
               </button>
@@ -506,7 +544,11 @@ function LessonView() {
                 <button type="button" className="btn btn--ghost" onClick={() => setStage('mastery')}>
                   {t('lessonMasteryRetry')}
                 </button>
-                <button type="button" className="btn btn--primary" onClick={startPractice}>
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  onClick={startPractice}
+                >
                   {t('lessonReplay')}
                 </button>
               </>
@@ -525,7 +567,9 @@ function LessonView() {
         {unit ? <span>{say(unit.title)}</span> : null}
       </nav>
 
-      <h1 className="page__title">{say(lesson.title)}</h1>
+      <h1 className="page__title" ref={lessonTitle} tabIndex={-1}>
+        {say(lesson.title)}
+      </h1>
 
       <Card title={t('lessonObjective')} tone="accent">
         <p className="objective">{say(lesson.objective)}</p>
@@ -556,7 +600,9 @@ function LessonView() {
               setReadingToFinish(false);
               setStage('sections');
             }}
-            autoFocus
+            // Not autoFocus: focusing it scrolled it into view, so on a phone
+            // a lesson opened at its end, the title and objective above the
+            // screen. Arriving focuses the title instead (App's ScrollToTop).
           >
             {mainLabel}
           </button>

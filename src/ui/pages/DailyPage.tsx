@@ -61,6 +61,9 @@ function DailyPractice() {
     const heading = document.querySelector<HTMLElement>('.daily-page h1');
     if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
   }, [run?.stage, paused]);
+  // "Next phrase" swaps the card in place; its title says which phrase is now on it.
+  const phraseTitle = useRef<HTMLHeadingElement | null>(null);
+  useEffect(() => { if (cardIndex > 0) phraseTitle.current?.focus(); }, [cardIndex]);
 
   async function persist(next: DailyRunInput) {
     await recordDailyRun(next);
@@ -145,7 +148,7 @@ function DailyPractice() {
       <li key={key} className={index < run.stage ? 'is-done' : index === run.stage ? 'is-current' : ''}
         aria-current={index === run.stage ? 'step' : undefined}><span>{index < run.stage ? <Icon name="check" size={14} /> : index + 1}</span><span>{t(key)}</span></li>)}</ol>
     {notice}
-    {run.stage === 0 && card ? <Card title={t('dailyPhraseCount', { n: cardIndex + 1, total: phrases.length })}>
+    {run.stage === 0 && card ? <Card title={t('dailyPhraseCount', { n: cardIndex + 1, total: phrases.length })} titleRef={phraseTitle}>
       <div className="phrase-card"><div className="phrase-card__buddy"><DackelMark /><span>{t('playSayIt')}</span></div>
         <p className="phrase-card__purpose">{say(card.purpose)}</p>
         <p className="phrase-card__german" lang="de">{card.german}</p>

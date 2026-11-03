@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'node:fs';
@@ -718,6 +718,50 @@ describe('no trace of the old design', () => {
     expect(screen.queryByRole('button', { name: /-st/ })).toBeNull();
     // Nor is a group of letters.
     expect(screen.queryByRole('button', { name: /st, sp/ })).toBeNull();
+  });
+
+  /*
+   * The sounds lesson writes its examples for both paths ("acht — AKHT",
+   * "acht — „АХТ“"), and a cell written for both paths was treated as
+   * explanation: the example words had no play button, so the ich/ach sound
+   * could not be heard on the row that teaches it. The buttons sat on the
+   * letter groups instead, and on "ae", "oe" and "ue", which are keyboard
+   * workarounds, not sounds.
+   */
+  it('plays the example words in the sounds lesson, not the letter groups', async () => {
+    const { Blocks } = await import('../../src/ui/components/bits.tsx');
+    const { sectionBlocks } = await import('../../src/content/index.ts');
+    const lesson = lessonById('pre-a1-u1-l1')!;
+    const sections = lesson.sections.filter((section) => ['u1l1-traps', 'u1l1-typing', 'u1l1-more-sounds'].includes(section.id));
+    expect(sections).toHaveLength(3);
+    for (const lang of ['en', 'bg'] as const) {
+      const spoken: string[] = [];
+      const tts = { ...nullTtsProvider, available: true, speak: (text: string) => void spoken.push(text) };
+      const user = userEvent.setup();
+      const view = render(
+        <AppStateContext.Provider value={state({ tts, lang, say: (text) => (text ? text[lang] : '') })}>
+          <Blocks blocks={sections.flatMap((section) => sectionBlocks(section, lang))} />
+        </AppStateContext.Provider>,
+      );
+      const tables = [...document.querySelectorAll('table')];
+      const played = tables.flatMap((table) =>
+        [...table.querySelectorAll('button')].map((button) => button.querySelector('[lang="de"]')!.textContent),
+      );
+      for (const word of ['wohnen', 'vier', 'lesen', 'sieben', 'acht', 'ich', 'das Haus', 'neu', 'die Häuser', 'der Hund', 'der Tag']) {
+        expect(played, `${lang}: ${word}`).toContain(word);
+      }
+      for (const group of ['ae', 'oe', 'ue', 'ei', 'ie', 'au', 'eu, äu']) {
+        expect(played, `${lang}: ${group}`).not.toContain(group);
+      }
+      // The word is marked German; the respelling beside it is not.
+      const acht = within(tables.at(-1)!).getByText('acht', { selector: '.data-table__de' });
+      expect(acht).toHaveAttribute('lang', 'de');
+      expect(acht.closest('td')).not.toHaveAttribute('lang');
+
+      await user.click(within(acht.closest('td')!).getByRole('button'));
+      expect(spoken).toEqual(['acht']);
+      view.unmount();
+    }
   });
 
   it('draws the play buttons instead of using emoji', async () => {
