@@ -318,6 +318,31 @@ describe('a failure after the database was opened', () => {
     }
   });
 
+  /*
+   * A migration that failed was reported as a database that could not be
+   * reached, with advice to check DATABASE_URL — sending whoever read it to
+   * the one setting that was fine.
+   */
+  it('does not blame DATABASE_URL for a migration that failed', async () => {
+    vi.resetModules();
+    vi.doMock('../../server/db.ts', async (importOriginal) => {
+      const original = await importOriginal<typeof import('../../server/db.ts')>();
+      return {
+        ...original,
+        openDatabase: async () => {
+          throw new original.MigrationFailure('Migration 5 (scenario runs) failed: relation "scenario_runs" already exists');
+        },
+      };
+    });
+    const handler = (await import('../../server/vercel.ts')).default as (request: Request) => Promise<Response>;
+    const response = await handler(get('/api/state'));
+    expect(response.status).toBe(503);
+    const body = (await response.json()) as { error: string };
+    expect(body.error).toContain('Migration 5 (scenario runs) failed');
+    expect(body.error).not.toContain('DATABASE_URL');
+    expect(body.error).not.toContain('cannot reach its database');
+  });
+
   it('still answers 500 for a genuine bug, so the client does not hold it forever', async () => {
     const { handler } = await loadFailingHandler(() => new TypeError("Cannot read properties of undefined (reading 'x')"));
     expect((await handler(get('/api/state'))).status).toBe(500);

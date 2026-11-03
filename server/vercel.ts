@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { traceRequest, diagnose } from './diagnostics.ts';
 import { createProvider } from './ai.ts';
 import { handleRequest, healthReport, resolveAuth } from './api.ts';
-import { openDatabase, type Db } from './db.ts';
+import { MigrationFailure, openDatabase, type Db } from './db.ts';
 import { isDatabaseUnavailable, RETRY_AFTER_SECONDS } from './driver.ts';
 import { crossSiteRefusal, SECURITY_HEADERS, type GuardHeaders } from './security.ts';
 
@@ -215,6 +215,12 @@ async function answerRequest(request: Incoming): Promise<Answer> {
 function explain(error: Error): string {
   const message = error.message.replace(/\s*\.?\s*$/, '.');
   if (/DATABASE_URL/.test(message)) return message;
+  // The database answered; bringing its schema up to date is what failed, and
+  // the next request tries again. Advice about the connection string would
+  // send whoever reads this to the one setting that is fine.
+  if (error instanceof MigrationFailure) {
+    return `The database could not be brought up to date: ${message} The next request tries again.`;
+  }
   return `The server cannot reach its database: ${message} Check that DATABASE_URL is correct for this deployment — Preview and Production are set separately — and that the database is awake and accepting connections. /api/health answers without the database.`;
 }
 

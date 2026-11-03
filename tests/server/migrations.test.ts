@@ -178,3 +178,54 @@ describe('more than one learner', () => {
     await after.close();
   });
 });
+
+/*
+ * Several instances starting on one Postgres at once: the first page load
+ * after a deploy, served by more than one cold function. Each read the schema
+ * version, found it behind, and ran the same migration; all but one failed on
+ * "duplicate key ... pg_type_typname_nsp_index" or "already exists", and those
+ * requests were answered 503 with advice to check DATABASE_URL.
+ */
+const RACE_URL = process.env.TEST_DATABASE_URL;
+(RACE_URL ? describe : describe.skip)('several instances migrating one Postgres at once', () => {
+  async function freshSchema(): Promise<string> {
+    const { default: pg } = await import('pg');
+    const admin = new pg.Client({ connectionString: RACE_URL! });
+    await admin.connect();
+    // A schema of its own, so the parity tests' reset of `public` cannot
+    // interfere, and this one cannot interfere with them.
+    await admin.query('DROP SCHEMA IF EXISTS migration_race CASCADE; CREATE SCHEMA migration_race;');
+    await admin.end();
+    const separator = RACE_URL!.includes('?') ? '&' : '?';
+    return `${RACE_URL}${separator}options=-c%20search_path%3Dmigration_race`;
+  }
+
+  async function openTogether(url: string, count: number): Promise<Db[]> {
+    const results = await Promise.allSettled(Array.from({ length: count }, () => openDatabase({ databaseUrl: url })));
+    const opened = results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
+    const failures = results.flatMap((result) => (result.status === 'rejected' ? [String(result.reason)] : []));
+    for (const db of opened) await db.close();
+    expect(failures).toEqual([]);
+    return opened;
+  }
+
+  it('brings an empty database up to date from every instance', async () => {
+    for (let run = 0; run < 3; run += 1) {
+      const url = await freshSchema();
+      await openTogether(url, 4);
+      const check = await openDatabase({ databaseUrl: url });
+      const version = await check.get<{ value: string }>('SELECT value FROM meta WHERE key = ?', 'schema_version');
+      expect(Number(version!.value)).toBe(SCHEMA_VERSION);
+      await check.close();
+    }
+  }, 60_000);
+
+  it('applies a new migration once when instances of a new deploy start together', async () => {
+    for (let run = 0; run < 3; run += 1) {
+      const url = await freshSchema();
+      const older = await openDatabase({ databaseUrl: url }, SCHEMA_VERSION - 1);
+      await older.close();
+      await openTogether(url, 4);
+    }
+  }, 60_000);
+});
