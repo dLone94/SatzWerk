@@ -22,12 +22,12 @@ import type { Checkpoint, Exercise, Lesson, SentencePattern, Unit } from '../typ
  * all — so there is nothing to transfer and the endings have to be built.
  *
  * **Written politeness** (lesson 3) is the interesting one, because both
- * paths have a formal register and both are wrong here in the same direction.
- * English asks by questioning — "Could you possibly let me know" — and
- * Bulgarian asks with „бихте ли“. German can ask politely too; this unit teaches a common declarative
- * request frame. *Ich bitte um eine Bestätigung* is not brusque, it is standard, and
- * the politeness sits in the Konjunktiv II and the fixed frame rather than in
- * hedging.
+ * paths make a formal request by asking: English with "Could you possibly
+ * let me know", Bulgarian with „бихте ли“. German can ask with *Könnten Sie
+ * mir bitte … mitteilen?* too, but a firm letter usually states its request,
+ * and that is what is new. *Ich bitte um eine Bestätigung* is not brusque, it
+ * is standard, and the politeness sits in the Konjunktiv II and the fixed
+ * frame rather than in hedging.
  */
 
 /** Everything in this file is B2. */
