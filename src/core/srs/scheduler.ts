@@ -30,6 +30,9 @@ import type { Verdict } from '../validation/validate.ts';
  * after nine days on a four-day interval has shown it lasts eight days at
  * least, and one right answer after a long break is not proof of a hundred.
  * A `hard` answer gets no such credit; it only just survived the gap it had.
+ * It can even shorten the interval (times 0.6, at an ease that has fallen),
+ * and when that takes a known item below five days it is learning again,
+ * though the answer was right: an item that only just survived is not secure.
  *
  * ## What "known" means
  *
@@ -57,10 +60,18 @@ import type { Verdict } from '../validation/validate.ts';
  * - grows a graduated item only by the time that has actually passed since it
  *   was last reviewed, `interval' = max(interval, elapsedDays * ease *
  *   gradeFactor)`, so it never shrinks, and is due that interval from now;
+ * - adds at least a day to a graduated item that is not known yet, when a
+ *   whole day has passed since it was last reviewed and the answer was `good`
+ *   or `easy`;
  * - leaves the ease alone.
  *
  * Inside one day that growth is at most four days (under a day times 2.8
- * times 1.3), so repetitions on the same day never make an item known.
+ * times 1.3), so repetitions on the same day never make an item known. The
+ * extra day is there for the learner who practises every day: each answer
+ * pushed the due date out again, so the word was never due, and a day's
+ * growth (one day times 2.5 times 1.3, three days) never reached five. It
+ * was remembered on thirty separate days and still read "Learning". With a
+ * day added for each day it is remembered, it is known on the fourth.
  * Practising early still moves the item back in the queue, and `again` demotes
  * at any time, so a slip in a lesson still brings the word back soon.
  *
@@ -203,7 +214,9 @@ export function scheduleReview(item: ReviewItem, grade: RecallGrade, now = new D
   if (item.state !== 'new' && elapsedDays !== undefined && !isDue(item, now)) {
     if (spaced) {
       const earned = Math.round(elapsedDays * item.ease * GRADE_FACTOR[grade]);
-      const interval = clamp(Math.max(item.intervalDays, earned), 1, MAX_INTERVAL_DAYS);
+      const dayHeld =
+        elapsedDays >= 1 && grade !== 'hard' && item.intervalDays < KNOWN_INTERVAL_DAYS ? item.intervalDays + 1 : 0;
+      const interval = clamp(Math.max(item.intervalDays, earned, dayHeld), 1, MAX_INTERVAL_DAYS);
       next.state = stateForInterval(interval);
       next.intervalDays = interval;
       next.dueAt = iso(new Date(now.getTime() + interval * DAY_MS));

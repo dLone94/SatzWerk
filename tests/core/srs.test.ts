@@ -250,6 +250,54 @@ describe('known', () => {
     expect(current.intervalDays).toBeLessThan(KNOWN_INTERVAL_DAYS);
   });
 
+  /*
+   * Practising early every day pushed the due date out each time, so the word
+   * was never due, and a day's early growth (three days) never reached five:
+   * remembered on thirty separate days, it still read "Learning".
+   */
+  it('is reached by a clean answer every day, in a few days', () => {
+    for (const grade of ['good', 'easy'] as const) {
+      let current = item();
+      let knownOn: number | undefined;
+      for (let d = 0; d <= 30 && knownOn === undefined; d += 1) {
+        current = scheduleReview(current, grade, at(d * day));
+        if (current.state === 'known') knownOn = d;
+      }
+      expect(knownOn, grade).toBeDefined();
+      expect(knownOn!, grade).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it('is not hurried by a day held on an answer that only just survived', () => {
+    const graduated = item({
+      state: 'learning',
+      intervalDays: 3,
+      learningStep: 2,
+      ease: 2.5,
+      lastReviewAt: T0.toISOString(),
+      dueAt: at(3 * day).toISOString(),
+    });
+    expect(scheduleReview(graduated, 'hard', at(day)).intervalDays).toBe(3);
+    expect(scheduleReview(graduated, 'good', at(day)).intervalDays).toBe(4);
+    // Less than a whole day is still the same day's practice.
+    expect(scheduleReview(graduated, 'easy', at(day - 60_000)).intervalDays).toBe(3);
+  });
+
+  it('can be lost on a right answer that only just survived', () => {
+    const shaky = item({
+      state: 'known',
+      intervalDays: 5,
+      learningStep: 2,
+      ease: 1.3,
+      lastReviewAt: T0.toISOString(),
+      dueAt: at(5 * day).toISOString(),
+    });
+    const next = scheduleReview(shaky, 'hard', at(5 * day));
+    expect(next.intervalDays).toBe(4); // round(5 * 1.3 * 0.6)
+    expect(next.state).toBe('learning');
+    expect(next.lapses).toBe(0);
+  });
+
   it('is reached by clean answers on the day after and two days after that', () => {
     let current = scheduleReview(item(), 'easy', T0);
     current = scheduleReview(current, 'easy', at(day));
