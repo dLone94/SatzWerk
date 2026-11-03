@@ -158,3 +158,30 @@ describe('adjective endings, the plural included', () => {
     }
   });
 });
+
+describe('where the reflexive word goes, and where it comes from', () => {
+  /*
+   * The A2 reflexive lesson called mich, dich, uns and euch "the accusative
+   * pronouns you already know" (on the Bulgarian path, "from A1"), but no
+   * lesson before it teaches object pronouns. Its rule, "straight after the
+   * conjugated verb … whatever else happens to the sentence", gives *Heute
+   * fühle mich ich besser beside its own example "Heute fühle ich mich
+   * besser", and lesson 3 then said the reflexive word goes to the end with
+   * the verb after weil, which it does not.
+   */
+  it('does not claim the pronouns were taught before', () => {
+    for (const lang of PATHS) {
+      expect(lessonText('a2-u4-l1', lang), lang).not.toMatch(/already know|already had|вече знаеш|вече имаше|от A1/);
+    }
+  });
+
+  it('states a position rule the lesson’s own sentences follow', () => {
+    for (const lang of PATHS) {
+      const text = lessonText('a2-u4-l1', lang);
+      expect(text, lang).not.toMatch(/second place behind the verb|whatever else happens|каквото и да става|си остава веднага след глагола/);
+      expect(text, lang).toContain('Heute fühle ich mich besser');
+      expect(lessonText('a2-u4-l3', lang), lang).not.toMatch(/mich goes with it|mich върви с него/);
+    }
+    expect(isRight('Heute fühle mich ich besser.', 'a2u4l1-ex2-s2')).toBe(false);
+  });
+});
