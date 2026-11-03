@@ -418,7 +418,10 @@ function compareAgainst(
     };
   }
 
-  const analysis = classifyTokens(gTokens, eTokens, lexicon);
+  // The words the scaffold shows after the gap, which the answer runs into:
+  // "das" typed into "___ Kind ist klein." stands in front of its noun.
+  const shown = options.scaffold ? tokenize(splitScaffold(options.scaffold).after) : [];
+  const analysis = classifyTokens(gTokens, eTokens, lexicon, shown);
   const categories = analysis.categories;
 
   if (categories.length === 0) {
@@ -920,6 +923,7 @@ function classifyTokens(
   gTokens: string[],
   eTokens: string[],
   lexicon: GermanLexicon,
+  shown: string[],
 ): TokenAnalysis {
   const diff = alignTokens(gTokens, eTokens);
   const categories = new Set<ErrorCategory>();
@@ -941,8 +945,7 @@ function classifyTokens(
       categories.add('extra-word');
       return;
     }
-    const nextExpected = findNextExpected(diff, index);
-    for (const category of categorizePair(entry.expected!, entry.given!, lexicon, nextExpected)) {
+    for (const category of categorizePair(entry.expected!, entry.given!, lexicon, expectedAfter(diff, index), shown)) {
       categories.add(category);
     }
   });
@@ -950,20 +953,39 @@ function classifyTokens(
   return { categories: [...categories], diff };
 }
 
-function findNextExpected(diff: TokenDiffEntry[], from: number): string | undefined {
-  for (let i = from + 1; i < diff.length; i += 1) {
-    const expected = diff[i]?.expected;
-    if (expected) return expected;
-  }
-  return undefined;
+/** The answer's words after the diff entry at `from`. */
+export function expectedAfter(diff: TokenDiffEntry[], from: number): string[] {
+  return diff.slice(from + 1).flatMap((entry) => (entry.expected ? [entry.expected] : []));
 }
 
-/** Decide what kind of mistake turning `expected` into `given` represents. */
+/**
+ * Does an article word stand in front of a noun ("das Brot", "das frische
+ * Brot"), or on its own as a pronoun ("Das, bitte.", "Das ist meine
+ * Tochter.", "Ich nehme den.")? Its noun, which German writes with a
+ * capital, comes before any verb or pronoun.
+ */
+function headsNoun(after: string[], lexicon: GermanLexicon): boolean {
+  for (const word of after) {
+    const key = lower(word);
+    if (lexicon.pronouns.has(key)) return false;
+    if (word[0] !== key[0]) return true;
+    if (isVerbForm(lexicon, word)) return false;
+  }
+  return false;
+}
+
+/**
+ * Decide what kind of mistake turning `expected` into `given` represents.
+ *
+ * `following` is the rest of the answer after `expected`, and `shown` the
+ * words the scaffold shows after the gap, when the answer fills one.
+ */
 export function categorizePair(
   expected: string,
   given: string,
   lexicon: GermanLexicon,
-  nextExpected?: string,
+  following: string[] = [],
+  shown: string[] = [],
 ): ErrorCategory[] {
   const le = lower(expected);
   const lg = lower(given);
@@ -972,15 +994,29 @@ export function categorizePair(
   const eVerb = verbLemmas(lexicon, le);
   const gVerb = verbLemmas(lexicon, lg);
 
+  // der, die and das are pronouns as well ("Das, bitte."), and only one in
+  // front of its noun is an article; so are dies and dieser. In a pronoun's
+  // place another pronoun, or an article word standing on its own, is the
+  // wrong pronoun. With nothing after it to tell (a lone "das" chosen from
+  // der, die and das), the learner's word says which it was.
+  const determiner = lexicon.articles.has(le) || /^dies(e[mnrs]?)?$/.test(le);
+  const after = [...following, ...shown];
+  const standsAlone =
+    determiner &&
+    (after.length > 0 ? !headsNoun(after, lexicon) : lexicon.pronouns.has(lg) && !lexicon.articles.has(lg));
+  const pronounPlace = standsAlone || (lexicon.pronouns.has(le) && !determiner);
+  if (pronounPlace && (lexicon.pronouns.has(lg) || lexicon.articles.has(lg))) return ['pronoun'];
+
   // Articles and determiners.
-  if (lexicon.articles.has(le) && lexicon.articles.has(lg)) {
-    const noun = nextExpected ? lower(nextExpected) : undefined;
+  if (!standsAlone && lexicon.articles.has(le) && lexicon.articles.has(lg)) {
+    const noun = following[0] ? lower(following[0]) : undefined;
     const gender = noun ? lexicon.nounGender.get(noun) : undefined;
     const givenMarks = lexicon.articleGender.get(lg) ?? [];
     if (gender && !givenMarks.includes(gender)) return ['article', 'gender'];
     return ['article'];
   }
   if (
+    !standsAlone &&
     lexicon.articles.has(le) !== lexicon.articles.has(lg) &&
     eVerb.length === 0 &&
     gVerb.length === 0

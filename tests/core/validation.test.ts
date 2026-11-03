@@ -774,3 +774,48 @@ describe('two neighbouring letters swapped', () => {
     expect(r.categories).toEqual(['vocabulary']);
   });
 });
+
+/*
+ * der, die and das are pronouns as well as articles: "Das, bitte." and "Das
+ * ist meine Tochter." have no noun for an article to belong to. A pronoun or
+ * a noun in their place was told "The article has to be …", given the
+ * "der Termin" tip and filed with the article mistakes.
+ */
+describe('der, die and das on their own', () => {
+  it('calls another pronoun in place of das a pronoun mistake', () => {
+    for (const given of ['Sie ist meine Tochter.', 'Es ist meine Tochter.', 'Dies ist meine Tochter.']) {
+      const r = validateAnswer(given, sentence(['Das ist meine Tochter.']), opts);
+      expect(r.categories, given).toEqual(['pronoun']);
+    }
+  });
+
+  it('does not call a noun in place of "Das, bitte." an article mistake', () => {
+    const r = validateAnswer('Brot, bitte.', sentence(['Das, bitte.'], { alternatives: ['Das hier, bitte.'] }), opts);
+    expect(r.categories).not.toContain('article');
+  });
+
+  it('calls das in place of the pronoun sie a pronoun mistake', () => {
+    const r = validateAnswer('Das ist meine Tochter.', sentence(['Sie ist meine Tochter.']), opts);
+    expect(r.categories).toEqual(['pronoun']);
+  });
+
+  it('still calls an article in front of its noun an article', () => {
+    expect(validateAnswer('Die Tisch ist groß.', sentence(['Der Tisch ist groß.']), opts).categories).toContain('article');
+    expect(validateAnswer('Der kleine Haus', sentence(['Das kleine Haus']), opts).categories).toContain('article');
+    expect(validateAnswer('Ich sehe Tisch.', sentence(['Ich sehe den Tisch.']), opts).categories).toContain('missing-word');
+  });
+
+  // "Which article goes with Haus?", answered from der, die and das.
+  it('lets a lone article chosen for a lone article be an article', () => {
+    expect(validateAnswer('der', word(['das']), opts).categories).toEqual(['article']);
+    expect(validateAnswer('du', word(['ihr']), opts).categories).toEqual(['pronoun']);
+  });
+
+  // The gap stands in front of the noun the scaffold shows.
+  it('reads the scaffold when the article fills a gap', () => {
+    const r = validateAnswer('die', word(['der']), { ...opts, scaffold: '___ Tisch' });
+    expect(r.categories).toEqual(['article']);
+    const both = validateAnswer('bei die', word(['bei der']), { ...opts, scaffold: '___ Ärztin' });
+    expect(both.categories).toEqual(['article']);
+  });
+});

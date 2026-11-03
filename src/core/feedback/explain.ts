@@ -1,7 +1,7 @@
 import type { Bilingual, ErrorCategory, Gender } from '../../content/types.ts';
 import type { GermanLexicon } from '../validation/lexicon.ts';
 import { lower } from '../validation/text.ts';
-import { categorizePair, type ValidationResult } from '../validation/validate.ts';
+import { categorizePair, expectedAfter, type ValidationResult } from '../validation/validate.ts';
 
 /**
  * Turns a validation result into an explanation in the learner's language.
@@ -79,8 +79,7 @@ function changeFor(category: ErrorCategory, result: ValidationResult, ctx: Feedb
   }
   const own = entries.find(({ entry, index }) => {
     if (entry.status === 'case') return category === 'pronoun' && lower(entry.expected!) === 'sie';
-    const next = result.diff.slice(index + 1).find((later) => later.expected)?.expected;
-    return categorizePair(entry.expected!, entry.given!, ctx.lexicon, next).includes(category);
+    return categorizePair(entry.expected!, entry.given!, ctx.lexicon, expectedAfter(result.diff, index)).includes(category);
   });
   if (own) return toChange(own);
   // A mistake the lexicon cannot place (an authored trap, say) still has its

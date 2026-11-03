@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnswerSpec } from '../../src/content/types.ts';
 import { LEXICON, describeNoun } from '../../src/content/index.ts';
 import { buildFeedback } from '../../src/core/feedback/explain.ts';
+import { microTip } from '../../src/core/feedback/microTips.ts';
 import { validateAnswer, type ValidateOptions } from '../../src/core/validation/validate.ts';
 
 /*
@@ -239,5 +240,30 @@ describe('the word-order explanation', () => {
     const { result, feedback } = explain('In Hamburg wohne ich.', spec('Ich wohne in Hamburg.'), { exerciseKind: 'type' });
     expect(result.verdict).toBe('accepted-variant');
     expect(feedback.correction).toBe('Ich wohne in Hamburg.');
+  });
+});
+
+/*
+ * "Das" in "Das, bitte." means "that one", as the step's own hint says. The
+ * feedback called it an article and added the article tip.
+ */
+describe('das standing on its own', () => {
+  it('is not explained as an article', () => {
+    for (const [given, answer] of [
+      ['Brot, bitte.', 'Das, bitte.'],
+      ['Sie ist meine Tochter.', 'Das ist meine Tochter.'],
+      ['ich weiß nicht', 'Das, bitte.'],
+    ] as const) {
+      const { result, en, bg } = explain(given, spec(answer));
+      expect(en.join(' '), given).not.toContain('article');
+      expect(bg.join(' '), given).not.toContain('Член');
+      expect(microTip(result.categories), given).toBeUndefined();
+    }
+  });
+
+  it('names the pronoun that belongs there', () => {
+    const { en, bg } = explain('Sie ist meine Tochter.', spec('Das ist meine Tochter.'));
+    expect(en).toContain('The pronoun should be "Das", not "Sie".');
+    expect(bg).toContain('Местоимението трябва да е „Das“, а не „Sie“.');
   });
 });
