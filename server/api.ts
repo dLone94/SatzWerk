@@ -201,7 +201,19 @@ function learnerId(raw: unknown): number | undefined {
   return Number.isSafeInteger(id) && id >= 1 ? id : undefined;
 }
 
-const REVIEW_KINDS = new Set<ReviewKind>(['vocab', 'noun-article', 'sentence', 'pattern', 'grammar', 'mistake']);
+/*
+ * Written as a record over ReviewKind rather than a list, so a kind added to
+ * the scheduler and not here fails typecheck. Missing from a list, its
+ * targets would be dropped from every answer and refused by /reviews/ensure.
+ */
+const REVIEW_KINDS = new Set(Object.keys({
+  vocab: true,
+  'noun-article': true,
+  sentence: true,
+  pattern: true,
+  grammar: true,
+  mistake: true,
+} satisfies Record<ReviewKind, true>));
 const LEVELS = new Set<string>(CEFR_ORDER);
 
 /**
