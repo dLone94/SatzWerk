@@ -142,3 +142,86 @@ describe('the review page', () => {
     expect(earlyReviewExercises(items, new Date(now))).toEqual(all.slice(0, 10));
   });
 });
+
+/*
+ * Due grammar was a card with the rule written out beside Again, Hard, Good
+ * and Easy: graded with the answer in view and nothing attempted. It is asked
+ * now, as one of the course's own steps, and the rule follows the answer.
+ */
+describe('grammar in review', () => {
+  const at = new Date('2026-04-01T09:00:00.000Z');
+  const dueGrammar = (refId: string, reviews = 1): ReviewItem => ({
+    ...createReviewItem({ id: `grammar:${refId}`, kind: 'grammar', refId, level: 'a1', now: at }),
+    state: 'learning',
+    intervalDays: 2,
+    learningStep: 2,
+    successCount: reviews,
+  });
+
+  it('is asked as an authored step that practises it, and schedules only the concept', () => {
+    const { exercises, conceptItems } = buildReviewExercises([dueGrammar('g-accusative')], 'en');
+    expect(conceptItems).toEqual([]);
+    expect(exercises).toHaveLength(1);
+    const card = exercises[0]!;
+    expect(['type', 'fillBlank', 'partialRecall', 'articleRecall', 'conjugation']).toContain(card.kind);
+    const step = card.steps[0]!;
+    expect(step.answer.accepted.length).toBeGreaterThan(0);
+    expect(step.reviewTargets).toEqual(['g-accusative']);
+    // The authored id stays, so a slip is filed against the real question.
+    expect(step.id.startsWith('rv-')).toBe(false);
+    expect(card.reminder).toEqual({ title: grammarById('g-accusative')!.title, body: grammarById('g-accusative')!.summary });
+  });
+
+  it('asks a different step at the next review', () => {
+    const first = buildReviewExercises([dueGrammar('g-accusative', 1)], 'en').exercises[0]!.steps[0]!.id;
+    const next = buildReviewExercises([dueGrammar('g-accusative', 2)], 'en').exercises[0]!.steps[0]!.id;
+    expect(next).not.toBe(first);
+  });
+
+  it('never asks the same step twice in one round', () => {
+    const ids = buildReviewExercises([dueGrammar('g-accusative'), dueGrammar('g-possessives')], 'en')
+      .exercises.map((card) => card.steps[0]!.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('falls back to the old card only for a concept the course never asks for', () => {
+    const silent = lessonsInOrder()[0]!.grammarIds.find((id) => grammarById(id)) ?? 'g-noun-capitals';
+    const { exercises, conceptItems } = buildReviewExercises([dueGrammar(silent)], 'en');
+    expect(exercises).toEqual([]);
+    expect(conceptItems.map((item) => item.refId)).toEqual([silent]);
+  });
+
+  it.each(['en', 'bg'] as const)('hides the rule until the answer is in, in %s', async (lang) => {
+    const items = [{ ...dueGrammar('g-accusative'), dueAt: new Date(Date.now() - 86_400_000).toISOString() }];
+    const step = buildReviewExercises(items, lang).exercises[0]!.steps[0]!;
+    const concept = grammarById('g-accusative')!;
+    const attempts: unknown[] = [];
+    const user = userEvent.setup();
+    const state = stubState({
+      reviewItems: items,
+      submitAttempt: async (payload) => {
+        attempts.push(payload);
+        return undefined;
+      },
+    }, lang);
+    render(
+      <AppStateContext.Provider value={state}>
+        <MemoryRouter initialEntries={['/review']}>
+          <ReviewPage />
+        </MemoryRouter>
+      </AppStateContext.Provider>,
+    );
+    // No self-grading, and no rule in view before anything is typed.
+    expect(screen.queryByRole('button', { name: tr('reviewGradeEasy', lang) })).toBeNull();
+    await user.click(screen.getByRole('button', { name: tr('reviewStart', lang) }));
+    expect(document.querySelector(`[data-step-id="${step.id}"]`)).not.toBeNull();
+    expect(screen.queryByText(concept.summary[lang])).toBeNull();
+
+    await user.type(screen.getByRole('textbox'), `${step.answer.accepted[0]}{Enter}`);
+    expect(await screen.findByText(concept.summary[lang])).toBeInTheDocument();
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0]).toMatchObject({ context: 'review', stepId: step.id });
+    expect((attempts[0] as { reviewTargets: Array<{ refId: string; kind: string }> }).reviewTargets)
+      .toEqual([expect.objectContaining({ refId: 'g-accusative', kind: 'grammar' })]);
+  });
+});

@@ -1695,6 +1695,23 @@ textarea.answer-field {
   margin-bottom: 0;
 }
 
+/* A grammar review's rule, shown once the answer is in. */
+.feedback__reminder {
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: var(--surface);
+  line-height: 1.45;
+}
+
+.feedback__reminder p {
+  margin: 0;
+}
+
+.feedback__reminder .feedback__reminder-title {
+  margin-bottom: 0.2rem;
+  font-weight: 700;
+}
+
 .diff {
   display: inline-flex;
   flex-wrap: wrap;

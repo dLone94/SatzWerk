@@ -508,8 +508,10 @@ is derived from the verdict, hint usage and whether the answer was revealed — 
 answer produced only after revealing the solution can never grade better than
 `again`. Due items come back as **typing** tasks, not flashcards: a due noun is
 prompted in the teaching language and must be typed *with its article*, and every
-third item comes back as dictation. Grammar concepts, which cannot be typed, get
-explicit Again / Hard / Good / Easy buttons.
+third item comes back as dictation. A due grammar concept is asked as one of the
+course's own steps that practise it, a different one at each review, and its
+rule is shown only once the answer is in; Again / Hard / Good / Easy remain only
+for a concept that no step on the learner's path asks for.
 
 **A mistake bank driven by real attempts.** Grouped by the 15+ error categories,
 showing what was written, what was correct, how many times it happened and how

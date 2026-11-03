@@ -1117,6 +1117,14 @@ export function ExercisePlayer({
           ) : null}
 
           {result && microTip(result.categories) ? <p className="micro-tip">{say(microTip(result.categories))}</p> : null}
+          {/* A grammar review's rule, kept back until the answer is in. */}
+          {exercise.reminder ? (
+            <div className="feedback__reminder">
+              <p className="feedback__reminder-title">{say(exercise.reminder.title)}</p>
+              <p>{say(exercise.reminder.body)}</p>
+            </div>
+          ) : null}
+
           {result && result.categories.length > 0 ? (
             <ul className="feedback__tags">
               {result.categories.map((category) => (
