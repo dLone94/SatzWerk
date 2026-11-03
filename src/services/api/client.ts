@@ -1,4 +1,5 @@
 import type { ErrorCategory, TeachingLanguage } from '../../content/types.ts';
+import { ATTEMPT_TEXT_LIMIT } from '../../core/progress/attempt.ts';
 import type { LessonProgress } from '../../core/progress/lesson.ts';
 import type { RecallGrade, ReviewItem, ReviewKind } from '../../core/srs/scheduler.ts';
 import type { Verdict } from '../../core/validation/validate.ts';
@@ -130,11 +131,7 @@ export interface AttemptPayload {
   tzOffsetMinutes?: number;
 }
 
-/**
- * How much of an answer's text the server keeps: it stores the first 500
- * characters of the prompt, the expected answer and what was typed.
- */
-export const ATTEMPT_TEXT_LIMIT = 500;
+export { ATTEMPT_TEXT_LIMIT };
 
 /**
  * An answer cut to what the server keeps, before it is queued or sent.

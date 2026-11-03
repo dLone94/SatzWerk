@@ -18,6 +18,7 @@ import {
 } from './auth.ts';
 import { checkPassword, tooManyTries } from './auth-limit.ts';
 import { plausibleOffset } from '../src/core/progress/days.ts';
+import { ATTEMPT_TEXT_LIMIT } from '../src/core/progress/attempt.ts';
 import { findDatabaseUrl, type Db } from './db.ts';
 import * as store from './store.ts';
 import { isLearningWrite, once } from './idempotency.ts';
@@ -844,8 +845,8 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
      */
     if (route.length === 2 && route[1] === 'explain' && method === 'POST') {
       const body = asRecord(request.body);
-      const expected = String(body.expected ?? '').slice(0, 500);
-      const given = String(body.given ?? '').slice(0, 500);
+      const expected = String(body.expected ?? '').slice(0, ATTEMPT_TEXT_LIMIT);
+      const given = String(body.given ?? '').slice(0, ATTEMPT_TEXT_LIMIT);
       if (expected.trim().length === 0 || given.trim().length === 0) {
         return badRequest('expected and given are both required');
       }
@@ -1033,9 +1034,9 @@ function validateAttempt(body: Record<string, unknown>): AttemptValidation {
       lessonId: body.lessonId ? String(body.lessonId) : undefined,
       exerciseId: body.exerciseId ? String(body.exerciseId) : undefined,
       stepId,
-      prompt: body.prompt ? String(body.prompt).slice(0, 500) : undefined,
-      expected: String(body.expected ?? '').slice(0, 500),
-      given: String(body.given ?? '').slice(0, 500),
+      prompt: body.prompt ? String(body.prompt).slice(0, ATTEMPT_TEXT_LIMIT) : undefined,
+      expected: String(body.expected ?? '').slice(0, ATTEMPT_TEXT_LIMIT),
+      given: String(body.given ?? '').slice(0, ATTEMPT_TEXT_LIMIT),
       verdict: verdict as store.AttemptInput['verdict'],
       credit,
       categories: categories as store.AttemptInput['categories'],
