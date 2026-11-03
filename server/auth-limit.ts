@@ -26,6 +26,15 @@ import type { Db } from './db.ts';
  *
  * While a wait is in force the password is not even checked, so a blocked
  * guess costs no scrypt. A right password clears its address's count.
+ *
+ * A try is counted before its password is checked, with the count read and
+ * written under a row lock. Checking first and counting afterwards let every
+ * guess that arrived while the count was still under five through to the
+ * check, and two misses written at the same moment, each from a count read
+ * before the other wrote, counted as one — so on several instances at once the
+ * limit was a suggestion. The everyone count therefore counts every password
+ * checked, a right one included; a household signing in is a few tries a day
+ * against fifty.
  */
 
 export const LOGIN_LIMITS = {
@@ -66,39 +75,57 @@ async function read(db: Db, key: string, now: number): Promise<Tally> {
   return parse(row?.value, now);
 }
 
-async function miss(
-  db: Db,
-  key: string,
+/** The tally after one more miss: the count, and the wait that follows it. */
+function missed(
+  tally: Tally,
   limits: { free: number; firstWaitMs: number; maxWaitMs: number },
   now: number,
-): Promise<void> {
-  const tally = await read(db, key, now);
+): Tally {
   const count = tally.count + 1;
   // The wait starts with the miss that uses up the free tries, so the next
   // try after it is the one that is refused.
   const over = count - limits.free + 1;
   const wait = over > 0 ? Math.min(limits.firstWaitMs * 2 ** (over - 1), limits.maxWaitMs) : 0;
-  const next: Tally = {
+  return {
     count,
     lockedUntil: wait > 0 ? now + wait : 0,
     resetAt: Math.max(now + LOGIN_LIMITS.windowMs, now + wait),
   };
-  await db.run(
-    'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
-    key,
-    format(next),
-  );
 }
 
-/** How long this client must wait before its next try, in ms; 0 when it may try now. */
-export async function loginWait(db: Db, client: string | undefined, now = Date.now()): Promise<number> {
-  const [mine, everyone] = await Promise.all([read(db, keyFor(client), now), read(db, EVERYONE, now)]);
-  return Math.max(mine.lockedUntil - now, everyone.lockedUntil - now, 0);
+/**
+ * Lock a count's row for the rest of the transaction, creating it first if it
+ * is not there yet: a row that does not exist cannot be locked, and two first
+ * misses would both start from nothing. The UPDATE is what takes the lock on
+ * Postgres; locally the transactions already run one at a time.
+ */
+async function lockRow(db: Db, key: string): Promise<void> {
+  await db.run('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING', key, '');
+  await db.run('UPDATE meta SET value = value WHERE key = ?', key);
 }
 
-export async function recordLoginFailure(db: Db, client: string | undefined, now = Date.now()): Promise<void> {
-  await miss(db, keyFor(client), LOGIN_LIMITS.perClient, now);
-  await miss(db, EVERYONE, LOGIN_LIMITS.everyone, now);
+/**
+ * Claim one try for this client: 0 when it may check a password now — the try
+ * is already counted as a miss — or how many ms it must wait first, in which
+ * case nothing is counted.
+ *
+ * The client's row is locked before everybody's, by every caller, so two
+ * claims can never each hold the row the other is waiting for.
+ */
+async function claimTry(db: Db, client: string | undefined, now: number): Promise<number> {
+  const mineKey = keyFor(client);
+  const wait = await db.transaction(async () => {
+    await lockRow(db, mineKey);
+    await lockRow(db, EVERYONE);
+    const mine = await read(db, mineKey, now);
+    const everyone = await read(db, EVERYONE, now);
+    const waiting = Math.max(mine.lockedUntil - now, everyone.lockedUntil - now, 0);
+    if (waiting > 0) return waiting;
+    const save = (key: string, tally: Tally) => db.run('UPDATE meta SET value = ? WHERE key = ?', format(tally), key);
+    await save(mineKey, missed(mine, LOGIN_LIMITS.perClient, now));
+    await save(EVERYONE, missed(everyone, LOGIN_LIMITS.everyone, now));
+    return 0;
+  });
   // Rows whose window has passed are dead weight; the padded resetAt at the
   // front of the value makes them easy to find.
   await db.run(
@@ -107,6 +134,7 @@ export async function recordLoginFailure(db: Db, client: string | undefined, now
     EVERYONE,
     String(now).padStart(15, '0'),
   );
+  return wait;
 }
 
 export async function clearLoginFailures(db: Db, client: string | undefined): Promise<void> {
@@ -129,22 +157,22 @@ export async function checkPassword(
   stored: string,
   now = Date.now(),
 ): Promise<boolean | number | 'busy'> {
-  const wait = await loginWait(db, client, now);
-  if (wait > 0) return Math.ceil(wait / 1000);
   // A flood of parallel guesses would otherwise queue 64MB allocations behind
   // one another. Nobody signs in twice at the same moment, so a busy answer
-  // costs a real person nothing.
+  // costs a real person nothing — and it is given before anything is counted,
+  // because it says nothing about this client's password.
   if (checking >= LOGIN_LIMITS.concurrent) return 'busy';
   checking += 1;
-  let right: boolean;
   try {
-    right = password.length > 0 && (await verifyPassword(password, stored));
+    const wait = await claimTry(db, client, now);
+    if (wait > 0) return Math.ceil(wait / 1000);
+    const right = password.length > 0 && (await verifyPassword(password, stored));
+    // Counted as a miss already; a right one takes its address's count away.
+    if (right) await clearLoginFailures(db, client);
+    return right;
   } finally {
     checking -= 1;
   }
-  if (right) await clearLoginFailures(db, client);
-  else await recordLoginFailure(db, client, now);
-  return right;
 }
 
 /** The answer for a client that has to wait. */
