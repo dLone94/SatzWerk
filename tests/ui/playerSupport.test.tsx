@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -325,9 +325,20 @@ describe('help asked for, and a correction typed', () => {
     expect(screen.getByRole('button', { name: tr('exerciseHintCount', 'en', { n: 2, total: 2 }) })).toHaveFocus();
 
     await user.click(screen.getByRole('button', { name: tr('exerciseHintCount', 'en', { n: 2, total: 2 }) }));
-    await waitFor(() => expect(liveRegion().textContent).toContain('Use the ß button.'));
     expect(field()).toHaveFocus();
     expect(field()).toHaveAccessibleDescription(/Replace ss with one letter\..*Use the ß button\./);
+    // The field says it on taking focus; read out as well, it was heard twice.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(liveRegion().textContent).not.toContain('Use the ß button.');
+  });
+
+  it('reads the last hint out where focus stays put', async () => {
+    mount({ exercises: [twoHints] });
+    // A tap in a browser that does not focus the button tapped.
+    fireEvent.click(screen.getByRole('button', { name: tr('exerciseHintCount', 'en', { n: 1, total: 2 }) }));
+    fireEvent.click(screen.getByRole('button', { name: tr('exerciseHintCount', 'en', { n: 2, total: 2 }) }));
+    await waitFor(() => expect(liveRegion().textContent).toContain('Use the ß button.'));
+    expect(field()).toHaveFocus();
   });
 
   it('tells the field what the shown answer is', async () => {
@@ -362,7 +373,7 @@ describe('help asked for, and a correction typed', () => {
    * and a right one moved to Continue still described as "Not quite.", with
    * nothing on screen saying the correction had been taken.
    */
-  it('says a retype is still wrong, and says so again when it is accepted', async () => {
+  it('says a retype is still wrong, and that it is accepted, once each', async () => {
     const user = userEvent.setup();
     mount({ exercises: [sentences] });
     await user.type(field(), 'völlig falsch{Enter}');
@@ -378,7 +389,9 @@ describe('help asked for, and a correction typed', () => {
     expect(continueButton).toHaveFocus();
     expect(continueButton).toHaveAccessibleDescription(tr('exerciseRetypeDone', 'en'));
     expect(screen.getByText(tr('exerciseRetypeDone', 'en'))).toBeVisible();
-    await waitFor(() => expect(liveRegion().textContent).toBe(tr('exerciseRetypeDone', 'en')));
+    // Continue says it on taking focus; read out as well, it was heard twice.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(liveRegion().textContent).not.toContain(tr('exerciseRetypeDone', 'en'));
     // The field holds the accepted correction, so it no longer says "wrong".
     expect(field()).not.toHaveClass('answer-field--error');
   });

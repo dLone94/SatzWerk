@@ -619,9 +619,10 @@ export function ExercisePlayer({
     accepted.current = value;
     setRetypeNudge(false);
     // The verdict on screen is about the first answer ("Not quite."), and it
-    // was all Continue said. The accepted correction gets a line of its own.
+    // was all Continue said. The accepted correction gets a line of its own,
+    // which Continue, taking focus, is described by; read out as well, it was
+    // heard twice.
     setRetyped(true);
-    speak(t('exerciseRetypeDone'));
     setPhase('feedback');
   }, [current, busy, result, value, lexicon, context, lessonId, say, submitAttempt, learnerHints, revealed, speak, t]);
 
@@ -1005,14 +1006,17 @@ export function ExercisePlayer({
                 onClick={(event) => {
                   const opened = hintsShown + 1;
                   setHintsShown(opened);
-                  // The hint appears below the controls, where focus is not.
-                  const hint = step.hints[opened - 1];
-                  if (hint) speak(`${t('exerciseHintCount', { n: opened, total: step.hints.length })}: ${say(hint)}`);
                   // The last hint disables this button, and a disabled button
-                  // drops focus to the page. The field is where to go next.
+                  // drops focus to the page. The field is where to go next,
+                  // and it is described by the hints, this one included.
                   if (opened >= step.hints.length && document.activeElement === event.currentTarget) {
                     inputRef.current?.focus();
+                    return;
                   }
+                  // Otherwise the hint appears below the controls, where focus
+                  // is not, so it is read out.
+                  const hint = step.hints[opened - 1];
+                  if (hint) speak(`${t('exerciseHintCount', { n: opened, total: step.hints.length })}: ${say(hint)}`);
                 }}
               >
                 {hintsShown >= step.hints.length
