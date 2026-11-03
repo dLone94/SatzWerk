@@ -96,12 +96,15 @@ function missed(
 /**
  * Lock a count's row for the rest of the transaction, creating it first if it
  * is not there yet: a row that does not exist cannot be locked, and two first
- * misses would both start from nothing. The UPDATE is what takes the lock on
- * Postgres; locally the transactions already run one at a time.
+ * misses would both start from nothing. On Postgres the lock is a SELECT …
+ * FOR UPDATE rather than a write: a guess refused during a flood then writes
+ * nothing at all, where an UPDATE to take the lock left a dead row version and
+ * WAL behind every one. SQLite has no FOR UPDATE and needs none — its
+ * transactions already run one at a time.
  */
 async function lockRow(db: Db, key: string): Promise<void> {
   await db.run('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING', key, '');
-  await db.run('UPDATE meta SET value = value WHERE key = ?', key);
+  if (db.dialect === 'postgres') await db.get('SELECT key FROM meta WHERE key = ? FOR UPDATE', key);
 }
 
 /**
