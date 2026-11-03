@@ -29,6 +29,7 @@ export const UI = {
   dailyPlanNote: s('Meet the phrases first. Then recall them, use them, and recognise them by ear.', 'Първо се запознай с фразите. После си ги припомни, използвай ги и ги разпознай по слух.'),
   dailyStart: s('Start today', 'Започни днес'),
   dailyResume: s('Continue your practice', 'Продължи практиката'),
+  dailyResumeEarlier: s('Continue the practice you began ({plan})', 'Продължи започнатата практика ({plan})'),
   dailyEstimate: s('About {n} minutes · an estimate, at your own pace', 'Около {n} минути · приблизително, в твое темпо'),
   dailyLearn: s('Meet the phrases', 'Запознай се с фразите'),
   dailyReview: s('Strengthen what you know', 'Затвърди наученото'),

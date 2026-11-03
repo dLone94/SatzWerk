@@ -1,16 +1,17 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
-import { SCENARIO_SCRIPTS } from '../../src/content/browser.ts';
+import { SCENARIO_SCRIPTS, scriptAnswerCount } from '../../src/content/browser.ts';
+import type { ScenarioScript } from '../../src/content/types.ts';
 import { todayHere } from '../../src/core/progress/days.ts';
 import { mergeDailyRun, type DailyRunInput } from '../../src/core/progress/daily.ts';
 import { AppStateContext, type AppStateValue } from '../../src/state/AppState.tsx';
 import { DailyPage } from '../../src/ui/pages/DailyPage.tsx';
 import { LearningPreferences } from '../../src/ui/components/LearningPreferences.tsx';
-import { dailyListening, phraseRecall } from '../../src/ui/dailyBuilder.ts';
+import { chooseDailyScript, dailyListening, phraseRecall } from '../../src/ui/dailyBuilder.ts';
 import { tr } from '../../src/i18n.ts';
 import { play, silentVoice, stubState } from './playerStub.tsx';
 import type { AttemptPayload, Profile } from '../../src/services/api/client.ts';
@@ -115,6 +116,83 @@ it('a learner handover clears the open daily round', async () => {
   result.rerender(<AppStateContext.Provider value={stubState({ studyingAs: 2 })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
   expect(screen.getByRole('button', { name: tr('dailyStart', 'en') })).toBeInTheDocument();
   expect(screen.queryByText('Guten Morgen!')).not.toBeInTheDocument();
+});
+
+/*
+ * A goal or level chosen while today's round was open changed nothing: the
+ * card kept the old round, offered only to continue it, and showed the time
+ * of the new plan beside it.
+ */
+describe('a new goal or level while a round is open', () => {
+  const saved = { id: 'open-round', day: todayHere(), scriptId: 'sc-bakery-pre-a1', goal: 'everyday' as const,
+    stage: 2, total: 0, firstTryCorrect: 0, listeningCompleted: false, updatedAt: new Date().toISOString() };
+  const profile = { teachingLanguage: 'en' as const, dailyTargetMinutes: 20, displayName: null, onboarded: true,
+    createdAt: '', learningGoal: 'travel' as const, practiceLevel: 'b2' as const };
+  const estimateOnScreen = () => document.querySelector('.daily-plan__estimate')!.textContent;
+
+  it('offers the new plan first, with its own estimate, and starts it as a new round', async () => {
+    const fresh = chooseDailyScript('travel', 'b2', [], todayHere());
+    render(<AppStateContext.Provider value={stubState({ profile })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    const expected = estimateOnScreen();
+    cleanup();
+
+    const progress = vi.fn(async (_: DailyRunInput) => undefined);
+    render(<AppStateContext.Provider value={stubState({ profile, dailyRuns: [saved], recordDailyRun: progress })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByRole('heading', { name: fresh.goal.en })).toBeInTheDocument();
+    expect(screen.getByText('Travel · B2')).toBeInTheDocument();
+    expect(estimateOnScreen()).toBe(expected);
+    expect(screen.queryByRole('button', { name: tr('dailyResume', 'en') })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: tr('dailyResumeEarlier', 'en', { plan: 'Everyday life · PRE-A1' }) })).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+    expect(progress.mock.calls[0]![0]).toMatchObject({ scriptId: fresh.id, goal: 'travel', stage: 0 });
+    expect(progress.mock.calls[0]![0].id).not.toBe(saved.id);
+  });
+
+  it('keeps the round already begun one tap away', async () => {
+    const progress = vi.fn(async (_: DailyRunInput) => undefined);
+    render(<AppStateContext.Provider value={stubState({ profile, dailyRuns: [saved], recordDailyRun: progress })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    await userEvent.setup().click(screen.getByRole('button', { name: tr('dailyResumeEarlier', 'en', { plan: 'Everyday life · PRE-A1' }) }));
+    expect(await screen.findByRole('heading', { name: tr('dailyRecall', 'en') })).toBeInTheDocument();
+    expect(progress.mock.calls[0]![0]).toMatchObject({ id: saved.id, scriptId: saved.scriptId, stage: 2 });
+  });
+
+  it('does the same for a round paused on this screen', async () => {
+    const everyday = { ...profile, learningGoal: 'everyday' as const, practiceLevel: 'pre-a1' as const };
+    const view = render(<AppStateContext.Provider value={stubState({ profile: everyday })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+    await user.click(await screen.findByRole('button', { name: tr('dailyNextPhrase', 'en') }));
+    await user.click(screen.getByRole('button', { name: tr('dailyPause', 'en') }));
+    view.rerender(<AppStateContext.Provider value={stubState({ profile })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByText('Travel · B2')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: tr('dailyResumeEarlier', 'en', { plan: 'Everyday life · PRE-A1' }) }));
+    expect(await screen.findByText(tr('dailyPhraseCount', 'en', { n: 2, total: 3 }))).toBeInTheDocument();
+  });
+
+  it('estimates the round the card shows, not the one a fresh plan would pick', async () => {
+    const answers = (script: ScenarioScript) => scriptAnswerCount(script, 'en') + phraseRecall(script, 'en').length + dailyListening(script, 'en').length;
+    const fresh = chooseDailyScript('everyday', 'a1', [], todayHere());
+    // A round begun earlier today on a conversation of a different length.
+    const other = SCENARIO_SCRIPTS.filter(script => script.level === 'a1')
+      .find(script => (answers(script) >= 10) !== (answers(fresh) >= 10))!;
+    const sameProfile = { ...profile, learningGoal: 'everyday' as const, practiceLevel: 'a1' as const };
+    render(<AppStateContext.Provider value={stubState({ profile: sameProfile })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    const freshEstimate = estimateOnScreen();
+    cleanup();
+
+    render(<AppStateContext.Provider value={stubState({ profile: sameProfile, dailyRuns: [{ ...saved, scriptId: other.id }] })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByRole('heading', { name: other.goal.en })).toBeInTheDocument();
+    const shown = estimateOnScreen();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+    await user.click(await screen.findByRole('button', { name: tr('dailyPause', 'en') }));
+    // Paused, the round in hand is estimated from its own script.
+    expect(estimateOnScreen()).toBe(shown);
+    expect(shown).not.toBe(freshEstimate);
+  });
 });
 
 /*

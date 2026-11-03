@@ -44,7 +44,18 @@ function DailyPractice() {
   const [listeningSummary, setListeningSummary] = useState<PlayerSummary | null>(null);
   const busyRef = useRef(false);
   const retryRef = useRef<(() => Promise<void>) | null>(null);
-  const currentScript = run ? scriptById(run.scriptId)! : script;
+  // Today's open round: the one in hand once begun here, otherwise the saved one.
+  const open = run ?? saved;
+  const openScript = open ? scriptById(open.scriptId)! : undefined;
+  /*
+   * A goal or level chosen since that round began is a new plan. Choosing one
+   * used to change nothing: the card went on showing the open round, offered
+   * only to continue it, and estimated the time of the new plan instead. The
+   * new plan now comes first, and the open round stays one tap away.
+   */
+  const replanned = Boolean(open && (open.goal !== goal || openScript!.level !== level));
+  // The script on screen: the round being played, or the one the plan offers.
+  const currentScript = openScript && !((!run || paused) && replanned) ? openScript : script;
   const phrases = dailyPhrases(currentScript, lang);
   const review = useMemo(() => dailyReview(reviewItems, mistakes, currentScript.level, lang,
     Math.max(2, Math.min(6, Math.round(profile.dailyTargetMinutes / 3)))),
@@ -100,6 +111,10 @@ function DailyPractice() {
       setListeningSummary(null);
     });
   }
+  function resume() {
+    if (run) setPaused(false);
+    else start(saved);
+  }
   function advance(stage: number, summary?: PlayerSummary, listened = false) {
     if (!run) return;
     let conversationSaved = false;
@@ -132,13 +147,15 @@ function DailyPractice() {
     <header className="daily-intro"><p className="section-eyebrow">{t('dailyEyebrow')}</p>
       <h1 className="page__title">{t('dailyTitle')}</h1><p className="page__lede">{t('dailyLede')}</p></header>
     <section className="daily-plan" aria-labelledby="daily-plan-title">
-      <div className="daily-plan__copy"><span className="daily-plan__tag">{say(GOAL_LABELS[run?.goal ?? saved?.goal ?? goal])} · {(run ? currentScript : saved ? scriptById(saved.scriptId)! : script).level.toUpperCase()}</span>
-        <h2 id="daily-plan-title">{say((run ? currentScript : saved ? scriptById(saved.scriptId)! : script).goal)}</h2>
+      <div className="daily-plan__copy"><span className="daily-plan__tag">{say(GOAL_LABELS[goal])} · {currentScript.level.toUpperCase()}</span>
+        <h2 id="daily-plan-title">{say(currentScript.goal)}</h2>
         <p>{t('dailyPlanNote')}</p>
         <button type="button" className="btn daily-plan__start" disabled={busy}
-          onClick={() => paused ? setPaused(false) : start(saved)}>
-          {t(busy ? 'loading' : run || saved ? 'dailyResume' : 'dailyStart')}<Icon name="arrow" size={20} /></button>
+          onClick={() => open && !replanned ? resume() : start()}>
+          {t(busy ? 'loading' : open && !replanned ? 'dailyResume' : 'dailyStart')}<Icon name="arrow" size={20} /></button>
         <p className="daily-plan__estimate">{t('dailyEstimate', { n: estimate })}</p>
+        {open && replanned ? <button type="button" className="btn btn--ghost daily-plan__earlier" disabled={busy} onClick={resume}>
+          {t('dailyResumeEarlier', { plan: `${say(GOAL_LABELS[open.goal])} · ${openScript!.level.toUpperCase()}` })}</button> : null}
       </div><div className="daily-plan__world"><DackelScene />
         <p className="daily-plan__world-note">{t('playAdventureNote')}</p></div>
     </section>{notice}
