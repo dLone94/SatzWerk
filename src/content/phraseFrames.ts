@@ -11,14 +11,26 @@ export interface PhraseFrame {
   examples: Array<{ de: string; gloss: Bilingual; alternatives?: string[] }>;
 }
 const bi = (en: string, bg: string): Bilingual => ({ en, bg });
+/** The other ways of ordering it: the drill for one frame credits the other frame's form, and names its own. */
+const order = (de: string, thing: string, gloss: Bilingual) => ({ de, gloss, alternatives: [`Ich möchte ${thing}.`,
+  `Ich hätte gern ${thing}.`, `Ich möchte ${thing}, bitte.`, `Ich hätte gern ${thing}, bitte.`,
+  `${thing.charAt(0).toUpperCase()}${thing.slice(1)}, bitte.`].filter(other => other !== de) });
+const coffee = bi('I would like a coffee.', 'Искам едно кафе.');
+const water = bi('I would like a water.', 'Искам една вода.');
 const FRAMES: PhraseFrame[] = [
+  /*
+   * "Искам" rather than "Бих искал": the conditional is gendered in
+   * Bulgarian, and this is how an order is said over a counter anyway. The
+   * gloss has no "моля", so it does not ask for a "bitte"; one added is
+   * credited all the same, as is the plain order with no verb at all.
+   */
   { prefix: 'Ich hätte gern', template: 'Ich hätte gern ___.', examples: [
-    { de: 'Ich hätte gern einen Kaffee.', gloss: bi('I would like a coffee.', 'Едно кафе, моля.'), alternatives: ['Ich möchte einen Kaffee.'] },
-    { de: 'Ich hätte gern ein Wasser.', gloss: bi('I would like a water.', 'Една вода, моля.'), alternatives: ['Ich möchte ein Wasser.'] },
+    order('Ich hätte gern einen Kaffee.', 'einen Kaffee', coffee),
+    order('Ich hätte gern ein Wasser.', 'ein Wasser', water),
   ] },
   { prefix: 'Ich möchte ', template: 'Ich möchte ___.', examples: [
-    { de: 'Ich möchte einen Kaffee.', gloss: bi('I would like a coffee.', 'Едно кафе, моля.'), alternatives: ['Ich hätte gern einen Kaffee.'] },
-    { de: 'Ich möchte ein Wasser.', gloss: bi('I would like a water.', 'Една вода, моля.'), alternatives: ['Ich hätte gern ein Wasser.'] },
+    order('Ich möchte einen Kaffee.', 'einen Kaffee', coffee),
+    order('Ich möchte ein Wasser.', 'ein Wasser', water),
   ] },
   { prefix: 'Ich brauche ', template: 'Ich brauche ___.', examples: [
     { de: 'Ich brauche einen Termin.', gloss: bi('I need an appointment.', 'Имам нужда от час.') },
@@ -62,4 +74,17 @@ const clauses = (german: string) => german.split(/(?<=[,.!?])\s+/)
 export function phraseFrame(german: string): PhraseFrame | undefined {
   const parts = clauses(german);
   return FRAMES.find(frame => parts.some(part => part.startsWith(frame.prefix)));
+}
+
+const bare = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+/**
+ * The frame's examples that say something other than the line itself. Shown
+ * under "Guten Abend!", the example "Guten Abend!" taught nothing new, and
+ * "Ich brauche einen Termin." is no swap for "Guten Tag, ich brauche einen
+ * Termin für die Anmeldung.".
+ */
+export function otherExamples(frame: PhraseFrame, german: string) {
+  const said = ` ${bare(german)} `;
+  return frame.examples.filter(example => !said.includes(` ${bare(example.de)} `));
 }

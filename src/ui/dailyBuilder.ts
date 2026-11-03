@@ -7,7 +7,7 @@ import type { ReviewItem } from '../core/srs/scheduler.ts';
 import type { MistakeRecord, ScenarioRun } from '../services/api/client.ts';
 import { buildMistakePractice, buildReviewExercises, mistakePracticeId } from './reviewBuilder.ts';
 import { dailyPatternId } from '../content/dailyPatterns.ts';
-import { phraseFrame } from '../content/phraseFrames.ts';
+import { otherExamples, phraseFrame } from '../content/phraseFrames.ts';
 import { todayHere } from '../core/progress/days.ts';
 
 const TOPICS: Record<LearningGoal, string[]> = {
@@ -78,26 +78,28 @@ const bare = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' 
  * before. A line is met when it is already in review as a daily phrase, or
  * when it is itself a phrase the course taught ("Guten Morgen!" is a word in
  * the vocabulary). Met lines fill the cards only when there are not three new
- * ones, the longest unpractised first, and the cards keep the order the
- * conversation says them in.
+ * ones, and the cards keep the order the conversation says them in.
+ *
+ * Which met lines fill them turns with the date, not with when each was last
+ * reviewed: the review part of the same round reviews them, and a round
+ * reopened after that chose other cards than the ones it began with, then
+ * asked to recall a phrase the learner had never been shown.
  */
-export function dailyPhrases(script: ScenarioScript, lang: TeachingLanguage, items: readonly ReviewItem[] = []): PhraseCard[] {
+export function dailyPhrases(script: ScenarioScript, lang: TeachingLanguage, items: readonly ReviewItem[] = [],
+  day = todayHere()): PhraseCard[] {
   const known = new Map(items.map(item => [item.refId, item]));
-  const met = (step: ExerciseStep): ReviewItem | undefined => {
-    const daily = known.get(dailyPatternId(step.id));
-    if (daily) return daily;
-    const taught = (step.reviewTargets ?? []).find(id => known.has(id)
-      && bare(vocabById(id)?.german ?? '') === bare(step.answer.accepted[0]!));
-    return taught ? known.get(taught) : undefined;
-  };
+  const met = (step: ExerciseStep) => known.has(dailyPatternId(step.id)) || (step.reviewTargets ?? []).some(id =>
+    known.has(id) && bare(vocabById(id)?.german ?? '') === bare(step.answer.accepted[0]!));
   const lines = script.beats.flatMap(beat => beat.who === 'you' && isVisible(beat.exercise, lang)
     ? beat.exercise.steps.filter(step => isVisible(step, lang) && step.answer.accepted.length > 0)
       .map(step => ({ step, purpose: step.prompt ?? step.instruction ?? beat.exercise.objective, seen: met(step) }))
-    : []).map((line, index) => ({ ...line, index }));
-  const chosen = [...lines].sort((a, b) => Number(Boolean(a.seen)) - Number(Boolean(b.seen))
-    || (a.seen?.lastReviewAt ?? '').localeCompare(b.seen?.lastReviewAt ?? '') || a.index - b.index).slice(0, 3);
+    : []);
+  const today = dayNumber(day);
+  const turn = (index: number) => (((index - today) % lines.length) + lines.length) % lines.length;
+  const chosen = lines.map((line, index) => ({ ...line, index }))
+    .sort((a, b) => Number(a.seen) - Number(b.seen) || (a.seen ? turn(a.index) - turn(b.index) : a.index - b.index)).slice(0, 3);
   return chosen.sort((a, b) => a.index - b.index).map(({ step, purpose, seen }) => ({
-    step, german: step.answer.accepted[0]!, purpose, again: Boolean(seen),
+    step, german: step.answer.accepted[0]!, purpose, again: seen,
     words: [...new Set([
       ...(step.reviewTargets ?? []).map(vocabById).filter((word): word is VocabEntry => Boolean(word)),
       ...VOCABULARY.filter(word => word.wordType === 'noun' &&
@@ -110,14 +112,16 @@ export function dailyPhrases(script: ScenarioScript, lang: TeachingLanguage, ite
 export function phraseRecall(script: ScenarioScript, lang: TeachingLanguage, cards = dailyPhrases(script, lang)): Exercise[] {
   const recall: Exercise[] = cards.map(card => ({
     id: `daily-phrase-${card.step.id}`, kind: 'type', level: script.level,
-    objective: { en: 'Use your new phrase', bg: 'Използвай новата фраза' },
+    // A card marked as met before is not a new phrase, and its drill does not call it one.
+    objective: card.again ? { en: 'Use a phrase you have met before', bg: 'Използвай позната фраза' }
+      : { en: 'Use your new phrase', bg: 'Използвай новата фраза' },
     steps: [{ ...card.step, id: `daily-phrase-${card.step.id}`, prompt: card.purpose, promptDe: undefined,
       audio: undefined, scaffold: undefined, wordBank: undefined, choices: undefined,
       correctChoiceId: undefined, reviewTargets: [...(card.step.reviewTargets ?? []), dailyPatternId(card.step.id)] }],
   }));
   const card = cards.find(card => phraseFrame(card.german));
   const frame = card ? phraseFrame(card.german) : undefined;
-  const swap = frame?.examples.find(example => example.de !== card?.german);
+  const swap = frame && card ? otherExamples(frame, card.german)[0] : undefined;
   if (card && swap && frame) recall.push({ id: `daily-transfer-${card.step.id}`, kind: 'type', level: script.level,
     objective: { en: 'Use the same building block in a new sentence', bg: 'Използвай същия модел в ново изречение' },
     steps: [{ id: `daily-transfer-${card.step.id}`, prompt: swap.gloss,

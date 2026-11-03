@@ -85,8 +85,8 @@ const PRE_A1 = script({
       bi('The station? Straight on, then left. Ten minutes.', 'Гарата ли? Все направо, после наляво. Десет минути.'),
       {
         note: bi(
-          'geradeaus is straight on, links is left and rechts is right. Catching them is the skill today; saying them comes later.',
-          'Внимание: „geradeaus“ е „направо“, а „rechts“ е „надясно“. На български двете думи звучат близко, на немски — изобщо не.',
+          'geradeaus is straight on, links is left and rechts is right. Directions come fast, so catch the two she gave and say them back.',
+          '„geradeaus“ е „направо“, „links“ е „наляво“, а „rechts“ е „надясно“. Внимание: на български „направо“ и „надясно“ звучат близко, на немски — изобщо не.',
         ),
       },
     ),
@@ -97,8 +97,8 @@ const PRE_A1 = script({
         {
           id: 'sc-transport-pre-a1-t3-s1',
           instruction: bi(
-            'Say her two directions back, as a question. It is the surest way to find out whether you caught them.',
-            'Повтори двете ѝ посоки като въпрос. Така най-сигурно разбираш дали посоките са ти ясни.',
+            'geradeaus is straight on and links is left. Say her two directions back, as a question: it is the surest way to find out whether you caught them.',
+            '„geradeaus“ е „направо“, а „links“ е „наляво“. Повтори двете ѝ посоки като въпрос: така най-сигурно разбираш дали посоките са ти ясни.',
           ),
           prompt: bi('Repeat the way back to her: straight on, then left?', 'Повтори ѝ пътя: направо, после наляво?'),
           answer: 'Geradeaus, dann links?',

@@ -93,7 +93,7 @@ describe('the transfer step of a phrase frame', () => {
  * A frame fitted only a line that began with it, and lines rarely do: they
  * open with a greeting, a yes or an excuse me. Of seven frames, three were
  * ever shown, and "Guten Tag, ich brauche einen Termin für die Anmeldung."
- * was taught as "Guten ___!".
+ * had no frame at all, only the cue "Guten ___." made from its first word.
  */
 describe('a sentence frame', () => {
   it('fits at the start of any clause, not only of the line', () => {
@@ -106,4 +106,20 @@ describe('a sentence frame', () => {
     // Not anywhere in a clause: a question reported inside a sentence is not that question.
     expect(phraseFrame('Ich weiß nicht, wo der Bahnhof ist.')).toBeUndefined();
   });
+});
+
+/*
+ * The Bulgarian gloss of the coffee examples became "Една вода, моля.": it
+ * no longer said "would like", and its "моля" made the natural answer with
+ * "bitte" wrong, while the café conversation the same day took "И една вода,
+ * моля." as "Und ein Wasser, bitte.".
+ */
+it('asks for an order in Bulgarian without a gendered verb, and credits the ways of saying it', () => {
+  const cafe = SCENARIO_SCRIPTS.find((script) => script.id === 'sc-restaurant-pre-a1')!;
+  const step = phraseRecall(cafe, 'bg').find((exercise) => exercise.id.startsWith('daily-transfer-'))!.steps[0]!;
+  expect(step.prompt?.bg).toBe('Искам една вода.');
+  expect(step.prompt?.bg).not.toMatch(/моля|Бих/);
+  for (const answer of ['Ich möchte ein Wasser.', 'Ich möchte ein Wasser, bitte.', 'Ein Wasser, bitte.', 'Ich hätte gern ein Wasser.']) {
+    expect(validateAnswer(answer, step.answer, { lexicon: LEXICON }).credit, answer).toBe(1);
+  }
 });

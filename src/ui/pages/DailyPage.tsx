@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { scriptById, scriptAnswerCount, patternById } from '../../content/browser.ts';
-import { phraseFrame } from '../../content/phraseFrames.ts';
+import { otherExamples, phraseFrame } from '../../content/phraseFrames.ts';
 import { todayHere } from '../../core/progress/days.ts';
 import { GOAL_LABELS, type DailyRunInput } from '../../core/progress/daily.ts';
 import { secondsPerAnswer } from '../../core/progress/session.ts';
@@ -70,14 +70,16 @@ function DailyPractice() {
   // Which lines are new depends on what is in review, and answering today's
   // recall puts them there. Counting only what was met before today keeps the
   // same cards through the whole day: a round reopened after a reload listens
-  // to the phrases it began with.
+  // to the phrases it began with. Reviewing a met phrase today changes when it
+  // was last reviewed but not whether it was met, and the cards ask no more.
   const metBefore = reviewItems.filter(item => {
     const at = new Date(item.createdAt);
     return !Number.isNaN(at.getTime()) && todayHere(at) < day;
   });
-  const phrases = useMemo(() => dailyPhrases(currentScript, lang, metBefore),
+  const metKey = metBefore.map(item => item.refId).sort().join(' ');
+  const phrases = useMemo(() => dailyPhrases(currentScript, lang, metBefore, day),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [currentScript.id, lang, day, metBefore.length]);
+  [currentScript.id, lang, day, metKey]);
   const review = useMemo(() => dailyReview(reviewItems, mistakes, currentScript.level, lang,
     Math.max(2, Math.min(6, Math.round(profile.dailyTargetMinutes / 3)))),
   // Frozen at the beginning of a run: due dates move with every answer.
@@ -212,7 +214,7 @@ function DailyPractice() {
         <p className="phrase-card__german" lang="de">{card.german}</p>
         <div className="phrase-card__audio"><AudioButton text={card.german} /><AudioButton text={card.german} slow /></div>
         {frame ? <div className="phrase-frame"><p className="phrase-card__pattern"><span>{t('dailyBuildingBlock')}</span><strong lang="de">{frame.template}</strong></p>
-          <p className="muted">{t('dailySwapNote')}</p>{frame.examples.map(example => <p className="phrase-frame__example" key={example.de}>
+          <p className="muted">{t('dailySwapNote')}</p>{otherExamples(frame, card.german).map(example => <p className="phrase-frame__example" key={example.de}>
             <span lang="de">{example.de}</span><span>{say(example.gloss)}</span><AudioButton text={example.de} compact /></p>)}</div> : null}
         {!frame ? (card.step.reviewTargets ?? []).map(id => patternById(id)).filter(Boolean).map(pattern =>
           <p className="phrase-card__pattern" key={pattern!.id}><span>{t('dailyBuildingBlock')}</span><strong lang="de">{pattern!.template}</strong></p>) : null}

@@ -146,21 +146,17 @@ const WORK_PRE_A1 = script({
       [
         {
           id: 'sc-work-pre-a1-t4-s1',
+          // Auf Wiedersehen is polite, not wrong: it is credited, and the
+          // instruction says why Tschüss is the one colleagues on du use.
+          instruction: bi(
+            'Auf Wiedersehen is never wrong, but between colleagues who say du it sounds stiff. Tschüss is their goodbye.',
+            '„Auf Wiedersehen“ никога не е грешно, но между колеги на „du“ звучи сковано. Те си казват „Tschüss“.',
+          ),
           prompt: bi('Thank her and say bye, informally.', 'Благодари ѝ и се сбогувай неофициално.'),
           answer: 'Danke, tschüss!',
-          alternatives: ['Danke! Tschüss!', 'Danke, bis bald!', 'Danke schön, tschüss!'],
+          alternatives: ['Danke! Tschüss!', 'Danke, bis bald!', 'Danke schön, tschüss!', 'Danke, auf Wiedersehen!', 'Danke! Auf Wiedersehen!'],
           shape: 'phrase',
           reviewTargets: ['v-danke', 'v-tschuess'],
-          traps: [
-            {
-              answer: 'Danke, auf Wiedersehen!',
-              category: 'vocabulary',
-              feedback: bi(
-                'Auf Wiedersehen is the goodbye for people you say Sie to. Jana said du, so Tschüss fits.',
-                '„Auf Wiedersehen“ е за хора, на които казваш „Sie“. Яна ти говори на „du“, затова пасва „Tschüss“.',
-              ),
-            },
-          ],
           hints: [
             bi('Thanks, then the short goodbye between people who say du.', 'Благодаря, после краткото сбогуване между хора на „du“.'),
             bi('Danke, t_____!', 'Danke, t_____!'),
@@ -298,7 +294,6 @@ const WORK_A1 = script({
           answer: 'Super, bis dann!',
           alternatives: ['Gut, bis dann!', 'Okay, bis dann!', 'Bis dann!'],
           shape: 'phrase',
-          traps: [registerTrap('Super, bis dann bei Ihnen!', 'du')],
           hints: [bi('Two words for "until then", after a word for great.', 'Две думи за „до тогава“, след дума за „супер“.')],
         },
       ],

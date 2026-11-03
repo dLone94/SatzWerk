@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { LEXICON, SCENARIO_SCRIPTS, resolveTarget } from '../../src/content/index.ts';
 import { dailyPatternId } from '../../src/content/dailyPatterns.ts';
-import { phraseFrame } from '../../src/content/phraseFrames.ts';
+import { otherExamples, phraseFrame } from '../../src/content/phraseFrames.ts';
 import type { CefrLevel, ScenarioScript } from '../../src/content/types.ts';
 import { LEARNING_GOALS, PRACTICE_LEVELS, type LearningGoal } from '../../src/core/progress/daily.ts';
-import { createReviewItem } from '../../src/core/srs/scheduler.ts';
+import { createReviewItem, scheduleReview } from '../../src/core/srs/scheduler.ts';
 import { validateAnswer } from '../../src/core/validation/validate.ts';
 import { chooseDailyScript, dailyPhrases, fitsGoal, goalScripts, phraseRecall } from '../../src/ui/dailyBuilder.ts';
 import type { ScenarioRun } from '../../src/services/api/client.ts';
@@ -122,6 +122,27 @@ describe('the phrases of the day', () => {
     }
   });
 
+  /*
+   * Met lines were chosen by when each was last reviewed, and the review part
+   * of the same round reviews them, so the cards changed under a reload.
+   * Which met lines fill the cards now turns with the date alone.
+   */
+  it('keep the same met lines all day, whatever today’s review does, and turn with the date', () => {
+    const day = '2026-11-03';
+    for (const script of SCENARIO_SCRIPTS.filter(script => script.level === 'pre-a1')) {
+      const lines = script.beats.flatMap(beat => beat.who === 'you' && !beat.exercise.only?.includes('bg') ? beat.exercise.steps : []);
+      const items = lines.map((step, index) => scheduleReview(createReviewItem({ id: step.id, kind: 'pattern',
+        refId: dailyPatternId(step.id), level: 'pre-a1', now: new Date('2026-10-20T09:00:00Z') }),
+      'good', new Date(Date.parse('2026-10-25T09:00:00Z') + index * DAY)));
+      const cards = dailyPhrases(script, 'en', items, day);
+      const reviewed = items.map(item => scheduleReview(item, 'good', new Date(`${day}T08:00:00Z`)));
+      expect(dailyPhrases(script, 'en', reviewed, day).map(card => card.step.id), script.id).toEqual(cards.map(card => card.step.id));
+      const week = new Set([0, 1, 2, 3, 4, 5, 6].map(n => dailyPhrases(script, 'en', items, dayAfter(day, n))
+        .map(card => card.step.id).join()));
+      expect(week.size, script.id).toBeGreaterThan(1);
+    }
+  });
+
   it('counts a phrase the course already taught as met, not new', () => {
     const bakery = SCENARIO_SCRIPTS.find(script => script.id === 'sc-bakery-pre-a1')!;
     const learned = createReviewItem({ id: 'v-guten-morgen', kind: 'vocab', refId: 'v-guten-morgen', level: 'pre-a1' });
@@ -147,6 +168,20 @@ describe('a sentence frame', () => {
     for (const template of ['Guten ___!', 'Ich hätte gern ___.', 'Ich möchte ___.', 'Ich brauche ___.',
       'Ich wohne in ___.', 'Ich komme aus ___.', 'Wo ist ___?', 'Ich heiße ___.']) {
       expect(reached, template).toContain(template);
+    }
+  });
+
+  it('shows examples that are other sentences, never the line it is shown under', () => {
+    for (const script of SCENARIO_SCRIPTS) for (const beat of script.beats) {
+      if (beat.who !== 'you') continue;
+      for (const step of beat.exercise.steps) {
+        const line = step.answer.accepted[0]!;
+        const frame = phraseFrame(line);
+        if (!frame) continue;
+        const shown = otherExamples(frame, line);
+        expect(shown.length, step.id).toBeGreaterThan(0);
+        for (const example of shown) expect(line.toLowerCase(), step.id).not.toContain(example.de.toLowerCase().replace(/[.!?]$/, ''));
+      }
     }
   });
 

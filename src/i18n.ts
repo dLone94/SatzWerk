@@ -41,7 +41,7 @@ export const UI = {
   dailyPause: s('Pause', 'Пауза'),
   dailyPlanProgress: s('Daily practice progress', 'Напредък в дневната практика'),
   dailyPhraseCount: s('Phrase {n} of {total}', 'Фраза {n} от {total}'),
-  dailyPhraseAgain: s('Again', 'Отново'),
+  dailyPhraseAgain: s('Met before', 'Вече срещната'),
   dailyBuildingBlock: s('A pattern you can reuse', 'Модел, който можеш да използваш отново'),
   dailySwapNote: s('Keep the frame and change one part. These examples show what fits.', 'Запази модела и промени една част. Примерите показват какво може да се сложи.'),
   dailyPhraseTip: s('Read it once, listen if you can, and say it aloud. Next you will recall it without looking.', 'Прочети веднъж, слушай, ако можеш, и го кажи на глас. После ще си го припомниш, без да гледаш.'),

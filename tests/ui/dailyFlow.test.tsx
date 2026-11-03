@@ -2,7 +2,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
 import { lessonsInOrder, SCENARIO_SCRIPTS, scriptAnswerCount } from '../../src/content/browser.ts';
 import type { ScenarioScript } from '../../src/content/types.ts';
@@ -15,57 +15,158 @@ import { LearningPreferences } from '../../src/ui/components/LearningPreferences
 import { chooseDailyScript, dailyListening, dailyPhrases, goalScripts, phraseRecall } from '../../src/ui/dailyBuilder.ts';
 import { tr } from '../../src/i18n.ts';
 import { dailyPatternId } from '../../src/content/dailyPatterns.ts';
-import { createReviewItem } from '../../src/core/srs/scheduler.ts';
+import { createReviewItem, scheduleReview } from '../../src/core/srs/scheduler.ts';
 import { play, silentVoice, stubState } from './playerStub.tsx';
 import type { AttemptPayload, Profile } from '../../src/services/api/client.ts';
 
-it.each(['en', 'bg'] as const)('completes the daily journey and banks actual answers and parts in %s', async lang => {
-  const attempts = vi.fn(async (_payload: AttemptPayload) => undefined);
-  const conversations = vi.fn(async () => undefined);
-  const progress = vi.fn(async (_: DailyRunInput) => undefined);
-  function Harness() {
-    const [runs, setRuns] = useState<AppStateValue['dailyRuns']>([]);
-    const value = stubState({ dailyRuns: runs, tts: silentVoice, submitAttempt: attempts,
-      recordScenarioRun: conversations, recordDailyRun: async payload => {
-        await progress(payload);
-        setRuns(runs => mergeDailyRun(runs, { ...payload, updatedAt: new Date().toISOString() }));
-      } }, lang);
-    return <AppStateContext.Provider value={value}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>;
+/*
+ * The day's conversation turns with the date. Tests that read its cards
+ * passed on a bakery day and failed on the next two, so these pin the clock
+ * to a day on which each everyday Pre-A1 conversation comes up, and run once
+ * for each of them.
+ */
+const EVERYDAY = goalScripts('everyday', 'pre-a1');
+function dayOf(script: ScenarioScript) {
+  for (let n = 0; n < 28; n++) {
+    const day = new Date(Date.UTC(2026, 10, 2 + n)).toISOString().slice(0, 10);
+    if (chooseDailyScript('everyday', 'pre-a1', [], day).id === script.id) return day;
   }
-  render(<Harness />);
-  const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: tr('dailyStart', lang) }));
-  for (let index = 0; index < 2; index++) await user.click(await screen.findByRole('button', { name: tr('dailyNextPhrase', lang) }));
-  await user.click(screen.getByRole('button', { name: tr('dailyPutToUse', lang) }));
-  const script = chooseDailyScript('everyday', 'pre-a1', [], todayHere());
-  const recall = [...phraseRecall(script, lang), ...dailyListening(script, lang)];
-  const answers = scriptAnswerCount(script, lang) + recall.length;
-  const exercises = [...phraseRecall(script, lang), ...script.beats.flatMap(beat => beat.who === 'you' ? [beat.exercise] : []), ...dailyListening(script, lang)];
-  // The shared helper uses English continuation labels; play through that
-  // helper in English, and use the same authored answers in Bulgarian below.
-  if (lang === 'en') await play(user, exercises, { right: () => true, done: () => Boolean(screen.queryByRole('button', { name: tr('dailyFinish', lang) })) });
-  else {
-    const map = new Map(exercises.flatMap(exercise => exercise.steps.map(step => [step.id, step])));
-    for (let count = 0; count < 100; count++) {
-      if (screen.queryByRole('button', { name: tr('dailyFinish', lang) })) break;
-      const button = screen.queryByRole('button', { name: tr('exerciseContinue', lang) });
-      if (button) { await user.click(button); continue; }
-      const id = document.querySelector('[data-step-id]')?.getAttribute('data-step-id');
-      const step = id ? map.get(id) : undefined;
-      expect(step).toBeDefined();
-      const box = screen.getByRole('textbox');
-      await user.type(box, step!.answer.accepted[0]!);
-      await user.keyboard('{Enter}');
-      await waitFor(() => expect(screen.getByRole('button', { name: tr('exerciseContinue', lang) })).toBeInTheDocument());
+  throw new Error(`${script.id} never comes up for everyday Pre-A1`);
+}
+function onDayOf(script: ScenarioScript) {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${dayOf(script)}T10:00:00`));
+    expect(chooseDailyScript('everyday', 'pre-a1', [], todayHere()).id).toBe(script.id);
+  });
+  afterEach(() => { vi.useRealTimers(); });
+}
+/** The card's own line, not a frame example that may say the same words. */
+const cardLine = (german: string) => screen.findByText(german, { selector: '.phrase-card__german' });
+
+describe.each(EVERYDAY.map(script => [script.id, script] as const))('on a day of %s', (_id, script) => {
+  onDayOf(script);
+
+  it.each(['en', 'bg'] as const)('completes the daily journey and banks actual answers and parts in %s', async lang => {
+    const attempts = vi.fn(async (_payload: AttemptPayload) => undefined);
+    const conversations = vi.fn(async () => undefined);
+    const progress = vi.fn(async (_: DailyRunInput) => undefined);
+    function Harness() {
+      const [runs, setRuns] = useState<AppStateValue['dailyRuns']>([]);
+      const value = stubState({ dailyRuns: runs, tts: silentVoice, submitAttempt: attempts,
+        recordScenarioRun: conversations, recordDailyRun: async payload => {
+          await progress(payload);
+          setRuns(runs => mergeDailyRun(runs, { ...payload, updatedAt: new Date().toISOString() }));
+        } }, lang);
+      return <AppStateContext.Provider value={value}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>;
     }
-  }
-  await user.click(await screen.findByRole('button', { name: tr('dailyFinish', lang) }));
-  expect(await screen.findByRole('heading', { name: tr('dailyFinished', lang) })).toBeInTheDocument();
-  expect(conversations).toHaveBeenCalledOnce();
-  const final = progress.mock.calls.at(-1)![0];
-  expect(final).toMatchObject({ stage: 5, listeningCompleted: true, total: answers, firstTryCorrect: answers });
-  expect(attempts).toHaveBeenCalledTimes(answers);
-  expect(attempts.mock.calls.some(call => (call[0] as { reviewTargets?: unknown[] })?.reviewTargets?.length)).toBe(true);
+    render(<Harness />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyStart', lang) }));
+    for (let index = 0; index < 2; index++) await user.click(await screen.findByRole('button', { name: tr('dailyNextPhrase', lang) }));
+    await user.click(screen.getByRole('button', { name: tr('dailyPutToUse', lang) }));
+    const recall = [...phraseRecall(script, lang), ...dailyListening(script, lang)];
+    const answers = scriptAnswerCount(script, lang) + recall.length;
+    const exercises = [...phraseRecall(script, lang), ...script.beats.flatMap(beat => beat.who === 'you' ? [beat.exercise] : []), ...dailyListening(script, lang)];
+    // The shared helper uses English continuation labels; play through that
+    // helper in English, and use the same authored answers in Bulgarian below.
+    if (lang === 'en') await play(user, exercises, { right: () => true, done: () => Boolean(screen.queryByRole('button', { name: tr('dailyFinish', lang) })) });
+    else {
+      const map = new Map(exercises.flatMap(exercise => exercise.steps.map(step => [step.id, step])));
+      for (let count = 0; count < 100; count++) {
+        if (screen.queryByRole('button', { name: tr('dailyFinish', lang) })) break;
+        const button = screen.queryByRole('button', { name: tr('exerciseContinue', lang) });
+        if (button) { await user.click(button); continue; }
+        const id = document.querySelector('[data-step-id]')?.getAttribute('data-step-id');
+        const step = id ? map.get(id) : undefined;
+        expect(step).toBeDefined();
+        const box = screen.getByRole('textbox');
+        await user.type(box, step!.answer.accepted[0]!);
+        await user.keyboard('{Enter}');
+        await waitFor(() => expect(screen.getByRole('button', { name: tr('exerciseContinue', lang) })).toBeInTheDocument());
+      }
+    }
+    await user.click(await screen.findByRole('button', { name: tr('dailyFinish', lang) }));
+    expect(await screen.findByRole('heading', { name: tr('dailyFinished', lang) })).toBeInTheDocument();
+    expect(conversations).toHaveBeenCalledOnce();
+    const final = progress.mock.calls.at(-1)![0];
+    expect(final).toMatchObject({ stage: 5, listeningCompleted: true, total: answers, firstTryCorrect: answers });
+    expect(attempts).toHaveBeenCalledTimes(answers);
+    expect(attempts.mock.calls.some(call => (call[0] as { reviewTargets?: unknown[] })?.reviewTargets?.length)).toBe(true);
+  });
+
+  it('a learner handover clears the open daily round', async () => {
+    const first = stubState();
+    const result = render(<AppStateContext.Provider value={first}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    await userEvent.setup().click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+    const phrase = dailyPhrases(script, 'en')[0]!.german;
+    expect(await cardLine(phrase)).toBeInTheDocument();
+    result.rerender(<AppStateContext.Provider value={stubState({ studyingAs: 2 })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByRole('button', { name: tr('dailyStart', 'en') })).toBeInTheDocument();
+    expect(screen.queryByText(phrase)).not.toBeInTheDocument();
+  });
+
+  /*
+   * The first "new" phrase of a Pre-A1 round was "Guten Morgen!", already in
+   * review since the greetings lesson, and the same three came every time.
+   */
+  it('shows lines not met yet first, and marks a phrase met before', async () => {
+    const first = dailyPhrases(script, 'en');
+    // Every line met but the first card's, and one line more that was never a card.
+    const lines = script.beats.flatMap(beat => beat.who === 'you' && !beat.exercise.only?.includes('bg') ? beat.exercise.steps : []);
+    const yesterday = new Date(Date.now() - 86_400_000);
+    const reviewItems = lines.filter(step => step.id !== first[0]!.step.id).map(step => createReviewItem({ id: step.id,
+      kind: 'pattern', refId: dailyPatternId(step.id), level: 'pre-a1', now: yesterday }));
+    const expected = dailyPhrases(script, 'en', reviewItems);
+    expect(expected.map(card => card.again)).toEqual([false, true, true]);
+    render(<AppStateContext.Provider value={stubState({ reviewItems })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+    for (const [index, card] of expected.entries()) {
+      expect(await cardLine(card.german)).toBeInTheDocument();
+      expect(Boolean(screen.queryByText(tr('dailyPhraseAgain', 'en')))).toBe(card.again);
+      if (index + 1 < expected.length) await user.click(screen.getByRole('button', { name: tr('dailyNextPhrase', 'en') }));
+    }
+  });
+
+  // Answering today's recall puts the phrases in review; reopened, the round keeps its cards.
+  it('keeps the day’s phrases when today’s answers reach review', async () => {
+    const first = dailyPhrases(script, 'en');
+    const today = first.map(card => createReviewItem({ id: card.step.id, kind: 'pattern',
+      refId: dailyPatternId(card.step.id), level: 'pre-a1' }));
+    // Counted, they would have changed the cards.
+    expect(dailyPhrases(script, 'en', today).some(card => card.again)).toBe(true);
+    render(<AppStateContext.Provider value={stubState({ reviewItems: today })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    await userEvent.setup().click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+    expect(await cardLine(first[0]!.german)).toBeInTheDocument();
+    expect(screen.queryByText(tr('dailyPhraseAgain', 'en'))).not.toBeInTheDocument();
+  });
+
+  /*
+   * A returning learner's cards were the met lines reviewed longest ago, and
+   * the review part of the same round reviews them. Reopened after that, the
+   * round showed other cards, then asked to recall phrases it had not shown.
+   */
+  it('keeps the met phrases on its cards after the round reviews them', async () => {
+    const lines = script.beats.flatMap(beat => beat.who === 'you' && !beat.exercise.only?.includes('bg') ? beat.exercise.steps : []);
+    const days = (n: number) => new Date(Date.now() - n * 86_400_000);
+    const before = lines.map((step, index) => scheduleReview(createReviewItem({ id: step.id, kind: 'pattern',
+      refId: dailyPatternId(step.id), level: 'pre-a1', now: days(10) }), 'good', days(1 + index)));
+    const expected = dailyPhrases(script, 'en', before);
+    expect(expected.every(card => card.again)).toBe(true);
+    const shown = new Set(expected.map(card => dailyPatternId(card.step.id)));
+    const reviewed = before.map(item => shown.has(item.refId) ? scheduleReview(item, 'good') : item);
+    // Opened afresh, as after a reload, with this round's review already answered.
+    render(<AppStateContext.Provider value={stubState({ reviewItems: reviewed })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+    for (const [index, card] of expected.entries()) {
+      expect(await cardLine(card.german)).toBeInTheDocument();
+      // The frame's examples are other sentences, never the card's own line again.
+      expect(screen.getAllByText(card.german)).toHaveLength(1);
+      if (index + 1 < expected.length) await user.click(screen.getByRole('button', { name: tr('dailyNextPhrase', 'en') }));
+    }
+  });
 });
 
 it('resumes a saved part and does not falsely record listening on a device without audio', async () => {
@@ -111,55 +212,6 @@ it('retries a failed part save without counting its conversation twice', async (
   expect(await screen.findByText(tr('dailyAudioUnavailable', 'en'))).toBeInTheDocument();
   expect(conversations).toHaveBeenCalledOnce();
   expect(progress.mock.calls.at(-1)![0]).toMatchObject({ stage: 4, total: 8, firstTryCorrect: 8 });
-});
-
-it('a learner handover clears the open daily round', async () => {
-  const first = stubState();
-  const result = render(<AppStateContext.Provider value={first}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
-  await userEvent.setup().click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
-  const phrase = dailyPhrases(chooseDailyScript('everyday', 'pre-a1', [], todayHere()), 'en')[0]!.german;
-  expect(await screen.findByText(phrase)).toBeInTheDocument();
-  result.rerender(<AppStateContext.Provider value={stubState({ studyingAs: 2 })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
-  expect(screen.getByRole('button', { name: tr('dailyStart', 'en') })).toBeInTheDocument();
-  expect(screen.queryByText(phrase)).not.toBeInTheDocument();
-});
-
-/*
- * The first "new" phrase of a Pre-A1 round was "Guten Morgen!", already in
- * review since the greetings lesson, and the same three came every time.
- */
-it('shows lines not met yet first, and marks a phrase met before', async () => {
-  const script = chooseDailyScript('everyday', 'pre-a1', [], todayHere());
-  const first = dailyPhrases(script, 'en');
-  // Every line met but the first card's, and one line more that was never a card.
-  const lines = script.beats.flatMap(beat => beat.who === 'you' && !beat.exercise.only?.includes('bg') ? beat.exercise.steps : []);
-  const yesterday = new Date(Date.now() - 86_400_000);
-  const reviewItems = lines.filter(step => step.id !== first[0]!.step.id).map(step => createReviewItem({ id: step.id,
-    kind: 'pattern', refId: dailyPatternId(step.id), level: 'pre-a1', now: yesterday }));
-  const expected = dailyPhrases(script, 'en', reviewItems);
-  expect(expected.map(card => card.again)).toEqual([false, true, true]);
-  render(<AppStateContext.Provider value={stubState({ reviewItems })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
-  const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
-  for (const [index, card] of expected.entries()) {
-    expect(await screen.findByText(card.german)).toBeInTheDocument();
-    expect(Boolean(screen.queryByText(tr('dailyPhraseAgain', 'en')))).toBe(card.again);
-    if (index + 1 < expected.length) await user.click(screen.getByRole('button', { name: tr('dailyNextPhrase', 'en') }));
-  }
-});
-
-// Answering today's recall puts the phrases in review; reopened, the round keeps its cards.
-it('keeps the day’s phrases when today’s answers reach review', async () => {
-  const script = chooseDailyScript('everyday', 'pre-a1', [], todayHere());
-  const first = dailyPhrases(script, 'en');
-  const today = first.map(card => createReviewItem({ id: card.step.id, kind: 'pattern',
-    refId: dailyPatternId(card.step.id), level: 'pre-a1' }));
-  // Counted, they would have changed the cards.
-  expect(dailyPhrases(script, 'en', today).some(card => card.again)).toBe(true);
-  render(<AppStateContext.Provider value={stubState({ reviewItems: today })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
-  await userEvent.setup().click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
-  expect(await screen.findByText(first[0]!.german)).toBeInTheDocument();
-  expect(screen.queryByText(tr('dailyPhraseAgain', 'en'))).not.toBeInTheDocument();
 });
 
 /*

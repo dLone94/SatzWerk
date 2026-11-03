@@ -81,7 +81,7 @@ const PRE_A1 = script({
       'pre-a1',
     ),
     narrator(
-      bi('He brings both. Twenty minutes later you catch his eye to pay.', 'Той носи и двете. След двайсет минути хващаш погледа му, за да платиш.'),
+      bi('He brings both. Twenty minutes later you catch his eye to pay.', 'Той носи и двете. След двайсет минути даваш знак на сервитьора, че искаш да платиш.'),
     ),
     you(
       'sc-restaurant-pre-a1-t3',
@@ -109,7 +109,7 @@ const PRE_A1 = script({
     them('Ein Kaffee und ein Wasser … das macht fünf Euro zwanzig.', bi('A coffee and a water … that comes to five euros twenty.', 'Едно кафе и една вода … прави пет евро и двайсет.'), {
       note: bi(
         'The tip is not left on the table. You round up as you pay, and say how much he should keep — or just Stimmt so, "that is right as it is".',
-        'Бакшишът не се оставя на масата. Закръгляш, докато плащаш, и казваш колко да задържи — или просто „Stimmt so“, „така е точно“. В България оставяш рестото; в Германия го казваш на глас.',
+        'Бакшишът не се оставя на масата. Закръгляш, докато плащаш, и казваш колко да задържи — или просто „Stimmt so“: „така е добре, задръжте рестото“. В България оставяш рестото; в Германия го казваш на глас.',
       ),
     }),
     you(
