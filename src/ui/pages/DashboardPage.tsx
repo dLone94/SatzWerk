@@ -97,7 +97,9 @@ export function DashboardPage() {
           <p>{dailyDone
             ? `${dailyDone.total > 0 ? `${t('exerciseScore', { correct: dailyDone.firstTryCorrect, total: dailyDone.total })}. ` : ''}${t('dailyDashboardDoneNote')}`
             : t('dailyDashboardNote')}</p>
-          <Link to="/daily" className="btn btn--primary">{t(dailyDone ? 'dailyPractiseAgain' : 'dailyStart')}<Icon name="arrow" size={20} /></Link></div>
+          {/* Done, another round is optional: it steps back so the next lesson below leads. */}
+          <Link to="/daily" className={dailyDone ? 'btn btn--ghost daily-dashboard__again' : 'btn btn--primary'}>
+            {t(dailyDone ? 'dailyPractiseAgain' : 'dailyStart')}<Icon name="arrow" size={20} /></Link></div>
         <DackelScene className="daily-dashboard__scene" />
       </section>
       <div className="today-overview">

@@ -359,6 +359,8 @@ it.each(['en', 'bg'] as const)('says on Today that today\'s practice is done in 
   expect(screen.getByText(new RegExp(tr('exerciseScore', lang, { correct: 9, total: 10 })))).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: tr('dailyStart', lang) })).not.toBeInTheDocument();
   expect(screen.getByRole('link', { name: tr('dailyPractiseAgain', lang) })).toHaveAttribute('href', '/daily');
+  // Optional now, it no longer outranks the next lesson.
+  expect(screen.getByRole('link', { name: tr('dailyPractiseAgain', lang) })).not.toHaveClass('btn--primary');
 });
 
 /*
