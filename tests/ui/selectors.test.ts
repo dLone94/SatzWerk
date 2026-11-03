@@ -270,6 +270,66 @@ describe('which words a mistake is counted against', () => {
   });
 });
 
+describe('a long-term learner’s mistake bank', () => {
+  /*
+   * Mistakes stay in the bank until the learner resolves them, so a learner
+   * far into the course can have a few hundred. Counting them against the
+   * words used to try every mistake against every word, working out the
+   * step's targets again each time with a linear lookup: with 150 open
+   * mistakes Today, Vocabulary and every word page froze a phone for one to
+   * two seconds, on every visit and on every star tapped.
+   */
+  const steps = lessonsInOrder()
+    .flatMap((lesson) => [...lesson.exercises, ...lesson.mastery.exercises].map((exercise) => ({ lesson, exercise })))
+    .flatMap(({ lesson, exercise }) => exercise.steps.map((step) => ({ lesson, step })))
+    .filter(({ step }) => step.answer.accepted.length > 0);
+  const targeted = steps.filter(({ step }) => (step.reviewTargets ?? []).some((id) => vocabById(id)));
+  const untargeted = steps.filter(({ step }) => !(step.reviewTargets ?? []).some((id) => vocabById(id)));
+
+  /** Half on steps that name their words, half on steps the answer has to decide, spread over the course. */
+  function bank(size: number): MistakeRecord[] {
+    const spread = <T,>(list: T[], take: number) =>
+      Array.from({ length: take }, (_, index) => list[Math.floor((index * list.length) / take)]!);
+    return [...spread(targeted, Math.ceil(size / 2)), ...spread(untargeted, Math.floor(size / 2))].map(
+      ({ lesson, step }, index) =>
+        mistake(step.answer.accepted[0]!, {
+          id: `m-${index}`,
+          stepId: step.id,
+          lessonId: lesson.id,
+          occurrences: 1 + (index % 3),
+        }),
+    );
+  }
+
+  it('counts each word exactly as its own page does', () => {
+    const mistakes = bank(120);
+    const views = buildVocabViews([], mistakes, []);
+    const expected = views.map((view) =>
+      mistakes
+        .filter((record) => mistakeMatchesVocab(record, view.entry))
+        .reduce((sum, record) => sum + record.occurrences, 0),
+    );
+    expect(views.map((view) => view.mistakes)).toEqual(expected);
+    // Not vacuous: both kinds of step put mistakes on words.
+    expect(views.filter((view) => view.mistakes > 0).length).toBeGreaterThan(60);
+  });
+
+  it('builds the list for three hundred open mistakes without stalling the page', () => {
+    const mistakes = bank(300);
+    // The best of a few runs, so a busy test machine does not decide it. The
+    // pairwise version took a quarter of a second and more here, the single
+    // pass well under a millisecond; the bound tells "a pass over the bank"
+    // from "the bank times every word", not one millisecond from another.
+    let best = Infinity;
+    for (let run = 0; run < 3; run += 1) {
+      const started = performance.now();
+      buildVocabViews([], mistakes, []);
+      best = Math.min(best, performance.now() - started);
+    }
+    expect(best, `buildVocabViews took ${best.toFixed(1)}ms for 300 mistakes`).toBeLessThan(50);
+  });
+});
+
 describe('the review queue', () => {
   /*
    * Only vocabulary was looked up, so a due sentence pattern was listed by its

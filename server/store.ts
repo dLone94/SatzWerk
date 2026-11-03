@@ -211,7 +211,38 @@ function emptyRow(lessonId: string): LessonProgress {
 export async function getLessonProgress({ db, userId }: Scope, lessonId: string): Promise<LessonProgress> {
   const state = await db.get(`SELECT * FROM lesson_state WHERE lesson_id = ? AND user_id = ?`, lessonId, userId) as Record<string, unknown> | undefined;
   const outcomes = await db.all(`SELECT * FROM step_outcomes WHERE lesson_id = ? AND user_id = ?`, lessonId, userId) as Array<Record<string, unknown>>;
+  return lessonProgressFromRows(lessonId, state, outcomes);
+}
 
+/**
+ * Every lesson the learner has touched, in two statements however many there
+ * are. Asking lesson by lesson cost two statements each, so a learner far into
+ * the course opened the app with over a hundred and seventy of them, one after
+ * another on the hosted database's single connection.
+ */
+export async function getAllLessonProgress({ db, userId }: Scope): Promise<LessonProgress[]> {
+  const [states, outcomes] = await Promise.all([
+    db.all('SELECT * FROM lesson_state WHERE user_id = ?', userId),
+    db.all('SELECT * FROM step_outcomes WHERE user_id = ?', userId),
+  ]);
+  // A lesson with outcomes but no row of its own still counts as touched.
+  const byLesson = new Map<string, { state?: Record<string, unknown>; outcomes: Array<Record<string, unknown>> }>();
+  const rowsOf = (lessonId: unknown) => {
+    const key = String(lessonId);
+    let rows = byLesson.get(key);
+    if (!rows) byLesson.set(key, (rows = { outcomes: [] }));
+    return rows;
+  };
+  for (const row of states) rowsOf(row.lesson_id).state = row;
+  for (const row of outcomes) rowsOf(row.lesson_id).outcomes.push(row);
+  return [...byLesson].map(([lessonId, rows]) => lessonProgressFromRows(lessonId, rows.state, rows.outcomes));
+}
+
+function lessonProgressFromRows(
+  lessonId: string,
+  state: Record<string, unknown> | undefined,
+  outcomes: Array<Record<string, unknown>>,
+): LessonProgress {
   const practice: Record<string, StepOutcome> = {};
   for (const row of outcomes) {
     const stepId = String(row.step_id);
@@ -242,20 +273,6 @@ export async function getLessonProgress({ db, userId }: Scope, lessonId: string)
     completedAt: (state.completed_at as string | null) ?? undefined,
     lastActiveAt: (state.last_active_at as string | null) ?? undefined,
   };
-}
-
-export async function getAllLessonProgress(scope: Scope): Promise<LessonProgress[]> {
-  const { db, userId } = scope;
-  const lessonIds = new Set<string>();
-  for (const row of await db.all('SELECT lesson_id FROM lesson_state WHERE user_id = ?', userId) as Array<{ lesson_id: string }>) {
-    lessonIds.add(row.lesson_id);
-  }
-  for (const row of await db.all('SELECT DISTINCT lesson_id FROM step_outcomes WHERE user_id = ?', userId) as Array<{
-    lesson_id: string;
-  }>) {
-    lessonIds.add(row.lesson_id);
-  }
-  return Promise.all([...lessonIds].map((id) => getLessonProgress(scope, id)));
 }
 
 async function ensureLessonState({ db, userId }: Scope, lessonId: string, now: string): Promise<void> {

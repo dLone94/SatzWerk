@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -92,6 +92,46 @@ describe('the self-hosted server', () => {
       expect(response.headers.get('content-type')).toContain('text/plain');
       expect(response.headers.get('cache-control')).toBe('no-store');
     }
+  });
+
+  /*
+   * Files outside /assets are sent `no-cache`, so a deploy is picked up on the
+   * next open. But nothing came with them to check against — no ETag, no
+   * Last-Modified — so "check" meant "download again": the half-megabyte
+   * illustration on Today came down whole on every app open.
+   */
+  it('lets the browser keep a file it already has, until the file changes', async () => {
+    mkdirSync(join(dir, 'dist', 'illustrations'), { recursive: true });
+    const file = join(dir, 'dist', 'illustrations', 'dackel-day.webp');
+    writeFileSync(file, Buffer.alloc(64 * 1024, 1));
+    const url = `${base}/illustrations/dackel-day.webp`;
+
+    const first = await fetch(url);
+    expect(first.status).toBe(200);
+    expect(first.headers.get('cache-control')).toBe('no-cache');
+    expect((await first.arrayBuffer()).byteLength).toBe(64 * 1024);
+    const etag = first.headers.get('etag');
+    const lastModified = first.headers.get('last-modified');
+    expect(etag).toBeTruthy();
+    expect(lastModified).toBeTruthy();
+
+    const asks: Array<Record<string, string>> = [{ 'if-none-match': etag! }, { 'if-modified-since': lastModified! }];
+    for (const headers of asks) {
+      const again = await fetch(url, { headers });
+      expect(again.status, JSON.stringify(headers)).toBe(304);
+      expect(await again.text()).toBe('');
+      expect(again.headers.get('etag')).toBe(etag);
+      expect(again.headers.get('cache-control')).toBe('no-cache');
+    }
+
+    // A new deploy: the old validators no longer match, and the new file comes whole.
+    writeFileSync(file, Buffer.alloc(80 * 1024, 2));
+    const later = new Date(Date.now() + 60_000);
+    utimesSync(file, later, later);
+    const changed = await fetch(url, { headers: { 'if-none-match': etag!, 'if-modified-since': lastModified! } });
+    expect(changed.status).toBe(200);
+    expect((await changed.arrayBuffer()).byteLength).toBe(80 * 1024);
+    expect(changed.headers.get('etag')).not.toBe(etag);
   });
 
   it('forwards retry IDs to the API instead of duplicating HTTP writes', async () => {

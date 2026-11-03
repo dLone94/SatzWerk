@@ -669,13 +669,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     // waiting on. Counted in, they turned "1 answer is waiting" into "2
     // answers" after a reload, and more after each one. They are still sent.
     const bookkeeping = state.queued.filter((item) => item.write.kind === 'studyTime').length;
-    setSync({
+    const next: SyncState = {
       pending: answers,
       other: state.queued.length - answers - bookkeeping,
       refused: state.rejected.length,
       atRisk: state.queued.length > 0 && !outbox.isDurable(),
       lost: lostAnswers.current,
-    });
+    };
+    // The minute's flush ends here even with nothing to send. A new object
+    // with the same numbers changed the context, and the whole app drew itself
+    // again every minute for nothing — a second-long freeze on a phone for a
+    // learner with a long history.
+    setSync((current) =>
+      (Object.keys(next) as Array<keyof SyncState>).every((key) => current[key] === next[key]) ? current : next,
+    );
   }, []);
 
   /**
