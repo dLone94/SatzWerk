@@ -132,7 +132,7 @@ const REPORTING: VocabEntry[] = [
     plural: 'die Aufträge',
     wordType: 'noun',
     translation: { en: 'order, assignment, commission', bg: 'поръчка, възлагане' },
-    pronunciation: { en: 'OWF-trahk', bg: 'АУФ-траг' },
+    pronunciation: { en: 'OWF-trahk', bg: 'АУФ-трак' },
     example: {
       de: 'Der Auftrag muss bis Freitag bearbeitet werden.',
       gloss: {
@@ -273,7 +273,7 @@ const MEETING: VocabEntry[] = [
     plural: 'die Vorschläge',
     wordType: 'noun',
     translation: { en: 'suggestion, proposal', bg: 'предложение' },
-    pronunciation: { en: 'FOR-shlahk', bg: 'ФОР-шлаг' },
+    pronunciation: { en: 'FOR-shlahk', bg: 'ФОР-шлак' },
     example: {
       de: 'Ich hätte einen Vorschlag.',
       gloss: {
@@ -322,7 +322,7 @@ const MEETING: VocabEntry[] = [
     plural: 'die Einwände',
     wordType: 'noun',
     translation: { en: 'objection', bg: 'възражение' },
-    pronunciation: { en: 'INE-vant', bg: 'АЙН-ванд' },
+    pronunciation: { en: 'INE-vant', bg: 'АЙН-вант' },
     example: {
       de: 'Gegen diesen Plan habe ich einen Einwand.',
       gloss: {

@@ -1,10 +1,13 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { allCheckpoints, allLessons } from '../../src/content/browser.ts';
 import { migrate, openDatabase, SCHEMA_VERSION, type Db } from '../../server/db.ts';
 import { openSqlite } from '../../server/driver-sqlite.ts';
 import { toPositional } from '../../server/driver.ts';
+import { listMistakes } from '../../server/store.ts';
 
 /**
  * Migrations normally run from zero in the tests, which leaves the upgrade
@@ -177,4 +180,113 @@ describe('more than one learner', () => {
     expect(learner?.name).toBe('Teo');
     await after.close();
   });
+});
+
+/** SQLite always; Postgres too when TEST_DATABASE_URL is set, in a schema of its own. */
+const databases: Array<[string, (upTo: number) => Promise<Db>]> = [
+  ['sqlite', (upTo) => openDatabase({ path: ':memory:' }, upTo)],
+];
+if (process.env.TEST_DATABASE_URL) {
+  databases.push([
+    'postgres',
+    async (upTo) => {
+      // The parity tests drop and recreate `public` while other files run.
+      const url = process.env.TEST_DATABASE_URL!;
+      const admin = new pg.Client({ connectionString: url });
+      await admin.connect();
+      await admin.query('DROP SCHEMA IF EXISTS placement_mistakes CASCADE; CREATE SCHEMA placement_mistakes;');
+      await admin.end();
+      const separator = url.includes('?') ? '&' : '?';
+      return openDatabase({ databaseUrl: `${url}${separator}options=-c%20search_path%3Dplacement_mistakes` }, upTo);
+    },
+  ]);
+}
+
+describe.each(databases)('mistakes the placement check filed, on %s', (_name, open) => {
+  /*
+   * The placement check stopped filing mistakes, but the rows it had filed
+   * stayed in the bank: B2 sentences offered to a beginner as practice, and
+   * replayed as cards with no question on them.
+   */
+  it('are put away, and nothing else is', async () => {
+    const db = await open(8);
+    const file = (id: string, stepId: string, lastSeen: string) => db.run(
+      `INSERT INTO mistakes (id, user_id, category, expected, last_given, step_id, lesson_id, occurrences, corrected_count, first_seen_at, last_seen_at)
+       VALUES (?, 1, 'word-order', 'Satz', 'x', ?, NULL, 2, 0, ?, ?)`, id, stepId, lastSeen, lastSeen);
+    await file('aaaaaaaaaaaaaaaa', 'pl-b2-1', '2026-10-01T09:00:00.000Z');
+    await file('bbbbbbbbbbbbbbbb', 'u1l2-ex2-3', '2026-10-02T09:00:00.000Z');
+
+    expect(await migrate(db)).toBe(SCHEMA_VERSION);
+    const scope = { db, userId: 1 };
+    expect((await listMistakes(scope)).map((mistake) => mistake.stepId)).toEqual(['u1l2-ex2-3']);
+    // Put away, not deleted, and dated when it was last seen.
+    expect((await listMistakes(scope, true)).find((mistake) => mistake.stepId === 'pl-b2-1')?.resolvedAt)
+      .toBe('2026-10-01T09:00:00.000Z');
+    await db.close();
+  });
+});
+
+it('uses "pl-" for the placement check\'s steps and for nothing else', () => {
+  // The migration above finds the placement check's rows by that prefix.
+  for (const checkpoint of allCheckpoints()) {
+    for (const step of checkpoint.exercises.flatMap((exercise) => exercise.steps)) {
+      expect(step.id.startsWith('pl-'), step.id).toBe(checkpoint.scope === 'placement');
+    }
+  }
+  for (const lesson of allLessons()) {
+    for (const step of [...lesson.exercises, ...lesson.mastery.exercises].flatMap((exercise) => exercise.steps)) {
+      expect(step.id.startsWith('pl-'), step.id).toBe(false);
+    }
+  }
+});
+
+/*
+ * Several instances starting on one Postgres at once: the first page load
+ * after a deploy, served by more than one cold function. Each read the schema
+ * version, found it behind, and ran the same migration; all but one failed on
+ * "duplicate key ... pg_type_typname_nsp_index" or "already exists", and those
+ * requests were answered 503 with advice to check DATABASE_URL.
+ */
+const RACE_URL = process.env.TEST_DATABASE_URL;
+(RACE_URL ? describe : describe.skip)('several instances migrating one Postgres at once', () => {
+  async function freshSchema(): Promise<string> {
+    const { default: pg } = await import('pg');
+    const admin = new pg.Client({ connectionString: RACE_URL! });
+    await admin.connect();
+    // A schema of its own, so the parity tests' reset of `public` cannot
+    // interfere, and this one cannot interfere with them.
+    await admin.query('DROP SCHEMA IF EXISTS migration_race CASCADE; CREATE SCHEMA migration_race;');
+    await admin.end();
+    const separator = RACE_URL!.includes('?') ? '&' : '?';
+    return `${RACE_URL}${separator}options=-c%20search_path%3Dmigration_race`;
+  }
+
+  async function openTogether(url: string, count: number): Promise<Db[]> {
+    const results = await Promise.allSettled(Array.from({ length: count }, () => openDatabase({ databaseUrl: url })));
+    const opened = results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
+    const failures = results.flatMap((result) => (result.status === 'rejected' ? [String(result.reason)] : []));
+    for (const db of opened) await db.close();
+    expect(failures).toEqual([]);
+    return opened;
+  }
+
+  it('brings an empty database up to date from every instance', async () => {
+    for (let run = 0; run < 3; run += 1) {
+      const url = await freshSchema();
+      await openTogether(url, 4);
+      const check = await openDatabase({ databaseUrl: url });
+      const version = await check.get<{ value: string }>('SELECT value FROM meta WHERE key = ?', 'schema_version');
+      expect(Number(version!.value)).toBe(SCHEMA_VERSION);
+      await check.close();
+    }
+  }, 60_000);
+
+  it('applies a new migration once when instances of a new deploy start together', async () => {
+    for (let run = 0; run < 3; run += 1) {
+      const url = await freshSchema();
+      const older = await openDatabase({ databaseUrl: url }, SCHEMA_VERSION - 1);
+      await older.close();
+      await openTogether(url, 4);
+    }
+  }, 60_000);
 });

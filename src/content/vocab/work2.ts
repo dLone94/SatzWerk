@@ -6,7 +6,7 @@ import type { VocabEntry } from '../types.ts';
  * The vocabulary is chosen so that dass and wenn have something worth saying.
  * A subordinate clause is only useful once there is an opinion to hold or a
  * condition to state, so this list is built around glauben, denken and wissen —
- * the three verbs that make dass necessary — and around the things an adult
+ * the three verbs dass most often follows — and around the things an adult
  * actually has opinions about: a job, a course, an exam, money.
  *
  * werden is here too, and it is doing double duty: it is what you become
@@ -102,7 +102,7 @@ const WORK: VocabEntry[] = [
     gender: 'n',
     wordType: 'noun',
     translation: { en: 'money', bg: 'пари' },
-    pronunciation: { en: 'gelt', bg: 'гелд' },
+    pronunciation: { en: 'gelt', bg: 'гелт' },
     example: {
       de: 'Ich habe kein Geld.',
       gloss: { en: 'I have no money.', bg: 'Нямам пари.' },

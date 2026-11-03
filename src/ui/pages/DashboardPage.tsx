@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { contentStats, unitForLesson } from '../../content/browser.ts';
+import { checkpointById, contentStats, unitForLesson } from '../../content/browser.ts';
 import { todayHere } from '../../core/progress/days.ts';
 import { estimatedMinutes, planSession } from '../../core/progress/session.ts';
 import { summarizeQueue } from '../../core/srs/scheduler.ts';
@@ -11,7 +11,14 @@ import { Icon } from '../components/icons.tsx';
 import { PracticalProgress } from '../components/PracticalProgress.tsx';
 import { DackelScene } from '../components/Dackel.tsx';
 import { reviewItemsForPath } from '../reviewBuilder.ts';
-import { buildLessonViews, buildVocabViews, nextAction, sessionBuild, skillProgress } from '../selectors.ts';
+import {
+  buildLessonViews,
+  buildVocabViews,
+  earlyReviewExercises,
+  nextAction,
+  sessionBuild,
+  skillProgress,
+} from '../selectors.ts';
 
 /**
  * Today: the one thing worth doing next, and nothing that competes with it.
@@ -23,8 +30,11 @@ import { buildLessonViews, buildVocabViews, nextAction, sessionBuild, skillProgr
  * progress" until there is something in them.
  */
 export function DashboardPage() {
-  const { t, say, lang, lessons, reviewItems, mistakes, favorites, stats, studyDays, profile, checkpointResults } =
+  const { t, say, lang, lessons, reviewItems, mistakes, favorites, stats, studyDays, profile, checkpointResults, dailyRuns } =
     useApp();
+  // Today's finished practice. The card used to ask "Start today" all day,
+  // however much of it had been done.
+  const dailyDone = dailyRuns.find((run) => run.day === todayHere() && run.stage === 5);
 
   const onPath = reviewItemsForPath(reviewItems, lang);
   const action = nextAction(lessons, onPath, mistakes, profile.onboarded, checkpointResults);
@@ -48,7 +58,7 @@ export function DashboardPage() {
           : action.kind === 'mistakes'
             ? t('dashboardPracticeMistakes')
             : action.kind === 'checkpoint'
-              ? t('unitCheckpoint')
+              ? t(checkpointById(action.to.slice('/checkpoint/'.length))?.scope === 'level' ? 'levelCheckpoint' : 'unitCheckpoint')
               : t('reviewPracticeEarly');
   const actionTo = action.kind === 'idle' ? '/review' : action.to;
 
@@ -89,9 +99,14 @@ export function DashboardPage() {
       </header>
 
       <section className="daily-dashboard" aria-labelledby="daily-dashboard-title">
-        <div className="daily-dashboard__copy"><p className="section-eyebrow">{t('playToday')}</p><h2 id="daily-dashboard-title">{t('dailyDashboardTitle')}</h2>
-          <p>{t('dailyDashboardNote')}</p>
-          <Link to="/daily" className="btn btn--primary">{t('dailyStart')}<Icon name="arrow" size={20} /></Link></div>
+        <div className="daily-dashboard__copy"><p className="section-eyebrow">{t('playToday')}</p>
+          <h2 id="daily-dashboard-title">{t(dailyDone ? 'dailyDashboardDone' : 'dailyDashboardTitle')}</h2>
+          <p>{dailyDone
+            ? `${dailyDone.total > 0 ? `${t('exerciseScore', { correct: dailyDone.firstTryCorrect, total: dailyDone.total })}. ` : ''}${t('dailyDashboardDoneNote')}`
+            : t('dailyDashboardNote')}</p>
+          {/* Done, another round is optional: it steps back so the next lesson below leads. */}
+          <Link to="/daily" className={dailyDone ? 'btn btn--ghost daily-dashboard__again' : 'btn btn--primary'}>
+            {t(dailyDone ? 'dailyPractiseAgain' : 'dailyStart')}<Icon name="arrow" size={20} /></Link></div>
         <DackelScene className="daily-dashboard__scene" />
       </section>
       <div className="today-overview">
@@ -142,10 +157,14 @@ export function DashboardPage() {
           <p className="today-tile__main">
             {queue.total > 0 ? t('todayDue', { n: queue.total }) : t('todayNothingDue')}
           </p>
+          {/* "Practise early" only when there is something to practise: a new
+              learner was offered it and the review page had nothing to give. */}
           <p className="today-tile__note">
             {queue.total > 0
               ? `${t('todayReviewNote')} · ${t('dashboardEstimate', { n: Math.max(1, Math.round(queue.total * 0.4)) })}`
-              : t('reviewPracticeEarly')}
+              : earlyReviewExercises(onPath, new Date(), 1).length > 0
+                ? t('reviewPracticeEarly')
+                : t('todayReviewLater')}
           </p>
         </Link>
       </div>

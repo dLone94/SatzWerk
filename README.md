@@ -396,7 +396,7 @@ than about grammar.
 | 5. Natural spoken German | Did you get my message? · Got a second? · Didn’t see it | the unit that admits what the previous eighty lessons could not: a learner who has done all of them can read a rental contract and still lose the thread at a lunch table. Not because the grammar changes — it does not — but because speech swaps words (bekommen → *kriegen*, sehen → *gucken*, funktionieren → *klappen*), deletes sounds (*Haste mal kurz?* is four words said as two, *’ne Frage* is eine) and rearranges sentences (*Hab ich nicht gesehen* deletes the first slot; *Der ist echt gut, der Film* adds an afterthought; *ne?* asks for agreement without agreeing with anything). All three lessons are taught **for listening**, and every exercise asks for the full form from the spoken one rather than the other way round: nobody has ever been thought rude for saying *bekommen*, while failing to understand *Haste mal kurz?* stops a conversation dead. Here English transfers on one of the three — it drops subjects the same casual way — but builds its tag questions by rule where German has one invariant *ne?*; Bulgarian has the invariant tag already („нали?“) and moves constituents freely, so what it lacks is the verb-second frame the deletions happen inside |
 | | **B2 level checkpoint** | all five units with no hints, 80% to pass, and built around the question B2 is actually about: *can you tell which room you are in?* Every level below had one right answer per prompt; here the same fact has two correct forms and only one belongs where you are standing, so the checkpoint asks for the same content twice — *Hast du meine Nachricht gekriegt?* to a colleague and *Haben Sie meine Nachricht erhalten?* in an email — and marks the pair rather than the sentence |
 
-Across those 84 lessons that is 654 vocabulary entries, 83 grammar concepts, 683 exercises and **2013
+Across those 84 lessons that is 655 vocabulary entries, 83 grammar concepts, 683 exercises and **2013
 answer tasks** (including all thirty-three checkpoints and the placement check), across 427 teaching sections,
 all authored in both paths. Only 1.0% of those tasks are multiple choice; the
 rest require typing German. 165 of them carry an authored trap answer — a
@@ -418,7 +418,9 @@ teaches rather than calling it a typo.
 **Practice targeted at a kind of mistake, not just at sentences.** Once the
 mistake bank shows a real pattern (three or more of the same error category),
 the dashboard and the mistakes page offer a round drilling that category,
-assembled from the authored trap answers across the whole level. Related skills
+assembled from the authored trap answers in the lessons the learner has
+already taken, never from further on; when those have none, the round replays
+the learner's own mistakes of that kind. Related skills
 are pulled in so a round is never thin — asking for article practice also draws
 on gender and case, because they are the same skill. The steps keep their
 original ids, so an attempt inside a targeted round counts towards the same
@@ -507,7 +509,13 @@ explicit Again / Hard / Good / Easy buttons.
 **A mistake bank driven by real attempts.** Grouped by the 15+ error categories,
 showing what was written, what was correct, how many times it happened and how
 many times it was retyped correctly — and it can be practised either as a round
-of exactly those sentences, or as a round drilling the whole category.
+of exactly those sentences, or as a round drilling the whole category. A
+practice card asks the original question again, with the earlier answer
+beside it; answered right with no hint, the mistake is put away, and it comes
+back if it is made again. The daily round asks a recurring mistake in another
+sentence of the same kind, and a clean answer there puts it away too.
+Placement answers are never filed here: that check is looking for where the
+learner's German runs out (migration 9 put away the ones filed before).
 
 **An honest dashboard.** Every figure is derived from database rows. A fresh
 profile shows `—` and "No data yet", not a zero dressed up as progress. The
@@ -686,11 +694,23 @@ the person who carries it — and adding somebody hands them the app immediately
 landing them on the first-run screen as themselves, which is the right moment
 to ask which language they learn German through.
 
-One refusal is worth knowing about. Answers wait in the outbox when the server
-cannot be reached, and they carry no learner of their own: they are sent as
-whoever is studying when the connection returns. Handing the app over with a
-queue would file one person's sentences under another's name, so it is refused
-until they are saved, and it says how many are waiting.
+The cookie decides who a *tab* starts as, not who it files under afterwards.
+Every tab in a browser shares it, so choosing somebody in one tab used to move
+every other tab with it, and the next answer typed in a tab still showing the
+first person went to the second. Once a tab has loaded it names the learner it
+shows on everything it sends (the `X-SatzWerk-Learner` header), and the server
+files the request under them whatever the cookie says. Reminders are the one
+exception: a browser has a single push subscription, so it follows the cookie,
+to whoever this browser was last handed to.
+
+Answers wait in the outbox when the server cannot be reached, and each carries
+the learner it was made for. The queue is shared by every tab, so whichever tab
+sends a write sends it as that learner, and the server's reply is not laid over
+a tab showing somebody else. One refusal is still worth knowing about: an
+answer queued by an older version of the app carries no learner and is sent as
+whoever the sending tab shows. Handing the app over with a queue could file one
+person's sentences under another's name, so it is refused until they are
+saved, and it says how many are waiting.
 
 This was advertised as easy and was not. Migration 2 added a `user_id` column
 to every progress table against exactly this day — necessary, and not
@@ -912,7 +932,10 @@ Three details are deliberate:
 
 It is offered on the first-run screen to anyone who says they already speak
 some German, and from the top of the Course page — never forced, because most
-people opening this app already know they are beginners.
+people opening this app already know they are beginners. The recommendation is
+kept: until the learner opens a lesson, Today, the course page and daily
+practice start at the recommended level, and the check shows its last answer
+when it is opened again.
 
 ---
 

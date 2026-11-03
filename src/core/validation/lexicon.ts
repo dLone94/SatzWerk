@@ -377,6 +377,11 @@ export function isVerbForm(lexicon: GermanLexicon, token: string): boolean {
   );
 }
 
+/** A form of an adjective the course teaches: heiß, heiße, heißen … */
+export function isAdjectiveForm(lexicon: GermanLexicon, token: string): boolean {
+  return (lexicon.inflections.get(lower(token)) ?? []).some((word) => word.startsWith('adjective:'));
+}
+
 export function isFunctionWord(lexicon: GermanLexicon, token: string): boolean {
   const key = lower(token);
   return (

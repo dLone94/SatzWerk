@@ -6,7 +6,7 @@ import type { Block } from '../../src/content/types.ts';
 import { VOCABULARY } from '../../src/content/vocabulary.ts';
 import { NORMAL_RATE, SLOW_RATE, type TtsProvider } from '../../src/services/tts/index.ts';
 import { SAMPLE_PHRASE, normalizePhrase, phraseKey } from '../../src/services/tts/phraseKey.ts';
-import { speakable } from '../../src/services/tts/speakable.ts';
+import { examplesIn, speakable } from '../../src/services/tts/speakable.ts';
 import { speakable as tableCellSpeakable } from '../../src/ui/components/bits.tsx';
 import { RECORDED_VOICE_ID, RecordedTtsProvider } from '../../src/services/tts/recorded.ts';
 
@@ -187,8 +187,8 @@ describe('the phrases sent for recording', () => {
         if (block.t === 'table') {
           for (const row of block.rows) {
             for (const cell of row) {
-              const said = typeof cell === 'string' ? speakable(cell) : null;
-              if (said) buttons.add(said);
+              const said = typeof cell === 'string' ? [speakable(cell)] : examplesIn(cell).map(speakable);
+              for (const text of said) if (text) buttons.add(text);
             }
           }
         }
@@ -211,6 +211,13 @@ describe('the phrases sent for recording', () => {
     expect(speakable('-st')).toBeNull();
     expect(speakable('sch')).toBeNull();
     expect(speakable('wohnen — VOH-nen')).toBe('wohnen');
+    // Vowels alone are a spelling too ("ei"), or a keyboard workaround ("ae").
+    expect(speakable('ae')).toBeNull();
+    expect(speakable('eu, äu')).toBeNull();
+    // A cell written for both paths says the German the two agree on.
+    expect(examplesIn({ en: 'lesen — LAY-zen, sieben — ZEE-ben', bg: 'lesen — „ЛЕ-зен“, sieben — „ЗИ-бен“' })).toEqual(['lesen', 'sieben']);
+    expect(examplesIn({ en: 'at the doctor’s — no contraction', bg: 'при лекарката — без сливане' })).toEqual([]);
+    expect(examplesIn({ en: 'sein, haben, modals — even when speaking', bg: 'sein, haben, модални — дори в говор' })).toEqual([]);
   });
 
   it('include the sample on the Settings page', () => {

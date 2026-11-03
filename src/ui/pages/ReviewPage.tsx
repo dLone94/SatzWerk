@@ -2,12 +2,12 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { grammarById } from '../../content/browser.ts';
 import type { Exercise } from '../../content/types.ts';
-import { summarizeQueue, type RecallGrade, type ReviewItem } from '../../core/srs/scheduler.ts';
+import { summarizeQueue, type RecallGrade } from '../../core/srs/scheduler.ts';
 import { UI, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AudioButton, Card, EmptyState, formatRelativeDate } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
-import { buildQueue, reasonKey } from '../selectors.ts';
+import { buildQueue, earlyReviewExercises, reasonKey } from '../selectors.ts';
 import { buildReviewExercises, reviewItemsForPath } from '../reviewBuilder.ts';
 
 const GRADES: RecallGrade[] = ['again', 'hard', 'good', 'easy'];
@@ -43,23 +43,21 @@ export function ReviewPage() {
   const counts = summarizeQueue(onPath);
 
   // Practising early takes the soonest items that are not yet due.
-  const earlyItems = useMemo(
-    () =>
-      [...onPath]
-        .filter((item) => new Date(item.dueAt).getTime() > Date.now())
-        .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
-        .slice(0, 10),
-    [onPath],
-  );
+  const early = useMemo(() => earlyReviewExercises(onPath), [onPath]);
 
-  // One sitting at a time: a beginner's first bad day can make thirty words
-  // due at once, and the most overdue come first, so the rest can wait.
-  const dueItems = useMemo(() => queue.slice(0, REVIEW_ROUND_SIZE).map((entry) => entry.item), [queue]);
-  const build = useMemo(() => buildReviewExercises(dueItems), [dueItems]);
+  /*
+   * One sitting at a time: a beginner's first bad day can make thirty words
+   * due at once, and the most overdue come first, so the rest can wait.
+   *
+   * The round is cut from what can be typed. Grammar items are graded in
+   * their own card below, and taken into the twenty first they made "20 in
+   * this round" a round of 17 and left typable words for the next one.
+   */
+  const build = useMemo(() => buildReviewExercises(queue.map((entry) => entry.item)), [queue]);
 
-  const start = (items: ReviewItem[], early: boolean) => {
+  const start = (exercises: Exercise[], isEarly: boolean) => {
     setSummary(null);
-    setRound({ id: (round?.id ?? 0) + 1, exercises: buildReviewExercises(items).exercises, size: items.length, early });
+    setRound({ id: (round?.id ?? 0) + 1, exercises, size: exercises.length, early: isEarly });
   };
 
   if (round && round.exercises.length > 0) {
@@ -103,13 +101,13 @@ export function ReviewPage() {
         <Card>
           <EmptyState
             title={t('reviewNothingDue')}
-            body={t('reviewNothingDueBody')}
+            body={early.length > 0 ? t('reviewNothingDueBody') : t('reviewNothingYetBody')}
             action={
-              earlyItems.length > 0 ? (
+              early.length > 0 ? (
                 <button
                   type="button"
                   className="btn btn--primary"
-                  onClick={() => start(earlyItems, true)}
+                  onClick={() => start(early, true)}
                 >
                   {t('reviewPracticeEarly')}
                 </button>
@@ -137,7 +135,7 @@ export function ReviewPage() {
               type="button"
               className="btn btn--primary btn--lg"
               disabled={build.exercises.length === 0}
-              onClick={() => start(dueItems, false)}
+              onClick={() => start(build.exercises.slice(0, REVIEW_ROUND_SIZE), false)}
               autoFocus
             >
               {t('reviewStart')}

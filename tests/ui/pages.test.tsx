@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactElement } from 'react';
@@ -159,11 +159,14 @@ it.each(LANGS)('opens a completed unit awaiting its checkpoint and offers a dire
     completedAt: now,
   }]));
   const first = level.units[0]!.checkpoint!;
-  const next = level.units[1]!.checkpoint!;
+  // The unit just finished is the level's last, and its checkpoint is the one
+  // Today offers; the page leads to the same one. The checkpoints skipped on
+  // the way stay on the trail.
+  const last = level.units.at(-1)!;
   const view = mount(<CoursePage />, lang, { lessons, checkpointResults: [{ checkpointId: first.id, accuracy: 1, passed: true, createdAt: now }] }, '/course?level=pre-a1');
-  expect(screen.getByRole('link', { name: new RegExp(tr('courseJumpCheckpoint', lang)) })).toHaveAttribute('href', `/checkpoint/${next.id}`);
+  expect(screen.getByRole('link', { name: new RegExp(tr('courseJumpCheckpoint', lang)) })).toHaveAttribute('href', `/checkpoint/${last.checkpoint!.id}`);
   expect(view.container.querySelector('.unit-path[open]')).toHaveAttribute('open');
-  expect(view.container.querySelector('.unit-path[open] h3')?.textContent).toContain(level.units[1]!.title[lang]);
+  expect(view.container.querySelector('.unit-path[open] h3')?.textContent).toContain(last.title[lang]);
   expect(view.container.querySelectorAll('.unit-path[open]')).toHaveLength(1);
 });
 
@@ -985,6 +988,25 @@ describe('what is shown to a screen reader', () => {
     expect(document.querySelector('.cat-bars [role="progressbar"]')).toBeNull();
     const label = tr('mistakesPractiseCategory', 'en');
     expect(screen.getAllByRole('button', { name: new RegExp(`^${label}: `) })).toHaveLength(2);
+  });
+
+  /*
+   * "Български" on an English page and "English" on a Bulgarian one were read
+   * in the page's voice. A language picker names each language in itself, as
+   * the header's toggle already did.
+   */
+  it.each(LANGS)('names each language in itself on the %s path', (lang) => {
+    mount(<SettingsPage />, lang);
+    expect(screen.getByRole('button', { name: 'English' })).toHaveAttribute('lang', 'en');
+    expect(screen.getByRole('button', { name: 'Български' })).toHaveAttribute('lang', 'bg');
+    cleanup();
+
+    mount(<OnboardingPage />, lang, {
+      profile: { teachingLanguage: lang, dailyTargetMinutes: 20, displayName: null, onboarded: false, createdAt: now },
+    });
+    expect(screen.getByText('English').closest('[lang]')).toHaveAttribute('lang', 'en');
+    expect(screen.getByText('Български').closest('[lang]')).toHaveAttribute('lang', 'bg');
+    for (const german of screen.getAllByText('Deutsch')) expect(german.closest('[lang]')).toHaveAttribute('lang', 'de');
   });
 });
 

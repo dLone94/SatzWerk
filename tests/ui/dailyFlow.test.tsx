@@ -1,16 +1,18 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
-import { SCENARIO_SCRIPTS } from '../../src/content/browser.ts';
+import { lessonsInOrder, SCENARIO_SCRIPTS, scriptAnswerCount } from '../../src/content/browser.ts';
+import type { ScenarioScript } from '../../src/content/types.ts';
 import { todayHere } from '../../src/core/progress/days.ts';
 import { mergeDailyRun, type DailyRunInput } from '../../src/core/progress/daily.ts';
 import { AppStateContext, type AppStateValue } from '../../src/state/AppState.tsx';
 import { DailyPage } from '../../src/ui/pages/DailyPage.tsx';
+import { DashboardPage } from '../../src/ui/pages/DashboardPage.tsx';
 import { LearningPreferences } from '../../src/ui/components/LearningPreferences.tsx';
-import { dailyListening, phraseRecall } from '../../src/ui/dailyBuilder.ts';
+import { chooseDailyScript, dailyListening, phraseRecall } from '../../src/ui/dailyBuilder.ts';
 import { tr } from '../../src/i18n.ts';
 import { play, silentVoice, stubState } from './playerStub.tsx';
 import type { AttemptPayload, Profile } from '../../src/services/api/client.ts';
@@ -115,4 +117,319 @@ it('a learner handover clears the open daily round', async () => {
   result.rerender(<AppStateContext.Provider value={stubState({ studyingAs: 2 })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
   expect(screen.getByRole('button', { name: tr('dailyStart', 'en') })).toBeInTheDocument();
   expect(screen.queryByText('Guten Morgen!')).not.toBeInTheDocument();
+});
+
+/*
+ * "Next phrase" swapped the card in place and left focus on the button, so a
+ * screen reader heard nothing of "Phrase 2 of 3" or the new German.
+ */
+it('takes focus to each new phrase by its title', async () => {
+  render(<AppStateContext.Provider value={stubState()}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+  await user.click(await screen.findByRole('button', { name: tr('dailyNextPhrase', 'en') }));
+  expect(screen.getByRole('heading', { level: 2, name: /^Phrase 2 of/ })).toHaveFocus();
+});
+
+/*
+ * Pre-A1 has one conversation, so "Try another practice" brought back the one
+ * just finished, and choosing Work or Exam practice changed only the tag.
+ */
+describe('what the next practice really is', () => {
+  const finishing = (scriptId: string) => ({ id: 'finishing', day: todayHere(), scriptId, goal: 'everyday' as const,
+    stage: 4, total: 8, firstTryCorrect: 8, listeningCompleted: false, updatedAt: new Date().toISOString() });
+  const profile = (learningGoal: Profile['learningGoal'], practiceLevel: Profile['practiceLevel']) => ({ teachingLanguage: 'en' as const,
+    dailyTargetMinutes: 20, displayName: null, onboarded: true, createdAt: '', learningGoal, practiceLevel });
+  async function finish(overrides: Partial<AppStateValue>, scriptId: string) {
+    // Saved parts reach the state, as they do in the app.
+    function Harness() {
+      const [runs, setRuns] = useState<AppStateValue['dailyRuns']>([finishing(scriptId)]);
+      const value = stubState({ ...overrides, dailyRuns: runs, recordDailyRun: async payload => {
+        setRuns(runs => mergeDailyRun(runs, { ...payload, updatedAt: new Date().toISOString() }));
+      } });
+      return <AppStateContext.Provider value={value}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>;
+    }
+    render(<Harness />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+    await user.click(await screen.findByRole('button', { name: tr('dailyFinish', 'en') }));
+    await screen.findByRole('heading', { name: tr('dailyFinished', 'en') });
+    return user;
+  }
+
+  it('offers the only beginner conversation again as itself, not as another practice', async () => {
+    const user = await finish({ profile: profile('everyday', 'pre-a1') }, 'sc-bakery-pre-a1');
+    expect(screen.queryByRole('button', { name: tr('dailyAnother', 'en') })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: tr('dailyAgain', 'en') }));
+    expect(screen.getByRole('heading', { name: SCENARIO_SCRIPTS.find(script => script.id === 'sc-bakery-pre-a1')!.goal.en })).toBeInTheDocument();
+  });
+
+  it('still offers another practice where there is one', async () => {
+    const done = chooseDailyScript('everyday', 'a1', [], todayHere());
+    const runs = [{ scriptId: done.id, runs: 1, turns: 4, firstTryCorrect: 4, lastAccuracy: 1, bestAccuracy: 1,
+      firstRunAt: new Date().toISOString(), lastRunAt: new Date().toISOString() }];
+    const next = chooseDailyScript('everyday', 'a1', runs, todayHere());
+    expect(next.id).not.toBe(done.id);
+    const user = await finish({ profile: profile('everyday', 'a1'), scenarioRuns: runs }, done.id);
+    await user.click(screen.getByRole('button', { name: tr('dailyAnother', 'en') }));
+    expect(screen.getByRole('heading', { name: next.goal.en })).toBeInTheDocument();
+  });
+
+  it('says when a goal has no conversation of its own at this level', () => {
+    const view = render(<AppStateContext.Provider value={stubState({ profile: profile('work', 'pre-a1') })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByText(tr('dailyGoalElsewhere', 'en'))).toBeInTheDocument();
+    view.rerender(<AppStateContext.Provider value={stubState({ profile: profile('travel', 'pre-a1') })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.queryByText(tr('dailyGoalElsewhere', 'en'))).not.toBeInTheDocument();
+    view.rerender(<AppStateContext.Provider value={stubState({ profile: profile('work', 'a1') })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.queryByText(tr('dailyGoalElsewhere', 'en'))).not.toBeInTheDocument();
+  });
+});
+
+/*
+ * A goal or level chosen while today's round was open changed nothing: the
+ * card kept the old round, offered only to continue it, and showed the time
+ * of the new plan beside it.
+ */
+describe('a new goal or level while a round is open', () => {
+  const saved = { id: 'open-round', day: todayHere(), scriptId: 'sc-bakery-pre-a1', goal: 'everyday' as const,
+    stage: 2, total: 0, firstTryCorrect: 0, listeningCompleted: false, updatedAt: new Date().toISOString() };
+  const profile = { teachingLanguage: 'en' as const, dailyTargetMinutes: 20, displayName: null, onboarded: true,
+    createdAt: '', learningGoal: 'travel' as const, practiceLevel: 'b2' as const };
+  const estimateOnScreen = () => document.querySelector('.daily-plan__estimate')!.textContent;
+
+  it('offers the new plan first, with its own estimate, and starts it as a new round', async () => {
+    const fresh = chooseDailyScript('travel', 'b2', [], todayHere());
+    render(<AppStateContext.Provider value={stubState({ profile })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    const expected = estimateOnScreen();
+    cleanup();
+
+    const progress = vi.fn(async (_: DailyRunInput) => undefined);
+    render(<AppStateContext.Provider value={stubState({ profile, dailyRuns: [saved], recordDailyRun: progress })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByRole('heading', { name: fresh.goal.en })).toBeInTheDocument();
+    expect(screen.getByText('Travel · B2')).toBeInTheDocument();
+    expect(estimateOnScreen()).toBe(expected);
+    expect(screen.queryByRole('button', { name: tr('dailyResume', 'en') })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: tr('dailyResumeEarlier', 'en', { plan: 'Everyday life · PRE-A1' }) })).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+    expect(progress.mock.calls[0]![0]).toMatchObject({ scriptId: fresh.id, goal: 'travel', stage: 0 });
+    expect(progress.mock.calls[0]![0].id).not.toBe(saved.id);
+  });
+
+  it('keeps the round already begun one tap away', async () => {
+    const progress = vi.fn(async (_: DailyRunInput) => undefined);
+    render(<AppStateContext.Provider value={stubState({ profile, dailyRuns: [saved], recordDailyRun: progress })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    await userEvent.setup().click(screen.getByRole('button', { name: tr('dailyResumeEarlier', 'en', { plan: 'Everyday life · PRE-A1' }) }));
+    expect(await screen.findByRole('heading', { name: tr('dailyRecall', 'en') })).toBeInTheDocument();
+    expect(progress.mock.calls[0]![0]).toMatchObject({ id: saved.id, scriptId: saved.scriptId, stage: 2 });
+  });
+
+  it('does the same for a round paused on this screen', async () => {
+    const everyday = { ...profile, learningGoal: 'everyday' as const, practiceLevel: 'pre-a1' as const };
+    const view = render(<AppStateContext.Provider value={stubState({ profile: everyday })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+    await user.click(await screen.findByRole('button', { name: tr('dailyNextPhrase', 'en') }));
+    await user.click(screen.getByRole('button', { name: tr('dailyPause', 'en') }));
+    view.rerender(<AppStateContext.Provider value={stubState({ profile })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByText('Travel · B2')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: tr('dailyResumeEarlier', 'en', { plan: 'Everyday life · PRE-A1' }) }));
+    expect(await screen.findByText(tr('dailyPhraseCount', 'en', { n: 2, total: 3 }))).toBeInTheDocument();
+  });
+
+  it('just continues when the new goal brings the same conversation', () => {
+    // Pre-A1 has one conversation for every goal: starting it over would only lose the parts done.
+    render(<AppStateContext.Provider value={stubState({ profile: { ...profile, learningGoal: 'work', practiceLevel: 'pre-a1' }, dailyRuns: [saved] })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByRole('button', { name: tr('dailyResume', 'en') })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: tr('dailyResumeEarlier', 'en', { plan: 'Everyday life · PRE-A1' }) })).not.toBeInTheDocument();
+  });
+
+  it('estimates the round the card shows, not the one a fresh plan would pick', async () => {
+    const answers = (script: ScenarioScript) => scriptAnswerCount(script, 'en') + phraseRecall(script, 'en').length + dailyListening(script, 'en').length;
+    const fresh = chooseDailyScript('everyday', 'a1', [], todayHere());
+    // A round begun earlier today on a conversation of a different length.
+    const other = SCENARIO_SCRIPTS.filter(script => script.level === 'a1')
+      .find(script => (answers(script) >= 10) !== (answers(fresh) >= 10))!;
+    const sameProfile = { ...profile, learningGoal: 'everyday' as const, practiceLevel: 'a1' as const };
+    render(<AppStateContext.Provider value={stubState({ profile: sameProfile })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    const freshEstimate = estimateOnScreen();
+    cleanup();
+
+    render(<AppStateContext.Provider value={stubState({ profile: sameProfile, dailyRuns: [{ ...saved, scriptId: other.id }] })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByRole('heading', { name: other.goal.en })).toBeInTheDocument();
+    const shown = estimateOnScreen();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+    await user.click(await screen.findByRole('button', { name: tr('dailyPause', 'en') }));
+    // Paused, the round in hand is estimated from its own script.
+    expect(estimateOnScreen()).toBe(shown);
+    expect(shown).not.toBe(freshEstimate);
+  });
+
+  /*
+   * Trying B2 and going back left two rounds open, and the page only looked
+   * at the latest: going back offered "Start today" and stranded the parts
+   * already done in the round that fitted.
+   */
+  it('continues the round that fits the plan when another was begun later', async () => {
+    const travel = { ...saved, id: 'travel-round', scriptId: chooseDailyScript('travel', 'b2', [], todayHere()).id,
+      goal: 'travel' as const, stage: 1, updatedAt: new Date(Date.now() + 60_000).toISOString() };
+    for (const [chosen, round, part] of [
+      [{ ...profile, learningGoal: 'everyday' as const, practiceLevel: 'pre-a1' as const }, saved, 'dailyRecall'],
+      [profile, travel, 'dailyReview'],
+    ] as const) {
+      const progress = vi.fn(async (_: DailyRunInput) => undefined);
+      const view = render(<AppStateContext.Provider value={stubState({ profile: chosen, dailyRuns: [travel, saved], recordDailyRun: progress })}>
+        <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+      expect(screen.queryByRole('button', { name: tr('dailyStart', 'en') })).not.toBeInTheDocument();
+      expect(document.querySelector('.daily-plan__earlier')).toBeNull();
+      await userEvent.setup().click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+      expect(await screen.findByRole('heading', { name: tr(part, 'en') })).toBeInTheDocument();
+      expect(progress.mock.calls[0]![0]).toMatchObject({ id: round.id, stage: round.stage });
+      view.unmount();
+    }
+  });
+
+  it('does the same when the round set aside is the one paused on this screen', async () => {
+    const recorded: DailyRunInput[] = [];
+    // Saved parts reach the state, as they do in the app.
+    function Mirrored({ chosen }: { chosen: Profile }) {
+      const [runs, setRuns] = useState<AppStateValue['dailyRuns']>([saved]);
+      return <AppStateContext.Provider value={stubState({ profile: chosen, dailyRuns: runs, recordDailyRun: async payload => {
+        recorded.push(payload);
+        setRuns(runs => mergeDailyRun(runs, { ...payload, updatedAt: new Date().toISOString() }));
+      } })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>;
+    }
+    const everyday = { ...profile, learningGoal: 'everyday' as const, practiceLevel: 'pre-a1' as const };
+    const view = render(<Mirrored chosen={profile} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+    await user.click(await screen.findByRole('button', { name: tr('dailyPause', 'en') }));
+    const travel = recorded[0]!;
+    expect(travel).toMatchObject({ goal: 'travel', stage: 0 });
+
+    view.rerender(<Mirrored chosen={everyday} />);
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+    expect(await screen.findByRole('heading', { name: tr('dailyRecall', 'en') })).toBeInTheDocument();
+    expect(recorded.at(-1)).toMatchObject({ id: saved.id, stage: 2 });
+
+    // And back again: the B2 round is still there, not begun a third time.
+    await user.click(screen.getByRole('button', { name: tr('dailyPause', 'en') }));
+    view.rerender(<Mirrored chosen={profile} />);
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+    expect(await screen.findByText(tr('dailyPhraseCount', 'en', { n: 1, total: 3 }))).toBeInTheDocument();
+    expect(recorded.at(-1)).toMatchObject({ id: travel.id, stage: 0 });
+    expect(new Set(recorded.map(round => round.id))).toEqual(new Set([saved.id, travel.id]));
+  });
+
+  // Only a chosen level is a new plan. The level read from the lessons moved
+  // as soon as a lesson of the next level was opened, and set the round aside.
+  it('keeps the round under way when the level was only inferred from the lessons', () => {
+    const next = lessonsInOrder().find(lesson => lesson.level === 'a1' && lesson.status === 'available')!;
+    const lessons = { [next.id]: { lessonId: next.id, sectionsSeen: [next.sections[0]!.id], practice: {},
+      mastery: { attempts: 0, bestAccuracy: 0, passed: false }, recoveryRounds: 0 } };
+    const unchosen = { ...profile, learningGoal: 'everyday' as const, practiceLevel: undefined };
+    const view = render(<AppStateContext.Provider value={stubState({ profile: unchosen, lessons, dailyRuns: [saved] })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByText('Everyday life · PRE-A1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: tr('dailyResume', 'en') })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: tr('dailyStart', 'en') })).not.toBeInTheDocument();
+
+    // Chosen, the same level is a new plan.
+    view.rerender(<AppStateContext.Provider value={stubState({ profile: { ...unchosen, practiceLevel: 'a1' }, lessons, dailyRuns: [saved] })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByText('Everyday life · A1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: tr('dailyStart', 'en') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: tr('dailyResumeEarlier', 'en', { plan: 'Everyday life · PRE-A1' }) })).toBeInTheDocument();
+  });
+});
+
+/*
+ * Today's main card never looked at the day's practice, and went on saying
+ * "Start today" after it was finished.
+ */
+it.each(['en', 'bg'] as const)('says on Today that today\'s practice is done in %s', lang => {
+  const run = { id: 'done', scriptId: 'sc-bakery-pre-a1', goal: 'everyday' as const, stage: 5, total: 10,
+    firstTryCorrect: 9, listeningCompleted: true, updatedAt: new Date().toISOString() };
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const before = render(<AppStateContext.Provider value={stubState({ dailyRuns: [{ ...run, day: todayHere(yesterday) }] }, lang)}>
+    <MemoryRouter><DashboardPage /></MemoryRouter></AppStateContext.Provider>);
+  expect(screen.getByRole('heading', { name: tr('dailyDashboardTitle', lang) })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: tr('dailyStart', lang) })).toHaveAttribute('href', '/daily');
+  before.unmount();
+
+  render(<AppStateContext.Provider value={stubState({ dailyRuns: [{ ...run, day: todayHere() }] }, lang)}>
+    <MemoryRouter><DashboardPage /></MemoryRouter></AppStateContext.Provider>);
+  expect(screen.getByRole('heading', { name: tr('dailyDashboardDone', lang) })).toBeInTheDocument();
+  expect(screen.getByText(new RegExp(tr('exerciseScore', lang, { correct: 9, total: 10 })))).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: tr('dailyStart', lang) })).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: tr('dailyPractiseAgain', lang) })).toHaveAttribute('href', '/daily');
+  // Optional now, it no longer outranks the next lesson.
+  expect(screen.getByRole('link', { name: tr('dailyPractiseAgain', lang) })).not.toHaveClass('btn--primary');
+});
+
+/*
+ * With nothing due the review part was jumped over, and the track then ticked
+ * "Strengthen what you know" as done although it never happened.
+ */
+it('says the review is clear rather than ticking a review that never happened', async () => {
+  const runs: DailyRunInput[] = [];
+  render(<AppStateContext.Provider value={stubState({ recordDailyRun: async run => { runs.push(run); } })}>
+    <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+  for (let index = 0; index < 2; index++) await user.click(await screen.findByRole('button', { name: tr('dailyNextPhrase', 'en') }));
+  await user.click(screen.getByRole('button', { name: tr('dailyPutToUse', 'en') }));
+  expect(await screen.findByText(tr('dailyReviewClearNote', 'en'))).toBeInTheDocument();
+  const reviewStep = () => screen.getByRole('list', { name: tr('dailyPlanProgress', 'en') }).children[1]!;
+  expect(reviewStep()).toHaveAttribute('aria-current', 'step');
+  expect(reviewStep()).not.toHaveClass('is-done');
+  await user.click(screen.getByRole('button', { name: tr('exerciseContinue', 'en') }));
+  expect(await screen.findByRole('heading', { name: tr('dailyRecall', 'en') })).toBeInTheDocument();
+  expect(reviewStep()).toHaveClass('is-done');
+  expect(runs.map(run => run.stage)).toEqual([0, 1, 2]);
+});
+
+/*
+ * The parts swap in place under the same address, and the page kept the
+ * scroll of the one before: on a phone Finish sits under a long card, and the
+ * celebration opened with its picture and tick above the screen.
+ */
+it('opens each part and the finish at the top, before the conversation scrolls to its line', async () => {
+  const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+  const scrollIntoView = vi.fn();
+  Element.prototype.scrollIntoView = scrollIntoView;
+  try {
+    const run = { id: 'scroll', day: todayHere(), scriptId: 'sc-bakery-pre-a1', goal: 'everyday' as const,
+      total: 4, firstTryCorrect: 4, listeningCompleted: false, updatedAt: new Date().toISOString() };
+    const conversation = render(<AppStateContext.Provider value={stubState({ dailyRuns: [{ ...run, stage: 3 }] })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(scrollTo).not.toHaveBeenCalled();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+    await screen.findByText(tr('dailyConversationNote', 'en'));
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+    expect(scrollIntoView).toHaveBeenCalled();
+    // The conversation's own scroll to its first line comes last and stays.
+    expect(scrollTo.mock.invocationCallOrder.at(-1)!).toBeLessThan(scrollIntoView.mock.invocationCallOrder.at(-1)!);
+    conversation.unmount();
+
+    render(<AppStateContext.Provider value={stubState({ dailyRuns: [{ ...run, stage: 4 }] })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+    await user.click(await screen.findByRole('button', { name: tr('dailyFinish', 'en') }));
+    expect(await screen.findByRole('heading', { name: tr('dailyFinished', 'en') })).toHaveFocus();
+    expect(scrollTo).toHaveBeenLastCalledWith(0, 0);
+    expect(scrollTo.mock.invocationCallOrder.at(-1)!).toBeGreaterThan(scrollIntoView.mock.invocationCallOrder.at(-1)!);
+  } finally {
+    scrollTo.mockRestore();
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  }
 });

@@ -22,12 +22,12 @@ import type { Checkpoint, Exercise, Lesson, SentencePattern, Unit } from '../typ
  * all — so there is nothing to transfer and the endings have to be built.
  *
  * **Written politeness** (lesson 3) is the interesting one, because both
- * paths have a formal register and both are wrong here in the same direction.
- * English asks by questioning — "Could you possibly let me know" — and
- * Bulgarian asks with „бихте ли“. German can ask politely too; this unit teaches a common declarative
- * request frame. *Ich bitte um eine Bestätigung* is not brusque, it is standard, and
- * the politeness sits in the Konjunktiv II and the fixed frame rather than in
- * hedging.
+ * paths make a formal request by asking: English with "Could you possibly
+ * let me know", Bulgarian with „бихте ли“. German can ask with *Könnten Sie
+ * mir bitte … mitteilen?* too, but a firm letter usually states its request,
+ * and that is what is new. *Ich bitte um eine Bestätigung* is not brusque, it
+ * is standard, and the politeness sits in the Konjunktiv II and the fixed
+ * frame rather than in hedging.
  */
 
 /** Everything in this file is B2. */
@@ -641,11 +641,11 @@ const lesson3: Lesson = {
   estimatedMinutes: 30,
   title: bi('I would be grateful if you would', 'Бих Ви бил благодарен, ако'),
   objective: bi(
-    'After this lesson you can ask for something in writing the way German asks: as a statement about yourself, at a polite distance, with a consequence attached.',
-    'След този урок можеш да поискаш нещо в писмен вид така, както го прави немският: като твърдение за себе си, от учтива дистанция и с посочена последица.',
+    'After this lesson you can ask for something firmly in writing with the frames German letters use: a statement about yourself, at a polite distance, with a consequence attached.',
+    'След този урок можеш настоятелно да поискаш нещо в писмен вид с рамките, които използват немските писма: твърдение за себе си, от учтива дистанция и с посочена последица.',
   ),
   outcomes: [
-    bi('I use Ich bitte um … instead of asking a question.', 'Използвам Ich bitte um … вместо въпрос.'),
+    bi('I can ask with Ich bitte um …, not only with a polite question.', 'Мога да помоля с Ich bitte um …, а не само с учтив въпрос.'),
     bi('I can raise the pressure without raising the voice.', 'Мога да повиша натиска, без да повишавам тон.'),
     bi('I can point out an error politely.', 'Мога да посоча грешка учтиво.'),
     bi('I can state a consequence with Sollte …', 'Мога да посоча последица със Sollte …'),

@@ -396,8 +396,9 @@ describe('opening the app on a signal that carries nothing', () => {
       vi.useRealTimers();
     }
 
-    // The network answers late; the next open gets what it said.
-    answer(ok('the new shell'));
+    // The network answers late; the next open gets what it said. As HTML, as
+    // the server sends it: only a page is kept as the page.
+    answer(new Response('the new shell', { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
     await stalled.background();
     const shell = await stalled.caches.api.match('/index.html');
     expect(await shell!.text()).toBe('the new shell');
@@ -502,5 +503,57 @@ describe('a new deploy', () => {
     await cache.put({ url: 'https://satzwerk.test/assets/app-abc123.js' }, ok('old'));
     await worker.fire('activate');
     expect(await heldPaths(worker)).not.toContain('/assets/app-abc123.js');
+  });
+});
+
+/*
+ * Opening the dachshund picture in a tab (a long press on a phone) is a
+ * navigation, and every navigation's answer was kept as the app's page. The
+ * picture replaced the page under '/index.html' and '/', and from then on
+ * every route opened offline — or on a signal slower than three seconds —
+ * showed nothing but the picture.
+ */
+describe('a file opened in a tab of its own', () => {
+  const html = (body: string) => new Response(body, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  const site = (url: string) => {
+    const path = new URL(url).pathname;
+    if (path === '/asset-manifest.json') return ok(JSON.stringify({ files: ['/assets/app-abc123.js'] }));
+    if (path.endsWith('.webp')) return new Response('webp bytes', { status: 200, headers: { 'Content-Type': 'image/webp' } });
+    if (path.endsWith('.png')) return new Response('png bytes', { status: 200, headers: { 'Content-Type': 'image/png' } });
+    if (path.endsWith('.webmanifest')) {
+      return new Response('{"name":"SatzWerk"}', { status: 200, headers: { 'Content-Type': 'application/manifest+json' } });
+    }
+    if (path.startsWith('/assets/')) return ok(`body of ${url}`);
+    return html('the app shell');
+  };
+
+  it.each(['/illustrations/dackel-day.webp', '/icon-512.png', '/manifest.webmanifest'])(
+    'does not take the place of the app when %s is opened',
+    async (path) => {
+      const worker = load(site);
+      await worker.fire('install');
+
+      const opened = await worker.request({ url: path, mode: 'navigate' });
+      expect(await opened.response!.text()).not.toBe('the app shell');
+      await worker.background();
+
+      const dark = load(offline as unknown as (url: string) => Promise<never>);
+      dark.caches.stores.set('satzwerk-app-v1', worker.caches.stores.get('satzwerk-app-v1')!);
+      for (const route of ['/', '/course']) {
+        const result = await dark.request({ url: route, mode: 'navigate' });
+        expect(result.response!.headers.get('Content-Type'), route).toContain('text/html');
+        expect(await result.response!.text(), route).toBe('the app shell');
+      }
+    },
+  );
+
+  it('opens a file the phone already holds offline as that file, not as the app', async () => {
+    const worker = load(site);
+    await worker.fire('install');
+    const dark = load(offline as unknown as (url: string) => Promise<never>);
+    dark.caches.stores.set('satzwerk-app-v1', worker.caches.stores.get('satzwerk-app-v1')!);
+
+    const result = await dark.request({ url: '/icon-512.png', mode: 'navigate' });
+    expect(result.response!.headers.get('Content-Type')).toBe('image/png');
   });
 });

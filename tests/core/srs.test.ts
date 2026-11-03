@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createReviewItem,
   dueItems,
+  dueReason,
   gradeFromAttempt,
   hintPenalty,
   orderQueue,
@@ -196,6 +197,33 @@ describe('grading an attempt', () => {
     expect(hintPenalty(1, false)).toBeLessThan(1);
     expect(hintPenalty(1, false)).toBeGreaterThan(0.5);
     expect(hintPenalty(3, false)).toBeGreaterThan(0.5);
+  });
+});
+
+describe('why an item is due', () => {
+  /*
+   * "Overdue" used to mean later than the item's whole interval, so a word on
+   * a four-day interval that fell due three days ago said "Scheduled for
+   * today", and so did seven others beside it.
+   */
+  const now = new Date(2026, 10, 2, 9, 0);
+  const known = (dueAt: Date) => item({ state: 'known', intervalDays: 4, dueAt: dueAt.toISOString() });
+
+  it('calls anything that fell due before today overdue', () => {
+    expect(dueReason(known(new Date(2026, 9, 30, 9, 0)), now)).toBe('overdue');
+    expect(dueReason(known(new Date(2026, 10, 1, 23, 30)), now)).toBe('overdue');
+  });
+
+  it('keeps "scheduled" for what falls due today', () => {
+    expect(dueReason(known(new Date(2026, 10, 2, 0, 15)), now)).toBe('scheduled');
+    expect(dueReason(known(new Date(2026, 10, 2, 8, 59)), now)).toBe('scheduled');
+  });
+
+  it('still names new, learning and forgotten items by their state', () => {
+    const late = new Date(2026, 9, 1).toISOString();
+    expect(dueReason(item({ state: 'new', dueAt: late }), now)).toBe('new');
+    expect(dueReason(item({ state: 'learning', dueAt: late }), now)).toBe('learning');
+    expect(dueReason(item({ state: 'lapsed', dueAt: late }), now)).toBe('lapsed');
   });
 });
 

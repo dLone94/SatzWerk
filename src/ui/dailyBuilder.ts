@@ -5,7 +5,7 @@ import type { LearningGoal } from '../core/progress/daily.ts';
 import { orderQueue } from '../core/srs/scheduler.ts';
 import type { ReviewItem } from '../core/srs/scheduler.ts';
 import type { MistakeRecord, ScenarioRun } from '../services/api/client.ts';
-import { buildMistakePractice, buildReviewExercises } from './reviewBuilder.ts';
+import { buildMistakePractice, buildReviewExercises, mistakePracticeId } from './reviewBuilder.ts';
 import { dailyPatternId } from '../content/dailyPatterns.ts';
 import { phraseFrame } from '../content/phraseFrames.ts';
 
@@ -16,11 +16,14 @@ const TOPICS: Record<LearningGoal, string[]> = {
   exams: ['sc-neighbours', 'sc-work', 'sc-apartment', 'sc-restaurant', 'sc-buergeramt', 'sc-kita'],
 };
 
+/** Whether a conversation is about what this goal is for, rather than a stand-in at its level. */
+export const fitsGoal = (script: ScenarioScript, goal: LearningGoal) => TOPICS[goal].includes(script.scenarioId);
+
 /** Stay at the chosen level. Beginners share a small, useful first exchange. */
 export function chooseDailyScript(goal: LearningGoal, level: CefrLevel, runs: ScenarioRun[], day: string): ScenarioScript {
   const atLevel = SCENARIO_SCRIPTS.filter(script => script.level === level);
   const available = atLevel.length > 0 ? atLevel : SCENARIO_SCRIPTS.filter(script => script.level === 'pre-a1');
-  const relevant = available.filter(script => TOPICS[goal].includes(script.scenarioId));
+  const relevant = available.filter(script => fitsGoal(script, goal));
   const candidates = relevant.length > 0 ? relevant : available;
   const seed = [...day].reduce((value, char) => value + char.charCodeAt(0), 0);
   const ranked = candidates.map((script, index) => {
@@ -62,7 +65,7 @@ export function phraseRecall(script: ScenarioScript, lang: TeachingLanguage): Ex
     objective: { en: 'Use the same building block in a new sentence', bg: 'Използвай същия модел в ново изречение' },
     steps: [{ id: `daily-transfer-${card.step.id}`, prompt: swap.gloss,
       instruction: { en: 'Keep the pattern. Change what you say.', bg: 'Запази модела. Промени това, което казваш.' },
-      answer: { accepted: [swap.de], shape: card.step.answer.shape },
+      answer: { accepted: [swap.de], alternatives: swap.alternatives, shape: card.step.answer.shape },
       hints: [{ en: `The pattern is "${frame.template}".`, bg: `Моделът е „${frame.template}“.` }],
       reviewTargets: [dailyPatternId(card.step.id)] }],
   });
@@ -90,13 +93,19 @@ export function dailyReview(items: ReviewItem[], mistakes: MistakeRecord[], leve
   const taken = new Set<string>();
   for (const mistake of recurring) {
     // Use an authored variation of the same skill, at or below this learner's level.
+    // Got right with no help, it puts the mistake away: the skill has held in a
+    // sentence that cannot have been remembered, which says more than the same
+    // question again would. Made again, the mistake comes back. Before, nothing
+    // practised here could put one away, so a learner who practised only here
+    // met the same mistakes in every round.
     const variation = practiceForCategory(mistake.category, 80).find(exercise =>
       CEFR_ORDER.indexOf(exercise.level) <= CEFR_ORDER.indexOf(level) && isVisible(exercise, lang) &&
       exercise.steps.some(step => isVisible(step, lang) && step.id !== mistake.stepId && !taken.has(step.id)));
     if (variation) {
       const step = variation.steps.find(step => isVisible(step, lang) && step.id !== mistake.stepId && !taken.has(step.id))!;
       taken.add(step.id);
-      targeted.push({ ...variation, id: `daily-target-${variation.id}`, steps: [{ ...step, id: `daily-target-${step.id}` }] });
+      targeted.push({ ...variation, id: mistakePracticeId(mistake.id, `daily-target-${variation.id}`),
+        steps: [{ ...step, id: `daily-target-${step.id}` }] });
     }
     if (targeted.length === 2) break;
   }

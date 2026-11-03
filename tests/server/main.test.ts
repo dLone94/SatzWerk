@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -92,6 +92,77 @@ describe('the self-hosted server', () => {
       expect(response.headers.get('content-type')).toContain('text/plain');
       expect(response.headers.get('cache-control')).toBe('no-store');
     }
+  });
+
+  /*
+   * Files outside /assets are sent `no-cache`, so a deploy is picked up on the
+   * next open. But nothing came with them to check against — no ETag, no
+   * Last-Modified — so "check" meant "download again": the half-megabyte
+   * illustration on Today came down whole on every app open.
+   */
+  it('lets the browser keep a file it already has, until the file changes', async () => {
+    mkdirSync(join(dir, 'dist', 'illustrations'), { recursive: true });
+    const file = join(dir, 'dist', 'illustrations', 'dackel-day.webp');
+    writeFileSync(file, Buffer.alloc(64 * 1024, 1));
+    const url = `${base}/illustrations/dackel-day.webp`;
+
+    const first = await fetch(url);
+    expect(first.status).toBe(200);
+    expect(first.headers.get('cache-control')).toBe('no-cache');
+    expect((await first.arrayBuffer()).byteLength).toBe(64 * 1024);
+    const etag = first.headers.get('etag');
+    const lastModified = first.headers.get('last-modified');
+    expect(etag).toBeTruthy();
+    expect(lastModified).toBeTruthy();
+
+    const asks: Array<Record<string, string>> = [{ 'if-none-match': etag! }, { 'if-modified-since': lastModified! }];
+    for (const headers of asks) {
+      const again = await fetch(url, { headers });
+      expect(again.status, JSON.stringify(headers)).toBe(304);
+      expect(await again.text()).toBe('');
+      expect(again.headers.get('etag')).toBe(etag);
+      expect(again.headers.get('cache-control')).toBe('no-cache');
+    }
+
+    // A new deploy: the old validators no longer match, and the new file comes whole.
+    writeFileSync(file, Buffer.alloc(80 * 1024, 2));
+    const later = new Date(Date.now() + 60_000);
+    utimesSync(file, later, later);
+    const changed = await fetch(url, { headers: { 'if-none-match': etag!, 'if-modified-since': lastModified! } });
+    expect(changed.status).toBe(200);
+    expect((await changed.arrayBuffer()).byteLength).toBe(80 * 1024);
+    expect(changed.headers.get('etag')).not.toBe(etag);
+  });
+
+  /*
+   * An answer pasted by accident can be bigger than the server takes. The
+   * socket used to be destroyed mid-upload, so the browser saw a reset
+   * connection, called it "offline", and held the write at the front of the
+   * queue for good, with every later answer stuck behind it. A 413 is a
+   * refusal the outbox can act on.
+   */
+  it('answers 413 to a body over the limit instead of resetting the connection', async () => {
+    const response = await fetch(`${base}/api/attempts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-requested-with': 'SatzWerk' },
+      body: JSON.stringify({ stepId: 's', verdict: 'incorrect', given: 'x'.repeat(300_000) }),
+    });
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ error: expect.any(String) });
+
+    // And the next ordinary write is taken as usual.
+    const next = await fetch(`${base}/api/attempts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-requested-with': 'SatzWerk' },
+      body: JSON.stringify({ stepId: 's', verdict: 'correct', given: 'Hallo' }),
+    });
+    expect(next.status).toBe(200);
+  });
+
+  it('forwards which learner a tab is showing', async () => {
+    // A learner the household does not have: refused only if the name arrived.
+    const response = await fetch(`${base}/api/learners`, { headers: { 'x-satzwerk-learner': '7' } });
+    expect(response.status).toBe(409);
   });
 
   it('forwards retry IDs to the API instead of duplicating HTTP writes', async () => {

@@ -14,15 +14,19 @@ import {
   applyCompletion,
   applyMastery,
   applyRecoveryRound,
+  countsAsRight,
   markSectionSeen as markSectionSeenIn,
   recordStepOutcome,
   type LessonProgress,
 } from '../core/progress/lesson.ts';
-import { streakOn, todayHere } from '../core/progress/days.ts';
+import { localDay, plausibleOffset, streakOn, todayHere } from '../core/progress/days.ts';
 import { scheduleReview, type RecallGrade, type ReviewItem } from '../core/srs/scheduler.ts';
 import { tr, type UiKey } from '../i18n.ts';
 import {
   api,
+  boundedAttempt,
+  learnerShown,
+  showingLearner,
   type AttemptResponse,
   type AppStateSnapshot,
   type Learner,
@@ -200,6 +204,27 @@ function daysAnswered(studyDays: AppStateSnapshot['studyDays']): string[] {
   return studyDays.filter((day) => day.answers > 0).map((day) => day.day);
 }
 
+/**
+ * The study days with one saved answer counted in, on the day and by the rule
+ * the server filed it under.
+ *
+ * Only the minute's study time used to bring the days back, so a short round
+ * answered right throughout finished on "0 / 4 practice days this week", with
+ * no streak, beside its own result: nothing else it sent fetched them.
+ */
+function withAnswerCounted(
+  studyDays: AppStateSnapshot['studyDays'],
+  attempt: AttemptPayload,
+): AppStateSnapshot['studyDays'] {
+  const day = localDay(attempt.at ? new Date(attempt.at) : new Date(), plausibleOffset(attempt.tzOffsetMinutes));
+  const right = countsAsRight(attempt.verdict, attempt.requireRetype) && !attempt.revealed ? 1 : 0;
+  const prior = studyDays.find((row) => row.day === day);
+  if (prior) {
+    return studyDays.map((row) => (row === prior ? { ...row, answers: row.answers + 1, correct: row.correct + right } : row));
+  }
+  return [...studyDays, { day, secondsActive: 0, answers: 1, correct: right }].sort((a, b) => b.day.localeCompare(a.day));
+}
+
 function indexLessons(lessons: LessonProgress[]): Record<string, LessonProgress> {
   const out: Record<string, LessonProgress> = {};
   for (const lesson of lessons) out[lesson.lessonId] = lesson;
@@ -272,10 +297,18 @@ function heldLessonRule(
   }
 }
 
+/**
+ * What is waiting for the learner this tab shows. Another learner's writes
+ * wait in the same queue, and they are not this learner's progress.
+ */
+function heldHere(): outbox.QueuedWrite[] {
+  return outbox.snapshot().queued.filter((item) => outbox.isThisTabs(item.learner));
+}
+
 /** One lesson's progress from the server, with what is still held on top. */
 function withHeldLesson(progress: LessonProgress): LessonProgress {
   let next = progress;
-  for (const { write } of outbox.snapshot().queued) {
+  for (const { write } of heldHere()) {
     const rule = heldLessonRule(write);
     if (rule && rule.lessonId === progress.lessonId) next = rule.apply(next);
   }
@@ -292,7 +325,7 @@ function withHeldLesson(progress: LessonProgress): LessonProgress {
  * started before the result was queued.
  */
 function withHeld(state: AppStateSnapshot): AppStateSnapshot {
-  const queued = outbox.snapshot().queued;
+  const queued = heldHere();
   if (queued.length === 0) return state;
   const lessons = indexLessons(state.lessons);
   let reviewItems = state.reviewItems;
@@ -309,6 +342,34 @@ function withHeld(state: AppStateSnapshot): AppStateSnapshot {
     }
   }
   return { ...state, lessons: Object.values(lessons), reviewItems, dailyRuns };
+}
+
+/**
+ * A profile nobody has set up yet, moved to the language this device uses.
+ *
+ * The server creates every profile in English, which nobody chose. A phone
+ * set to Bulgarian, or a learner added from the Bulgarian app, opened the
+ * welcome screen in English with English selected. The device knows better:
+ * the language last chosen on it, or the phone's own.
+ *
+ * Only ever away from English. The server never starts a profile in
+ * Bulgarian, so a Bulgarian one is somebody's choice, and it stays even on a
+ * device that would have guessed English.
+ *
+ * Saved before the welcome screen is shown, while the loading screen is still
+ * up, rather than after it: switched afterwards, the screen showed English
+ * until the save came back, and a tap on English or Start in that moment
+ * raced it. If the save fails the welcome shows what the server holds, and
+ * the learner's own tap on their language is the next attempt.
+ */
+async function inDeviceLanguage(profile: Profile): Promise<Profile> {
+  const here = deviceLanguage();
+  if (profile.onboarded || profile.teachingLanguage !== 'en' || here === 'en') return profile;
+  try {
+    return await api.updateProfile({ teachingLanguage: here });
+  } catch {
+    return profile;
+  }
 }
 
 /** How often we flush accumulated active time to the server. */
@@ -383,15 +444,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setError(null);
         return;
       }
+      // A fresh tab learns who it is showing before it reads anything, and
+      // names them on the reads below. Asked side by side, another tab moving
+      // the shared cookie in between could pair one learner's progress with
+      // another's name, and every answer after it was filed under the name.
+      if (learnerShown() === undefined) showingLearner((await api.learners()).studyingAs);
       const [state, coachStatus, household] = await Promise.all([
         api.state(),
         api.coachStatus(),
         api.learners(),
       ]);
-      setSnapshot(withHeld(state));
+      setSnapshot(withHeld({ ...state, profile: await inDeviceLanguage(state.profile) }));
       setCoach(coachStatus);
       setLearners(household.learners);
       setStudyingAs(household.studyingAs);
+      // From here on this tab says who it is showing, so another tab moving
+      // the shared cookie to somebody else cannot move this one's work.
+      showingLearner(household.studyingAs);
       setError(null);
       setOffline(false);
     } catch (cause) {
@@ -465,10 +534,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const profile = snapshot?.profile ?? fallbackProfile;
   const lang = profile.teachingLanguage;
   const knowsLanguage = snapshot !== null;
+  // Remembered once somebody chose it. A profile that has not been through
+  // the welcome screen carries the server's default, or this device's own
+  // guess, and writing the default here replaced the language this device
+  // was really using.
+  const chosen = knowsLanguage && profile.onboarded;
   useEffect(() => {
     markPageLanguage(lang);
-    if (knowsLanguage) rememberLanguage(lang);
-  }, [lang, knowsLanguage]);
+    if (chosen) rememberLanguage(lang);
+  }, [lang, chosen]);
 
   const t = useCallback(
     (key: UiKey, vars?: Record<string, string | number>) => tr(key, lang, vars),
@@ -520,28 +594,30 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
    * happened, in order. This turns an entry back into the request it was,
    * sent with the id it was queued under as its idempotency key.
    */
-  const sendWrite = useCallback((write: outbox.PendingWrite, key: string): Promise<unknown> => {
+  const sendWrite = useCallback((write: outbox.PendingWrite, key: string, learner?: number): Promise<unknown> => {
+    // `learner` is who the write was made for. The queue is shared by every
+    // tab, and the one sending it may be showing somebody else by now.
     switch (write.kind) {
       case 'attempt':
-        return api.recordAttempt(write.payload, key);
+        return api.recordAttempt(write.payload, key, learner);
       case 'reviewGrade':
-        return api.gradeReview(write.id, write.grade, write.gradedAt, key);
+        return api.gradeReview(write.id, write.grade, write.gradedAt, key, learner);
       case 'studyTime':
-        return api.addStudyTime(write.seconds, write.at, write.tzOffsetMinutes, key);
+        return api.addStudyTime(write.seconds, write.at, write.tzOffsetMinutes, key, learner);
       case 'sectionSeen':
-        return api.markSectionSeen(write.lessonId, write.sectionId, key);
+        return api.markSectionSeen(write.lessonId, write.sectionId, key, learner);
       case 'recovery':
-        return api.recordRecovery(write.lessonId, key);
+        return api.recordRecovery(write.lessonId, key, learner);
       case 'mastery':
-        return api.recordMastery(write.lessonId, write.accuracy, write.passAccuracy, key);
+        return api.recordMastery(write.lessonId, write.accuracy, write.passAccuracy, key, learner);
       case 'complete':
-        return api.completeLesson(write.lessonId, key);
+        return api.completeLesson(write.lessonId, key, learner);
       case 'checkpoint':
-        return api.recordCheckpoint(write.payload, key);
+        return api.recordCheckpoint(write.payload, key, learner);
       case 'scenarioRun':
-        return api.recordScenarioRun(write.payload, key);
+        return api.recordScenarioRun(write.payload, key, learner);
       case 'dailyRun':
-        return api.recordDailyRun(write.payload, key);
+        return api.recordDailyRun(write.payload, key, learner);
     }
   }, []);
 
@@ -562,7 +638,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             if (!current) return current;
             const byId = new Map(current.reviewItems.map((item) => [item.id, item]));
             for (const item of response.reviewItems) byId.set(item.id, item);
-            return { ...current, stats: response.stats, reviewItems: [...byId.values()] };
+            return {
+              ...current,
+              stats: response.stats,
+              reviewItems: [...byId.values()],
+              studyDays: withAnswerCounted(current.studyDays, write.payload),
+            };
           });
           if (response.lessonProgress) mergeLesson(withHeldLesson(response.lessonProgress));
           // The mistake bank changes shape on a wrong answer or a retype.
@@ -590,7 +671,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return false;
         case 'dailyRun': {
           let dailyRuns = (result as { dailyRuns: DailyRun[] }).dailyRuns;
-          for (const { write, queuedAt } of outbox.snapshot().queued) {
+          for (const { write, queuedAt } of heldHere()) {
             if (write.kind === 'dailyRun') dailyRuns = mergeDailyRun(dailyRuns, { ...write.payload, updatedAt: queuedAt ?? new Date().toISOString() });
           }
           patchSnapshot({ dailyRuns });
@@ -609,13 +690,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     // waiting on. Counted in, they turned "1 answer is waiting" into "2
     // answers" after a reload, and more after each one. They are still sent.
     const bookkeeping = state.queued.filter((item) => item.write.kind === 'studyTime').length;
-    setSync({
+    const next: SyncState = {
       pending: answers,
       other: state.queued.length - answers - bookkeeping,
       refused: state.rejected.length,
       atRisk: state.queued.length > 0 && !outbox.isDurable(),
       lost: lostAnswers.current,
-    });
+    };
+    // The minute's flush ends here even with nothing to send. A new object
+    // with the same numbers changed the context, and the whole app drew itself
+    // again every minute for nothing — a second-long freeze on a phone for a
+    // learner with a long history.
+    setSync((current) =>
+      (Object.keys(next) as Array<keyof SyncState>).every((key) => current[key] === next[key]) ? current : next,
+    );
   }, []);
 
   /**
@@ -664,7 +752,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       let stopped: outbox.FlushOutcome['stopped'];
       do {
         flushAgain.current = false;
-        const outcome = await outbox.flush(sendWrite, (write, result) => {
+        const outcome = await outbox.flush(sendWrite, (write, result, learner) => {
+          // Another tab queued this for somebody else, and it went as them:
+          // the server's answer is their progress, not this tab's learner's.
+          if (!outbox.isThisTabs(learner)) return;
           if (applySent(write, result)) refresh = true;
         });
         sent += outcome.sent;
@@ -929,6 +1020,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setTeachingLanguage: async (next) => {
         await reporting('notSavedProfile', async () => {
           patchSnapshot({ profile: await api.updateProfile({ teachingLanguage: next }) });
+          // A choice, even before the welcome screen is finished.
+          rememberLanguage(next);
         });
       },
 
@@ -955,13 +1048,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
        */
       submitAttempt: async (payload) => {
         // `payload` wins so a caller can state the time itself; none does yet.
-        const stamped: AttemptPayload = {
+        // Cut to what the server keeps before it is queued: a pasted page
+        // would otherwise sit in storage and go out too big to be taken.
+        const stamped: AttemptPayload = boundedAttempt({
           at: new Date().toISOString(),
           // Negated, because `getTimezoneOffset` counts from local to UTC and
           // everything downstream counts the other way.
           tzOffsetMinutes: -new Date().getTimezoneOffset(),
           ...payload,
-        };
+        });
         const write: outbox.PendingWrite = { kind: 'attempt', payload: stamped };
 
         if (!outbox.enqueue(write)) {
@@ -991,11 +1086,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
        * Hand the app to somebody else.
        *
        * The refusal is the interesting part. Answers wait in an outbox when
-       * the server cannot be reached, and they carry no learner of their own —
-       * they would be sent as whoever is studying when the connection returns.
-       * Switching with a queue would file one person's sentences under
-       * another's name, so it is refused until they are saved, and the caller
-       * says why.
+       * the server cannot be reached. Each now carries the learner it was made
+       * for, but one queued by an older version of the app does not — it is
+       * sent as whoever this tab shows when the connection returns. Switching
+       * with a queue could file one person's sentences under another's name,
+       * so it is refused until they are saved, and the caller says why.
+       *
+       * Named writes are waited for too, though they would reach the right
+       * person either way. The queue is sent first, and one that will not
+       * empty means the server cannot take anything just now — it is away,
+       * failing, or wants the password again — so the switch, which asks the
+       * server too, would almost always fail as well, and "answers are
+       * waiting" tells the learner more than "could not switch".
+       *
+       * The switch is this tab's from the moment it is made: every request
+       * after it names the new learner. Another tab open on the old one goes
+       * on naming them, so its answers stay theirs even though the cookie
+       * the two tabs share has moved.
        */
       studyAs: async (id) => {
         // Save the current learner's partial minute before changing the cookie.
@@ -1008,6 +1115,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           const household = await api.studyAs(id);
           setLearners(household.learners);
           setStudyingAs(household.studyingAs);
+          showingLearner(household.studyingAs);
           // Everything below belongs to somebody else now.
           setReady(false);
           await load();
@@ -1028,6 +1136,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           const household = await api.addLearner(name);
           setLearners(household.learners);
           setStudyingAs(household.studyingAs);
+          showingLearner(household.studyingAs);
           setReady(false);
           await load();
           return true;
@@ -1165,6 +1274,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           // when the queue drains.
           const row = {
             checkpointId: payload.checkpointId,
+            targetId: payload.targetId,
             accuracy: payload.accuracy,
             passed: payload.passed,
             createdAt: new Date().toISOString(),

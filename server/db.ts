@@ -439,6 +439,16 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX daily_runs_recent ON daily_runs (user_id, day, updated_at);
     `,
   },
+  {
+    version: 9,
+    name: 'placement guesses out of the mistake bank',
+    // The placement check files no mistakes any more (recordAttempt in
+    // store.ts), but the rows it filed before stayed open: B2 sentences in a
+    // beginner's bank, offered as practice. This puts them away, dated the
+    // last time they were seen; nothing is deleted. Only the placement
+    // check's step ids begin with "pl-".
+    sql: `UPDATE mistakes SET resolved_at = last_seen_at WHERE step_id LIKE 'pl-%' AND resolved_at IS NULL;`,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
@@ -472,6 +482,24 @@ async function currentVersion(db: Db): Promise<number> {
   return row ? Number(row.value) : 0;
 }
 
+/**
+ * A migration that did not apply. The database was reached, so whoever reads
+ * this needs to hear about the schema, not about the connection.
+ */
+export class MigrationFailure extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MigrationFailure';
+  }
+}
+
+/**
+ * The advisory lock migrations hold on Postgres: any fixed number, as long as
+ * nothing else in this database uses it. "SatzWerk" as a phone keypad would
+ * spell it.
+ */
+const MIGRATION_LOCK = 72899375;
+
 /** Record the version reached. SQLite and Postgres spell an upsert differently. */
 async function recordVersion(db: Db, version: number): Promise<void> {
   const sql =
@@ -498,13 +526,27 @@ export async function migrate(db: Db, upTo: number = SCHEMA_VERSION): Promise<nu
     if (migration.version <= version) continue;
     if (migration.version > upTo) break;
     try {
-      await db.transaction(async () => {
+      version = await db.transaction(async () => {
+        /*
+         * One instance at a time, and only if nobody got there first.
+         *
+         * The first page load after a deploy can start several functions at
+         * once, each with its own connection. Each read the version above,
+         * found it behind and ran the same DDL, and all but one failed on
+         * "already exists" — answered as a database that could not be
+         * reached. So on Postgres the migration waits for a lock held until
+         * its transaction ends, then reads the version again: a migration
+         * another instance has applied meanwhile is skipped, not repeated.
+         */
+        if (db.dialect === 'postgres') await db.get(`SELECT pg_advisory_xact_lock(${MIGRATION_LOCK})`);
+        const reached = await currentVersion(db);
+        if (reached >= migration.version) return reached;
         await db.exec(forDialect(migration.sql, db.dialect));
         await recordVersion(db, migration.version);
+        return migration.version;
       });
-      version = migration.version;
     } catch (error) {
-      throw new Error(
+      throw new MigrationFailure(
         `Migration ${migration.version} (${migration.name}) failed: ${(error as Error).message}`,
       );
     }

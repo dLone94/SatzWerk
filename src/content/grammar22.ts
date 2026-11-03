@@ -78,8 +78,8 @@ const partizipBlocks: Block[] = [
     tone: 'tip',
     title: bi('Two participles, two meanings', 'Две причастия, две значения'),
     text: bi(
-      '**Partizip II** is passive — the noun has it done to it: *die geplante Reform* (the reform that is planned).\n\n**Partizip I** is active — the noun does it: *die steigenden Mieten* (the rising rents). Partizip I is the infinitive plus -d, plus the adjective ending: steigen → steigend → steigende.',
-      '**Partizip II** е страдателно — нещо се прави на съществителното: *die geplante Reform* (реформата, която се планира).\n\n**Partizip I** е деятелно — съществителното само върши действието: *die steigenden Mieten* (покачващите се наеми). Partizip I е инфинитив плюс -d, плюс окончанието за прилагателно: steigen → steigend → steigende.',
+      '**Partizip II** is passive — the noun has it done to it: *die geplante Reform* (the reform that is planned).\n\n**Partizip I** is active — the noun does it: *die steigenden Mieten* (the rising rents). Partizip I is the infinitive plus -d, plus the adjective ending, which follows the same rules as any adjective: steigen → steigend → die steigenden Mieten (plural after die: -en), eine steigende Miete.',
+      '**Partizip II** е страдателно — нещо се прави на съществителното: *die geplante Reform* (реформата, която се планира).\n\n**Partizip I** е деятелно — съществителното само върши действието: *die steigenden Mieten* (покачващите се наеми). Partizip I е инфинитив плюс -d, плюс окончанието за прилагателно, което следва същите правила като при всяко прилагателно: steigen → steigend → die steigenden Mieten (мн. число след die: -en), eine steigende Miete.',
     ),
   },
   {
@@ -181,8 +181,8 @@ const statistikBlocks: Block[] = [
     tone: 'tip',
     title: bi('The counting phrases', 'Изразите за броене'),
     text: bi(
-      '**die Zahl der** + genitive plural: *die Zahl der Anträge*. **jeder dritte**: *jeder dritte Haushalt* — one in three households. **doppelt so viele wie**: twice as many as.\n\nAll three take the singular verb they look like they should not: *Die Zahl der Anträge **ist** gesunken.*',
-      '**die Zahl der** + родителен падеж, мн. ч.: *die Zahl der Anträge*. **jeder dritte**: *jeder dritte Haushalt* — всяко трето домакинство. **doppelt so viele wie**: двойно повече от.\n\nИ трите искат глагол в единствено число, макар да изглежда обратното: *Die Zahl der Anträge **ist** gesunken.*',
+      '**die Zahl der** + genitive plural: *die Zahl der Anträge*. **jeder dritte**: *jeder dritte Haushalt* — one in three households. **doppelt so viele wie**: twice as many as.\n\nThe first two take a singular verb, although they are about many: *Die Zahl der Anträge **ist** gesunken.* *Jeder dritte Haushalt **hat** ein Auto.* doppelt so viele is plural, as it looks: *Doppelt so viele Menschen wie 2020 **arbeiten** im Homeoffice.*',
+      '**die Zahl der** + родителен падеж, мн. ч.: *die Zahl der Anträge*. **jeder dritte**: *jeder dritte Haushalt* — всяко трето домакинство. **doppelt so viele wie**: двойно повече от.\n\nПървите два искат глагол в единствено число, макар да говорят за много: *Die Zahl der Anträge **ist** gesunken.* *Jeder dritte Haushalt **hat** ein Auto.* doppelt so viele е в множествено число, както и изглежда: *Doppelt so viele Menschen wie 2020 **arbeiten** im Homeoffice.*',
     ),
   },
   {

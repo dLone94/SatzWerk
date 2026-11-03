@@ -23,6 +23,27 @@ export function tokenize(input: string): string[] {
   return cleaned.length === 0 ? [] : cleaned.split(' ');
 }
 
+/** A full stop, question mark or exclamation mark, with any closing quote after it. */
+const SENTENCE_END = /[.!?…]["“”'’»)\]]*$/u;
+
+/**
+ * For each word `tokenize` returns, whether it closes a sentence. `tokenize`
+ * drops the marks, and with them where one sentence ends and the next begins:
+ * in "Ich nehme das. Danke schön!" the capital of "Danke" belongs to a new
+ * sentence, not to a noun after "das". A number's full stop ("am 3. Mai") is
+ * a date, not the end of a sentence.
+ */
+export function sentenceEnds(input: string): boolean[] {
+  const ends: boolean[] = [];
+  for (const chunk of tidy(input).split(' ')) {
+    const closes = SENTENCE_END.test(chunk) && !/^\d+\.$/.test(chunk);
+    if (chunk.replace(PUNCTUATION, '').length > 0) ends.push(closes);
+    // A mark typed apart from its word ("Danke !") still closes that word's sentence.
+    else if (closes && ends.length > 0) ends[ends.length - 1] = true;
+  }
+  return ends;
+}
+
 /** Lowercase in a way that is safe for German (no locale surprises). */
 export function lower(input: string): string {
   return input.toLowerCase();
@@ -48,6 +69,9 @@ export function toDigraphs(input: string): string {
     .replace(/Ü/g, 'Ue')
     .replace(/ß/g, 'ss');
 }
+
+/** Each German special letter to the plain letter it is written without its dots. */
+export const PLAIN_VOWEL: Readonly<Record<string, string>> = { 'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 's' };
 
 const UMLAUT_DIGRAPH: Record<string, string> = {
   'ä': 'ae',
@@ -105,7 +129,12 @@ export function compareUmlauts(given: string, expected: string): UmlautDiff {
   return sawDigraphSubstitution ? 'digraph-for-umlaut' : 'other';
 }
 
-/** Levenshtein distance with an early exit once `max` is exceeded. */
+/**
+ * Edit distance with an early exit once `max` is exceeded.
+ *
+ * Two neighbouring letters swapped ("Nahct" for "Nacht") count as one edit,
+ * not two: it is one slip of the fingers, as a letter missed or doubled is.
+ */
 export function editDistance(a: string, b: string, max = Infinity): number {
   if (a === b) return 0;
   if (Math.abs(a.length - b.length) > max) return max + 1;
@@ -114,6 +143,8 @@ export function editDistance(a: string, b: string, max = Infinity): number {
   if (m === 0) return n;
   if (n === 0) return m;
 
+  // Three rows: the swap reaches back two letters.
+  let before = new Array<number>(n + 1).fill(0);
   let prev = new Array<number>(n + 1);
   let curr = new Array<number>(n + 1);
   for (let j = 0; j <= n; j += 1) prev[j] = j;
@@ -124,12 +155,18 @@ export function editDistance(a: string, b: string, max = Infinity): number {
     for (let j = 1; j <= n; j += 1) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
       curr[j] = Math.min(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        curr[j] = Math.min(curr[j]!, before[j - 2]! + 1);
+      }
       if (curr[j]! < rowMin) rowMin = curr[j]!;
     }
+    // A swap from two rows back costs at least what the row in between
+    // does, so a row past `max` still means the distance is.
     if (rowMin > max) return max + 1;
-    const swap = prev;
+    const recycled = before;
+    before = prev;
     prev = curr;
-    curr = swap;
+    curr = recycled;
   }
   return prev[n]!;
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { UI, tr } from '../../src/i18n.ts';
+import { microTip } from '../../src/core/feedback/microTips.ts';
 import type { UiKey } from '../../src/i18n.ts';
 import type { TeachingLanguage } from '../../src/content/types.ts';
 
@@ -45,6 +46,34 @@ describe('interface strings', () => {
     expect(bulgarian).not.toMatch(/ИИ/);
     expect(tr('relInDays', 'bg', { n: 1 })).toBe('след 1 ден');
     expect(tr('relDaysAgo', 'en', { n: 1 })).toBe('1 day ago');
+  });
+
+  /*
+   * A native reader's notes on the Bulgarian path: no comma before "без да";
+   * "писането е това, което го запомня" made the writing do the remembering;
+   * "Името им" asked for one person's name in the plural, even when renaming
+   * yourself; and a tip told Bulgarians their own verb endings were something
+   * they learn.
+   */
+  it('reads as a native speaker would write it', () => {
+    const missingComma = Object.entries(UI).filter(([, value]) => /[^,—–\s]\s+без да/u.test(value.bg));
+    expect(missingComma.map(([key]) => key)).toEqual([]);
+    expect(tr('learnersName', 'bg')).toBe('Име');
+    expect(tr('exerciseRevealType', 'bg')).not.toMatch(/което го запомня/);
+    expect(microTip(['article'])!.bg).toContain('За разлика от българския, в немския членът');
+    expect(microTip(['verb-conjugation'])!.bg).not.toMatch(/както учиш българските окончания/);
+  });
+
+  /*
+   * The app asks for no name or form of address, yet the Bulgarian first
+   * screen said "Добре дошъл", Today asked "Готов ли си", and a dozen other
+   * strings spoke to every learner in the masculine.
+   */
+  it('speaks to the learner without assuming a gender', () => {
+    const masculine =
+      /(^|[^\p{L}])(си|сте) \p{L}+(ъл|ал|ял|ил|ел|ол|ул)([^\p{L}]|$)|(^|[^\p{L}])(Готов|готов|дошъл|сам)([^\p{L}]|$)/u;
+    const found = Object.entries(UI).filter(([, value]) => masculine.test(value.bg));
+    expect(found.map(([key, value]) => `${key}: ${value.bg}`)).toEqual([]);
   });
 
   it('gives every singular variant a plural to fall back to, and vice versa', () => {

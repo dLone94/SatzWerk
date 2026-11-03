@@ -1,7 +1,7 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { Fragment, type CSSProperties, type ReactNode, type Ref } from 'react';
 import type { Block, ContentStatus, VocabEntry } from '../../content/types.ts';
 import { NORMAL_RATE, SLOW_RATE } from '../../services/tts/index.ts';
-import { speakable } from '../../services/tts/speakable.ts';
+import { examplesIn, speakable, splitExamples } from '../../services/tts/speakable.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { WORD_TYPE_LABELS, tr } from '../../i18n.ts';
 import { Icon, type IconName } from './icons.tsx';
@@ -82,19 +82,36 @@ export function Card({
   children,
   actions,
   tone,
+  titleRef,
+  titleDescribedBy,
 }: {
   title?: ReactNode;
   subtitle?: ReactNode;
   children?: ReactNode;
   actions?: ReactNode;
   tone?: 'plain' | 'accent';
+  /**
+   * For a card whose content is swapped in place (the next section, the next
+   * phrase, a check's result): focus goes to its title, so the change is
+   * announced and seen.
+   */
+  titleRef?: Ref<HTMLHeadingElement>;
+  /** What the title is described by once it has focus: a result's score, say. */
+  titleDescribedBy?: string;
 }) {
   return (
     <section className={`card${tone === 'accent' ? ' card--accent' : ''}`}>
       {title ? (
         <header className="card__head">
           <div>
-            <h2 className="card__title">{title}</h2>
+            <h2
+              className="card__title"
+              ref={titleRef}
+              tabIndex={titleRef ? -1 : undefined}
+              aria-describedby={titleDescribedBy}
+            >
+              {title}
+            </h2>
             {subtitle ? <p className="card__subtitle">{subtitle}</p> : null}
           </div>
           {actions ? <div className="card__actions">{actions}</div> : null}
@@ -168,10 +185,13 @@ export function ScoreRing({
   value,
   passed,
   caption,
+  captionId,
 }: {
   value: number;
   passed: boolean;
   caption?: string;
+  /** So whatever takes focus on the result can be described by the score. */
+  captionId?: string;
 }) {
   const pct = Math.min(100, Math.max(0, Math.round(value * 100)));
   // r = 42 in a 100-box, so the stroke has room at both ends.
@@ -190,7 +210,11 @@ export function ScoreRing({
         </svg>
         <span className="score-ring__num">{pct}%</span>
       </div>
-      {caption ? <p className="score-ring__caption">{caption}</p> : null}
+      {caption ? (
+        <p className="score-ring__caption" id={captionId}>
+          {caption}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -334,8 +358,10 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
                     {block.rows.map((row, r) => (
                       <tr key={r}>
                         {/* A plain string in a table is German; a bilingual
-                            cell is the explanation. The German gets the German
-                            face whichever column it sits in. */}
+                            cell is the explanation, unless it is a list of
+                            German examples with a respelling for each path.
+                            The German gets the German face whichever column
+                            it sits in. */}
                         {row.map((cell, c) =>
                           typeof cell === 'string' ? (
                             <td key={c} lang="de" className="data-table__de">
@@ -344,7 +370,11 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
                             </td>
                           ) : (
                             <td key={c}>
-                              <RichText text={say(cell)} />
+                              {examplesIn(cell).length > 0 ? (
+                                <Examples text={say(cell)} />
+                              ) : (
+                                <RichText text={say(cell)} />
+                              )}
                             </td>
                           ),
                         )}
@@ -393,6 +423,28 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
         }
       })}
     </div>
+  );
+}
+
+/**
+ * "lesen — „ЛЕ-зен“, sieben — „ЗИ-бен“": each German word marked as German,
+ * with its own play button, and the respelling after it left as it is.
+ */
+function Examples({ text }: { text: string }) {
+  return (
+    <>
+      {(splitExamples(text) ?? []).map((example, index) => (
+        <Fragment key={index}>
+          {index > 0 ? ', ' : null}
+          <span lang="de" className="data-table__de">
+            {example.de}
+          </span>
+          {' — '}
+          <RichText text={example.rest} />
+          {speakable(example.de) ? <AudioButton compact text={speakable(example.de)!} /> : null}
+        </Fragment>
+      ))}
+    </>
   );
 }
 

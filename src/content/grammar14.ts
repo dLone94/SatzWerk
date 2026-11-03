@@ -173,8 +173,17 @@ const adjEinBlocks: Block[] = [
   {
     t: 'p',
     text: bi(
-      'Only two forms are new: -er for the masculine subject and -es for the neuter. Everywhere else the ending is the one you already learnt. Those two are exactly the two places where ein hides a gender that der and das showed.',
-      'Само две форми са нови: -er за мъжки род подлог и -es за среден род. Навсякъде другаде окончанието е това, което вече си научил. А тези две са точно местата, където ein скрива род, който der и das показваха.',
+      'Only two forms are new: -er for the masculine subject and -es for the neuter. In the other two rows the ending is the one you already learnt. Those two are exactly the two places where ein hides a gender that der and das showed.',
+      'Само две форми са нови: -er за мъжки род подлог и -es за среден род. В другите два реда окончанието е това, което вече си научил. А тези две са точно местата, където ein скрива род, който der и das показваха.',
+    ),
+  },
+  {
+    t: 'callout',
+    tone: 'tip',
+    title: bi('The rest of the system is -en', 'Останалото от системата е -en'),
+    text: bi(
+      'A2 left the rest for now, and two lines cover it. In the dative, after any article, the ending is -en: mit dem hellen Raum, in einer ruhigen Lage. In the plural after die, meine or keine it is -en too: die hellen Zimmer, keine hellen Zimmer. Only with no article at all does the adjective take the article’s ending itself — mit großem Balkon, helle Zimmer — which is the shape every flat advertisement is written in.',
+      'A2 остави останалото за по-късно, а то се побира в два реда. В дателен падеж, след какъвто и да е член, окончанието е -en: mit dem hellen Raum, in einer ruhigen Lage. В множествено число след die, meine или keine също е -en: die hellen Zimmer, keine hellen Zimmer. Само когато изобщо няма член, прилагателното поема окончанието на члена — mit großem Balkon, helle Zimmer — и точно така са написани обявите за жилища.',
     ),
   },
   {

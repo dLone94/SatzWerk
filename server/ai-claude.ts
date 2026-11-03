@@ -66,8 +66,30 @@ export const CLAUDE_EFFORT = 'medium';
  */
 const MAX_TOKENS = 1500;
 
-/** How long to wait before telling the learner it did not answer. */
-export const CLAUDE_TIMEOUT_MS = 30_000;
+/**
+ * How long one call to the model may take, all tries together, before the
+ * learner is told it did not answer.
+ *
+ * The whole request has to finish inside the hosted function's 30 seconds
+ * (vercel.json), cold start included, and the browser stops listening at about
+ * the same time. This used to be 30 seconds a try with the SDK's default of
+ * two retries, and the SDK retries a timeout: a model that never answered took
+ * 91 seconds, the function was killed long before, and the learner was told the
+ * database could not be reached. The explanation's own "could not be reached"
+ * note, and the writing review's rule-based result, never arrived at all.
+ *
+ * One retry is kept, inside the same deadline, for the failures that come
+ * back fast — the API overloaded or rate-limited for a moment, a connection
+ * reset — which a second try a second later usually gets past. A first try
+ * that used up its whole time leaves the second almost none, so a model that
+ * is slow rather than failing is still given up on once. The local server has
+ * no 30-second cap but keeps the same deadline: an explanation that takes
+ * longer has lost the moment it was asked for.
+ */
+export const CLAUDE_DEADLINE_MS = 20_000;
+/** One try's share of the deadline. */
+export const CLAUDE_TIMEOUT_MS = 18_000;
+export const CLAUDE_MAX_RETRIES = 1;
 
 export interface ClaudeConfig {
   apiKey: string;
@@ -126,29 +148,34 @@ export function createClaudeCaller(config: ClaudeConfig): ClaudeCaller {
   return async (request) => {
     if (!client) {
       const { default: Anthropic } = await import('@anthropic-ai/sdk');
-      client = new Anthropic({ apiKey: config.apiKey, timeout: CLAUDE_TIMEOUT_MS });
+      client = new Anthropic({ apiKey: config.apiKey, timeout: CLAUDE_TIMEOUT_MS, maxRetries: CLAUDE_MAX_RETRIES });
     }
     const anthropic = client as import('@anthropic-ai/sdk').default;
 
     let response: Awaited<ReturnType<typeof anthropic.beta.messages.create>>;
     try {
-      response = await anthropic.beta.messages.create({
-        model: config.model,
-        max_tokens: MAX_TOKENS,
-        // Server-side fallback: if a safety classifier declines the request,
-        // the API re-runs it on a fallback model inside the same call instead
-        // of the learner getting nothing. A grammar question is not the kind
-        // of thing that gets declined, but the cost of having it on is zero
-        // until it is needed.
-        betas: ['server-side-fallback-2026-07-01'],
-        fallbacks: 'default',
-        output_config: {
-          effort: CLAUDE_EFFORT,
-          format: { type: 'json_schema', schema: request.schema },
+      response = await anthropic.beta.messages.create(
+        {
+          model: config.model,
+          max_tokens: MAX_TOKENS,
+          // Server-side fallback: if a safety classifier declines the request,
+          // the API re-runs it on a fallback model inside the same call instead
+          // of the learner getting nothing. A grammar question is not the kind
+          // of thing that gets declined, but the cost of having it on is zero
+          // until it is needed.
+          betas: ['server-side-fallback-2026-07-01'],
+          fallbacks: 'default',
+          output_config: {
+            effort: CLAUDE_EFFORT,
+            format: { type: 'json_schema', schema: request.schema },
+          },
+          system: request.system,
+          messages: [{ role: 'user', content: request.user }],
         },
-        system: request.system,
-        messages: [{ role: 'user', content: request.user }],
-      });
+        // Across both tries and the pause between them: the SDK checks it
+        // before each try and while it waits to retry.
+        { signal: AbortSignal.timeout(CLAUDE_DEADLINE_MS) },
+      );
     } catch (cause) {
       throw new ClaudeFailure('unreachable', (cause as Error).message);
     }

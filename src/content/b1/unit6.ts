@@ -40,6 +40,21 @@ import type { Checkpoint, Exercise, Lesson, SentencePattern, Unit } from '../typ
 /** The shorthands default to pre-a1; everything in this file is B1. */
 const b1 = (ex: Exercise): Exercise => ({ ...ex, level: 'b1' });
 
+/*
+ * "I think we should do more." A2 teaches that finden, denken and glauben
+ * all say "I think", and that after them German may leave dass out and keep
+ * the verb second. The English has no "that", so each of these is right
+ * wherever the sentence is asked, with Ich finde, dass … still the form
+ * shown.
+ */
+const ALSO_I_THINK = [
+  'Ich finde, wir sollten mehr tun.',
+  'Ich denke, dass wir mehr tun sollten.',
+  'Ich denke, wir sollten mehr tun.',
+  'Ich glaube, dass wir mehr tun sollten.',
+  'Ich glaube, wir sollten mehr tun.',
+];
+
 const PATTERNS: SentencePattern[] = [
   {
     id: 'p-meiner-meinung-nach',
@@ -232,6 +247,7 @@ const lesson1: Lesson = {
           {
             prompt: bi('I think we should do more.', 'Смятам, че трябва да правим повече.'),
             answer: 'Ich finde, dass wir mehr tun sollten.',
+            alternatives: ALSO_I_THINK,
             reviewTargets: ['p-ich-finde-dass', 'v-der-meinung-sein'],
             hints: [],
           },
@@ -333,6 +349,7 @@ const lesson1: Lesson = {
           {
             prompt: bi('I think we should do more.', 'Смятам, че трябва да правим повече.'),
             answer: 'Ich finde, dass wir mehr tun sollten.',
+            alternatives: ALSO_I_THINK,
             hints: [],
           },
           {
@@ -979,6 +996,7 @@ const checkpoint: Checkpoint = {
         {
           prompt: bi('I think we should do more.', 'Смятам, че трябва да правим повече.'),
           answer: 'Ich finde, dass wir mehr tun sollten.',
+          alternatives: ALSO_I_THINK,
           hints: [],
         },
       ]),

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { AnswerSpec } from '../../src/content/types.ts';
-import { LEXICON, describeNoun } from '../../src/content/index.ts';
+import { LEXICON, SCENARIO_SCRIPTS, allLessons, describeNoun } from '../../src/content/index.ts';
 import { buildFeedback } from '../../src/core/feedback/explain.ts';
+import { microTip } from '../../src/core/feedback/microTips.ts';
+import { tokenize } from '../../src/core/validation/text.ts';
 import { validateAnswer, type ValidateOptions } from '../../src/core/validation/validate.ts';
 
 /*
@@ -239,5 +241,186 @@ describe('the word-order explanation', () => {
     const { result, feedback } = explain('In Hamburg wohne ich.', spec('Ich wohne in Hamburg.'), { exerciseKind: 'type' });
     expect(result.verdict).toBe('accepted-variant');
     expect(feedback.correction).toBe('Ich wohne in Hamburg.');
+  });
+});
+
+/** Every word an explanation line quotes, "…" in English and „…“ in Bulgarian. */
+function quoted(lines: string[]): string[] {
+  return lines.flatMap((line) => [...line.matchAll(/["„]([^"“]+)["“]/g)].map((match) => match[1]!));
+}
+
+/*
+ * The panel shows one answer under "Expected" and asks for it to be retyped.
+ * The lines under it were built from whichever authored alternative came
+ * closest: "The word German uses here is "hier"" under "Das, bitte.", and
+ * "Hallo" under "Guten Morgen!".
+ */
+describe('the explanation and the expected answer agree', () => {
+  it('explains a wrong answer against the answer it shows', () => {
+    for (const [given, answer, alternatives] of [
+      ['xyz', 'Guten Morgen!', ['Guten Tag!', 'Hallo!']],
+      ['Tschüss!', 'Guten Morgen!', ['Guten Tag!', 'Hallo!']],
+      ['ich weiß nicht', 'Das, bitte.', ['Das hier, bitte.']],
+      ['Halo!', 'Guten Morgen!', ['Guten Tag!', 'Hallo!']],
+      ['Guten Tag noch!', 'Auf Wiedersehen!', ['Schönen Tag noch!']],
+    ] as const) {
+      const { feedback, en } = explain(given, spec(answer, { alternatives: [...alternatives] }));
+      const shown = feedback.correction.toLowerCase();
+      // The line naming the taught form beside an alternative is the one
+      // that quotes something else, and says so.
+      const explaining = en.filter((line) => !line.startsWith('The form this lesson practises'));
+      for (const word of quoted(explaining)) {
+        // A word the learner typed may be quoted back too.
+        if (given.toLowerCase().includes(word.toLowerCase())) continue;
+        expect(shown, `${given}: "${word}"`).toContain(word.toLowerCase());
+      }
+    }
+  });
+
+  // "Halo!" is explained against "Hallo!", which the panel shows; the
+  // greeting the lesson practises is named after it.
+  it('names the taught form when an alternative is the answer shown', () => {
+    const { feedback, en, bg } = explain('Halo!', spec('Guten Morgen!', { alternatives: ['Guten Tag!', 'Hallo!'] }));
+    expect(feedback.correction).toBe('Hallo!');
+    expect(en.at(-1)).toBe('The form this lesson practises is "Guten Morgen!".');
+    expect(bg.at(-1)).toBe('Формата, която този урок упражнява, е „Guten Morgen!“.');
+    // Against the taught form itself there is nothing more to name.
+    expect(explain('xyz', spec('Guten Morgen!', { alternatives: ['Hallo!'] })).en.join(' ')).not.toContain('practises');
+  });
+
+  // Across the course, whatever a wrong answer is compared with is what the
+  // panel shows and asks to be retyped.
+  it('holds for every authored step with alternatives', () => {
+    const steps = [
+      ...allLessons().flatMap((lesson) => lesson.exercises),
+      ...SCENARIO_SCRIPTS.flatMap((script) => script.beats.flatMap((beat) => (beat.who === 'you' ? [beat.exercise] : []))),
+    ]
+      .flatMap((exercise) => exercise.steps.map((step) => ({ step, kind: exercise.kind })))
+      .filter(({ step }) => (step.answer.alternatives ?? []).length > 0);
+    expect(steps.length).toBeGreaterThan(100);
+    for (const { step, kind } of steps) {
+      const alternative = step.answer.alternatives![0]!;
+      const words = alternative.split(' ');
+      // Nonsense, the alternative with a letter missing, and the alternative
+      // without its first word.
+      for (const given of ['xyz', alternative.replace(/\p{L}(\p{L})/u, '$1'), words.slice(1).join(' ') || 'xyz']) {
+        const result = validateAnswer(given, step.answer, { lexicon: LEXICON, scaffold: step.scaffold, exerciseKind: kind });
+        if (result.verdict === 'correct' || result.verdict === 'accepted-variant' || result.trapFeedback) continue;
+        const compared = result.diff.map((entry) => entry.expected).filter(Boolean).join(' ').toLowerCase();
+        expect(compared, `${step.id}: ${given}`).toBe(tokenize(result.target).join(' ').toLowerCase());
+      }
+    }
+  });
+});
+
+/*
+ * "Das" in "Das, bitte." means "that one", as the step's own hint says. The
+ * feedback called it an article and added the article tip.
+ */
+describe('das standing on its own', () => {
+  it('is not explained as an article', () => {
+    for (const [given, answer] of [
+      ['Brot, bitte.', 'Das, bitte.'],
+      ['Sie ist meine Tochter.', 'Das ist meine Tochter.'],
+      ['ich weiß nicht', 'Das, bitte.'],
+    ] as const) {
+      const { result, en, bg } = explain(given, spec(answer));
+      expect(en.join(' '), given).not.toContain('article');
+      expect(bg.join(' '), given).not.toContain('Член');
+      expect(microTip(result.categories), given).toBeUndefined();
+    }
+  });
+
+  it('names the pronoun that belongs there', () => {
+    const { en, bg } = explain('Sie ist meine Tochter.', spec('Das ist meine Tochter.'));
+    expect(en).toContain('The pronoun should be "Das", not "Sie".');
+    expect(bg).toContain('Местоимението трябва да е „Das“, а не „Sie“.');
+  });
+
+  // The next sentence's capital, or the end of the question, used to count
+  // as das's noun on these steps: "The article has to be "das" here".
+  it('is not explained as an article at the end of a sentence', () => {
+    const steps = new Map(
+      SCENARIO_SCRIPTS.flatMap((script) => script.beats.flatMap((beat) => (beat.who === 'you' ? beat.exercise.steps : [])))
+        .concat(allLessons().flatMap((lesson) => lesson.exercises.flatMap((exercise) => exercise.steps)))
+        .map((step) => [step.id, step]),
+    );
+    for (const [id, given, line] of [
+      ['sc-pharmacy-a1-t4-s1', 'Ich nehme es. Danke schön!', 'The pronoun should be "das", not "es".'],
+      ['sc-pharmacy-b1-t4-s1', 'Dann nehme ich es. Vielen Dank!', undefined],
+      ['u3l3-ex2-s3', 'Wie viel kostet die?', 'The pronoun should be "das", not "die".'],
+      ['u6l3-ex4-s1', 'Wer ist der?', 'The pronoun should be "das", not "der".'],
+    ] as const) {
+      const step = steps.get(id);
+      expect(step, id).toBeDefined();
+      const { result, en, bg } = explain(given, step!.answer, { scaffold: step!.scaffold });
+      expect(result.categories, given).not.toContain('article');
+      expect(en.join(' '), given).not.toContain('article');
+      expect(bg.join(' '), given).not.toContain('Член');
+      expect(microTip(result.categories), given).toBeUndefined();
+      if (line) expect(en, given).toContain(line);
+    }
+  });
+
+  // The noun of a gap's article is in the scaffold. The explanation read the
+  // answer without it, took "das" for a pronoun, and could not find the
+  // article it was asked to explain.
+  it('names the article the validator found, in a gap too', () => {
+    const { result, en } = explain('sie kleinen', spec('das kleine'), { scaffold: '___ Kind schläft.' });
+    expect(result.categories).toContain('article');
+    expect(en).toContain('The article has to be "das" here, not "sie".');
+  });
+});
+
+/*
+ * With the noun left out, the article line quoted the learner's word joined
+ * to the answer's noun: "not "xyz Wasser"", a phrase nobody typed.
+ */
+describe('an article whose noun was left out', () => {
+  it('quotes only what the learner wrote', () => {
+    const { en } = explain('Eine, bitte.', spec('Ein Wasser, bitte.'));
+    expect(en).toContain('So here German uses "Ein Wasser", not "Eine".');
+    expect(en.join(' ')).not.toContain('Eine Wasser');
+  });
+
+  it('does not call another word in its place an article mistake', () => {
+    const { result, en } = explain('xyz bitte.', spec('Ein Wasser, bitte.', { alternatives: ['Bitte ein Wasser.', 'Wasser, bitte.'] }));
+    expect(result.categories).not.toContain('article');
+    expect(en.join(' ')).not.toContain('xyz Wasser');
+    expect(microTip(result.categories)).toBeUndefined();
+  });
+});
+
+describe('an answer typed in Cyrillic letters', () => {
+  it('asks for the German keyboard instead of explaining a mistake', () => {
+    const { result, feedback, en, bg } = explain('Гутен Морген', spec('Guten Morgen!'));
+    expect(result.verdict).toBe('empty');
+    expect(feedback.askRetype).toBe(false);
+    expect(en.join(' ')).toContain('Cyrillic');
+    expect(bg.join(' ')).toContain('кирилица');
+    expect(en.join(' ')).not.toContain('Guten');
+  });
+});
+
+describe('a wrong choice in a listening exercise', () => {
+  it('is explained by its sound, without a grammar tip', () => {
+    const { result, en, bg } = explain('die Tochter', spec('die Töchter'), { exerciseKind: 'listenChoose' });
+    expect(en.join(' ')).not.toContain('Here German needs');
+    expect(en.join(' ')).toContain('ö');
+    expect(en.join(' ')).toContain('plain o');
+    expect(bg.join(' ')).toContain('ö');
+    expect(microTip(result.categories)).toBeUndefined();
+  });
+
+  it('names what was said when more than the dots differ', () => {
+    const { en, bg } = explain('wir', spec('vier'), { exerciseKind: 'listenChoose' });
+    expect(en.join(' ')).toContain('It was "vier", not "wir".');
+    expect(bg.join(' ')).toContain('Беше „vier“, а не „wir“.');
+  });
+
+  // The choice is quoted as it was shown, not rebuilt from its words.
+  it('quotes the choice with its marks', () => {
+    const { en } = explain('8:30', spec('7:30'), { exerciseKind: 'listenChoose' });
+    expect(en.join(' ')).toContain('It was "7:30", not "8:30".');
   });
 });

@@ -1,6 +1,7 @@
 import type { AnswerSpec, Bilingual, ErrorCategory, ExerciseKind } from '../../content/types.ts';
 import {
   FREE_VARIANTS,
+  isAdjectiveForm,
   isFunctionWord,
   isNoun,
   isVerbForm,
@@ -13,6 +14,8 @@ import {
   editDistance,
   isReordering,
   lower,
+  PLAIN_VOWEL,
+  sentenceEnds,
   shapeKey,
   splitScaffold,
   stripPunctuation,
@@ -32,6 +35,7 @@ export type Verdict =
   | 'almost'
   /** A grammar or vocabulary mistake. No credit, retyping required. */
   | 'incorrect'
+  /** Nothing to grade: no answer, or one typed in another alphabet (see `script`). */
   | 'empty';
 
 export type DiffStatus = 'same' | 'changed' | 'missing' | 'extra' | 'case';
@@ -40,6 +44,16 @@ export interface TokenDiffEntry {
   status: DiffStatus;
   expected?: string;
   given?: string;
+  /**
+   * The expected word closes a sentence of the answer, so the words after
+   * it belong to the next one: "das" in "Ich nehme das. Danke schön!".
+   */
+  endsSentence?: boolean;
+  /**
+   * What the validator read a changed word as. The explanation quotes each
+   * mistake's own word by it, so the two cannot disagree.
+   */
+  reading?: ErrorCategory[];
 }
 
 export interface ValidationResult {
@@ -50,6 +64,13 @@ export interface ValidationResult {
   target: string;
   /** Which accepted answer we compared against (best match). */
   matched?: string;
+  /**
+   * The form the lesson practises, when a wrong answer was compared with an
+   * authored alternative the learner nearly wrote instead, which is then the
+   * target: "Ich möchte einen Kafee." against "Ich möchte einen Kaffee.",
+   * where the lesson practises "Ich hätte gern einen Kaffee.".
+   */
+  taught?: string;
   /** Mistakes that cost credit. */
   categories: ErrorCategory[];
   /** Observations on an otherwise accepted answer. */
@@ -66,6 +87,17 @@ export interface ValidationResult {
    * one the lexicon knows.
    */
   wordOrder?: { verbSecond: boolean; opening: string };
+  /**
+   * The answer was typed in Cyrillic letters, with the keyboard still on
+   * Bulgarian. Like an empty answer it is not graded.
+   */
+  script?: 'cyrillic';
+  /**
+   * A wrong choice in a listening exercise: the learner heard one word for
+   * another, which is explained by its sound rather than its grammar.
+   * `chose` is the option as it was shown ("8:30"), marks and all.
+   */
+  misheard?: { chose: string };
 }
 
 export interface ValidateOptions {
@@ -84,7 +116,9 @@ export interface ValidateOptions {
   scaffold?: string;
   /**
    * The kind of exercise the answer belongs to. In a dictation the recording
-   * fixes the exact words, and in the word-order drills the order is the task.
+   * fixes the exact words, in the word-order drills the order is the task,
+   * and a wrong listenChoose choice was misheard. The player passes that one
+   * only for a step that plays a recording it does not show.
    */
   exerciseKind?: ExerciseKind;
 }
@@ -153,13 +187,33 @@ const VERDICT_RANK: Record<Verdict, number> = {
   empty: 0,
 };
 
-function better(a: ValidationResult, b: ValidationResult): ValidationResult {
-  if (VERDICT_RANK[a.verdict] !== VERDICT_RANK[b.verdict]) {
-    return VERDICT_RANK[a.verdict] > VERDICT_RANK[b.verdict] ? a : b;
-  }
-  if (a.credit !== b.credit) return a.credit > b.credit ? a : b;
-  return a.categories.length <= b.categories.length ? a : b;
+/** How many of the answer's words the learner wrote in their place, as written or in another case. */
+function wordsInCommon(result: ValidationResult, status: 'same' | 'case'): number {
+  return result.diff.filter((entry) => entry.status === status).length;
 }
+
+/**
+ * Does a reading against another accepted form or an authored alternative
+ * beat the one against the taught form? Only when it makes the answer more
+ * right, or when the learner plainly wrote that form: "Guten Tag noch!" is
+ * "Schönen Tag noch!" with one word changed, not "Auf Wiedersehen!" with
+ * three. A tie goes to the taught form, so that "xyz" is not explained
+ * against "Hallo!".
+ */
+function closer(candidate: ValidationResult, current: ValidationResult): boolean {
+  if (VERDICT_RANK[candidate.verdict] !== VERDICT_RANK[current.verdict]) {
+    return VERDICT_RANK[candidate.verdict] > VERDICT_RANK[current.verdict];
+  }
+  if (candidate.credit !== current.credit) return candidate.credit > current.credit;
+  for (const status of ['same', 'case'] as const) {
+    const [mine, theirs] = [wordsInCommon(candidate, status), wordsInCommon(current, status)];
+    if (mine !== theirs) return mine > theirs;
+  }
+  return false;
+}
+
+/** Any Cyrillic letter, several of which look exactly like Latin ones. */
+const CYRILLIC = /\p{Script=Cyrillic}/u;
 
 /**
  * Check a typed German answer.
@@ -178,6 +232,14 @@ export function validateAnswer(
   const raw = tidy(given);
   if (raw.length === 0) return emptyResult(target);
 
+  // The right German typed with the keyboard still on Bulgarian ("Дас",
+  // "Гутен Морген") is the keyboard, not a mistake in German. It is not
+  // graded, so it costs nothing and leaves nothing in the mistake bank; the
+  // learner is asked to switch and type it again.
+  if (CYRILLIC.test(raw) && !spec.accepted.some((answer) => CYRILLIC.test(answer))) {
+    return { ...emptyResult(target), script: 'cyrillic' };
+  }
+
   // An exact match with a taught answer always wins. This has to come before
   // the trap check: a trap that differs from the correct answer only in case
   // (for example "Wie heissen sie?" for "Wie heissen Sie?") has the same
@@ -192,7 +254,7 @@ export function validateAnswer(
         categories: [],
         notes: [],
         requireRetype: false,
-        diff: buildDiff(tokenize(raw), tokenize(accepted)),
+        diff: buildDiff(raw, accepted),
       };
     }
   }
@@ -218,7 +280,7 @@ export function validateAnswer(
         categories: [trap.category],
         notes: [],
         requireRetype: true,
-        diff: buildDiff(tokenize(raw), tokenize(target)),
+        diff: buildDiff(raw, target),
         trapFeedback: trap.feedback,
       };
     }
@@ -227,11 +289,11 @@ export function validateAnswer(
   let best: ValidationResult | null = null;
   for (const accepted of spec.accepted) {
     const result = compareAgainst(raw, accepted, spec, options, false);
-    best = best ? better(best, result) : result;
+    if (!best || closer(result, best)) best = result;
   }
   for (const alt of spec.alternatives ?? []) {
     const result = compareAgainst(raw, alt, spec, options, true);
-    best = best ? better(best, result) : result;
+    if (!best || closer(result, best)) best = result;
   }
 
   // "gerne" where the lesson says "gern" is the same word: good German, at
@@ -240,14 +302,47 @@ export function validateAnswer(
   if (best && VERDICT_RANK[best.verdict] < VERDICT_RANK['accepted-variant'] && options.exerciseKind !== 'dictation') {
     for (const answer of [...spec.accepted, ...(spec.alternatives ?? [])]) {
       for (const variant of freeVariantsOf(answer)) {
-        best = better(best, compareAgainst(raw, variant, spec, options, true));
+        const result = compareAgainst(raw, variant, spec, options, true);
+        if (closer(result, best)) best = result;
       }
     }
   }
 
   const result = best ?? emptyResult(target);
-  // Always steer the learner to the taught form, even after an accepted variant.
-  return { ...result, target };
+  const right = VERDICT_RANK[result.verdict] >= VERDICT_RANK['accepted-variant'];
+
+  // A listening choice asks what the recording said, so a wrong one was
+  // misheard: "die Tochter" for "die Töchter" is an ö not yet heard, not a
+  // plural rule broken.
+  if (options.exerciseKind === 'listenChoose' && !right) return misheard(raw, target);
+
+  // A right answer is steered to the taught form, even an accepted variant.
+  // A wrong one keeps the answer it was compared with, so that the expected
+  // line, the explanation under it and the retype all name the same German;
+  // when that is an alternative, the taught form is named beside it.
+  if (right) return { ...result, target };
+  return spec.accepted.includes(result.target) ? result : { ...result, taught: target };
+}
+
+/**
+ * A wrong choice in a listening exercise. When only the dots tell the two
+ * apart, what was missed is the sound of the special letter. Case and marks
+ * count: "Sie" for "sie" or "73:0" for "7:30" is not a question of dots.
+ */
+function misheard(raw: string, target: string): ValidationResult {
+  const undotted = (text: string) => tidy(text).normalize('NFD').replace(/\u0308/g, '').normalize('NFC');
+  return {
+    verdict: 'incorrect',
+    credit: 0,
+    target,
+    matched: target,
+    categories: [undotted(raw) === undotted(target) ? 'umlaut' : 'vocabulary'],
+    notes: [],
+    // A choice is not retyped.
+    requireRetype: false,
+    diff: buildDiff(raw, target),
+    misheard: { chose: raw },
+  };
 }
 
 /** The answer with each word of a FREE_VARIANTS pair swapped for its partner. */
@@ -294,7 +389,7 @@ function compareAgainst(
     matched: expected,
     notes: [] as ErrorCategory[],
     categories: [] as ErrorCategory[],
-    diff: buildDiff(gTokens, eTokens),
+    diff: buildDiff(raw, expectedTidy),
   };
 
   if (raw === expectedTidy) {
@@ -418,7 +513,7 @@ function compareAgainst(
     };
   }
 
-  const analysis = classifyTokens(gTokens, eTokens, lexicon);
+  const analysis = classifyTokens(buildDiff(raw, expectedTidy), lexicon, gapContext(options.scaffold));
   const categories = analysis.categories;
 
   if (categories.length === 0) {
@@ -751,8 +846,6 @@ function onlyFirstLetterCase(
   return true;
 }
 
-const PLAIN_VOWEL: Record<string, string> = { 'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 's' };
-
 /**
  * True when the learner wrote a, o, u or s where the answer has ä, ö, ü or ß,
  * and nothing else is different — and the plain word is not a word of its own.
@@ -912,16 +1005,35 @@ function pairStretch(extras: string[], missing: string[]): TokenDiffEntry[] {
   return out;
 }
 
-function buildDiff(given: string[], expected: string[]): TokenDiffEntry[] {
-  return alignTokens(given, expected);
+/** The learner's words against the answer's, each answer word marked where its sentence ends. */
+function buildDiff(given: string, expected: string): TokenDiffEntry[] {
+  const diff = alignTokens(tokenize(given), tokenize(expected));
+  const ends = sentenceEnds(expected);
+  let word = 0;
+  for (const entry of diff) {
+    if (entry.expected === undefined) continue;
+    if (ends[word]) entry.endsSentence = true;
+    word += 1;
+  }
+  return diff;
 }
 
-function classifyTokens(
-  gTokens: string[],
-  eTokens: string[],
-  lexicon: GermanLexicon,
-): TokenAnalysis {
-  const diff = alignTokens(gTokens, eTokens);
+/**
+ * The words a scaffold shows after the gap, as far as the gap's sentence
+ * runs: "das" typed into "___ Kind ist klein." stands in front of its noun,
+ * and one typed into "Ich nehme ___. Danke!" has nothing after it. Undefined
+ * without a scaffold.
+ */
+function gapContext(scaffold: string | undefined): string[] | undefined {
+  if (!scaffold) return undefined;
+  const after = splitScaffold(scaffold).after;
+  if (/^[.!?…]/u.test(after.trim())) return [];
+  const words = tokenize(after);
+  const close = sentenceEnds(after).indexOf(true);
+  return close < 0 ? words : words.slice(0, close + 1);
+}
+
+function classifyTokens(diff: TokenDiffEntry[], lexicon: GermanLexicon, gap: string[] | undefined): TokenAnalysis {
   const categories = new Set<ErrorCategory>();
 
   diff.forEach((entry, index) => {
@@ -941,21 +1053,58 @@ function classifyTokens(
       categories.add('extra-word');
       return;
     }
-    const nextExpected = findNextExpected(diff, index);
-    for (const category of categorizePair(entry.expected!, entry.given!, lexicon, nextExpected)) {
-      categories.add(category);
-    }
+    entry.reading = categorizePair(entry.expected!, entry.given!, lexicon, pairContext(diff, index, gap));
+    for (const category of entry.reading) categories.add(category);
   });
 
   return { categories: [...categories], diff };
 }
 
-function findNextExpected(diff: TokenDiffEntry[], from: number): string | undefined {
-  for (let i = from + 1; i < diff.length; i += 1) {
-    const expected = diff[i]?.expected;
-    if (expected) return expected;
+/** What stands around a changed word, which tells an article from a pronoun. */
+export interface PairContext {
+  /** The answer's words after this one, up to the end of its sentence. */
+  following: TokenDiffEntry[];
+  /** The words the scaffold shows after the gap, when the sentence runs on into them. */
+  shown: string[];
+  /** The answer is this one word with no sentence around it, as a der, die or das chosen for a noun is. */
+  alone: boolean;
+}
+
+/**
+ * The context of the diff entry at `from`: the answer's words after it in
+ * its sentence, then those of `gap`, the scaffold's words after the gap when
+ * the answer fills one. A full stop ends it, so in "Ich nehme das. Danke
+ * schön!" nothing follows "das".
+ */
+export function pairContext(diff: TokenDiffEntry[], from: number, gap?: string[]): PairContext {
+  const following: TokenDiffEntry[] = [];
+  let closed = diff[from]?.endsSentence === true;
+  for (const entry of diff.slice(from + 1)) {
+    if (closed) break;
+    if (entry.expected === undefined) continue;
+    following.push(entry);
+    closed = entry.endsSentence === true;
   }
-  return undefined;
+  const words = diff.filter((entry) => entry.expected !== undefined).length;
+  return { following, shown: closed ? [] : (gap ?? []), alone: words === 1 && gap === undefined };
+}
+
+/**
+ * Where the noun an article word stands in front of comes among the words
+ * after it ("das Brot", "das frische Brot"), or -1 when it stands on its own
+ * as a pronoun ("Das, bitte.", "Das ist meine Tochter.", "Ich nehme den.").
+ * The noun, which German writes with a capital, comes before any verb or
+ * pronoun.
+ */
+function nounIndex(after: string[], lexicon: GermanLexicon): number {
+  for (const [index, word] of after.entries()) {
+    const key = lower(word);
+    if (lexicon.pronouns.has(key)) return -1;
+    if (word[0] !== key[0]) return index;
+    // "heiße" is a form of heißen and of heiß: "die heiße Suppe" goes on to its noun.
+    if (isVerbForm(lexicon, word) && !isAdjectiveForm(lexicon, word)) return -1;
+  }
+  return -1;
 }
 
 /** Decide what kind of mistake turning `expected` into `given` represents. */
@@ -963,7 +1112,7 @@ export function categorizePair(
   expected: string,
   given: string,
   lexicon: GermanLexicon,
-  nextExpected?: string,
+  context: PairContext = { following: [], shown: [], alone: true },
 ): ErrorCategory[] {
   const le = lower(expected);
   const lg = lower(given);
@@ -972,15 +1121,41 @@ export function categorizePair(
   const eVerb = verbLemmas(lexicon, le);
   const gVerb = verbLemmas(lexicon, lg);
 
+  // der, die and das are pronouns as well ("Das, bitte."), and only one in
+  // front of its noun is an article; so are dies and dieser. In a pronoun's
+  // place another pronoun, or an article word standing on its own, is the
+  // wrong pronoun. At the end of a sentence nothing follows it ("Wie viel
+  // kostet das?"), so it stands alone. Only an answer that is the one word
+  // and nothing else (a "das" chosen from der, die and das) gives nothing to
+  // tell by, and there the learner's word says which it was.
+  const { following, shown, alone } = context;
+  const determiner = lexicon.articles.has(le) || /^dies(e[mnrs]?)?$/.test(le);
+  const after = [...following.map((entry) => entry.expected!), ...shown];
+  const nounAt = determiner ? nounIndex(after, lexicon) : -1;
+  const standsAlone =
+    determiner && (after.length > 0 || !alone ? nounAt < 0 : lexicon.pronouns.has(lg) && !lexicon.articles.has(lg));
+  // An "ein" in front of no noun is the end of a separable verb, not a
+  // pronoun: "Ich kaufe am Samstag ein."
+  const prefix = standsAlone && le === 'ein';
+  const pronounPlace = (standsAlone && !prefix) || (lexicon.pronouns.has(le) && !determiner);
+  if (pronounPlace && (lexicon.pronouns.has(lg) || lexicon.articles.has(lg))) return ['pronoun'];
+
+  // An article whose noun the learner left out, with another kind of word in
+  // its place: that word stands for the whole phrase ("es" for "das
+  // Generikum", "xyz" for "Ein Wasser"), so no article was tried.
+  if (nounAt >= 0 && following[nounAt]?.status === 'missing' && !lexicon.articles.has(lg)) return ['vocabulary'];
+
   // Articles and determiners.
-  if (lexicon.articles.has(le) && lexicon.articles.has(lg)) {
-    const noun = nextExpected ? lower(nextExpected) : undefined;
+  if (!standsAlone && lexicon.articles.has(le) && lexicon.articles.has(lg)) {
+    const next = following[0]?.expected;
+    const noun = next ? lower(next) : undefined;
     const gender = noun ? lexicon.nounGender.get(noun) : undefined;
     const givenMarks = lexicon.articleGender.get(lg) ?? [];
     if (gender && !givenMarks.includes(gender)) return ['article', 'gender'];
     return ['article'];
   }
   if (
+    !standsAlone &&
     lexicon.articles.has(le) !== lexicon.articles.has(lg) &&
     eVerb.length === 0 &&
     gVerb.length === 0
@@ -1024,7 +1199,19 @@ export function categorizePair(
   if (!isNoun(lexicon, le) && !isNoun(lexicon, lg)) {
     const shared = sharedInflection(lexicon, le, lg);
     if (shared === 'verb') return ['verb-conjugation'];
-    if (shared === 'adjective') return ['adjective-ending'];
+    if (shared === 'adjective') {
+      // A participle takes adjective endings only in front of a noun, and
+      // "heiße" is a form of heiß as well as of heißen. Where the answer
+      // wants the verb itself ("Die Heizung funktioniert nicht", "Ich habe
+      // den Zug verpasst", "Ich heiße Anna"), the ending the learner changed
+      // is the verb's. On a participle without ge-, which is also the
+      // present tense, -te or -ten makes the simple past: "funktionierte" is
+      // a tense slip, not a wrong adjective ending.
+      if (!isVerbForm(lexicon, le)) return ['adjective-ending'];
+      const finite = (lexicon.inflections.get(le) ?? []).some((word) => word.startsWith('verb:'));
+      const past = finite && le.endsWith('t') && (lg === `${le}e` || lg === `${le}en`);
+      return past ? ['verb-tense'] : ['verb-conjugation'];
+    }
   }
 
   // Anything that is a grammatical choice is never downgraded to a typo.
@@ -1041,7 +1228,8 @@ export function categorizePair(
  * Typo tolerance, deliberately narrow.
  *
  * Short words are excluded because at that length almost every German function
- * word is one edit from another. Longer words get two edits.
+ * word is one edit from another. Longer words get two edits. Two neighbouring
+ * letters swapped ("Nahct") count as one edit, like a letter missed.
  */
 export function isTypo(expected: string, given: string): boolean {
   if (expected.length < 4) return false;

@@ -47,10 +47,10 @@ const dassBlocks: Block[] = [
   {
     t: 'callout',
     tone: 'tip',
-    title: bi('Three verbs that need it', 'Три глагола, които го изискват'),
+    title: bi('Three verbs it goes with', 'Три глагола, с които върви'),
     text: bi(
-      'glauben, denken and wissen are what make dass necessary — you rarely say them without it. Learn the three together with the word.',
-      'glauben, denken и wissen са това, което прави dass нужно — рядко ги казваш без него. Учи трите заедно с думата.',
+      'glauben, denken and wissen are the verbs you will hear dass after most often. Learn the three together with the word.',
+      'glauben, denken и wissen са глаголите, след които най-често ще чуеш dass. Учи трите заедно с думата.',
     ),
   },
   {
@@ -67,7 +67,7 @@ const dassBlocks: Block[] = [
     tone: 'compare',
     only: ['en'],
     text: bi(
-      'English lets you drop it — "I think German is hard" is perfectly good. German does not: the dass has to be there, and once it is, the verb has to move. Leaving it out is the commonest English-speaker mistake in this unit.',
+      'English lets you drop it — "I think German is hard" is perfectly good. After glauben, denken or finden German can drop it too, but then nothing moves and the verb stays second: "Ich glaube, Deutsch ist schwer." What German never does is mix the two. With dass the verb goes to the end, and keeping it second after dass — "Ich glaube, dass Deutsch ist schwer" — is the commonest English-speaker mistake in this unit. When the English says "that", this lesson wants the dass.',
       '',
     ),
   },
@@ -77,7 +77,7 @@ const dassBlocks: Block[] = [
     only: ['bg'],
     text: bi(
       '',
-      'Българското „че“ е точното съответствие и, за разлика от английското „that“, също не се изпуска: „Мисля, че немският е труден“. Значи думата ти е позната и запетаята също. Единствената разлика е глаголът, който на немски отива в края — както след weil.',
+      'Българското „че“ е точното съответствие: „Мисля, че немският е труден“. Значи думата ти е позната и запетаята също. Единствената разлика е глаголът, който на немски отива в края — както след weil. След glauben, denken и finden немският може и да пропусне dass, но тогава глаголът остава втори: „Ich glaube, Deutsch ist schwer.“ Грешка е само смесицата от двете: „dass Deutsch ist schwer“.',
     ),
   },
 ];

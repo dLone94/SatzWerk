@@ -163,6 +163,140 @@ describe('attempts, mistakes and the retyping distinction', () => {
     expect(await store.listMistakes(scopeOf(db))).toHaveLength(0);
     expect(await store.listMistakes(scopeOf(db), true)).toHaveLength(1);
   });
+
+  /*
+   * Practising a mistake changed nothing: a right answer on its card matched
+   * neither a new mistake nor a retype, so "12 of 12 right first time" left
+   * every row in the bank, and one made twice came back in every round until
+   * it was marked sorted by hand.
+   */
+  describe('practising a mistake', () => {
+    /** The card the mistake bank builds for a mistake: its own question, its id in the exercise id. */
+    const practice = (id: string, over: Record<string, unknown> = {}) => ({
+      ...wrongAttempt,
+      context: 'practice',
+      lessonId: undefined,
+      exerciseId: `mp-${id}`,
+      reviewTargets: [],
+      given: 'eine',
+      verdict: 'correct',
+      credit: 1,
+      categories: [],
+      resolved: true,
+      ...over,
+    });
+
+    it('puts the mistake away once it is answered right', async () => {
+      await call('POST', '/api/attempts', wrongAttempt);
+      await call('POST', '/api/attempts', wrongAttempt);
+      const [made] = await store.listMistakes(scopeOf(db));
+      const response = await call('POST', '/api/attempts', practice(made!.id));
+      // The id comes back, so the app reloads a bank that has changed.
+      expect((response.body as { mistakeId?: string }).mistakeId).toBe(made!.id);
+      expect(await store.listMistakes(scopeOf(db))).toHaveLength(0);
+      expect((await store.listMistakes(scopeOf(db), true))[0]!.resolvedAt).not.toBeNull();
+      // The kinds of mistake over the bank go with it, rather than staying up
+      // over an empty list.
+      expect((await store.getStats(scopeOf(db))).categoryCounts).toEqual([]);
+    });
+
+    it('takes the same question filed under another category with it', async () => {
+      await call('POST', '/api/attempts', wrongAttempt);
+      await call('POST', '/api/attempts', { ...wrongAttempt, given: 'einer', categories: ['case'] });
+      expect(await store.listMistakes(scopeOf(db))).toHaveLength(2);
+      const [made] = await store.listMistakes(scopeOf(db));
+      await call('POST', '/api/attempts', practice(made!.id));
+      expect(await store.listMistakes(scopeOf(db))).toHaveLength(0);
+    });
+
+    it('does not count a hinted or revealed answer, or a retype', async () => {
+      await call('POST', '/api/attempts', wrongAttempt);
+      const [made] = await store.listMistakes(scopeOf(db));
+      await call('POST', '/api/attempts', practice(made!.id, { hintsUsed: 1 }));
+      await call('POST', '/api/attempts', practice(made!.id, { revealed: true }));
+      await call('POST', '/api/attempts', practice(made!.id, { isRetype: true }));
+      expect(await store.listMistakes(scopeOf(db))).toHaveLength(1);
+    });
+
+    it('counts a slip on the card as the same mistake again, and reopens one put away', async () => {
+      await call('POST', '/api/attempts', wrongAttempt);
+      const [made] = await store.listMistakes(scopeOf(db));
+      await call('POST', '/api/attempts', practice(made!.id, { given: 'ein', verdict: 'incorrect', credit: 0, categories: ['article', 'gender'], resolved: false }));
+      expect(await store.listMistakes(scopeOf(db))).toEqual([expect.objectContaining({ id: made!.id, occurrences: 2 })]);
+
+      await call('POST', '/api/attempts', practice(made!.id));
+      await call('POST', '/api/attempts', wrongAttempt);
+      expect(await store.listMistakes(scopeOf(db))).toEqual([expect.objectContaining({ id: made!.id, occurrences: 3, resolvedAt: null })]);
+    });
+
+    it('puts it away from the daily round’s variation of it too', async () => {
+      await call('POST', '/api/attempts', wrongAttempt);
+      await call('POST', '/api/attempts', wrongAttempt);
+      const [made] = await store.listMistakes(scopeOf(db));
+      // Another sentence of the same kind, played in the daily review.
+      await call('POST', '/api/attempts', practice(made!.id, {
+        context: 'review', exerciseId: `daily-target-u1l2-ex2-mp-${made!.id}`, stepId: 'daily-target-u1l2-ex2-2',
+        expected: 'das', given: 'das',
+      }));
+      expect(await store.listMistakes(scopeOf(db))).toHaveLength(0);
+    });
+
+    it('leaves the bank alone when a right answer is not a mistake card', async () => {
+      await call('POST', '/api/attempts', wrongAttempt);
+      await call('POST', '/api/attempts', { ...wrongAttempt, given: 'eine', verdict: 'correct', credit: 1, categories: [], resolved: true });
+      await call('POST', '/api/attempts', practice('0000000000000000'));
+      expect(await store.listMistakes(scopeOf(db))).toHaveLength(1);
+    });
+  });
+
+  /*
+   * The placement check asks at every level to find where the learner's
+   * German runs out. Played as a checkpoint, every wrong guess went into the
+   * mistake bank, onto a new learner's Today and into "Practise these", and
+   * the guesses pulled first-try accuracy down to 60% before any lesson.
+   */
+  it('files no mistake and no accuracy for a placement guess', async () => {
+    const guess = {
+      context: 'placement',
+      exerciseId: 'pl-b2',
+      stepId: 'pl-b2-1',
+      expected: 'Der Bericht wurde gestern eingereicht.',
+      given: 'Die Bericht wurde gestern eingereicht.',
+      verdict: 'incorrect',
+      credit: 0,
+      categories: ['article'],
+      hintsUsed: 0,
+      revealed: false,
+      isRetype: false,
+      resolved: false,
+    };
+    expect((await call('POST', '/api/attempts', guess)).status).toBe(200);
+    await call('POST', '/api/attempts', { ...wrongAttempt, given: 'eine', verdict: 'correct', credit: 1, categories: [], resolved: true });
+    expect(await store.listMistakes(scopeOf(db))).toHaveLength(0);
+    const stats = await store.getStats(scopeOf(db));
+    expect(stats.totalAnswers).toBe(2);
+    expect(stats.accuracy).toBe(1);
+  });
+
+  it('files no mistake for a placement guess from an app that still calls it a checkpoint', async () => {
+    await call('POST', '/api/attempts', {
+      ...wrongAttempt, context: 'checkpoint', lessonId: undefined, exerciseId: 'pl-b1', stepId: 'pl-b1-2',
+      expected: 'Ich finde, dass die Miete zu hoch ist.', given: 'Ich finde, dass die Miete ist zu hoch.', categories: ['word-order'],
+    });
+    expect(await store.listMistakes(scopeOf(db))).toHaveLength(0);
+  });
+});
+
+describe('the placement result', () => {
+  /*
+   * The level the check recommends is stored as its target, and was never
+   * sent back, so the app could not tell where the learner had been placed.
+   */
+  it('comes back with the level it recommends', async () => {
+    await call('POST', '/api/checkpoints', { checkpointId: 'placement', scope: 'placement', targetId: 'b1', accuracy: 0.6, passed: false });
+    const results = await store.listCheckpointResults(scopeOf(db));
+    expect(results).toEqual([expect.objectContaining({ checkpointId: 'placement', targetId: 'b1', passed: false })]);
+  });
 });
 
 describe('review queue', () => {

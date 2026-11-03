@@ -779,7 +779,7 @@ export const PRE_A1_UNIT_1: Unit = {
   level: 'pre-a1',
   order: 1,
   status: 'available',
-  title: bi('Welcome to German', 'Добре дошъл в немския'),
+  title: bi('Welcome to German', 'Добре дошли в немския'),
   summary: bi(
     'The sounds, the letters, and the one habit that makes everything later easier: learning nouns with their article.',
     'Звуковете, буквите и онзи навик, който прави всичко по-нататък по-лесно: да учиш съществителните с члена им.',

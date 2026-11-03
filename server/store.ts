@@ -211,7 +211,38 @@ function emptyRow(lessonId: string): LessonProgress {
 export async function getLessonProgress({ db, userId }: Scope, lessonId: string): Promise<LessonProgress> {
   const state = await db.get(`SELECT * FROM lesson_state WHERE lesson_id = ? AND user_id = ?`, lessonId, userId) as Record<string, unknown> | undefined;
   const outcomes = await db.all(`SELECT * FROM step_outcomes WHERE lesson_id = ? AND user_id = ?`, lessonId, userId) as Array<Record<string, unknown>>;
+  return lessonProgressFromRows(lessonId, state, outcomes);
+}
 
+/**
+ * Every lesson the learner has touched, in two statements however many there
+ * are. Asking lesson by lesson cost two statements each, so a learner far into
+ * the course opened the app with over a hundred and seventy of them, one after
+ * another on the hosted database's single connection.
+ */
+export async function getAllLessonProgress({ db, userId }: Scope): Promise<LessonProgress[]> {
+  const [states, outcomes] = await Promise.all([
+    db.all('SELECT * FROM lesson_state WHERE user_id = ?', userId),
+    db.all('SELECT * FROM step_outcomes WHERE user_id = ?', userId),
+  ]);
+  // A lesson with outcomes but no row of its own still counts as touched.
+  const byLesson = new Map<string, { state?: Record<string, unknown>; outcomes: Array<Record<string, unknown>> }>();
+  const rowsOf = (lessonId: unknown) => {
+    const key = String(lessonId);
+    let rows = byLesson.get(key);
+    if (!rows) byLesson.set(key, (rows = { outcomes: [] }));
+    return rows;
+  };
+  for (const row of states) rowsOf(row.lesson_id).state = row;
+  for (const row of outcomes) rowsOf(row.lesson_id).outcomes.push(row);
+  return [...byLesson].map(([lessonId, rows]) => lessonProgressFromRows(lessonId, rows.state, rows.outcomes));
+}
+
+function lessonProgressFromRows(
+  lessonId: string,
+  state: Record<string, unknown> | undefined,
+  outcomes: Array<Record<string, unknown>>,
+): LessonProgress {
   const practice: Record<string, StepOutcome> = {};
   for (const row of outcomes) {
     const stepId = String(row.step_id);
@@ -242,20 +273,6 @@ export async function getLessonProgress({ db, userId }: Scope, lessonId: string)
     completedAt: (state.completed_at as string | null) ?? undefined,
     lastActiveAt: (state.last_active_at as string | null) ?? undefined,
   };
-}
-
-export async function getAllLessonProgress(scope: Scope): Promise<LessonProgress[]> {
-  const { db, userId } = scope;
-  const lessonIds = new Set<string>();
-  for (const row of await db.all('SELECT lesson_id FROM lesson_state WHERE user_id = ?', userId) as Array<{ lesson_id: string }>) {
-    lessonIds.add(row.lesson_id);
-  }
-  for (const row of await db.all('SELECT DISTINCT lesson_id FROM step_outcomes WHERE user_id = ?', userId) as Array<{
-    lesson_id: string;
-  }>) {
-    lessonIds.add(row.lesson_id);
-  }
-  return Promise.all([...lessonIds].map((id) => getLessonProgress(scope, id)));
 }
 
 async function ensureLessonState({ db, userId }: Scope, lessonId: string, now: string): Promise<void> {
@@ -463,7 +480,7 @@ export async function gradeReviewItem(
  * Attempts, mistakes and study days
  * ------------------------------------------------------------------ */
 
-export type AttemptContext = 'lesson' | 'mastery' | 'review' | 'checkpoint' | 'practice' | 'scenario';
+export type AttemptContext = 'lesson' | 'mastery' | 'review' | 'checkpoint' | 'placement' | 'practice' | 'scenario';
 
 export interface AttemptInput {
   context: AttemptContext;
@@ -589,12 +606,21 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
       await db.run(`UPDATE step_outcomes SET resolved = 1, updated_at = ? WHERE lesson_id = ? AND step_id = ? AND user_id = ?`, iso, input.lessonId, input.stepId, userId);
     }
 
-    // Mistake bank.
+    // Mistake bank. The placement check is left out: it asks at every level to
+    // find where the learner's German runs out, so its wrong answers are what
+    // it is looking for, not mistakes in anything taught. Filed, they filled a
+    // new learner's bank with B2 sentences. An app loaded before it said
+    // 'placement' sends the check as a checkpoint; its step ids, "pl-", give
+    // it away (migration 9 relies on them too).
     let mistakeId: string | undefined;
-    if (!input.isRetype && input.categories.length > 0) {
+    if (input.context === 'placement' || input.stepId.startsWith('pl-')) {
+      // Nothing to file.
+    } else if (!input.isRetype && input.categories.length > 0) {
       mistakeId = await upsertMistake(scope, input, iso);
     } else if (input.isRetype && right) {
       await creditRetype(scope, input, iso);
+    } else if (!input.isRetype && right && input.hintsUsed === 0 && !input.revealed) {
+      mistakeId = await resolvePractised(scope, input, iso);
     }
 
     // Review scheduling.
@@ -684,6 +710,34 @@ async function creditRetype({ db, userId }: Scope, input: AttemptInput, iso: str
      WHERE step_id = ? AND expected = ? AND user_id = ?`, iso, input.stepId, input.expected, userId);
 }
 
+/**
+ * A mistake practised and got right: put away.
+ *
+ * Practice used to change nothing. A right answer on a mistake's own card
+ * matched neither a new mistake nor a retype, so "6 of 6 right first time"
+ * left all six in the bank, and one made twice came back in every round
+ * until it was marked sorted by hand. Now a right answer on that card, with
+ * no hint and nothing revealed, resolves it, together with any row for the
+ * same question filed under another category. Getting it wrong again later
+ * reopens it (upsertMistake clears resolved_at), so the bank holds what is
+ * still going wrong.
+ *
+ * The card names its mistake at the end of its exercise id, `mp-<mistake
+ * id>`, which is how the app builds it (mistakePracticeId in
+ * src/ui/reviewBuilder.ts). Returns the id, so the app knows the bank has
+ * changed.
+ */
+async function resolvePractised({ db, userId }: Scope, input: AttemptInput, iso: string): Promise<string | undefined> {
+  const practised = /(?:^|-)mp-([0-9a-f]{16})$/.exec(input.exerciseId ?? '')?.[1];
+  if (!practised) return undefined;
+  const row = await db.get<{ step_id: string | null; expected: string }>(
+    'SELECT step_id, expected FROM mistakes WHERE id = ? AND user_id = ? AND resolved_at IS NULL', practised, userId);
+  if (!row) return undefined;
+  await db.run(`UPDATE mistakes SET resolved_at = ?
+     WHERE user_id = ? AND resolved_at IS NULL AND (id = ? OR (step_id = ? AND expected = ?))`, iso, userId, practised, row.step_id, row.expected);
+  return practised;
+}
+
 export interface MistakeRecord {
   id: string;
   category: ErrorCategory;
@@ -748,16 +802,22 @@ export async function recordCheckpointResult({ db, userId }: Scope, input: Check
 
 export interface CheckpointResult {
   checkpointId: string;
+  /** The unit or level checked; for the placement check, the level it recommends. */
+  targetId: string;
   accuracy: number;
   passed: boolean;
   createdAt: string;
 }
 
 export async function listCheckpointResults({ db, userId }: Scope): Promise<CheckpointResult[]> {
+  // The target is sent back because the placement check's recommendation is
+  // its target, and a recommendation the app cannot read back was lost the
+  // moment the learner left the result screen.
   return (
-    await db.all('SELECT checkpoint_id, accuracy, passed, created_at FROM checkpoint_results WHERE user_id = ? ORDER BY created_at DESC', userId) as Array<Record<string, unknown>>
+    await db.all('SELECT checkpoint_id, target_id, accuracy, passed, created_at FROM checkpoint_results WHERE user_id = ? ORDER BY created_at DESC', userId) as Array<Record<string, unknown>>
   ).map((row) => ({
     checkpointId: String(row.checkpoint_id),
+    targetId: String(row.target_id),
     accuracy: Number(row.accuracy),
     passed: Number(row.passed) === 1,
     createdAt: String(row.created_at),
@@ -968,14 +1028,20 @@ export async function getStats(scope: Scope, now = new Date(), tzOffsetMinutes =
               SUM(CASE WHEN is_retype = 1 AND verdict IN ('correct','accepted-variant') THEN 1 ELSE 0 END) AS retypes
        FROM attempts WHERE user_id = ?`, userId) as Record<string, unknown>;
 
+  // The placement check is not in first-try accuracy: it asks up to B2 to
+  // find where the learner's German runs out, and counted, a learner placed
+  // at B1 began with 60% before their first lesson.
   const firstTry = await db.get(`SELECT COUNT(*) AS answers,
               SUM(CASE WHEN verdict IN ('correct','accepted-variant') AND revealed = 0 THEN 1 ELSE 0 END) AS correct
-       FROM attempts WHERE user_id = ? AND is_retype = 0`, userId) as Record<string, unknown>;
+       FROM attempts WHERE user_id = ? AND is_retype = 0 AND context <> 'placement'`, userId) as Record<string, unknown>;
 
   const study = await db.get('SELECT COALESCE(SUM(seconds_active), 0) AS seconds, COUNT(*) AS days FROM study_days WHERE user_id = ?', userId) as Record<string, unknown>;
 
+  // Kinds of mistake in the open bank only. The counts sit over the bank's
+  // list and filter it, and now that practice puts a mistake away, counting
+  // the ones put away kept a kind up whose rows had all gone.
   const categories = await db.all(`SELECT category, SUM(occurrences) AS count FROM mistakes
-       WHERE user_id = ? GROUP BY category ORDER BY count DESC`, userId) as Array<Record<string, unknown>>;
+       WHERE user_id = ? AND resolved_at IS NULL GROUP BY category ORDER BY count DESC`, userId) as Array<Record<string, unknown>>;
 
   const answers = Number(firstTry.answers ?? 0);
   const correct = Number(firstTry.correct ?? 0);

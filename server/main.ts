@@ -66,20 +66,32 @@ const MIME: Record<string, string> = {
   '.map': 'application/json; charset=utf-8',
 };
 
+class BodyTooLarge extends Error {}
+
+/**
+ * The request's body, or a BodyTooLarge once it has all arrived.
+ *
+ * Past the limit the rest is read and thrown away rather than the socket
+ * destroyed. A destroyed socket reaches the browser as a reset connection with
+ * no status at all, which the outbox rightly reads as "offline" — so an
+ * accidental paste of a few hundred kilobytes sat at the front of the queue
+ * for good, with every later answer waiting behind it. Draining it means the
+ * 413 below actually arrives, and a 4xx is a refusal the outbox reports and
+ * moves past.
+ */
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolvePromise, reject) => {
     let size = 0;
-    const chunks: Buffer[] = [];
+    let chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => {
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
-        reject(new Error('Request body too large'));
-        req.destroy();
-        return;
-      }
-      chunks.push(chunk);
+      if (size > MAX_BODY_BYTES) chunks = [];
+      else chunks.push(chunk);
     });
-    req.on('end', () => resolvePromise(Buffer.concat(chunks).toString('utf8')));
+    req.on('end', () => {
+      if (size > MAX_BODY_BYTES) reject(new BodyTooLarge());
+      else resolvePromise(Buffer.concat(chunks).toString('utf8'));
+    });
     req.on('error', reject);
   });
 }
@@ -102,7 +114,22 @@ function sendJson(
   res.end(payload);
 }
 
-function serveStatic(res: ServerResponse, urlPath: string): void {
+/**
+ * Whether the copy the browser already holds is this file. An ETag decides
+ * when one was sent; the date only when none was (RFC 9110, 13.1.3).
+ */
+function unchanged(req: IncomingMessage, etag: string, modified: Date): boolean {
+  const ifNoneMatch = req.headers['if-none-match'];
+  if (ifNoneMatch) {
+    const opaque = (tag: string) => tag.trim().replace(/^W\//, '');
+    return ifNoneMatch.split(',').some((tag) => tag.trim() === '*' || opaque(tag) === opaque(etag));
+  }
+  const since = Date.parse(req.headers['if-modified-since'] ?? '');
+  // HTTP dates have whole seconds; the file's time has fractions.
+  return Number.isFinite(since) && Math.floor(modified.getTime() / 1000) * 1000 <= since;
+}
+
+function serveStatic(req: IncomingMessage, res: ServerResponse, urlPath: string): void {
   if (!existsSync(DIST)) {
     res.writeHead(404, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('No build found. Run "npm run build", or use "npm run dev" for development.');
@@ -146,11 +173,27 @@ function serveStatic(res: ServerResponse, urlPath: string): void {
 
   const type = MIME[extname(filePath)] ?? 'application/octet-stream';
   const immutable = filePath.includes(`${join(DIST, 'assets')}`);
-  res.writeHead(200, {
+  /*
+   * `no-cache` means "ask before using what you have", and asking needs
+   * something to ask with. Without these the answer was always the whole
+   * file: the half-megabyte illustration on Today came down again on every
+   * app open. Size and modification time change with every build of a file.
+   */
+  const stats = statSync(filePath);
+  const etag = `W/"${stats.size.toString(16)}-${Math.floor(stats.mtimeMs).toString(16)}"`;
+  const headers = {
     ...SECURITY_HEADERS,
     'Content-Type': type,
     'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
-  });
+    ETag: etag,
+    'Last-Modified': stats.mtime.toUTCString(),
+  };
+  if (unchanged(req, etag, stats.mtime)) {
+    res.writeHead(304, headers);
+    res.end();
+    return;
+  }
+  res.writeHead(200, headers);
   // A file removed mid-read (a rebuild of dist, say) ends this response
   // rather than surfacing as an unhandled 'error' event.
   createReadStream(filePath)
@@ -182,7 +225,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       sendJson(res, 405, { error: 'Method not allowed' });
       return;
     }
-    serveStatic(res, url.pathname);
+    serveStatic(req, res, url.pathname);
     return;
   }
 
@@ -207,7 +250,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   try {
     let body: unknown;
     if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
-      const raw = await readBody(req);
+      let raw: string;
+      try {
+        raw = await readBody(req);
+      } catch (error) {
+        if (!(error instanceof BodyTooLarge)) throw error;
+        sendJson(res, 413, { error: `That is more than the server takes in one request (${MAX_BODY_BYTES / 1024} KB).` });
+        return;
+      }
       if (raw.length > 0) {
         try {
           body = JSON.parse(raw);
@@ -260,6 +310,8 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           // The reminder job carries a bearer token rather than a cookie.
           authorization: req.headers.authorization,
           'idempotency-key': header('idempotency-key'),
+          // Which learner the tab is showing; see LEARNER_HEADER.
+          'x-satzwerk-learner': header('x-satzwerk-learner'),
         },
         // The socket's own address. Forwarded headers are not trusted here:
         // anyone can send them to a server with no proxy in front of it.

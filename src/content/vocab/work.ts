@@ -334,7 +334,7 @@ const FREE_TIME: VocabEntry[] = [
     gender: 'm',
     wordType: 'noun',
     translation: { en: 'sport, exercise', bg: 'спорт' },
-    pronunciation: { en: 'shport', bg: 'щпорт' },
+    pronunciation: { en: 'shport', bg: 'шпорт' },
     example: {
       de: 'Ich mache gern Sport.',
       gloss: { en: 'I like doing sport.', bg: 'Обичам да спортувам.' },

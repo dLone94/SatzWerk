@@ -253,13 +253,23 @@ export function dueItems(items: ReviewItem[], now = new Date()): ReviewItem[] {
   return items.filter((item) => isDue(item, now));
 }
 
-/** Human-readable reason an item is in the queue, so the UI never has to guess. */
-export function dueReason(item: ReviewItem): 'new' | 'learning' | 'overdue' | 'scheduled' | 'lapsed' {
+/**
+ * Human-readable reason an item is in the queue, so the UI never has to guess.
+ *
+ * Overdue is anything that fell due before today, on the learner's own
+ * calendar. It used to be anything later than its whole interval, so a word
+ * on a four-day interval that fell due three days ago read "Scheduled for
+ * today".
+ */
+export function dueReason(
+  item: ReviewItem,
+  now = new Date(),
+): 'new' | 'learning' | 'overdue' | 'scheduled' | 'lapsed' {
   if (item.state === 'new') return 'new';
   if (item.state === 'lapsed') return 'lapsed';
   if (item.state === 'learning') return 'learning';
-  const daysLate = (Date.now() - new Date(item.dueAt).getTime()) / DAY_MS;
-  return daysLate > item.intervalDays ? 'overdue' : 'scheduled';
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return new Date(item.dueAt).getTime() < startOfToday ? 'overdue' : 'scheduled';
 }
 
 /**

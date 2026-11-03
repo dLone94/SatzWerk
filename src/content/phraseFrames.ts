@@ -3,7 +3,12 @@ import type { Bilingual } from './types.ts';
 export interface PhraseFrame {
   prefix: string;
   template: string;
-  examples: Array<{ de: string; gloss: Bilingual }>;
+  /**
+   * `alternatives` is other good German for the same gloss. "Ich hätte gern"
+   * and "Ich möchte" both say "I would like", so the drill that asks for one
+   * frame's example accepts the other's, and names the frame it practises.
+   */
+  examples: Array<{ de: string; gloss: Bilingual; alternatives?: string[] }>;
 }
 const bi = (en: string, bg: string): Bilingual => ({ en, bg });
 const FRAMES: PhraseFrame[] = [
@@ -12,12 +17,12 @@ const FRAMES: PhraseFrame[] = [
     { de: 'Guten Abend!', gloss: bi('Good evening!', 'Добър вечер!') },
   ] },
   { prefix: 'Ich hätte gern', template: 'Ich hätte gern ___.', examples: [
-    { de: 'Ich hätte gern einen Kaffee.', gloss: bi('I would like a coffee.', 'Бих искал едно кафе.') },
-    { de: 'Ich hätte gern ein Wasser.', gloss: bi('I would like a water.', 'Бих искал една вода.') },
+    { de: 'Ich hätte gern einen Kaffee.', gloss: bi('I would like a coffee.', 'Бих искал едно кафе.'), alternatives: ['Ich möchte einen Kaffee.'] },
+    { de: 'Ich hätte gern ein Wasser.', gloss: bi('I would like a water.', 'Бих искал една вода.'), alternatives: ['Ich möchte ein Wasser.'] },
   ] },
   { prefix: 'Ich möchte ', template: 'Ich möchte ___.', examples: [
-    { de: 'Ich möchte einen Kaffee.', gloss: bi('I would like a coffee.', 'Бих искал едно кафе.') },
-    { de: 'Ich möchte ein Wasser.', gloss: bi('I would like a water.', 'Бих искал една вода.') },
+    { de: 'Ich möchte einen Kaffee.', gloss: bi('I would like a coffee.', 'Бих искал едно кафе.'), alternatives: ['Ich hätte gern einen Kaffee.'] },
+    { de: 'Ich möchte ein Wasser.', gloss: bi('I would like a water.', 'Бих искал една вода.'), alternatives: ['Ich hätte gern ein Wasser.'] },
   ] },
   { prefix: 'Ich brauche ', template: 'Ich brauche ___.', examples: [
     { de: 'Ich brauche einen Termin.', gloss: bi('I need an appointment.', 'Имам нужда от час.') },

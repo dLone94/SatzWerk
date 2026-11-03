@@ -281,7 +281,7 @@ const LETTER: VocabEntry[] = [
     display: 'beiliegend',
     wordType: 'adjective',
     translation: { en: 'enclosed, attached', bg: 'приложен, приложено' },
-    pronunciation: { en: 'BY-lee-gend', bg: 'БАЙ-ли-генд' },
+    pronunciation: { en: 'BY-lee-gent', bg: 'БАЙ-ли-гент' },
     example: {
       de: 'Beiliegend erhalten Sie eine Kopie der Rechnung.',
       gloss: {
@@ -414,7 +414,7 @@ const POLITE: VocabEntry[] = [
     display: 'umgehend',
     wordType: 'adjective',
     translation: { en: 'immediate, without delay', bg: 'незабавен, незабавно' },
-    pronunciation: { en: 'OOM-gay-end', bg: 'УМ-ге-енд' },
+    pronunciation: { en: 'OOM-gay-ent', bg: 'УМ-ге-ент' },
     example: {
       de: 'Ich bitte um eine umgehende Antwort.',
       gloss: {

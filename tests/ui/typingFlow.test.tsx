@@ -194,7 +194,7 @@ describe('the typing and correction flow', () => {
     expect(screen.queryByText(/The correct answer is/)).not.toBeInTheDocument();
 
     // A retype is demanded; there is no Continue button to escape with.
-    expect(screen.getByText('Now type the correct German')).toBeInTheDocument();
+    expect(screen.getByText('Now type the correct German', { selector: '.feedback__retype-label' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
 
     expect(attempts[0]).toMatchObject({ verdict: 'incorrect', credit: 0, resolved: false, isRetype: false });
@@ -204,7 +204,7 @@ describe('the typing and correction flow', () => {
     await user.clear(field());
     await user.type(field(), 'Ich komme von Bulgarien.{Enter}');
     await waitFor(() => expect(screen.getByText('Type the correction to continue.')).toBeInTheDocument());
-    expect(screen.getByText('Now type the correct German')).toBeInTheDocument();
+    expect(screen.getByText('Now type the correct German', { selector: '.feedback__retype-label' })).toBeInTheDocument();
 
     // The correct retyping is accepted and only then can they continue.
     await user.clear(field());
@@ -251,7 +251,7 @@ describe('the typing and correction flow', () => {
     await user.type(field(), 'Ich heisse Theo.{Enter}');
     expect(await screen.findByText('Meaning is correct.')).toBeInTheDocument();
     expect(screen.getByText(/Standard spelling: Ich heiße Theo\./)).toBeInTheDocument();
-    expect(screen.getByText('Now type the correct German')).toBeInTheDocument();
+    expect(screen.getByText('Now type the correct German', { selector: '.feedback__retype-label' })).toBeInTheDocument();
     expect(attempts[0]!.credit).toBeGreaterThan(0);
     expect(attempts[0]!.credit).toBeLessThan(1);
   });
@@ -527,6 +527,51 @@ describe('the verdict is brought into view', () => {
       expect(scrollIntoView).toHaveBeenCalled();
       // `nearest` so a verdict already on screen does not jump under the reader.
       expect(scrollIntoView.mock.calls.at(-1)?.[0]).toMatchObject({ block: 'nearest' });
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
+  });
+
+  /*
+   * The feedback is taller than a phone, so lining up its end with the screen
+   * pushed the field to retype into up under the page header. The dashed box
+   * that looked like a field was not one: tapped, focus went to the page and
+   * the typing went nowhere.
+   */
+  it('brings the field to retype into to the top, not under the header', async () => {
+    const user = userEvent.setup();
+    const scrolled: Array<{ element: Element; options: ScrollIntoViewOptions }> = [];
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      writable: true,
+      value(this: Element, options: ScrollIntoViewOptions) {
+        scrolled.push({ element: this, options });
+      },
+    });
+    try {
+      mount(<ExercisePlayer exercises={[originExercise]} context="lesson" level="pre-a1" onFinish={() => {}} />);
+      await user.type(field(), 'Ich komme von Bulgarien.{Enter}');
+      await waitFor(() => expect(document.querySelector('.feedback__retype-target')).not.toBeNull());
+      const last = scrolled.at(-1)!;
+      expect(last.element).toContain(field());
+      expect(last.element).not.toContain(document.querySelector('.feedback'));
+      expect(last.options).toMatchObject({ block: 'start' });
+
+      // The correction is what a thumb goes for; tapping it lands in the field.
+      // (After the frame in which the player puts focus there itself.)
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await user.click(document.body);
+      expect(field()).not.toHaveFocus();
+      const before = scrolled.length;
+      await user.click(document.querySelector('.feedback__retype-target')!);
+      expect(field()).toHaveFocus();
+      // And brings the field back to the top: scrolled a little since, it was
+      // under the header, where focus alone left it.
+      expect(scrolled.slice(before)).toHaveLength(1);
+      expect(scrolled.at(-1)!.element).toContain(field());
+      expect(scrolled.at(-1)!.options).toMatchObject({ block: 'start' });
+      await user.keyboard('Ich komme aus Bulgarien.');
+      expect(field()).toHaveValue('Ich komme aus Bulgarien.');
     } finally {
       delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
     }

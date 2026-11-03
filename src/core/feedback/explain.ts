@@ -1,7 +1,7 @@
 import type { Bilingual, ErrorCategory, Gender } from '../../content/types.ts';
 import type { GermanLexicon } from '../validation/lexicon.ts';
-import { lower } from '../validation/text.ts';
-import { categorizePair, type ValidationResult } from '../validation/validate.ts';
+import { lower, PLAIN_VOWEL } from '../validation/text.ts';
+import { categorizePair, pairContext, type TokenDiffEntry, type ValidationResult } from '../validation/validate.ts';
 
 /**
  * Turns a validation result into an explanation in the learner's language.
@@ -79,8 +79,10 @@ function changeFor(category: ErrorCategory, result: ValidationResult, ctx: Feedb
   }
   const own = entries.find(({ entry, index }) => {
     if (entry.status === 'case') return category === 'pronoun' && lower(entry.expected!) === 'sie';
-    const next = result.diff.slice(index + 1).find((later) => later.expected)?.expected;
-    return categorizePair(entry.expected!, entry.given!, ctx.lexicon, next).includes(category);
+    // The validator's own reading, which saw the scaffold too. Only a diff it
+    // did not read word by word is read here again.
+    const reading = entry.reading ?? categorizePair(entry.expected!, entry.given!, ctx.lexicon, pairContext(result.diff, index));
+    return reading.includes(category);
   });
   if (own) return toChange(own);
   // A mistake the lexicon cannot place (an authored trap, say) still has its
@@ -116,13 +118,9 @@ function matchInitial(model: string, word: string): string {
   return model[0] === model[0]!.toUpperCase() ? word[0]!.toUpperCase() + word.slice(1) : word;
 }
 
-/** The noun that follows an article, used for gender explanations. */
-function nounAfter(result: ValidationResult, index: number): string | undefined {
-  for (let i = index + 1; i < result.diff.length; i += 1) {
-    const expected = result.diff[i]?.expected;
-    if (expected) return expected;
-  }
-  return undefined;
+/** The word that follows an article, the noun used for gender explanations. */
+function nounAfter(result: ValidationResult, index: number): TokenDiffEntry | undefined {
+  return result.diff.slice(index + 1).find((entry) => entry.expected);
 }
 
 function explainCategory(
@@ -140,7 +138,8 @@ function explainCategory(
       if (!change) {
         return [bi('Check the article in front of the noun.', 'Провери члена пред съществителното.')];
       }
-      const noun = nounAfter(result, change.index);
+      const after = nounAfter(result, change.index);
+      const noun = after?.expected;
       const info = noun ? ctx.describeNoun?.(noun) : undefined;
       const gender = info?.gender ?? (noun ? ctx.lexicon.nounGender.get(lower(noun)) : undefined);
       if (!noun || !gender) {
@@ -168,16 +167,19 @@ function explainCategory(
               ),
         );
       }
+      // The learner's side is quoted as it was typed: with the noun left out,
+      // "Eine Wasser" would be a phrase nobody wrote.
+      const written = after?.status === 'missing' ? given : `${given} ${noun}`;
       // "So" follows from the gender line; on its own the line starts plainly.
       lines.push(
         namesGender
           ? bi(
-              `So here German uses "${expected} ${noun}", not "${given} ${noun}".`,
-              `Затова тук на немски се използва „${expected} ${noun}“, а не „${given} ${noun}“.`,
+              `So here German uses "${expected} ${noun}", not "${written}".`,
+              `Затова тук на немски се използва „${expected} ${noun}“, а не „${written}“.`,
             )
           : bi(
-              `Here German uses "${expected} ${noun}", not "${given} ${noun}".`,
-              `Тук на немски се използва „${expected} ${noun}“, а не „${given} ${noun}“.`,
+              `Here German uses "${expected} ${noun}", not "${written}".`,
+              `Тук на немски се използва „${expected} ${noun}“, а не „${written}“.`,
             ),
       );
       // Right gender, wrong case: say that the article changes with the case.
@@ -478,8 +480,49 @@ function dedupeLines(lines: Bilingual[]): Bilingual[] {
   });
 }
 
+/**
+ * A wrong choice in a listening exercise, explained by what was said. When
+ * only the dots tell the two apart, the line names the letter: that sound is
+ * what the exercise is training the ear for.
+ */
+function misheardLine(result: ValidationResult, chosen: string): Bilingual {
+  const said = result.target;
+  const word = result.diff.find((entry) => entry.status === 'changed' && /[äöü]/i.test(entry.expected ?? ''));
+  if (!result.categories.includes('umlaut') || !word) {
+    return bi(
+      `It was "${said}", not "${chosen}". Play it again and listen for the difference.`,
+      `Беше „${said}“, а не „${chosen}“. Пусни го отново и чуй разликата.`,
+    );
+  }
+  const special = [...new Set(lower(word.expected!).match(/[äöü]/g) ?? [])];
+  const plain = special.map((letter) => PLAIN_VOWEL[letter]);
+  return bi(
+    `It was "${said}", with ${special.join(', ')}. "${chosen}" has a plain ${plain.join(', ')}. The dots change the sound: play it again and listen for the difference.`,
+    `Беше „${said}“, с ${special.join(', ')}. „${chosen}“ е с обикновено ${plain.join(', ')}. Точките променят звука: пусни го отново и чуй разликата.`,
+  );
+}
+
+function practisedLine(form: string): Bilingual {
+  return bi(`The form this lesson practises is "${form}".`, `Формата, която този урок упражнява, е „${form}“.`);
+}
+
 /** Build the feedback the learner sees after submitting an answer. */
 export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): FeedbackMessage {
+  if (result.script === 'cyrillic') {
+    return {
+      tone: 'almost',
+      headline: bi('Switch the keyboard first.', 'Първо превключи клавиатурата.'),
+      lines: [
+        bi(
+          'Your answer is in Cyrillic letters. Switch the keyboard to Latin (German) letters and type it again.',
+          'Отговорът ти е на кирилица. Превключи клавиатурата на латиница (немска) и го напиши отново.',
+        ),
+      ],
+      correction: result.target,
+      askRetype: false,
+    };
+  }
+
   if (result.verdict === 'empty') {
     return {
       tone: 'almost',
@@ -509,12 +552,7 @@ export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): F
     return {
       tone: 'note',
       headline: bi('Correct — that is good German too.', 'Вярно — това също е добър немски.'),
-      lines: [
-        bi(
-          `The form this lesson practises is "${result.target}".`,
-          `Формата, която този урок упражнява, е „${result.target}“.`,
-        ),
-      ],
+      lines: [practisedLine(result.target)],
       correction: result.target,
       askRetype: false,
     };
@@ -527,6 +565,16 @@ export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): F
       lines: [result.trapFeedback],
       correction: result.target,
       askRetype: result.requireRetype,
+    };
+  }
+
+  if (result.misheard) {
+    return {
+      tone: 'error',
+      headline: HEADLINES.error,
+      lines: [misheardLine(result, result.misheard.chose)],
+      correction: result.target,
+      askRetype: false,
     };
   }
 
@@ -554,6 +602,9 @@ export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): F
       bi(`Standard spelling: ${result.target}`, `Стандартен правопис: ${result.target}`),
     );
   }
+  // Explained against an alternative the learner nearly wrote, the answer
+  // would otherwise never name the form the lesson is there to practise.
+  if (result.taught) lines.push(practisedLine(result.taught));
 
   return {
     tone,

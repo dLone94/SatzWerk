@@ -23,7 +23,7 @@ import { Card } from '../components/bits.tsx';
  * precision it does not have.
  */
 export function PlacementPage() {
-  const { t, say, recordCheckpoint } = useApp();
+  const { t, say, recordCheckpoint, checkpointResults } = useApp();
   const navigate = useNavigate();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<PlacementResult | null>(null);
@@ -50,9 +50,12 @@ export function PlacementPage() {
     return (
       <div className="page page--player">
         <h1 className="page__title">{say(PLACEMENT_CHECKPOINT.title)}</h1>
+        {/* Its own context: as a checkpoint, every guess above the learner's
+            level went into the mistake bank and onto a new learner's Today,
+            and "Practise these" then drilled B2 sentences nobody had taught. */}
         <ExercisePlayer
           exercises={PLACEMENT_CHECKPOINT.exercises}
-          context="checkpoint"
+          context="placement"
           level="pre-a1"
           allowHints={false}
           allowSkip
@@ -183,10 +186,25 @@ export function PlacementPage() {
     );
   }
 
+  // Coming back, the last recommendation is still there to act on rather than
+  // gone with the result screen.
+  const last = checkpointResults
+    .filter((entry) => entry.checkpointId === PLACEMENT_CHECKPOINT.id)
+    .map((entry) => ({ level: CURRICULUM.find((level) => level.id === entry.targetId), at: Date.parse(entry.createdAt) }))
+    .filter((entry) => entry.level)
+    .sort((a, b) => b.at - a.at)[0]?.level;
+  const lastLesson = last ? firstLessonOf(last.id) : undefined;
+
   return (
     <div className="page page--player">
       <h1 className="page__title">{say(PLACEMENT_CHECKPOINT.title)}</h1>
       <Card tone="accent" title={t('placementIntroTitle')} subtitle={say(PLACEMENT_CHECKPOINT.description)}>
+        {last ? (
+          <p>
+            {t('placementLast', { level: last.label })}{' '}
+            {lastLesson ? <Link to={`/lesson/${lastLesson.id}`}>{t('placementOpenFirstLesson')}</Link> : null}
+          </p>
+        ) : null}
         <p className="placement__caveat">{t('placementHonesty')}</p>
         <div className="section-nav">
           <button

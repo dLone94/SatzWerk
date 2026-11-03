@@ -232,7 +232,7 @@ const CONTRACT: VocabEntry[] = [
     plural: 'die Arbeitsverträge',
     wordType: 'noun',
     translation: { en: 'employment contract', bg: 'трудов договор' },
-    pronunciation: { en: 'AR-bites-fer-trahk', bg: 'АР-байтс-фер-траг' },
+    pronunciation: { en: 'AR-bites-fer-trahk', bg: 'АР-байтс-фер-трак' },
     example: {
       de: 'Im Arbeitsvertrag steht eine Probezeit von sechs Monaten.',
       gloss: {

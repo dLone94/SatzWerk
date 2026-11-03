@@ -8,7 +8,9 @@ import type { Checkpoint } from '../types.ts';
  * thing its level turns on rather than a fair sample of it: if you can put the
  * verb second, you have A1's central idea; if you can put it at the end after
  * "weil", you have A2's; if the participle block at B2 means anything to you,
- * you are past B1 whatever else you cannot do.
+ * you are past B1 whatever else you cannot do. The other side of that: no
+ * question may be answerable with an earlier level's German, or a learner
+ * passes a band they have not reached and skips a level they need.
  *
  * Every exercise carries its own `level`, which is what the scorer bands the
  * answers by — so the result is derived from the content rather than from a
@@ -167,70 +169,60 @@ const A2 = [
   }),
 ];
 
+/*
+ * B1 is where a sentence first has to hold another sentence inside it, so
+ * every question here needs a structure the course first teaches at B1: a
+ * relative clause, um … zu, and the Konjunktiv II twice. The band used to
+ * ask for möchte, a dass clause and a wenn clause, which are A1 and A2, so a
+ * learner who had only finished A2 passed it and was sent on to B2.
+ */
 const B1 = [
   exercise({
     id: 'pl-b1',
     kind: 'type',
     level: 'b1',
-    objective: bi('Politeness, and two clauses', 'Учтивост и две изречения в едно'),
+    objective: bi('One sentence inside another, and the Konjunktiv II', 'Изречение в изречението и Konjunktiv II'),
     mandatoryRetype: false,
     steps: [
       {
-        id: 'pl-b1-1',
-        prompt: bi('I would like to make an appointment.', 'Бих искал да запиша час.'),
-        answer: 'Ich hätte gern einen Termin.',
-        // gern and gerne are the same word; the validator does not know that,
-        // so both spellings are listed.
+        id: 'pl-b1-relative',
+        prompt: bi('That is the landlord I called.', 'Това е наемодателят, когото потърсих.'),
+        answer: 'Das ist der Vermieter, den ich angerufen habe.',
+        // The written past is no less correct, as at A2.
+        alternatives: ['Das ist der Vermieter, den ich anrief.'],
+        shape: 'sentence',
+        hints: [],
+      },
+      {
+        id: 'pl-b1-um-zu',
+        prompt: bi(
+          'I need an appointment in order to hand in the application.',
+          'Трябва ми час, за да предам заявлението.',
+        ),
+        answer: 'Ich brauche einen Termin, um den Antrag abzugeben.',
+        // einreichen is the formal word for handing a form in; damit says the
+        // same with a second clause; and the um-clause may come first.
         alternatives: [
-          'Ich hätte gerne einen Termin.',
-          'Ich würde gern einen Termin vereinbaren.',
-          'Ich würde gerne einen Termin vereinbaren.',
-          'Ich würde gern einen Termin machen.',
-          'Ich würde gerne einen Termin machen.',
-          'Ich möchte einen Termin vereinbaren.',
-          'Ich möchte einen Termin machen.',
-          'Ich möchte einen Termin.',
-          'Ich möchte gern einen Termin.',
-          'Ich möchte gerne einen Termin.',
-          'Ich möchte gern einen Termin vereinbaren.',
-          'Ich möchte gerne einen Termin vereinbaren.',
+          'Ich brauche einen Termin, um den Antrag einzureichen.',
+          'Um den Antrag abzugeben, brauche ich einen Termin.',
+          'Um den Antrag einzureichen, brauche ich einen Termin.',
+          'Ich brauche einen Termin, damit ich den Antrag abgeben kann.',
         ],
         shape: 'sentence',
         hints: [],
       },
       {
-        id: 'pl-b1-2',
-        prompt: bi('I think that the rent is too high.', 'Мисля, че наемът е твърде висок.'),
-        answer: 'Ich finde, dass die Miete zu hoch ist.',
-        // finden, denken, glauben and meinen all say "I think" here. Leaving
-        // out dass (and putting the verb second) is just as correct.
+        id: 'pl-b1-konjunktiv',
+        prompt: bi('If I had more time, I would go to the doctor.', 'Ако имах повече време, бих отишъл на лекар.'),
+        answer: 'Wenn ich mehr Zeit hätte, würde ich zum Arzt gehen.',
+        // Either clause may come first, the wenn may give way to the verb,
+        // and ginge is the one-word Konjunktiv of gehen.
         alternatives: [
-          'Ich denke, dass die Miete zu hoch ist.',
-          'Ich glaube, dass die Miete zu hoch ist.',
-          'Ich meine, dass die Miete zu hoch ist.',
-          'Ich finde, die Miete ist zu hoch.',
-          'Ich denke, die Miete ist zu hoch.',
-          'Ich glaube, die Miete ist zu hoch.',
-          'Ich meine, die Miete ist zu hoch.',
-        ],
-        shape: 'sentence',
-        hints: [],
-      },
-      {
-        id: 'pl-b1-3',
-        prompt: bi('If I have time, I will come along.', 'Ако имам време, ще дойда с вас.'),
-        answer: 'Wenn ich Zeit habe, komme ich mit.',
-        // The prompt says "I will", so the werden future is a faithful answer,
-        // not a wrong one; falls is the other ordinary "if"; and either
-        // clause may come first.
-        alternatives: [
-          'Ich komme mit, wenn ich Zeit habe.',
-          'Wenn ich Zeit habe, werde ich mitkommen.',
-          'Ich werde mitkommen, wenn ich Zeit habe.',
-          'Falls ich Zeit habe, komme ich mit.',
-          'Ich komme mit, falls ich Zeit habe.',
-          'Falls ich Zeit habe, werde ich mitkommen.',
-          'Ich werde mitkommen, falls ich Zeit habe.',
+          'Ich würde zum Arzt gehen, wenn ich mehr Zeit hätte.',
+          'Hätte ich mehr Zeit, würde ich zum Arzt gehen.',
+          'Wenn ich mehr Zeit hätte, ginge ich zum Arzt.',
+          'Ich ginge zum Arzt, wenn ich mehr Zeit hätte.',
+          'Hätte ich mehr Zeit, ginge ich zum Arzt.',
         ],
         shape: 'sentence',
         hints: [],

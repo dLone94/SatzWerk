@@ -85,8 +85,8 @@ const genitiveBlocks: Block[] = [
     tone: 'warn',
     title: bi('Some prepositions demand it', 'Някои предлози го изискват'),
     text: bi(
-      'wegen, während, trotz and innerhalb take the genitive, and they are common in exactly the documents where it matters: **während der** Probezeit, **wegen des** Wetters, **innerhalb von** zwei Wochen.',
-      'wegen, während, trotz и innerhalb искат родителен падеж и се срещат точно в документите, където това има значение: **während der** Probezeit, **wegen des** Wetters, **innerhalb von** zwei Wochen.',
+      'wegen, während, trotz and innerhalb take the genitive, and they are common in exactly the documents where it matters: **während der** Probezeit, **wegen des** Wetters, **innerhalb eines** Monats. With a bare number and no article the genitive has nothing to show itself on, so German switches to von and the dative: innerhalb von zwei Wochen.',
+      'wegen, während, trotz и innerhalb искат родителен падеж и се срещат точно в документите, където това има значение: **während der** Probezeit, **wegen des** Wetters, **innerhalb eines** Monats. С голо число без член родителният падеж няма на какво да се види, затова немският минава на von с дателен падеж: innerhalb von zwei Wochen.',
     ),
   },
   {

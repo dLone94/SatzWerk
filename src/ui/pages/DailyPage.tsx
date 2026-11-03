@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { scriptById, scriptAnswerCount, patternById } from '../../content/browser.ts';
 import { phraseFrame } from '../../content/phraseFrames.ts';
 import { todayHere } from '../../core/progress/days.ts';
-import { GOAL_LABELS, type DailyRun, type DailyRunInput } from '../../core/progress/daily.ts';
+import { GOAL_LABELS, type DailyRunInput } from '../../core/progress/daily.ts';
 import { secondsPerAnswer } from '../../core/progress/session.ts';
 import { newWriteId } from '../../services/api/outbox.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { chooseDailyScript, dailyListening, dailyPhrases, dailyReview, phraseRecall } from '../dailyBuilder.ts';
+import { chooseDailyScript, dailyListening, dailyPhrases, dailyReview, fitsGoal, phraseRecall } from '../dailyBuilder.ts';
 import { AudioButton, Card, Meter } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 import { Icon } from '../components/icons.tsx';
@@ -29,12 +29,11 @@ export function DailyPage() {
 
 function DailyPractice() {
   const { t, say, lang, profile, lessons, reviewItems, mistakes, scenarioRuns, dailyRuns, stats,
-    recordDailyRun, recordScenarioRun, tts } = useApp();
+    recordDailyRun, recordScenarioRun, tts, checkpointResults } = useApp();
   const day = todayHere();
   const goal = profile.learningGoal ?? 'everyday';
-  const level = profile.practiceLevel ?? inferredPracticeLevel(lessons);
+  const level = profile.practiceLevel ?? inferredPracticeLevel(lessons, checkpointResults);
   const script = chooseDailyScript(goal, level, scenarioRuns, day);
-  const saved = dailyRuns.find(run => run.day === day && run.stage < 5 && scriptById(run.scriptId));
   const finished = dailyRuns.find(run => run.day === day && run.stage === 5);
   const [run, setRun] = useState<DailyRunInput | null>(null);
   const [paused, setPaused] = useState(false);
@@ -44,7 +43,30 @@ function DailyPractice() {
   const [listeningSummary, setListeningSummary] = useState<PlayerSummary | null>(null);
   const busyRef = useRef(false);
   const retryRef = useRef<(() => Promise<void>) | null>(null);
-  const currentScript = run ? scriptById(run.scriptId)! : script;
+  /*
+   * A goal or level chosen since a round began is a new plan. Choosing one
+   * used to change nothing: the card went on showing the open round, offered
+   * only to continue it, and estimated the time of the new plan instead. The
+   * new plan now comes first, and the open round stays one tap away, unless
+   * the new plan is the very conversation already under way. A level the app
+   * only inferred from the lessons was never chosen, so opening a lesson of
+   * the next level does not set aside the round under way.
+   */
+  const fitsPlan = (round: DailyRunInput) => round.scriptId === script.id
+    || round.goal === goal && (!profile.practiceLevel || scriptById(round.scriptId)!.level === profile.practiceLevel);
+  // Today's unfinished rounds, the one in hand first. Switching to a new plan
+  // and back leaves two of them, and the one that fits the plan is the one to
+  // continue: the latest alone would start that plan over and strand its parts.
+  const openToday = [...(run && run.stage < 5 ? [run] : []), ...dailyRuns.filter(round =>
+    round.id !== run?.id && round.day === day && round.stage < 5 && scriptById(round.scriptId))];
+  const fitting = openToday.find(fitsPlan);
+  // With none that fits, the plan card starts a new round and keeps the latest one tap away.
+  const earlier = fitting ? undefined : openToday[0];
+  // What the plan card offers. Also what follows a finished round: a beginner
+  // has a single conversation, and "Try another practice" brought back the same one.
+  const planScript = fitting ? scriptById(fitting.scriptId)! : script;
+  // The script on screen: the round being played, or the plan card's.
+  const currentScript = run && !paused ? scriptById(run.scriptId)! : planScript;
   const phrases = dailyPhrases(currentScript, lang);
   const review = useMemo(() => dailyReview(reviewItems, mistakes, currentScript.level, lang,
     Math.max(2, Math.min(6, Math.round(profile.dailyTargetMinutes / 3)))),
@@ -57,10 +79,29 @@ function DailyPractice() {
     * secondsPerAnswer(stats).seconds / 60 + 2));
 
   useEffect(() => () => tts.cancel(), [tts]);
+  /*
+   * Each part, and the finish, starts at the top of the page. They swap in
+   * place under the same address, so the page kept the scroll of the part
+   * before: Finish sits under a long card on a phone, and the celebration
+   * opened with its picture and tick above the screen. A layout effect, so it
+   * runs before the conversation scrolls its first line into view. Not on
+   * arrival: the route has already been put at the top.
+   */
+  const arrived = useRef(false);
+  useLayoutEffect(() => {
+    if (!arrived.current) {
+      arrived.current = true;
+      return;
+    }
+    window.scrollTo(0, 0);
+  }, [run?.stage, paused]);
   useEffect(() => {
     const heading = document.querySelector<HTMLElement>('.daily-page h1');
     if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
   }, [run?.stage, paused]);
+  // "Next phrase" swaps the card in place; its title says which phrase is now on it.
+  const phraseTitle = useRef<HTMLHeadingElement | null>(null);
+  useEffect(() => { if (cardIndex > 0) phraseTitle.current?.focus(); }, [cardIndex]);
 
   async function persist(next: DailyRunInput) {
     await recordDailyRun(next);
@@ -74,7 +115,7 @@ function DailyPractice() {
     try { await work(); retryRef.current = null; } catch { setProblem(true); retryRef.current = work; }
     finally { setBusy(false); busyRef.current = false; }
   }
-  function start(prior?: DailyRun) {
+  function start(prior?: DailyRunInput) {
     void change(async () => {
       const next: DailyRunInput = prior ?? { id: newWriteId(), day, scriptId: script.id, goal,
         stage: 0, total: 0, firstTryCorrect: 0, listeningCompleted: false };
@@ -83,6 +124,10 @@ function DailyPractice() {
       setCardIndex(0);
       setListeningSummary(null);
     });
+  }
+  function resume(round: DailyRunInput) {
+    if (round.id === run?.id) setPaused(false);
+    else start(round);
   }
   function advance(stage: number, summary?: PlayerSummary, listened = false) {
     if (!run) return;
@@ -109,26 +154,30 @@ function DailyPractice() {
       <p className="daily-finished__ability">{say(currentScript.goal)}</p>
       <p className="muted">{t('dailyFinishedNote')}</p>
       <div className="section-nav"><Link className="btn btn--primary" to="/">{t('navToday')}</Link>
-        <button type="button" className="btn btn--ghost" onClick={() => { setRun(null); setPaused(false); }}>{t('dailyAnother')}</button></div>
+        <button type="button" className="btn btn--ghost" onClick={() => { setRun(null); setPaused(false); }}>{t(planScript.id === currentScript.id ? 'dailyAgain' : 'dailyAnother')}</button></div>
     </section><PracticalProgress /></div>;
 
   if (!run || paused) return <div className="page daily-page">
     <header className="daily-intro"><p className="section-eyebrow">{t('dailyEyebrow')}</p>
       <h1 className="page__title">{t('dailyTitle')}</h1><p className="page__lede">{t('dailyLede')}</p></header>
     <section className="daily-plan" aria-labelledby="daily-plan-title">
-      <div className="daily-plan__copy"><span className="daily-plan__tag">{say(GOAL_LABELS[run?.goal ?? saved?.goal ?? goal])} · {(run ? currentScript : saved ? scriptById(saved.scriptId)! : script).level.toUpperCase()}</span>
-        <h2 id="daily-plan-title">{say((run ? currentScript : saved ? scriptById(saved.scriptId)! : script).goal)}</h2>
+      <div className="daily-plan__copy"><span className="daily-plan__tag">{say(GOAL_LABELS[goal])} · {currentScript.level.toUpperCase()}</span>
+        <h2 id="daily-plan-title">{say(currentScript.goal)}</h2>
+        {/* A goal with nothing written at this level is given another conversation; the tag alone hid that. */}
+        {fitsGoal(currentScript, goal) ? null : <p>{t('dailyGoalElsewhere')}</p>}
         <p>{t('dailyPlanNote')}</p>
         <button type="button" className="btn daily-plan__start" disabled={busy}
-          onClick={() => paused ? setPaused(false) : start(saved)}>
-          {t(busy ? 'loading' : run || saved ? 'dailyResume' : 'dailyStart')}<Icon name="arrow" size={20} /></button>
+          onClick={() => fitting ? resume(fitting) : start()}>
+          {t(busy ? 'loading' : fitting ? 'dailyResume' : 'dailyStart')}<Icon name="arrow" size={20} /></button>
         <p className="daily-plan__estimate">{t('dailyEstimate', { n: estimate })}</p>
+        {earlier ? <button type="button" className="btn btn--ghost daily-plan__earlier" disabled={busy} onClick={() => resume(earlier)}>
+          {t('dailyResumeEarlier', { plan: `${say(GOAL_LABELS[earlier.goal])} · ${scriptById(earlier.scriptId)!.level.toUpperCase()}` })}</button> : null}
       </div><div className="daily-plan__world"><DackelScene />
         <p className="daily-plan__world-note">{t('playAdventureNote')}</p></div>
     </section>{notice}
     <ol className="daily-plan__steps">{STAGES.map((key, index) => <li key={key}>
       <span>{String(index + 1).padStart(2, '0')}</span><strong>{t(key)}</strong></li>)}</ol>
-    {finished && !saved && !run ? <p className="daily-already"><Icon name="check" size={18} />{t('dailyAlreadyDone')}</p> : null}
+    {finished && openToday.length === 0 ? <p className="daily-already"><Icon name="check" size={18} />{t('dailyAlreadyDone')}</p> : null}
     <details className="daily-settings"><summary>{t('dailyPersonalise')}</summary><LearningPreferences /></details>
     <PracticalProgress />
     <Link className="daily-targeted-link" to="/session">{t('dailyOnlyReview')}<Icon name="arrow" size={18} /></Link>
@@ -145,7 +194,7 @@ function DailyPractice() {
       <li key={key} className={index < run.stage ? 'is-done' : index === run.stage ? 'is-current' : ''}
         aria-current={index === run.stage ? 'step' : undefined}><span>{index < run.stage ? <Icon name="check" size={14} /> : index + 1}</span><span>{t(key)}</span></li>)}</ol>
     {notice}
-    {run.stage === 0 && card ? <Card title={t('dailyPhraseCount', { n: cardIndex + 1, total: phrases.length })}>
+    {run.stage === 0 && card ? <Card title={t('dailyPhraseCount', { n: cardIndex + 1, total: phrases.length })} titleRef={phraseTitle}>
       <div className="phrase-card"><div className="phrase-card__buddy"><DackelMark /><span>{t('playSayIt')}</span></div>
         <p className="phrase-card__purpose">{say(card.purpose)}</p>
         <p className="phrase-card__german" lang="de">{card.german}</p>
@@ -159,9 +208,10 @@ function DailyPractice() {
           <span lang="de">{word.display}{word.plural ? ` → ${word.plural}` : ''}</span><span>{say(word.translation)}</span></p>)}
         <p className="muted">{t('dailyPhraseTip')}</p><SpeakCheck target={card.german} spec={card.step.answer} />
       </div><div className="section-nav"><button type="button" className="btn btn--primary" disabled={busy}
-        onClick={() => cardIndex + 1 < phrases.length ? setCardIndex(cardIndex + 1) : advance(review.length > 0 ? 1 : 2)}>
+        onClick={() => cardIndex + 1 < phrases.length ? setCardIndex(cardIndex + 1) : advance(1)}>
         {t(cardIndex + 1 < phrases.length ? 'dailyNextPhrase' : 'dailyPutToUse')}</button></div>
     </Card> : null}
+    {/* Shown even with nothing due: jumping past it left the track ticking a part that never happened. */}
     {run.stage === 1 ? review.length > 0 ? <ExercisePlayer key={`${run.id}-review`} exercises={review} context="review"
       level={currentScript.level} onFinish={summary => advance(2, summary)} /> : <Card title={t('dailyReviewClear')}>
         <p>{t('dailyReviewClearNote')}</p><button type="button" className="btn btn--primary" disabled={busy} onClick={() => advance(2)}>{t('exerciseContinue')}</button></Card> : null}

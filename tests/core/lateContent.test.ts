@@ -109,6 +109,76 @@ describe('traps that call correct German correct', () => {
   });
 });
 
+describe('the Perfekt that A2 Unit 1 calls not wrong', () => {
+  /*
+   * Lesson a2-u1-l3 says the Perfekt forms of sein, haben and es gibt "are
+   * not wrong, but they sound heavy", and then only "Last weekend I was in
+   * Berlin" credited them. "Ich habe keine Zeit gehabt." was the wrong tense
+   * in the exercise and the unit checkpoint, and two Perfekt answers in the
+   * three-step final check failed it outright.
+   */
+  it('credits it on every war, hatte and es gab step, and still shows the simple past', () => {
+    expect(
+      rejected({
+        'a2u1l3-ex2-s2': ['Ich habe keine Zeit gehabt.'],
+        'a2u1l3-ex2-s3': ['Es hat ein Konzert gegeben.'],
+        'a2u1l3-ex2-s4': ['Der Film ist langweilig gewesen.'],
+        'a2u1l3-m1-s1': ['Letztes Wochenende bin ich zu Hause gewesen.', 'Ich bin letztes Wochenende zu Hause gewesen.'],
+        'a2u1l3-m1-s2': ['Es hat eine Party gegeben.'],
+        'a2u1l3-m1-s3': ['Es ist super gewesen.'],
+        'cp-a2u1-3-s2': ['Ich habe keine Zeit gehabt.'],
+        'cp-a2u1-3-s3': ['Es hat ein Konzert gegeben.'],
+        'a2-lcp-1-s5': ['Es hat ein Konzert gegeben.'],
+      }),
+    ).toEqual([]);
+    expect(validateAnswer('Ich habe keine Zeit gehabt.', step('cp-a2u1-3-s2').answer, opts).target).toBe(
+      'Ich hatte keine Zeit.',
+    );
+  });
+
+  it('leaves no war, hatte or es gab sentence anywhere in A2 without it', () => {
+    // Every typed sentence in an A2 lesson or checkpoint that uses the simple
+    // past of sein, haben or es gibt. Units 3 and 5 kept calling the Perfekt
+    // the wrong tense after this lesson had said it was not, so the scan
+    // covers the whole level rather than the lesson that says so.
+    const exercises = [
+      ...availableLessons()
+        .filter((lesson) => lesson.level === 'a2')
+        .flatMap((lesson) => lessonExercises(lesson)),
+      ...allCheckpoints()
+        .filter((checkpoint) => checkpoint.targetId.startsWith('a2'))
+        .flatMap((checkpoint) => checkpoint.exercises),
+    ].filter((exercise) => exercise.kind === 'type');
+    const missing: string[] = [];
+    let checked = 0;
+    for (const exercise of exercises) {
+      for (const entry of exercise.steps) {
+        if (!/\b(war|hatte|gab)\b/.test(entry.answer.accepted[0]!)) continue;
+        checked += 1;
+        const perfekt = (entry.answer.alternatives ?? []).filter((answer) => /\b(gewesen|gehabt|gegeben)\b/.test(answer));
+        if (perfekt.length === 0 || !perfekt.every((answer) => isRight(answer, entry.id))) missing.push(entry.id);
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(22);
+    expect(missing).toEqual([]);
+  });
+
+  it('credits it in the later units too, with the simple past still shown', () => {
+    expect(
+      rejected({
+        'a2u3l2-ex2-s4': ['Die Prüfung ist einfach gewesen.'],
+        'a2u5l1-m1-s3': ['Das Hotel ist besser gewesen.'],
+        'a2u5l2-m1-s2': ['Das ist das beste Hotel gewesen.'],
+        'cp-a2u5-2-s2': ['Das ist das beste Hotel gewesen.'],
+        'cp-a2u5-3-s3': ['Ich habe den Zug verpasst, weil der Bus Verspätung gehabt hat.'],
+      }),
+    ).toEqual([]);
+    expect(validateAnswer('Das Hotel ist besser gewesen.', step('a2u5l1-m1-s3').answer, opts).target).toBe(
+      'Das Hotel war besser.',
+    );
+  });
+});
+
 describe('A2 accepts what it teaches', () => {
   /*
    * The future lesson teaches "Ich werde Deutsch lernen" and then marked
@@ -343,6 +413,20 @@ describe('answers that contradicted their own prompt or the course', () => {
       }),
     ).toEqual([]);
     expect(step('b2u5l2-ex3-s4').answer.accepted[0]).toBe('Ich melde mich nach Feierabend.');
+  });
+
+  it('accepts the other standard words for "last weekend" and "lift"', () => {
+    // The A2 final check said German does not need "Am" and that "Letztes"
+    // was misspelt; B1 called Fahrstuhl a vocabulary mistake.
+    expect(
+      rejected({
+        'a2u1l3-m1-s1': ['Am letzten Wochenende war ich zu Hause.', 'Ich war am letzten Wochenende zu Hause.'],
+        'a2u1l3-ex2-s1': ['Am letzten Wochenende war ich in Berlin.'],
+        'cp-a2u1-3-s1': ['Am letzten Wochenende war ich in Berlin.'],
+        'a2-lcp-1-s4': ['Am letzten Wochenende war ich in Berlin.'],
+        'b1u1l2-ex3-s3': ['Die Wohnung ist im dritten Stock und es gibt keinen Fahrstuhl.'],
+      }),
+    ).toEqual([]);
   });
 });
 

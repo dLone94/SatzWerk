@@ -29,7 +29,25 @@ const PASSWORD = 'a-long-enough-password';
 const HASH = auth.hashPassword(PASSWORD);
 const ENV = { DATABASE_URL: 'postgresql://x' } as NodeJS.ProcessEnv;
 
-const databases: Array<[string, () => Promise<Db>]> = [['sqlite', () => openDatabase({ path: ':memory:' })]];
+/**
+ * Each database comes with a way to open a second handle on it: on Postgres
+ * that is a second pool, which is what a second instance of the hosted app
+ * is. A local server is one process, so on SQLite it is the same handle.
+ */
+interface Opened {
+  db: Db;
+  another: () => Promise<Db>;
+}
+
+const databases: Array<[string, () => Promise<Opened>]> = [
+  [
+    'sqlite',
+    async () => {
+      const db = await openDatabase({ path: ':memory:' });
+      return { db, another: async () => db };
+    },
+  ],
+];
 if (process.env.TEST_DATABASE_URL) {
   databases.push([
     'postgres',
@@ -43,7 +61,16 @@ if (process.env.TEST_DATABASE_URL) {
       await admin.query('DROP SCHEMA IF EXISTS login_limit CASCADE; CREATE SCHEMA login_limit;');
       await admin.end();
       const separator = url.includes('?') ? '&' : '?';
-      return openDatabase({ databaseUrl: `${url}${separator}options=-c%20search_path%3Dlogin_limit` });
+      const own = `${url}${separator}options=-c%20search_path%3Dlogin_limit`;
+      const db = await openDatabase({ databaseUrl: own });
+      return {
+        db,
+        another: async () => {
+          const second = await openDatabase({ databaseUrl: own });
+          opened.push(second);
+          return second;
+        },
+      };
     },
   ]);
 }
@@ -55,9 +82,10 @@ afterAll(async () => {
 
 describe.each(databases)('signing in, on %s', (_name, open) => {
   let db: Db;
+  let another: () => Promise<Db>;
 
   beforeEach(async () => {
-    db = await open();
+    ({ db, another } = await open());
     opened.push(db);
     await store.setPasswordHash(db, HASH);
     vi.useFakeTimers({ toFake: ['Date'] });
@@ -69,10 +97,43 @@ describe.each(databases)('signing in, on %s', (_name, open) => {
     vi.useRealTimers();
   });
 
-  async function login(password: string, clientIp = '203.0.113.7') {
-    const ctx = { db, provider: unavailableProvider, auth: await resolveAuth(db, ENV) };
+  async function login(password: string, clientIp = '203.0.113.7', on: Db = db) {
+    const ctx = { db: on, provider: unavailableProvider, auth: await resolveAuth(on, ENV) };
     return handleRequest(ctx, { method: 'POST', path: '/api/login', body: { password }, clientIp });
   }
+
+  /*
+   * Guesses that arrive together. The wait was read before the password was
+   * checked and the miss written after it, by reading the count and writing
+   * back one more. Every guess sent while the count was still under five was
+   * checked, and two misses saved at the same moment could count as one: on
+   * two instances of the hosted app, bursts of four checked eight passwords
+   * where five are allowed, and a stored count of seven followed eight misses.
+   */
+  it('checks no more than five passwords when guesses arrive together on two instances', async () => {
+    const second = await another();
+    const real = (await vi.importActual<typeof import('../../server/auth.ts')>('../../server/auth.ts')).verifyPassword;
+    // Wrong, and slow enough that the two in each pair are checked together.
+    vi.mocked(auth.verifyPassword).mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return false;
+    });
+    const statuses: number[] = [];
+    try {
+      for (let round = 0; round < 5; round += 1) {
+        const pair = await Promise.all([login(`guess-${round}-a`), login(`guess-${round}-b`, '203.0.113.7', second)]);
+        statuses.push(...pair.map((response) => response.status));
+      }
+    } finally {
+      vi.mocked(auth.verifyPassword).mockImplementation(real);
+    }
+    expect(auth.verifyPassword).toHaveBeenCalledTimes(5);
+    expect(statuses.filter((status) => status === 401)).toHaveLength(5);
+    expect(statuses.filter((status) => status === 429)).toHaveLength(5);
+    // Every miss counted: the sixth try's wait is the first one, not a shorter one.
+    const row = await db.get<{ value: string }>('SELECT value FROM meta WHERE key = ?', 'login_fail:203.0.113.7');
+    expect(row?.value.split(':')[1]).toBe('5');
+  });
 
   it('makes a client wait after five wrong passwords, without checking the sixth', async () => {
     for (let i = 1; i <= 5; i += 1) {
