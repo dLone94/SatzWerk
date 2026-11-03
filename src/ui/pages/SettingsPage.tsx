@@ -26,6 +26,7 @@ export function SettingsPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [passwordDone, setPasswordDone] = useState(false);
+  const [passwordChosen, setPasswordChosen] = useState(false);
   const stats = contentStats();
   // Named from the curriculum itself, so the sentence cannot outlive the gap
   // it describes.
@@ -181,7 +182,15 @@ export function SettingsPage() {
         {resetDone ? <p className="done-note">{t('settingsResetDone')}</p> : null}
       </Card>
 
-      {/* Only meaningful on a hosted copy: locally there is no session at all. */}
+      {/*
+        A local copy with no password is open on this computer only, and the
+        README, the startup log and the setup refusal all send the owner here
+        to choose one before a phone can sign in. So that copy gets a card for
+        the first password; one that has a password gets the change form.
+      */}
+      {!session.required ? (
+        <ChoosePassword onChosen={() => setPasswordChosen(true)} />
+      ) : null}
       {session.required ? (
         <Card title={t('passwordChange')}>
           {session.canChangePassword === false ? (
@@ -232,6 +241,7 @@ export function SettingsPage() {
                 </p>
               ) : null}
               {passwordDone ? <p className="done-note">{t('passwordChanged')}</p> : null}
+              {passwordChosen && !passwordDone ? <p className="done-note">{t('passwordChosen')}</p> : null}
               <button
                 type="submit"
                 className="btn btn--primary"
@@ -249,6 +259,75 @@ export function SettingsPage() {
         </Card>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The first password, on a copy that has none.
+ *
+ * Only ever shown on this computer: anything else reaching a copy with no
+ * password is answered as a hosted one and gets the setup screen, which
+ * refuses to finish from there. There is no current password to ask for, so
+ * the new one is typed twice instead, as on the setup screen — a typo here
+ * would lock the owner out of their own copy at the next sign-in.
+ */
+function ChoosePassword({ onChosen }: { onChosen: () => void }) {
+  const { t, changePassword } = useApp();
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const mismatch = confirm.length > 0 && confirm !== password;
+  const tooShort = password.length > 0 && password.length < 10;
+  const ready = password.length >= 10 && confirm === password;
+
+  return (
+    <Card title={t('setupTitle')} subtitle={t('passwordLocalIntro')}>
+      <form
+        className="password-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (busy || !ready) return;
+          setBusy(true);
+          setError(null);
+          // The same route as a change; with no password yet there is no
+          // current one for it to check.
+          void changePassword('', password)
+            .then(onChosen)
+            .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
+            .finally(() => setBusy(false));
+        }}
+      >
+        <label htmlFor="first-password">{t('setupPassword')}</label>
+        <input
+          id="first-password"
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+        />
+        <label htmlFor="first-password-again">{t('setupConfirm')}</label>
+        <input
+          id="first-password-again"
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(event) => setConfirm(event.target.value)}
+        />
+        {tooShort ? <p className="login__hint">{t('setupTooShort')}</p> : null}
+        {mismatch ? <p className="login__hint">{t('setupMismatch')}</p> : null}
+        {error ? (
+          <p className="login__error" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <button type="submit" className="btn btn--primary" disabled={busy || !ready}>
+          {busy ? t('loginWorking') : t('setupTitle')}
+        </button>
+        <p className="card__foot">{t('setupNote')}</p>
+      </form>
+    </Card>
   );
 }
 

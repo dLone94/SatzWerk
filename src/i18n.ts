@@ -167,6 +167,15 @@ export const UI = {
     'Password changed. Any other device that was signed in has been signed out.',
     'Паролата е сменена. Всяко друго устройство, което беше влязло, е излязло.',
   ),
+  // Choosing the first one on a local copy, in Settings
+  passwordLocalIntro: s(
+    'This copy is open on this computer only. Choose a password, and your other devices — a phone on the same Wi-Fi — can sign in with it. This computer will ask for it too once this sign-in ends.',
+    'Това копие е отворено само на този компютър. Избери парола и другите ти устройства — например телефон в същата Wi-Fi мрежа — ще могат да влизат с нея. Когато този вход изтече, и този компютър ще я поиска.',
+  ),
+  passwordChosen: s(
+    'Password set. Your other devices can sign in with it now.',
+    'Паролата е зададена. Другите ти устройства вече могат да влизат с нея.',
+  ),
   passwordFromEnv: s(
     'The password comes from an environment variable on the host, so it has to be changed there.',
     'Паролата идва от променлива на средата при хостинга, затова трябва да се смени там.',

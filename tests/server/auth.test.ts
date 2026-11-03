@@ -501,6 +501,54 @@ describe('the API behind the login', () => {
     await db.close();
   });
 
+  /*
+   * The first password on a local copy, which is how a phone on the same
+   * network gets to sign in at all. Open mode has no session secret yet, and
+   * the route stored the hash and then signed the cookie with no key: a 500
+   * that said nothing was saved, after the password had locked every open tab.
+   */
+  it('chooses the first password on an open local copy and keeps this device signed in', async () => {
+    const db = await openDatabase({ path: ':memory:' });
+    const env = {} as NodeJS.ProcessEnv;
+    const before = await resolveAuth(db, env);
+    expect(authState(before)).toBe('open');
+
+    const chosen = await handleRequest(
+      { db, provider: unavailableProvider, auth: before },
+      { method: 'POST', path: '/api/password', body: { newPassword: PASSWORD } },
+    );
+    expect(chosen.status).toBe(200);
+    expect(chosen.body).toMatchObject({ required: true, signedIn: true });
+    const cookie = /(satzwerk_session=[^;]+)/.exec(chosen.headers!['set-cookie']!)![1]!;
+
+    const after = await resolveAuth(db, env);
+    expect(authState(after)).toBe('required');
+    const ctx = { db, provider: unavailableProvider, auth: after };
+    expect((await handleRequest(ctx, { method: 'GET', path: '/api/state', headers: { cookie } })).status).toBe(200);
+    expect((await handleRequest(ctx, { method: 'GET', path: '/api/state' })).status).toBe(401);
+    await db.close();
+  });
+
+  it('stores no password when the route cannot also sign this device in', async () => {
+    const db = await openDatabase({ path: ':memory:' });
+    const failing: Db = {
+      ...db,
+      // The secret is the one write that comes before the hash; if it fails,
+      // nothing may have been stored that locks the open tabs out.
+      run: async (sql, ...params) => {
+        if (/session_secret/.test(String(params[0]))) throw new Error('disk full');
+        return db.run(sql, ...params);
+      },
+    };
+    const response = await handleRequest(
+      { db: failing, provider: unavailableProvider, auth: { hosted: false } },
+      { method: 'POST', path: '/api/password', body: { newPassword: PASSWORD } },
+    ).catch((error: Error) => ({ status: 500, body: { error: error.message } }));
+    expect(response.status).toBe(500);
+    expect(await store.getPasswordHash(db)).toBeNull();
+    await db.close();
+  });
+
   it('signs out by clearing the cookie', async () => {
     const db = await openDatabase({ path: ':memory:' });
     const response = await open(db, '/api/logout', 'POST');

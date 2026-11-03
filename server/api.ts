@@ -504,12 +504,18 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     if (problem) return { status: 400, body: { error: problem } };
 
     const passwordHash = hashPassword(next);
-    await store.setPasswordHash(db, passwordHash);
     // Sessions are signed with a key bound to the password hash (see
     // sessionKey), so the new hash alone ends every existing session, this
     // device's included — whether the secret is stored or comes from the
     // environment. This device gets a fresh cookie under the new key.
-    const token = createSession(sessionKey({ sessionSecret: auth.sessionSecret, passwordHash })!, 1);
+    //
+    // A local copy choosing its first password has no secret yet: open mode
+    // never needed one. The cookie is signed before the hash is stored, so a
+    // failure here leaves the copy open rather than locking every open tab out
+    // behind a password the learner was told was not saved.
+    const secret = auth.sessionSecret ?? (await store.getOrCreateSessionSecret(db));
+    const token = createSession(sessionKey({ sessionSecret: secret, passwordHash })!, 1);
+    await store.setPasswordHash(db, passwordHash);
     return {
       status: 200,
       body: { required: true, signedIn: true, needsSetup: false, canChangePassword: true },
