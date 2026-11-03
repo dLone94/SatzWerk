@@ -2894,6 +2894,12 @@ textarea.answer-field {
   margin-top: 0.3rem;
 }
 
+/* A rule the last try broke, as on the setup screen. */
+.password-form .login__hint--wrong {
+  color: var(--bad);
+  font-weight: 600;
+}
+
 /* ==================================================================== *
  * Motion
  *
