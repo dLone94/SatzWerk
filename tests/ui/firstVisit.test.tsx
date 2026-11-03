@@ -19,6 +19,8 @@ import { App } from '../../src/ui/App.tsx';
 
 let profile = { teachingLanguage: 'en' as 'en' | 'bg', onboarded: false };
 const profileWrites: Record<string, unknown>[] = [];
+/** When set, a profile write waits for this before it is answered; 'fail' answers 500. */
+let profileWriteGate: Promise<void> | 'fail' | null = null;
 const originalFetch = globalThis.fetch;
 
 const json = (body: unknown, status = 200) =>
@@ -32,6 +34,7 @@ beforeEach(() => {
   document.documentElement.lang = 'en';
   profile = { teachingLanguage: 'en', onboarded: false };
   profileWrites.length = 0;
+  profileWriteGate = null;
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -39,6 +42,8 @@ beforeEach(() => {
     if (url.endsWith('/api/profile') && init?.method === 'PUT') {
       const patch = JSON.parse(String(init.body)) as Record<string, unknown>;
       profileWrites.push(patch);
+      if (profileWriteGate === 'fail') return json({ error: 'database unavailable' }, 500);
+      if (profileWriteGate) await profileWriteGate;
       profile = { ...profile, ...(patch as Partial<typeof profile>) };
       return json(fullProfile());
     }
@@ -136,6 +141,66 @@ describe('the language of a first visit', () => {
     await userEvent.click(within(screen.getByRole('main')).getByRole('button', { name: /^English/ }));
     expect(await screen.findByRole('heading', { level: 1, name: tr('onboardingTitle', 'en') })).toBeInTheDocument();
     expect(localStorage.getItem('satzwerk.lang')).toBe('en');
+  });
+
+  /*
+   * The language used to be switched by the welcome screen itself, after it
+   * had appeared: it showed English until the save came back, and a tap on
+   * English or Start in that moment raced the save still in flight.
+   */
+  it('never shows the welcome in English while the device\u2019s language is being saved', async () => {
+    localStorage.setItem('satzwerk.lang', 'bg');
+    let land = () => {};
+    profileWriteGate = new Promise<void>((resolve) => (land = resolve));
+    const titles: string[] = [];
+    const watch = new MutationObserver(() => {
+      for (const title of document.querySelectorAll('h1')) titles.push(title.textContent ?? '');
+    });
+    watch.observe(document.body, { childList: true, subtree: true, characterData: true });
+    try {
+      visit('/');
+      await waitFor(() => expect(profileWrites).toEqual([{ teachingLanguage: 'bg' }]));
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+      // Still loading, and saying so in Bulgarian: there is nothing to tap yet.
+      expect(screen.queryByRole('button')).not.toBeInTheDocument();
+      expect(document.documentElement.lang).toBe('bg');
+
+      land();
+      expect(await screen.findByRole('heading', { level: 1, name: tr('onboardingTitle', 'bg') })).toBeInTheDocument();
+      expect(document.documentElement.lang).toBe('bg');
+      expect(titles).not.toContain(tr('onboardingTitle', 'en'));
+    } finally {
+      watch.disconnect();
+    }
+  });
+
+  it('shows what was saved when the device\u2019s language could not be', async () => {
+    localStorage.setItem('satzwerk.lang', 'bg');
+    profileWriteGate = 'fail';
+    visit('/');
+    // The server still holds English, so the screen says so, and the
+    // learner's own tap on Български is the next try.
+    expect(await screen.findByRole('heading', { level: 1, name: tr('onboardingTitle', 'en') })).toBeInTheDocument();
+    expect(within(screen.getByRole('main')).getByRole('button', { name: /^English/ })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  /*
+   * Only English is the server's default. A profile in Bulgarian was set by
+   * somebody, on the welcome screen, perhaps on another phone, and stopping
+   * there must not cost them that choice on a device that guesses English.
+   */
+  it('keeps a language somebody already chose for a profile not yet set up', async () => {
+    localStorage.setItem('satzwerk.lang', 'en');
+    profile = { teachingLanguage: 'bg', onboarded: false };
+    visit('/');
+    expect(await screen.findByRole('heading', { level: 1, name: tr('onboardingTitle', 'bg') })).toBeInTheDocument();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(profileWrites).toEqual([]);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveAccessibleName(tr('onboardingTitle', 'bg'));
   });
 
   it('leaves alone a profile that is already set up', async () => {

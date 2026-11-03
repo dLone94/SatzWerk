@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TeachingLanguage } from '../../content/types.ts';
 import { contentStats, unauthoredLevels } from '../../content/browser.ts';
@@ -6,7 +6,6 @@ import { UI, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Icon } from '../components/icons.tsx';
 import { DackelScene } from '../components/Dackel.tsx';
-import { deviceLanguage } from '../deviceLanguage.ts';
 
 const TARGETS = [10, 20, 30];
 
@@ -36,19 +35,6 @@ export function OnboardingPage() {
       : lang === 'bg'
         ? ` ${pending.join(', ')} засега ${pending.length === 1 ? 'е само план' : 'са само план'}.`
         : ` ${pending.join(', ')} ${pending.length === 1 ? 'is' : 'are'} an outline only so far.`;
-
-  /*
-   * A new profile arrives in English, which nobody chose. The device knows
-   * better — the language last used on it, or the phone's own — so the
-   * screen starts there: a Bulgarian phone, or a learner added from the
-   * Bulgarian app, no longer opens on an English welcome with English
-   * selected. Once, on arrival; after that the learner's own taps decide.
-   */
-  useEffect(() => {
-    const here = deviceLanguage();
-    if (!profile.onboarded && here !== profile.teachingLanguage) void setTeachingLanguage(here);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const choose = async (next: TeachingLanguage) => {
     await setTeachingLanguage(next);

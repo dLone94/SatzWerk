@@ -311,6 +311,34 @@ function withHeld(state: AppStateSnapshot): AppStateSnapshot {
   return { ...state, lessons: Object.values(lessons), reviewItems, dailyRuns };
 }
 
+/**
+ * A profile nobody has set up yet, moved to the language this device uses.
+ *
+ * The server creates every profile in English, which nobody chose. A phone
+ * set to Bulgarian, or a learner added from the Bulgarian app, opened the
+ * welcome screen in English with English selected. The device knows better:
+ * the language last chosen on it, or the phone's own.
+ *
+ * Only ever away from English. The server never starts a profile in
+ * Bulgarian, so a Bulgarian one is somebody's choice, and it stays even on a
+ * device that would have guessed English.
+ *
+ * Saved before the welcome screen is shown, while the loading screen is still
+ * up, rather than after it: switched afterwards, the screen showed English
+ * until the save came back, and a tap on English or Start in that moment
+ * raced it. If the save fails the welcome shows what the server holds, and
+ * the learner's own tap on their language is the next attempt.
+ */
+async function inDeviceLanguage(profile: Profile): Promise<Profile> {
+  const here = deviceLanguage();
+  if (profile.onboarded || profile.teachingLanguage !== 'en' || here === 'en') return profile;
+  try {
+    return await api.updateProfile({ teachingLanguage: here });
+  } catch {
+    return profile;
+  }
+}
+
 /** How often we flush accumulated active time to the server. */
 const STUDY_FLUSH_MS = 60_000;
 
@@ -388,7 +416,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         api.coachStatus(),
         api.learners(),
       ]);
-      setSnapshot(withHeld(state));
+      setSnapshot(withHeld({ ...state, profile: await inDeviceLanguage(state.profile) }));
       setCoach(coachStatus);
       setLearners(household.learners);
       setStudyingAs(household.studyingAs);
@@ -466,8 +494,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const lang = profile.teachingLanguage;
   const knowsLanguage = snapshot !== null;
   // Remembered once somebody chose it. A profile that has not been through
-  // the welcome screen carries the server's default, and writing that here
-  // replaced the language this device was really using.
+  // the welcome screen carries the server's default, or this device's own
+  // guess, and writing the default here replaced the language this device
+  // was really using.
   const chosen = knowsLanguage && profile.onboarded;
   useEffect(() => {
     markPageLanguage(lang);
