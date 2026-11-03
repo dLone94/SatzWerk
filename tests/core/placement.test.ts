@@ -156,6 +156,7 @@ describe('the placement questions', () => {
     'pl-b1-konjunktiv': [
       'Ich würde zum Arzt gehen, wenn ich mehr Zeit hätte.',
       'Hätte ich mehr Zeit, würde ich zum Arzt gehen.',
+      'Hätte ich mehr Zeit, ginge ich zum Arzt.',
     ],
     // würden is Konjunktiv II too, and just as polite.
     'pl-b1-4': ['Könnten Sie das bitte noch einmal wiederholen?', 'Würden Sie das bitte wiederholen?'],

@@ -222,6 +222,7 @@ const B1 = [
           'Hätte ich mehr Zeit, würde ich zum Arzt gehen.',
           'Wenn ich mehr Zeit hätte, ginge ich zum Arzt.',
           'Ich ginge zum Arzt, wenn ich mehr Zeit hätte.',
+          'Hätte ich mehr Zeit, ginge ich zum Arzt.',
         ],
         shape: 'sentence',
         hints: [],
