@@ -220,3 +220,166 @@ describe('what a screen reader hears', () => {
     expect(field()).toHaveAccessibleDescription(/Ich wohne in Hamburg\./);
   });
 });
+
+/** The player's own polite region, which outlives every question. */
+const liveRegion = () => document.querySelector('.player > [role="status"][aria-live="polite"]')!;
+
+describe('a new question, for a keyboard and a screen reader', () => {
+  const choose = multipleChoice('sr-pick', bi('Pick the greeting', 'Избери поздрава'), [
+    {
+      id: 'sr-pick-s1',
+      prompt: bi('It is 8 in the morning.', 'Осем сутринта е.'),
+      answer: 'Guten Morgen',
+      choices: [
+        { id: 'a', de: 'Guten Abend' },
+        { id: 'b', de: 'Guten Morgen' },
+      ],
+      correct: 'b',
+    },
+    {
+      id: 'sr-pick-s2',
+      prompt: bi('You are going to bed.', 'Лягаш си.'),
+      answer: 'Gute Nacht',
+      choices: [
+        { id: 'a', de: 'Gute Nacht' },
+        { id: 'b', de: 'Guten Tag' },
+      ],
+      correct: 'a',
+    },
+  ]);
+  const choices = () => screen.getByRole('group', { name: tr('exerciseChoose', 'en') });
+
+  /*
+   * Only a text field was ever focused. On a choice question nothing was, so
+   * focus fell to the page: Enter did nothing, a screen reader was not taken
+   * to the question, and it took four or five Tabs to reach the options.
+   */
+  it('lands on the options of a choice question, and on the next one after Continue', async () => {
+    const user = userEvent.setup();
+    const { attempts } = mount({ exercises: [choose] });
+    expect(choices()).toHaveFocus();
+    // A stray Enter on the question picks nothing.
+    await user.keyboard('{Enter}');
+    expect(attempts).toHaveLength(0);
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Guten Abend' })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Guten Morgen' }));
+    await user.click(await screen.findByRole('button', { name: tr('exerciseContinue', 'en') }));
+    expect(stepIdOnScreen()).toBe('sr-pick-s2');
+    await waitFor(() => expect(choices()).toHaveFocus());
+  });
+
+  /*
+   * The field a learner lands in was named "Type your answer in German" and
+   * described as "Enter to check" at every step, the same words each time:
+   * nothing said the question had changed, or what it asked.
+   */
+  it('describes the field by the question it answers, and the options too', async () => {
+    const user = userEvent.setup();
+    mount({ exercises: [sentences, choose], onlyStepIds: ['sup-1', 'sup-2', 'sr-pick-s1'] });
+    expect(field()).toHaveAccessibleDescription(/^1 of 3 Sentence 1 Enter to check$/);
+
+    await answerRight(user);
+    await waitFor(() => expect(field()).toHaveAccessibleDescription(/^2 of 3 Sentence 2 Enter to check$/));
+
+    await answerRight(user);
+    expect(choices()).toHaveAccessibleDescription('3 of 3 It is 8 in the morning.');
+  });
+
+  it('describes a dictation by its instruction, not by the sentence it hides', () => {
+    const heard = dictation('sr-heard', bi('Listen', 'Слушай'), [
+      {
+        id: 'sr-heard-s1',
+        instruction: bi('Type the whole greeting you hear.', 'Напиши целия поздрав, който чуваш.'),
+        prompt: bi('Good night!', 'Лека нощ!'),
+        audio: 'Gute Nacht!',
+        answer: 'Gute Nacht!',
+      },
+    ]);
+    mount({ exercises: [heard] }, { tts: silentVoice });
+    expect(field()).toHaveAccessibleDescription(/^1 of 1 Type the whole greeting you hear\. Enter to check$/);
+  });
+});
+
+describe('help asked for, and a correction typed', () => {
+  const twoHints: Exercise = typeIt('sr-hints', bi('Spelling', 'Правопис'), [
+    {
+      id: 'sr-hints-s1',
+      prompt: bi('Rewrite: heisse', 'Напиши: heisse'),
+      answer: 'heiße',
+      shape: 'word',
+      hints: [bi('Replace ss with one letter.', 'Замени ss с една буква.'), bi('Use the ß button.', 'Използвай бутона ß.')],
+    },
+  ]);
+
+  /*
+   * A hint appeared silently below the controls, and opening the last one
+   * disabled the very button that had focus, so focus fell to the page.
+   */
+  it('reads each hint out, and moves on to the field after the last one', async () => {
+    const user = userEvent.setup();
+    mount({ exercises: [twoHints] });
+    await user.click(screen.getByRole('button', { name: tr('exerciseHintCount', 'en', { n: 1, total: 2 }) }));
+    await waitFor(() => expect(liveRegion().textContent).toContain('Replace ss with one letter.'));
+    expect(screen.getByRole('button', { name: tr('exerciseHintCount', 'en', { n: 2, total: 2 }) })).toHaveFocus();
+
+    await user.click(screen.getByRole('button', { name: tr('exerciseHintCount', 'en', { n: 2, total: 2 }) }));
+    await waitFor(() => expect(liveRegion().textContent).toContain('Use the ß button.'));
+    expect(field()).toHaveFocus();
+    expect(field()).toHaveAccessibleDescription(/Replace ss with one letter\..*Use the ß button\./);
+  });
+
+  it('tells the field what the shown answer is', async () => {
+    const user = userEvent.setup();
+    mount({ exercises: [twoHints] });
+    await user.click(screen.getByRole('button', { name: tr('exerciseReveal', 'en') }));
+    expect(field()).toHaveFocus();
+    expect(field()).toHaveAccessibleDescription(/heiße/);
+  });
+
+  /*
+   * The last replay disabled the play button that had focus. The replay
+   * count said so, but focus was on the page, and the next key did nothing.
+   */
+  it('moves on to the field when the last replay of a dictation is spent', async () => {
+    const user = userEvent.setup();
+    const heard = dictation('sr-replay', bi('Listen', 'Слушай'), [
+      { id: 'sr-replay-s1', audio: 'Gute Nacht!', answer: 'Gute Nacht!' },
+    ]);
+    mount({ exercises: [heard], level: 'a1' }, { tts: silentVoice });
+    const play = screen.getByRole('button', { name: tr('exercisePlayAudio', 'en') });
+    play.focus();
+    await user.keyboard('{Enter}');
+    expect(play).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(play).toBeDisabled();
+    expect(field()).toHaveFocus();
+  });
+
+  /*
+   * A wrong retype showed "Type the correction to continue." to the eye only,
+   * and a right one moved to Continue still described as "Not quite.", with
+   * nothing on screen saying the correction had been taken.
+   */
+  it('says a retype is still wrong, and says so again when it is accepted', async () => {
+    const user = userEvent.setup();
+    mount({ exercises: [sentences] });
+    await user.type(field(), 'völlig falsch{Enter}');
+    await waitFor(() => expect(document.querySelector('.feedback__retype-target')).not.toBeNull());
+
+    await user.type(field(), 'noch falsch{Enter}');
+    await waitFor(() => expect(liveRegion().textContent).toBe(tr('exerciseRetypeLocked', 'en')));
+    expect(field()).toHaveAccessibleDescription(new RegExp(tr('exerciseRetypeLocked', 'en')));
+
+    await user.clear(field());
+    await user.type(field(), 'Ich wohne in Hamburg.{Enter}');
+    const continueButton = await screen.findByRole('button', { name: tr('exerciseContinue', 'en') });
+    expect(continueButton).toHaveFocus();
+    expect(continueButton).toHaveAccessibleDescription(tr('exerciseRetypeDone', 'en'));
+    expect(screen.getByText(tr('exerciseRetypeDone', 'en'))).toBeVisible();
+    await waitFor(() => expect(liveRegion().textContent).toBe(tr('exerciseRetypeDone', 'en')));
+    // The field holds the accepted correction, so it no longer says "wrong".
+    expect(field()).not.toHaveClass('answer-field--error');
+  });
+});

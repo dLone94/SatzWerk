@@ -53,6 +53,12 @@ export interface AnswerInputProps {
    * sentences: on a single word it would capitalise "das" into a mistake.
    */
   capitalizeSentences?: boolean;
+  /**
+   * The question this field answers, read before the words around the gap:
+   * without it every question's field sounded the same, so a new one was
+   * never noticed and what it asked had to be found by reading backwards.
+   */
+  questionIds?: string;
   describedBy?: string;
 }
 
@@ -70,6 +76,7 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
     compact = false,
     tone = 'neutral',
     focusKey,
+    questionIds,
     describedBy,
     capitalizeSentences = false,
   },
@@ -160,7 +167,8 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
     onChange: (event: { target: { value: string } }) => onChange(event.target.value),
     onKeyDown: handleKeyDown,
     'aria-label': label,
-    'aria-describedby': [scaffolded ? scaffoldId : '', describedBy ?? ''].filter(Boolean).join(' ') || undefined,
+    'aria-describedby':
+      [questionIds ?? '', scaffolded ? scaffoldId : '', describedBy ?? ''].filter(Boolean).join(' ') || undefined,
     // German text, so the browser should not autocorrect it as English.
     autoComplete: 'off',
     autoCapitalize: capitalizeSentences ? 'sentences' : 'off',

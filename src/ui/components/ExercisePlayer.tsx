@@ -34,7 +34,8 @@ import { AudioButton } from './bits.tsx';
  * when the mistake matters, a mandatory retyping of the correct German.
  *
  * Keyboard contract:
- *   Enter submits -> Enter again advances -> focus returns to the input.
+ *   Enter submits -> Enter again advances -> focus returns to the input (on a
+ *   choice question, to its options).
  */
 
 export interface PlayerSummary {
@@ -179,6 +180,8 @@ export function ExercisePlayer({
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
   const [retypeNudge, setRetypeNudge] = useState(false);
+  /** The correction has been retyped and accepted; Continue is next. */
+  const [retyped, setRetyped] = useState(false);
   const [freeNote, setFreeNote] = useState<{ ok: boolean; missing: string[] } | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [usedBank, setUsedBank] = useState<number[]>([]);
@@ -206,6 +209,7 @@ export function ExercisePlayer({
 
   const inputRef = useRef<AnswerInputHandle | null>(null);
   const continueRef = useRef<HTMLButtonElement | null>(null);
+  const choicesRef = useRef<HTMLDivElement | null>(null);
   const feedbackRef = useRef<HTMLDivElement | null>(null);
   const startedAt = useRef(Date.now());
   /** The last text this step had accepted, for the transcript. */
@@ -257,6 +261,20 @@ export function ExercisePlayer({
   useEffect(() => {
     if (phase === 'feedback') continueRef.current?.focus();
   }, [phase]);
+
+  /*
+   * A choice question has no field to land in.
+   *
+   * Only the field was ever focused, so on a choice question focus fell to
+   * the page: Enter did nothing, a screen reader was not taken to the new
+   * question, and the options were four or five Tabs away. The options' group
+   * takes focus instead, described by the question. Not the first option: a
+   * second Enter meant for Continue would answer with it.
+   */
+  const choiceStep = current?.exercise.kind === 'multipleChoice' || current?.exercise.kind === 'listenChoose';
+  useEffect(() => {
+    if (phase === 'answer' && choiceStep) choicesRef.current?.focus();
+  }, [phase, choiceStep, current?.step.id]);
 
   /*
    * Bring the verdict into view.
@@ -314,15 +332,22 @@ export function ExercisePlayer({
    * out. The region below is on screen for the player's whole life and only
    * its text changes, which is what a screen reader listens for. It is
    * emptied first, so the same verdict twice in a row is still news.
+   *
+   * Anything else that appears without focus moving to it (a hint, the
+   * reminder that a retype is still wrong) is read out the same way.
    */
+  const speak = useCallback((text: string) => {
+    setAnnouncement('');
+    window.setTimeout(() => setAnnouncement(text), 50);
+  }, []);
+
   const announce = useCallback(
     (message: FeedbackMessage, wrong: boolean) => {
       const parts = [say(message.headline), ...message.lines.slice(0, 1).map((line) => say(line))];
       if (wrong && message.correction) parts.push(`${t('feedbackExpected')}: ${message.correction}`);
-      setAnnouncement('');
-      window.setTimeout(() => setAnnouncement(parts.join(' ')), 50);
+      speak(parts.join(' '));
     },
-    [say, t],
+    [say, t, speak],
   );
 
   const advance = useCallback(() => {
@@ -352,6 +377,7 @@ export function ExercisePlayer({
     setFeedback(null);
     setRevealed(false);
     setRetypeNudge(false);
+    setRetyped(false);
     setFreeNote(null);
     setShowExplanation(false);
     setUsedBank([]);
@@ -556,8 +582,11 @@ export function ExercisePlayer({
       exerciseKind: exercise.kind,
     });
     // "Sufficiently accurate": the right words, at most a punctuation slip.
+    // Focus is already in the field, so moving it there says nothing: the
+    // reminder is read out as well as shown.
     if (check.credit < 0.9) {
       setRetypeNudge(true);
+      speak(t('exerciseRetypeLocked'));
       inputRef.current?.focus();
       return;
     }
@@ -585,8 +614,12 @@ export function ExercisePlayer({
     }
     accepted.current = value;
     setRetypeNudge(false);
+    // The verdict on screen is about the first answer ("Not quite."), and it
+    // was all Continue said. The accepted correction gets a line of its own.
+    setRetyped(true);
+    speak(t('exerciseRetypeDone'));
     setPhase('feedback');
-  }, [current, busy, result, value, lexicon, context, lessonId, say, submitAttempt, learnerHints, revealed]);
+  }, [current, busy, result, value, lexicon, context, lessonId, say, submitAttempt, learnerHints, revealed, speak, t]);
 
   const skip = useCallback(async () => {
     if (!current || busy || finishedRef.current) return;
@@ -682,18 +715,38 @@ export function ExercisePlayer({
   // half-heard, not enough to transcribe by repetition.
   const replayBudget = step.audio?.replays ?? (stepLevel === 'pre-a1' ? BEGINNER_REPLAYS : DEFAULT_REPLAYS);
   const replaysLeft = budgeted ? Math.max(0, replayBudget - replaysUsed) : Number.POSITIVE_INFINITY;
+  const spendReplay = () => {
+    setReplaysUsed((used) => used + 1);
+    // The last replay disables the button that was pressed, and a disabled
+    // button drops focus to the page. What is left to do is to type.
+    if (replaysLeft === 1 && document.activeElement?.closest('.task__audio-only')) inputRef.current?.focus();
+  };
   const isChoice = exercise.kind === 'multipleChoice' || exercise.kind === 'listenChoose';
   const isFree = exercise.kind === 'freeWriting';
   const tone =
     phase === 'answer' || phase === 'retype'
       ? 'neutral'
-      : feedback?.tone === 'success'
+      : feedback?.tone === 'success' || retyped
         ? 'success'
         : feedback?.tone === 'note'
           ? 'warning'
           : feedback?.tone === 'almost'
             ? 'warning'
             : 'error';
+  /*
+   * What the question asks, for whatever takes focus when it opens: the
+   * field, or the options' group. Where it is, the instruction, and the
+   * prompt unless the step hides it (a dictation's text is its answer).
+   */
+  const questionIds = [
+    hideProgress ? '' : 'player-progress',
+    step.instruction ? 'player-instruction' : '',
+    !hideText && step.promptDe ? 'player-prompt-de' : '',
+    !hideText && step.prompt ? 'player-prompt' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const hintsOnScreen = (hintsShown > 0 || revealed) && phase !== 'feedback';
 
   return (
     <div className="player" data-study-active="true">
@@ -703,7 +756,9 @@ export function ExercisePlayer({
           <div className="player__progress" />
         ) : (
           <div className="player__progress">
-            <span className="player__count">{t('exerciseProgress', { done: cursor + 1, total })}</span>
+            <span className="player__count" id="player-progress">
+              {t('exerciseProgress', { done: cursor + 1, total })}
+            </span>
             {total <= MAX_SEGMENTS ? (
               // One segment per question: how far you are, and how far to go,
               // without reading a number.
@@ -749,7 +804,11 @@ export function ExercisePlayer({
         data-exercise-id={exercise.id}
         data-kind={exercise.kind}
       >
-        {step.instruction ? <p className="task__instruction">{say(step.instruction)}</p> : null}
+        {step.instruction ? (
+          <p className="task__instruction" id="player-instruction">
+            {say(step.instruction)}
+          </p>
+        ) : null}
 
         {hideText ? (
           /*
@@ -774,14 +833,14 @@ export function ExercisePlayer({
               text={step.audio!.text}
               concealText
               disabled={replaysLeft === 0}
-              onPlay={() => setReplaysUsed((used) => used + 1)}
+              onPlay={spendReplay}
             />
             <AudioButton
               text={step.audio!.text}
               slow
               concealText
               disabled={replaysLeft === 0}
-              onPlay={() => setReplaysUsed((used) => used + 1)}
+              onPlay={spendReplay}
             />
             {budgeted ? (
               <span className="task__replays" role="status">
@@ -793,13 +852,15 @@ export function ExercisePlayer({
 
         {!hideText && step.promptDe ? (
           <p className="task__prompt-de" lang="de">
-            {step.promptDe}
+            {/* Its own element, so the field is described by the German and
+                not by the play button's name after it. */}
+            <span id="player-prompt-de">{step.promptDe}</span>
             <AudioButton text={step.promptDe} compact />
           </p>
         ) : null}
 
         {!hideText && step.prompt ? (
-          <p className="task__prompt" lang={lang === 'bg' ? 'bg' : 'en'}>
+          <p className="task__prompt" id="player-prompt" lang={lang === 'bg' ? 'bg' : 'en'}>
             {/* As on the English path, no quotation marks of its own: many
                 prompts are instructions ("Слушай. Коя дума чу?"), not
                 sentences to translate, and a prompt that quotes German
@@ -822,7 +883,14 @@ export function ExercisePlayer({
         ) : null}
 
         {isChoice ? (
-          <div className="choices" role="group" aria-label={t('exerciseChoose')}>
+          <div
+            ref={choicesRef}
+            className="choices"
+            role="group"
+            aria-label={t('exerciseChoose')}
+            aria-describedby={questionIds || undefined}
+            tabIndex={-1}
+          >
             {(step.choices ?? []).map((choice) => (
               <button
                 key={choice.id}
@@ -897,9 +965,16 @@ export function ExercisePlayer({
               capitalizeSentences={(step.answer.shape === 'sentence' || isFree) && !scaffold?.before}
               tone={tone}
               focusKey={`${step.id}-${phase}`}
+              questionIds={phase === 'answer' ? questionIds : undefined}
               // While retyping, the field is described by the verdict and the
               // correction, which is where focus lands after a wrong answer.
-              describedBy={phase === 'retype' ? 'player-verdict player-retype-target' : 'player-keyhint'}
+              // Otherwise by the hints and the shown answer: "Show the answer"
+              // moves focus here, and the answer was not said anywhere.
+              describedBy={
+                phase === 'retype'
+                  ? `player-verdict player-retype-target${retypeNudge ? ' player-retype-nudge' : ''}`
+                  : `${hintsOnScreen ? 'player-hints ' : ''}player-keyhint`
+              }
             />
           </>
         )}
@@ -922,7 +997,18 @@ export function ExercisePlayer({
                 type="button"
                 className="btn btn--ghost"
                 disabled={hintsShown >= step.hints.length}
-                onClick={() => setHintsShown((count) => count + 1)}
+                onClick={(event) => {
+                  const opened = hintsShown + 1;
+                  setHintsShown(opened);
+                  // The hint appears below the controls, where focus is not.
+                  const hint = step.hints[opened - 1];
+                  if (hint) speak(`${t('exerciseHintCount', { n: opened, total: step.hints.length })}: ${say(hint)}`);
+                  // The last hint disables this button, and a disabled button
+                  // drops focus to the page. The field is where to go next.
+                  if (opened >= step.hints.length && document.activeElement === event.currentTarget) {
+                    inputRef.current?.focus();
+                  }
+                }}
               >
                 {hintsShown >= step.hints.length
                   ? t('exerciseNoMoreHints')
@@ -960,8 +1046,8 @@ export function ExercisePlayer({
           </div>
         ) : null}
 
-        {(hintsShown > 0 || revealed) && phase !== 'feedback' ? (
-          <ul className="hints">
+        {hintsOnScreen ? (
+          <ul className="hints" id="player-hints">
             {step.hints.slice(0, hintsShown).map((hint, index) => (
               <li key={index}>
                 <span className="hints__n">{index + 1}</span>
@@ -1045,13 +1131,26 @@ export function ExercisePlayer({
               <p className="feedback__retype-target" id="player-retype-target" lang="de">
                 {feedback.correction}
               </p>
-              {retypeNudge ? <p className="task__warn">{t('exerciseRetypeLocked')}</p> : null}
+              {retypeNudge ? (
+                <p className="task__warn" id="player-retype-nudge">
+                  {t('exerciseRetypeLocked')}
+                </p>
+              ) : null}
               <div className="task__controls">
                 <button type="button" className="btn btn--primary" onClick={() => void submitRetype()} disabled={busy}>
                   {t('exerciseSubmit')}
                 </button>
                 <span className="task__keyhint">{t('exerciseEnterToSubmit')}</span>
               </div>
+            </div>
+          ) : null}
+
+          {phase === 'feedback' && retyped ? (
+            <div className="feedback__retype">
+              <p className="feedback__retype-label" id="player-retyped">
+                <VerdictMark tone="success" />
+                {t('exerciseRetypeDone')}
+              </p>
             </div>
           ) : null}
 
@@ -1073,7 +1172,7 @@ export function ExercisePlayer({
                 type="button"
                 className="btn btn--primary"
                 onClick={advance}
-                aria-describedby="player-verdict"
+                aria-describedby={retyped ? 'player-retyped' : 'player-verdict'}
               >
                 {t('exerciseContinue')}
               </button>
