@@ -78,8 +78,8 @@ describe('an API error', () => {
       await expect(failure).rejects.toThrow(/German Coach/);
       await expect(failure).rejects.not.toThrow(/database/);
       await expect(api.reviewWriting('ich habe ein hund', 'en', 'pre-a1')).rejects.toThrow(/German Coach/);
-      const { CLAUDE_TIMEOUT_MS } = await import('../../server/ai-claude.ts');
-      for (const [ms] of timeout.mock.calls) expect(ms).toBeGreaterThan(CLAUDE_TIMEOUT_MS + 10_000);
+      const { CLAUDE_DEADLINE_MS } = await import('../../server/ai-claude.ts');
+      for (const [ms] of timeout.mock.calls) expect(ms).toBeGreaterThan(CLAUDE_DEADLINE_MS + 10_000);
     } finally {
       timeout.mockRestore();
     }

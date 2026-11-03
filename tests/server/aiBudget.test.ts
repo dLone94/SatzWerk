@@ -13,12 +13,15 @@ import { describe, expect, it, vi } from 'vitest';
  */
 
 const made: Array<Record<string, unknown>> = [];
+/** What each call was given besides the request: its deadline. */
+const asked: Array<{ signal?: AbortSignal } | undefined> = [];
 
 vi.mock('@anthropic-ai/sdk', () => ({
   default: class {
     beta = {
       messages: {
-        create: async () => {
+        create: async (_body: unknown, options?: { signal?: AbortSignal }) => {
+          asked.push(options);
           throw new Error('Request timed out.');
         },
       },
@@ -29,7 +32,7 @@ vi.mock('@anthropic-ai/sdk', () => ({
   },
 }));
 
-const { createClaudeCaller, ClaudeFailure, CLAUDE_MODEL } = await import('../../server/ai-claude.ts');
+const { createClaudeCaller, ClaudeFailure, CLAUDE_MODEL, CLAUDE_DEADLINE_MS } = await import('../../server/ai-claude.ts');
 
 const vercel = JSON.parse(readFileSync(new URL('../../vercel.json', import.meta.url), 'utf8')) as {
   functions: Record<string, { maxDuration: number }>;
@@ -41,11 +44,13 @@ describe('a coach call against a model that does not answer', () => {
     await expect(call({ system: 's', user: 'u', schema: {} })).rejects.toBeInstanceOf(ClaudeFailure);
 
     const options = made[0]!;
-    // Undefined would mean the SDK's default of two retries.
-    expect(options.maxRetries).toBe(0);
-    const worst = (Number(options.maxRetries) + 1) * Number(options.timeout);
+    // Undefined would mean the SDK's default of two retries; one is kept, for
+    // failures that come back fast, and only inside the call's deadline.
+    expect(options.maxRetries).toBe(1);
+    expect(Number(options.timeout)).toBeLessThanOrEqual(CLAUDE_DEADLINE_MS);
+    expect(asked[0]?.signal).toBeInstanceOf(AbortSignal);
     const limit = vercel.functions['api/**/*.ts']!.maxDuration * 1000;
     // Room is left for a cold start, which opens the database first.
-    expect(worst).toBeLessThanOrEqual(limit - 10_000);
+    expect(CLAUDE_DEADLINE_MS).toBeLessThanOrEqual(limit - 10_000);
   });
 });
