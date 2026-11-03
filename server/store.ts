@@ -592,9 +592,11 @@ export async function recordAttempt(scope: Scope, input: AttemptInput, now = new
     // Mistake bank. The placement check is left out: it asks at every level to
     // find where the learner's German runs out, so its wrong answers are what
     // it is looking for, not mistakes in anything taught. Filed, they filled a
-    // new learner's bank with B2 sentences.
+    // new learner's bank with B2 sentences. An app loaded before it said
+    // 'placement' sends the check as a checkpoint; its step ids, "pl-", give
+    // it away (migration 9 relies on them too).
     let mistakeId: string | undefined;
-    if (input.context === 'placement') {
+    if (input.context === 'placement' || input.stepId.startsWith('pl-')) {
       // Nothing to file.
     } else if (!input.isRetype && input.categories.length > 0) {
       mistakeId = await upsertMistake(scope, input, iso);

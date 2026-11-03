@@ -277,6 +277,14 @@ describe('attempts, mistakes and the retyping distinction', () => {
     expect(stats.totalAnswers).toBe(2);
     expect(stats.accuracy).toBe(1);
   });
+
+  it('files no mistake for a placement guess from an app that still calls it a checkpoint', async () => {
+    await call('POST', '/api/attempts', {
+      ...wrongAttempt, context: 'checkpoint', lessonId: undefined, exerciseId: 'pl-b1', stepId: 'pl-b1-2',
+      expected: 'Ich finde, dass die Miete zu hoch ist.', given: 'Ich finde, dass die Miete ist zu hoch.', categories: ['word-order'],
+    });
+    expect(await store.listMistakes(scopeOf(db))).toHaveLength(0);
+  });
 });
 
 describe('the placement result', () => {
