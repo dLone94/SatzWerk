@@ -91,8 +91,12 @@ describe('a tab left open while somebody else is chosen in another', () => {
     render(<AppStateProvider><Grab /></AppStateProvider>);
     await waitFor(() => expect(app?.studyingAs).toBe(1));
 
-    // The first load asks the cookie; nothing is named before it is known.
-    expect(sent.find((request) => request.path === '/api/learners')?.learner).toBeNull();
+    // The first load asks the cookie who it is showing, and only then reads,
+    // naming them: read side by side, another tab moving the cookie between
+    // the two requests paired one learner's progress with another's name.
+    const reads = sent.filter((request) => request.path.startsWith('/api/') && request.path !== '/api/session');
+    expect(reads[0]).toEqual({ path: '/api/learners', learner: null });
+    expect(reads.find((request) => request.path === '/api/state')?.learner).toBe('1');
 
     // Another tab adds Bob: the cookie now says 2. This tab still shows Me.
     serverWithCookieFor(2);
@@ -119,4 +123,95 @@ describe('a tab left open while somebody else is chosen in another', () => {
     await waitFor(() => expect(outbox.queuedCount()).toBe(0));
     expect(sent.find((request) => request.path === '/api/attempts')?.learner).toBe('1');
   });
+
+  it('keeps showing its own learner when it sends somebody else\'s write', async () => {
+    // Tab A, showing Me, typed an answer that had to wait.
+    showingLearner(1);
+    outbox.enqueue({ kind: 'attempt', payload: answer }, 'from-tab-a');
+    showingLearner(undefined);
+
+    // Tab B shows Bob, who has answered once. The server's answer to Me's
+    // write is Me's: five hundred answers, a review item of Me's, Me's lesson.
+    // No mistake was banked, so no fetch of the whole state follows to hide
+    // what the answer was laid over.
+    serverWithCookieFor(2);
+    const bobStats = { ...snapshot.stats, totalAnswers: 1, correctAnswers: 1, accuracy: 1 };
+    const meStats = { ...snapshot.stats, totalAnswers: 500, correctAnswers: 400, accuracy: 0.8 };
+    const reply = reviewItemFor('vocab:mes-word');
+    const bobFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = new URL(String(input), 'http://localhost').pathname;
+      if (path === '/api/state') {
+        sent.push({ path, learner: new Headers(init?.headers).get(LEARNER_HEADER) });
+        return json({ ...snapshot, stats: bobStats });
+      }
+      if (path === '/api/attempts') {
+        sent.push({ path, learner: new Headers(init?.headers).get(LEARNER_HEADER) });
+        return json({
+          attemptId: 7,
+          reviewItems: [reply],
+          grade: 'again',
+          stats: meStats,
+          lessonProgress: { ...emptyLesson(answer.lessonId!), startedAt: '2026-11-01T10:00:00.000Z' },
+        });
+      }
+      return bobFetch(input, init);
+    }) as typeof fetch;
+
+    render(<AppStateProvider><Grab /></AppStateProvider>);
+    await waitFor(() => expect(app?.studyingAs).toBe(2));
+    await waitFor(() => expect(outbox.queuedCount()).toBe(0));
+    expect(sent.find((request) => request.path === '/api/attempts')?.learner).toBe('1');
+
+    // Still Bob's numbers, and nothing of Me's laid over them.
+    expect(app!.stats.totalAnswers).toBe(1);
+    expect(app!.reviewItems.map((item) => item.id)).not.toContain('vocab:mes-word');
+    expect(app!.lessons[answer.lessonId!]).toBeUndefined();
+  });
+
+  it('lays only its own learner\'s waiting work over what it shows', async () => {
+    // Me finished a lesson and a daily session with no connection, in tab A.
+    showingLearner(1);
+    outbox.enqueue({ kind: 'complete', lessonId: 'pre-a1-u1-l1' }, 'me-complete');
+    outbox.enqueue({ kind: 'dailyRun', payload: {
+      id: 'me-daily', day: '2026-11-03', scriptId: 'cafe', goal: 'everyday', stage: 5,
+      total: 6, firstTryCorrect: 5, listeningCompleted: true,
+    } }, 'me-daily');
+    showingLearner(undefined);
+
+    // Tab B opens on Bob while the server cannot take writes yet.
+    serverWithCookieFor(2);
+    const bobFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = new URL(String(input), 'http://localhost').pathname;
+      if (path.startsWith('/api/lessons/') || path === '/api/daily-runs') {
+        return new Response(JSON.stringify({ error: 'Database unavailable' }), { status: 503 });
+      }
+      return bobFetch(input, init);
+    }) as typeof fetch;
+
+    render(<AppStateProvider><Grab /></AppStateProvider>);
+    await waitFor(() => expect(app?.studyingAs).toBe(2));
+    await waitFor(() => expect(sent.some((request) => request.path === '/api/state')).toBe(true));
+
+    // Me's work is still waiting, and still Me's: Bob has finished nothing.
+    expect(outbox.queuedCount()).toBe(2);
+    expect(app!.lessonProgress('pre-a1-u1-l1').completedAt).toBeUndefined();
+    expect(app!.dailyRuns).toEqual([]);
+  });
 });
+
+function reviewItemFor(id: string) {
+  return {
+    id, kind: 'vocab', refId: id.slice('vocab:'.length), level: 'A1', state: 'learning', ease: 2.5,
+    intervalDays: 0, dueAt: '2026-11-03T10:10:00.000Z', successCount: 0, failureCount: 1, lapses: 0,
+    learningStep: 0, createdAt: '2026-11-03T10:00:00.000Z',
+  };
+}
+
+function emptyLesson(lessonId: string) {
+  return {
+    lessonId, sectionsSeen: [], practice: {}, recoveryRounds: 0,
+    mastery: { attempts: 0, bestAccuracy: 0, passed: false },
+  };
+}

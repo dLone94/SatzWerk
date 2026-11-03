@@ -102,7 +102,8 @@ export interface QueuedWrite {
    * queue is shared by every tab, and the tab that sends a write may be
    * showing somebody else by then. Absent on writes queued before this was
    * kept, and on those made before the household had loaded; those go as the
-   * cookie says, as they always did.
+   * learner the sending tab shows (see `write` in client.ts), or as the
+   * cookie says when that tab has not loaded either.
    */
   learner?: number;
 }
@@ -297,6 +298,21 @@ export function queuedCount(): number {
   return read().queued.length;
 }
 
+/**
+ * Whether a write made for `learner` is the business of the learner this tab
+ * shows: what it is laid over, and whose screen its answer lands on.
+ *
+ * The queue is shared by every tab, and a write made for somebody else goes
+ * as them and is theirs. Laid over this tab's state, it showed one learner's
+ * answer count and review items on another's dashboard. A write with no
+ * learner goes as this tab's, so it is this tab's; and a tab that does not
+ * know yet who it shows takes them all, as before writes named anybody.
+ */
+export function isThisTabs(learner: number | undefined): boolean {
+  const shown = learnerShown();
+  return learner === undefined || shown === undefined || learner === shown;
+}
+
 /** How many of the waiting writes are answers somebody typed. */
 export function answersWaiting(): number {
   return read().queued.filter((item) => item.write.kind === 'attempt').length;
@@ -372,11 +388,12 @@ export interface FlushOutcome {
  * `send` gets the write's id to pass on as its idempotency key, and the
  * learner it was made for when that is known. `onSent` hears about each
  * accepted write after it has left the queue, so whatever it does with the
- * server's answer sees only what is still waiting behind it.
+ * server's answer sees only what is still waiting behind it; it hears the
+ * learner too, because the answer is theirs and not necessarily the tab's.
  */
 export async function flush(
   send: (write: PendingWrite, id: string, learner?: number) => Promise<unknown>,
-  onSent?: (write: PendingWrite, result: unknown) => void,
+  onSent?: (write: PendingWrite, result: unknown, learner?: number) => void,
 ): Promise<FlushOutcome> {
   return exclusively(() => pass(send, onSent));
 }
@@ -398,7 +415,7 @@ async function exclusively<T>(work: () => Promise<T>): Promise<T> {
 
 async function pass(
   send: (write: PendingWrite, id: string, learner?: number) => Promise<unknown>,
-  onSent?: (write: PendingWrite, result: unknown) => void,
+  onSent?: (write: PendingWrite, result: unknown, learner?: number) => void,
 ): Promise<FlushOutcome> {
   let sent = 0;
   let rejected = 0;
@@ -456,7 +473,7 @@ async function pass(
     }
     sent += 1;
     drop(id);
-    onSent?.(item.write, result);
+    onSent?.(item.write, result, item.learner);
   }
 
   return { sent, rejected, remaining: read().queued.length };

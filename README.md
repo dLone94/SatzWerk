@@ -686,11 +686,23 @@ the person who carries it — and adding somebody hands them the app immediately
 landing them on the first-run screen as themselves, which is the right moment
 to ask which language they learn German through.
 
-One refusal is worth knowing about. Answers wait in the outbox when the server
-cannot be reached, and they carry no learner of their own: they are sent as
-whoever is studying when the connection returns. Handing the app over with a
-queue would file one person's sentences under another's name, so it is refused
-until they are saved, and it says how many are waiting.
+The cookie decides who a *tab* starts as, not who it files under afterwards.
+Every tab in a browser shares it, so choosing somebody in one tab used to move
+every other tab with it, and the next answer typed in a tab still showing the
+first person went to the second. Once a tab has loaded it names the learner it
+shows on everything it sends (the `X-SatzWerk-Learner` header), and the server
+files the request under them whatever the cookie says. Reminders are the one
+exception: a browser has a single push subscription, so it follows the cookie,
+to whoever this browser was last handed to.
+
+Answers wait in the outbox when the server cannot be reached, and each carries
+the learner it was made for. The queue is shared by every tab, so whichever tab
+sends a write sends it as that learner, and the server's reply is not laid over
+a tab showing somebody else. One refusal is still worth knowing about: an
+answer queued by an older version of the app carries no learner and is sent as
+whoever the sending tab shows. Handing the app over with a queue could file one
+person's sentences under another's name, so it is refused until they are
+saved, and it says how many are waiting.
 
 This was advertised as easy and was not. Migration 2 added a `user_id` column
 to every progress table against exactly this day — necessary, and not

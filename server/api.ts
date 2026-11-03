@@ -75,12 +75,14 @@ export interface ApiContext {
 const TEACHING_LANGUAGES = new Set<string>(['en', 'bg']);
 
 /**
- * Which learner this browser is studying as.
+ * Which learner this browser is studying as: who a tab starts as.
  *
- * A cookie rather than a header, for two reasons: it survives a reload without
- * the client having to remember anything, and it is per device — so a phone
- * stays the person who holds it while the tablet on the kitchen table stays
- * somebody else.
+ * A cookie, for two reasons: it survives a reload without the client having
+ * to remember anything, and it is per device — so a phone stays the person who
+ * holds it while the tablet on the kitchen table stays somebody else. Once a
+ * tab has loaded, it names its learner itself on every request
+ * (`LEARNER_HEADER` below), and the cookie only decides who the next tab
+ * opened in this browser starts as.
  *
  * It is deliberately not a security boundary. Everybody in the household
  * already shares the one password; this answers "who is studying", not "who is

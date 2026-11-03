@@ -282,6 +282,11 @@ export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
  * tab still showing the first learner filed its next answer under the new
  * one. So a tab says who it is showing on everything it sends, and a queued
  * write says who it was made for, whichever tab ends up sending it.
+ *
+ * The reminder switch (src/services/push) sends no name, on purpose. A
+ * browser has one push subscription however many tabs it has open, so it
+ * belongs to whoever the browser was last handed to — the cookie — and the
+ * server moves it there on every switch.
  */
 export const LEARNER_HEADER = 'X-SatzWerk-Learner';
 

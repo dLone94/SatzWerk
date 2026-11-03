@@ -24,6 +24,7 @@ import { tr, type UiKey } from '../i18n.ts';
 import {
   api,
   boundedAttempt,
+  learnerShown,
   showingLearner,
   type AttemptResponse,
   type AppStateSnapshot,
@@ -274,10 +275,18 @@ function heldLessonRule(
   }
 }
 
+/**
+ * What is waiting for the learner this tab shows. Another learner's writes
+ * wait in the same queue, and they are not this learner's progress.
+ */
+function heldHere(): outbox.QueuedWrite[] {
+  return outbox.snapshot().queued.filter((item) => outbox.isThisTabs(item.learner));
+}
+
 /** One lesson's progress from the server, with what is still held on top. */
 function withHeldLesson(progress: LessonProgress): LessonProgress {
   let next = progress;
-  for (const { write } of outbox.snapshot().queued) {
+  for (const { write } of heldHere()) {
     const rule = heldLessonRule(write);
     if (rule && rule.lessonId === progress.lessonId) next = rule.apply(next);
   }
@@ -294,7 +303,7 @@ function withHeldLesson(progress: LessonProgress): LessonProgress {
  * started before the result was queued.
  */
 function withHeld(state: AppStateSnapshot): AppStateSnapshot {
-  const queued = outbox.snapshot().queued;
+  const queued = heldHere();
   if (queued.length === 0) return state;
   const lessons = indexLessons(state.lessons);
   let reviewItems = state.reviewItems;
@@ -385,6 +394,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setError(null);
         return;
       }
+      // A fresh tab learns who it is showing before it reads anything, and
+      // names them on the reads below. Asked side by side, another tab moving
+      // the shared cookie in between could pair one learner's progress with
+      // another's name, and every answer after it was filed under the name.
+      if (learnerShown() === undefined) showingLearner((await api.learners()).studyingAs);
       const [state, coachStatus, household] = await Promise.all([
         api.state(),
         api.coachStatus(),
@@ -597,7 +611,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return false;
         case 'dailyRun': {
           let dailyRuns = (result as { dailyRuns: DailyRun[] }).dailyRuns;
-          for (const { write, queuedAt } of outbox.snapshot().queued) {
+          for (const { write, queuedAt } of heldHere()) {
             if (write.kind === 'dailyRun') dailyRuns = mergeDailyRun(dailyRuns, { ...write.payload, updatedAt: queuedAt ?? new Date().toISOString() });
           }
           patchSnapshot({ dailyRuns });
@@ -671,7 +685,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       let stopped: outbox.FlushOutcome['stopped'];
       do {
         flushAgain.current = false;
-        const outcome = await outbox.flush(sendWrite, (write, result) => {
+        const outcome = await outbox.flush(sendWrite, (write, result, learner) => {
+          // Another tab queued this for somebody else, and it went as them:
+          // the server's answer is their progress, not this tab's learner's.
+          if (!outbox.isThisTabs(learner)) return;
           if (applySent(write, result)) refresh = true;
         });
         sent += outcome.sent;
@@ -1001,11 +1018,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
        *
        * The refusal is the interesting part. Answers wait in an outbox when
        * the server cannot be reached. Each now carries the learner it was made
-       * for, but one queued by an older version of the app does not — it
-       * would be sent as whoever is studying when the connection returns.
-       * Switching with a queue could file one person's sentences under
-       * another's name, so it is refused until they are saved, and the caller
-       * says why.
+       * for, but one queued by an older version of the app does not — it is
+       * sent as whoever this tab shows when the connection returns. Switching
+       * with a queue could file one person's sentences under another's name,
+       * so it is refused until they are saved, and the caller says why.
+       *
+       * Named writes are waited for too, though they would reach the right
+       * person either way. The queue is sent first, and one that will not
+       * empty means the server cannot take anything just now — it is away,
+       * failing, or wants the password again — so the switch, which asks the
+       * server too, would almost always fail as well, and "answers are
+       * waiting" tells the learner more than "could not switch".
        *
        * The switch is this tab's from the moment it is made: every request
        * after it names the new learner. Another tab open on the old one goes
