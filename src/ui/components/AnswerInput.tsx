@@ -28,6 +28,8 @@ const SPECIAL_CHARACTERS = ['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü'];
 export interface AnswerInputHandle {
   focus: () => void;
   insert: (text: string) => void;
+  /** Scroll the field, with its letter keys, into view. */
+  scrollIntoView: (options: ScrollIntoViewOptions) => void;
 }
 
 export interface AnswerInputProps {
@@ -84,6 +86,7 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
 ) {
   const { t, lang } = useApp();
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
   const scaffoldId = useId();
   const scaffolded = Boolean(prefix || suffix);
 
@@ -124,7 +127,10 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
     [onChange, value],
   );
 
-  useImperativeHandle(ref, () => ({ focus, insert }), [focus, insert]);
+  // An optional call: jsdom has no scrollIntoView at all.
+  const scrollIntoView = useCallback((options: ScrollIntoViewOptions) => boxRef.current?.scrollIntoView?.(options), []);
+
+  useImperativeHandle(ref, () => ({ focus, insert, scrollIntoView }), [focus, insert, scrollIntoView]);
 
   // Focus on mount and whenever the caller says the task changed.
   useEffect(() => {
@@ -179,7 +185,7 @@ export const AnswerInput = forwardRef<AnswerInputHandle, AnswerInputProps>(funct
   };
 
   return (
-    <div className="answer">
+    <div className="answer" ref={boxRef}>
       {/*
         The words around the gap, for a screen reader.
 

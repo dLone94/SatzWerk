@@ -532,6 +532,45 @@ describe('the verdict is brought into view', () => {
     }
   });
 
+  /*
+   * The feedback is taller than a phone, so lining up its end with the screen
+   * pushed the field to retype into up under the page header. The dashed box
+   * that looked like a field was not one: tapped, focus went to the page and
+   * the typing went nowhere.
+   */
+  it('brings the field to retype into to the top, not under the header', async () => {
+    const user = userEvent.setup();
+    const scrolled: Array<{ element: Element; options: ScrollIntoViewOptions }> = [];
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      writable: true,
+      value(this: Element, options: ScrollIntoViewOptions) {
+        scrolled.push({ element: this, options });
+      },
+    });
+    try {
+      mount(<ExercisePlayer exercises={[originExercise]} context="lesson" level="pre-a1" onFinish={() => {}} />);
+      await user.type(field(), 'Ich komme von Bulgarien.{Enter}');
+      await waitFor(() => expect(document.querySelector('.feedback__retype-target')).not.toBeNull());
+      const last = scrolled.at(-1)!;
+      expect(last.element).toContain(field());
+      expect(last.element).not.toContain(document.querySelector('.feedback'));
+      expect(last.options).toMatchObject({ block: 'start' });
+
+      // The correction is what a thumb goes for; tapping it lands in the field.
+      // (After the frame in which the player puts focus there itself.)
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await user.click(document.body);
+      expect(field()).not.toHaveFocus();
+      await user.click(document.querySelector('.feedback__retype-target')!);
+      expect(field()).toHaveFocus();
+      await user.keyboard('Ich komme aus Bulgarien.');
+      expect(field()).toHaveValue('Ich komme aus Bulgarien.');
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
+  });
+
   it('judges the answer anyway in a browser that cannot scroll', async () => {
     const user = userEvent.setup();
     // This is jsdom's own state: no scrollIntoView on Element at all.

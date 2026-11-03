@@ -283,6 +283,12 @@ export function ExercisePlayer({
    * is judged, the explanation is written, and the screen looks unchanged. The
    * focus move above handles a keyboard; this is for a thumb. `nearest` scrolls
    * only as far as it has to, so a verdict already on screen does not jump.
+   *
+   * Not when a retype is asked for. The feedback is taller than a phone, so
+   * lining up its end with the screen's pushed the field to type into up
+   * under the page header, where it could be neither seen nor tapped. The
+   * field goes to the top instead, just below the header, with as much of
+   * the verdict under it as fits.
    */
   useEffect(() => {
     if (phase === 'answer') return;
@@ -290,12 +296,14 @@ export function ExercisePlayer({
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const behavior = reduced ? 'auto' : 'smooth';
+    if (phase === 'retype' && inputRef.current) {
+      inputRef.current.scrollIntoView({ behavior, block: 'start' });
+      return;
+    }
     // Optional call, not just optional chaining on the node: jsdom has no
     // scrollIntoView at all, and a throw here would take the player down.
-    feedbackRef.current?.scrollIntoView?.({
-      behavior: reduced ? 'auto' : 'smooth',
-      block: 'nearest',
-    });
+    feedbackRef.current?.scrollIntoView?.({ behavior, block: 'nearest' });
   }, [phase, current?.step.id]);
 
   const wordBank = useMemo(() => {
@@ -1128,7 +1136,16 @@ export function ExercisePlayer({
           {phase === 'retype' ? (
             <div className="feedback__retype">
               <p className="feedback__retype-label">{t('exerciseRetype')}</p>
-              <p className="feedback__retype-target" id="player-retype-target" lang="de">
+              {/* Drawn as a box, so it is the thing a thumb goes for. A tap on
+                  it used to land on the page and the typing went nowhere; it
+                  goes to the field, inside the tap so a phone opens its
+                  keyboard. A keyboard is in the field already. */}
+              <p
+                className="feedback__retype-target"
+                id="player-retype-target"
+                lang="de"
+                onClick={() => inputRef.current?.focus()}
+              >
                 {feedback.correction}
               </p>
               {retypeNudge ? (
