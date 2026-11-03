@@ -58,6 +58,8 @@ export const UI = {
   dailyFinished: s('That’s German you can use.', 'Това е немски, който можеш да използваш.'),
   dailyFinishedNote: s('You rehearsed a real situation. Your answers feed your reviews, so difficult words will come back when they need practice.', 'Упражни реална ситуация. Отговорите ти определят повторенията, за да се върнат трудните думи, когато имат нужда от практика.'),
   dailyAnother: s('Try another practice', 'Опитай друга практика'),
+  dailyAgain: s('Practise it again', 'Упражни го отново'),
+  dailyGoalElsewhere: s('There is no conversation for this goal at this level yet, so this practice uses another one.', 'За тази цел още няма разговор на това ниво, затова практиката използва друг.'),
   dailyAlreadyDone: s('You have already finished a practice today. Another one is optional.', 'Вече завърши една практика днес. Можеш да направиш още една, ако искаш.'),
   dailySaveFailed: s('That part could not be saved. Your answers are kept when the connection drops. Try again to continue.', 'Тази част не се запази. Отговорите се задържат при прекъсване на връзката. Опитай отново, за да продължиш.'),
   dailyRealProgress: s('YOUR GERMAN IN REAL LIFE', 'ТВОЯТ НЕМСКИ В РЕАЛНИЯ ЖИВОТ'),

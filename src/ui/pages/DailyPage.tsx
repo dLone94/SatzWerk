@@ -7,7 +7,7 @@ import { GOAL_LABELS, type DailyRun, type DailyRunInput } from '../../core/progr
 import { secondsPerAnswer } from '../../core/progress/session.ts';
 import { newWriteId } from '../../services/api/outbox.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { chooseDailyScript, dailyListening, dailyPhrases, dailyReview, phraseRecall } from '../dailyBuilder.ts';
+import { chooseDailyScript, dailyListening, dailyPhrases, dailyReview, fitsGoal, phraseRecall } from '../dailyBuilder.ts';
 import { AudioButton, Card, Meter } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 import { Icon } from '../components/icons.tsx';
@@ -53,9 +53,13 @@ function DailyPractice() {
    * only to continue it, and estimated the time of the new plan instead. The
    * new plan now comes first, and the open round stays one tap away.
    */
-  const replanned = Boolean(open && (open.goal !== goal || openScript!.level !== level));
+  const keepsPlan = (round: DailyRunInput) => round.goal === goal && scriptById(round.scriptId)!.level === level;
+  const replanned = Boolean(open && !keepsPlan(open));
   // The script on screen: the round being played, or the one the plan offers.
   const currentScript = openScript && !((!run || paused) && replanned) ? openScript : script;
+  // What the plan offers once this round is finished. A beginner has a single
+  // conversation, and "Try another practice" used to bring back the same one.
+  const nextScript = saved && saved.id !== run?.id && keepsPlan(saved) ? scriptById(saved.scriptId)! : script;
   const phrases = dailyPhrases(currentScript, lang);
   const review = useMemo(() => dailyReview(reviewItems, mistakes, currentScript.level, lang,
     Math.max(2, Math.min(6, Math.round(profile.dailyTargetMinutes / 3)))),
@@ -140,7 +144,7 @@ function DailyPractice() {
       <p className="daily-finished__ability">{say(currentScript.goal)}</p>
       <p className="muted">{t('dailyFinishedNote')}</p>
       <div className="section-nav"><Link className="btn btn--primary" to="/">{t('navToday')}</Link>
-        <button type="button" className="btn btn--ghost" onClick={() => { setRun(null); setPaused(false); }}>{t('dailyAnother')}</button></div>
+        <button type="button" className="btn btn--ghost" onClick={() => { setRun(null); setPaused(false); }}>{t(nextScript.id === currentScript.id ? 'dailyAgain' : 'dailyAnother')}</button></div>
     </section><PracticalProgress /></div>;
 
   if (!run || paused) return <div className="page daily-page">
@@ -149,6 +153,8 @@ function DailyPractice() {
     <section className="daily-plan" aria-labelledby="daily-plan-title">
       <div className="daily-plan__copy"><span className="daily-plan__tag">{say(GOAL_LABELS[goal])} · {currentScript.level.toUpperCase()}</span>
         <h2 id="daily-plan-title">{say(currentScript.goal)}</h2>
+        {/* A goal with nothing written at this level is given another conversation; the tag alone hid that. */}
+        {fitsGoal(currentScript, goal) ? null : <p>{t('dailyGoalElsewhere')}</p>}
         <p>{t('dailyPlanNote')}</p>
         <button type="button" className="btn daily-plan__start" disabled={busy}
           onClick={() => open && !replanned ? resume() : start()}>

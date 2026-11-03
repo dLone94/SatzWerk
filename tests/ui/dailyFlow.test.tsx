@@ -120,6 +120,63 @@ it('a learner handover clears the open daily round', async () => {
 });
 
 /*
+ * Pre-A1 has one conversation, so "Try another practice" brought back the one
+ * just finished, and choosing Work or Exam practice changed only the tag.
+ */
+describe('what the next practice really is', () => {
+  const finishing = (scriptId: string) => ({ id: 'finishing', day: todayHere(), scriptId, goal: 'everyday' as const,
+    stage: 4, total: 8, firstTryCorrect: 8, listeningCompleted: false, updatedAt: new Date().toISOString() });
+  const profile = (learningGoal: Profile['learningGoal'], practiceLevel: Profile['practiceLevel']) => ({ teachingLanguage: 'en' as const,
+    dailyTargetMinutes: 20, displayName: null, onboarded: true, createdAt: '', learningGoal, practiceLevel });
+  async function finish(overrides: Partial<AppStateValue>, scriptId: string) {
+    // Saved parts reach the state, as they do in the app.
+    function Harness() {
+      const [runs, setRuns] = useState<AppStateValue['dailyRuns']>([finishing(scriptId)]);
+      const value = stubState({ ...overrides, dailyRuns: runs, recordDailyRun: async payload => {
+        setRuns(runs => mergeDailyRun(runs, { ...payload, updatedAt: new Date().toISOString() }));
+      } });
+      return <AppStateContext.Provider value={value}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>;
+    }
+    render(<Harness />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', 'en') }));
+    await user.click(await screen.findByRole('button', { name: tr('dailyFinish', 'en') }));
+    await screen.findByRole('heading', { name: tr('dailyFinished', 'en') });
+    return user;
+  }
+
+  it('offers the only beginner conversation again as itself, not as another practice', async () => {
+    const user = await finish({ profile: profile('everyday', 'pre-a1') }, 'sc-bakery-pre-a1');
+    expect(screen.queryByRole('button', { name: tr('dailyAnother', 'en') })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: tr('dailyAgain', 'en') }));
+    expect(screen.getByRole('heading', { name: SCENARIO_SCRIPTS.find(script => script.id === 'sc-bakery-pre-a1')!.goal.en })).toBeInTheDocument();
+  });
+
+  it('still offers another practice where there is one', async () => {
+    const done = chooseDailyScript('everyday', 'a1', [], todayHere());
+    const runs = [{ scriptId: done.id, runs: 1, turns: 4, firstTryCorrect: 4, lastAccuracy: 1, bestAccuracy: 1,
+      firstRunAt: new Date().toISOString(), lastRunAt: new Date().toISOString() }];
+    const next = chooseDailyScript('everyday', 'a1', runs, todayHere());
+    expect(next.id).not.toBe(done.id);
+    const user = await finish({ profile: profile('everyday', 'a1'), scenarioRuns: runs }, done.id);
+    await user.click(screen.getByRole('button', { name: tr('dailyAnother', 'en') }));
+    expect(screen.getByRole('heading', { name: next.goal.en })).toBeInTheDocument();
+  });
+
+  it('says when a goal has no conversation of its own at this level', () => {
+    const view = render(<AppStateContext.Provider value={stubState({ profile: profile('work', 'pre-a1') })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.getByText(tr('dailyGoalElsewhere', 'en'))).toBeInTheDocument();
+    view.rerender(<AppStateContext.Provider value={stubState({ profile: profile('travel', 'pre-a1') })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.queryByText(tr('dailyGoalElsewhere', 'en'))).not.toBeInTheDocument();
+    view.rerender(<AppStateContext.Provider value={stubState({ profile: profile('work', 'a1') })}>
+      <MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    expect(screen.queryByText(tr('dailyGoalElsewhere', 'en'))).not.toBeInTheDocument();
+  });
+});
+
+/*
  * A goal or level chosen while today's round was open changed nothing: the
  * card kept the old round, offered only to continue it, and showed the time
  * of the new plan beside it.
