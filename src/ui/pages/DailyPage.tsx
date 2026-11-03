@@ -17,9 +17,10 @@ import { ScenarioPlayer } from '../components/ScenarioPlayer.tsx';
 import { SpeakCheck } from '../components/Speaking.tsx';
 import { ShadowRecorder } from '../components/ShadowRecorder.tsx';
 import { DackelMark, DackelScene } from '../components/Dackel.tsx';
-import type { UiKey } from '../../i18n.ts';
+import { DAILY_STAGES, fitsDailyPlan } from '../selectors.ts';
 
-const STAGES: UiKey[] = ['dailyLearn', 'dailyReview', 'dailyRecall', 'dailyConversation', 'dailyListen'];
+// Shared with Today, which names the part a practice reached.
+const STAGES = DAILY_STAGES;
 
 /** Learner handover remounts the plan; another person's open round cannot follow. */
 export function DailyPage() {
@@ -52,8 +53,8 @@ function DailyPractice() {
    * only inferred from the lessons was never chosen, so opening a lesson of
    * the next level does not set aside the round under way.
    */
-  const fitsPlan = (round: DailyRunInput) => round.scriptId === script.id
-    || round.goal === goal && (!profile.practiceLevel || scriptById(round.scriptId)!.level === profile.practiceLevel);
+  // Shared with Today, so its "Continue your practice" means the round offered here.
+  const fitsPlan = (round: DailyRunInput) => fitsDailyPlan(round, script.id, goal, profile.practiceLevel);
   // Today's unfinished rounds, the one in hand first. Switching to a new plan
   // and back leaves two of them, and the one that fits the plan is the one to
   // continue: the latest alone would start that plan over and strand its parts.

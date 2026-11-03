@@ -198,7 +198,8 @@ export function App() {
       <nav className="nav" aria-label={t('navMain')} hidden={location.pathname === '/welcome'}>
         <p className="nav__section">{t('studioLearn')}</p>
         <NavItem to="/" label={t('navToday')} icon="today" />
-        <NavItem to="/daily" label={t('navDaily')} icon="round" />
+        {/* The clock is the mixed round's, a timed set; the daily practice is a start. */}
+        <NavItem to="/daily" label={t('navDaily')} icon="play" />
         <NavItem to="/course" label={t('navCourse')} icon="course" />
         <NavItem to="/review" label={t('navReview')} icon="review" badge={dueCount > 0 ? dueCount : undefined} />
         {/* Wide screens: all of them. A phone hides these and shows More. */}

@@ -17,7 +17,7 @@ import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer
 import { sessionBuild } from '../selectors.ts';
 
 /**
- * The daily round.
+ * The mixed round.
  *
  * A lesson in this course is twenty-five to thirty minutes, which is right for
  * meeting something new and wrong for a Tuesday evening. Before this page, a

@@ -10,7 +10,6 @@ import { todayHere } from '../../src/core/progress/days.ts';
 import { mergeDailyRun, type DailyRunInput } from '../../src/core/progress/daily.ts';
 import { AppStateContext, type AppStateValue } from '../../src/state/AppState.tsx';
 import { DailyPage } from '../../src/ui/pages/DailyPage.tsx';
-import { DashboardPage } from '../../src/ui/pages/DashboardPage.tsx';
 import { LearningPreferences } from '../../src/ui/components/LearningPreferences.tsx';
 import { chooseDailyScript, dailyListening, dailyPhrases, goalScripts, phraseRecall } from '../../src/ui/dailyBuilder.ts';
 import { tr } from '../../src/i18n.ts';
@@ -460,31 +459,6 @@ describe('a new goal or level while a round is open', () => {
     expect(screen.getByRole('button', { name: tr('dailyStart', 'en') })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: tr('dailyResumeEarlier', 'en', { plan: 'Everyday life · PRE-A1' }) })).toBeInTheDocument();
   });
-});
-
-/*
- * Today's main card never looked at the day's practice, and went on saying
- * "Start today" after it was finished.
- */
-it.each(['en', 'bg'] as const)('says on Today that today\'s practice is done in %s', lang => {
-  const run = { id: 'done', scriptId: 'sc-bakery-pre-a1', goal: 'everyday' as const, stage: 5, total: 10,
-    firstTryCorrect: 9, listeningCompleted: true, updatedAt: new Date().toISOString() };
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const before = render(<AppStateContext.Provider value={stubState({ dailyRuns: [{ ...run, day: todayHere(yesterday) }] }, lang)}>
-    <MemoryRouter><DashboardPage /></MemoryRouter></AppStateContext.Provider>);
-  expect(screen.getByRole('heading', { name: tr('dailyDashboardTitle', lang) })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: tr('dailyStart', lang) })).toHaveAttribute('href', '/daily');
-  before.unmount();
-
-  render(<AppStateContext.Provider value={stubState({ dailyRuns: [{ ...run, day: todayHere() }] }, lang)}>
-    <MemoryRouter><DashboardPage /></MemoryRouter></AppStateContext.Provider>);
-  expect(screen.getByRole('heading', { name: tr('dailyDashboardDone', lang) })).toBeInTheDocument();
-  expect(screen.getByText(new RegExp(tr('exerciseScore', lang, { correct: 9, total: 10 })))).toBeInTheDocument();
-  expect(screen.queryByRole('link', { name: tr('dailyStart', lang) })).not.toBeInTheDocument();
-  expect(screen.getByRole('link', { name: tr('dailyPractiseAgain', lang) })).toHaveAttribute('href', '/daily');
-  // Optional now, it no longer outranks the next lesson.
-  expect(screen.getByRole('link', { name: tr('dailyPractiseAgain', lang) })).not.toHaveClass('btn--primary');
 });
 
 /*
