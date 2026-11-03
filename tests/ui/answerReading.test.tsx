@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { multipleChoice, typeIt } from '../../src/content/authoring.ts';
 import type { TeachingLanguage } from '../../src/content/types.ts';
 import type { AttemptPayload } from '../../src/services/api/client.ts';
@@ -57,6 +57,38 @@ describe('an answer typed in Cyrillic letters', () => {
     await user.type(screen.getByRole('textbox'), 'Guten Morgen!{Enter}');
     await waitFor(() => expect(attempts).toHaveLength(1));
     expect(attempts[0]).toMatchObject({ verdict: 'correct', credit: 1, categories: [] });
+  });
+
+  /*
+   * The message opened below the field, off a phone's screen, and was not
+   * read out: Enter seemed to do nothing at all.
+   */
+  describe('the message', () => {
+    const scrolled: Element[] = [];
+    beforeEach(() => {
+      scrolled.length = 0;
+      // jsdom has no scrolling; record which element asked to be shown.
+      Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
+        scrolled.push(this);
+      });
+    });
+    afterEach(() => {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    });
+
+    it('is read out and brought into view, with focus left in the field', async () => {
+      const user = userEvent.setup();
+      const greet = typeIt('cyr', bi('Greet', 'Поздрав'), [
+        { id: 'cyr-s1', prompt: bi('Say good morning.', 'Кажи добро утро.'), answer: 'Guten Morgen!' },
+      ]);
+      mount([greet]);
+      await user.type(screen.getByRole('textbox'), 'Гутен Морген{Enter}');
+
+      const region = document.querySelector('[role="status"][aria-live="polite"]');
+      await waitFor(() => expect(region).toHaveTextContent('Първо превключи клавиатурата.'));
+      await waitFor(() => expect(scrolled.some((element) => element.classList.contains('feedback'))).toBe(true));
+      expect(screen.getByRole('textbox')).toHaveFocus();
+    });
   });
 });
 

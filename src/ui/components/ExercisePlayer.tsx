@@ -442,9 +442,20 @@ export function ExercisePlayer({
       exerciseKind: exercise.kind,
     });
     if (validation.verdict === 'empty') {
-      setFeedback(buildFeedback(validation, { lexicon, describeNoun }));
+      const notGraded = buildFeedback(validation, { lexicon, describeNoun });
+      setFeedback(notGraded);
       setResult(validation);
       inputRef.current?.focus();
+      /*
+       * The question stays open, so nothing that follows a verdict happens
+       * here: focus stays in the field and the panel opened below it, off a
+       * phone's screen. Enter seemed to do nothing, to the learner whose
+       * keyboard was still on Bulgarian above all. The message is read out,
+       * and brought into view once it is drawn, without taking the field's
+       * focus.
+       */
+      announce(notGraded, false);
+      window.requestAnimationFrame(() => feedbackRef.current?.scrollIntoView?.({ block: 'nearest' }));
       return;
     }
 
