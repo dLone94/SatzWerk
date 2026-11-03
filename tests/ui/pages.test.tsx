@@ -20,6 +20,7 @@ import {
 } from '../../src/content/index.ts';
 import type { TeachingLanguage } from '../../src/content/types.ts';
 import { allStepIds, emptyLessonProgress } from '../../src/core/progress/lesson.ts';
+import { createReviewItem, scheduleReview, type ReviewItem } from '../../src/core/srs/scheduler.ts';
 import { tr } from '../../src/i18n.ts';
 import { nullTtsProvider } from '../../src/services/tts/index.ts';
 import { createSpeechRecogniser } from '../../src/services/speech/recogniser.ts';
@@ -1092,5 +1093,58 @@ describe('relative dates', () => {
     expect(formatRelativeDate(at(-26), 'bg')).toBe('преди 1 ден');
     expect(formatRelativeDate(at(48), 'en')).toBe('in 2 days');
     expect(formatRelativeDate(at(48), 'bg')).toBe('след 2 дни');
+  });
+});
+
+/*
+ * After one clean lesson the vocabulary page said "Learning 0 · Known 12",
+ * and a word answered once said "Known · 1 successful recall". The states
+ * come from the scheduler, so the words are put through it here exactly as a
+ * lesson would: every answer clean, many times in one evening.
+ */
+describe.each(LANGS)('learning states after one lesson, in the %s path', (lang) => {
+  const words = ['v-die-tochter', 'v-der-hund', 'v-das-haus'];
+  const taught = new Date();
+  taught.setHours(18, 0, 0, 0);
+  const reviewItems: ReviewItem[] = words.map((refId) => {
+    let item = createReviewItem({ id: `vocab:${refId}`, kind: 'vocab', refId, level: 'pre-a1', now: taught });
+    for (let n = 0; n < 8; n += 1) item = scheduleReview(item, 'easy', new Date(taught.getTime() + n * 5 * 60_000));
+    return item;
+  });
+
+  const tabCount = (name: string) =>
+    screen.getByRole('tab', { name: new RegExp(name) }).querySelector('.tabs__count')?.textContent;
+
+  it('counts the words as being learnt, not known', async () => {
+    mount(<VocabularyPage />, lang, { reviewItems });
+    expect(tabCount(tr('vocabLearning', lang))).toBe('3');
+    expect(tabCount(tr('vocabKnown', lang))).toBe('0');
+    // The tab says what it would take.
+    expect(screen.queryByText(tr('vocabKnownRule', lang))).toBeNull();
+    await userEvent.click(screen.getByRole('tab', { name: new RegExp(tr('vocabKnown', lang)) }));
+    expect(screen.getByText(tr('vocabKnownRule', lang))).toBeInTheDocument();
+  });
+
+  it('says on the word page what "learning" is waiting for', () => {
+    mount(
+      <Routes>
+        <Route path="/vocabulary/:wordId" element={<WordPage />} />
+      </Routes>,
+      lang,
+      { reviewItems },
+      '/vocabulary/v-der-hund',
+    );
+    expect(screen.getByText(tr('reviewStateLearning', lang))).toBeInTheDocument();
+    expect(screen.getByText(tr('wordStateLearningHow', lang))).toBeInTheDocument();
+  });
+
+  it('calls a word known once it has been remembered on two later days', () => {
+    const later = reviewItems.map((item) => {
+      const nextDay = scheduleReview(item, 'easy', new Date(item.dueAt));
+      return scheduleReview(nextDay, 'easy', new Date(nextDay.dueAt));
+    });
+    mount(<VocabularyPage />, lang, { reviewItems: later });
+    expect(tabCount(tr('vocabKnown', lang))).toBe('3');
+    expect(tabCount(tr('vocabLearning', lang))).toBe('0');
   });
 });

@@ -153,6 +153,7 @@ export function WordPage() {
             <span className={`state-dot state-dot--${view.state}`} aria-hidden="true" />
             <strong>{stateLabel(view.state, lang)}</strong>
           </div>
+          {view.state !== 'new' ? <p className="muted state-row__how">{t(stateHowKey(view.state))}</p> : null}
 
           {view.item ? (
             <dl className="facts">
@@ -240,4 +241,11 @@ export function WordPage() {
       </Card>
     </div>
   );
+}
+
+/** The sentence under a word's state that says what the state means. */
+function stateHowKey(state: 'learning' | 'known' | 'lapsed'): 'wordStateLearningHow' | 'wordStateKnownHow' | 'wordStateLapsedHow' {
+  if (state === 'known') return 'wordStateKnownHow';
+  if (state === 'lapsed') return 'wordStateLapsedHow';
+  return 'wordStateLearningHow';
 }

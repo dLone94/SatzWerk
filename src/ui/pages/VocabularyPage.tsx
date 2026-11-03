@@ -159,6 +159,8 @@ export function VocabularyPage() {
       </details>
 
       <p className="vocab__count">{t('vocabCount', { n: filtered.length })}</p>
+      {/* Where the learner is looking at the two states, what separates them. */}
+      {tab === 'learning' || tab === 'known' ? <p className="vocab__rule">{t('vocabKnownRule')}</p> : null}
 
       {filtered.length === 0 ? (
         <EmptyState title={t('vocabEmpty')} />
