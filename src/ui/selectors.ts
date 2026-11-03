@@ -46,12 +46,13 @@ export function buildVocabViews(
   const byRef = new Map(reviewItems.filter((item) => item.kind === 'vocab').map((item) => [item.refId, item]));
   const favoriteSet = new Set(favorites);
 
+  // Each mistake is read once and names its own words. Trying every mistake
+  // against every word instead, with the step looked up again for each pair,
+  // froze a phone for a second or two once the bank held a hundred or so.
   const mistakeCounts = new Map<string, number>();
   for (const mistake of mistakes) {
-    for (const entry of VOCABULARY) {
-      if (mistakeMatchesVocab(mistake, entry)) {
-        mistakeCounts.set(entry.id, (mistakeCounts.get(entry.id) ?? 0) + mistake.occurrences);
-      }
+    for (const id of vocabOfMistake(mistake)) {
+      mistakeCounts.set(id, (mistakeCounts.get(id) ?? 0) + mistake.occurrences);
     }
   }
 
@@ -100,17 +101,47 @@ function words(text: string): string[] {
  * the step does not say so — better silent than wrong.
  */
 export function mistakeMatchesVocab(mistake: MistakeRecord, entry: VocabEntry): boolean {
-  const step = mistake.stepId ? stepById(mistake.stepId) : undefined;
-  const vocabTargets = (step?.reviewTargets ?? []).filter((id) => vocabById(id));
-  if (vocabTargets.length > 0) return vocabTargets.includes(entry.id);
+  return vocabOfMistake(mistake).has(entry.id);
+}
 
+/** The ids of the words a mistake counts against, by the rule above. */
+function vocabOfMistake(mistake: MistakeRecord): Set<string> {
+  const step = mistake.stepId ? stepById(mistake.stepId) : undefined;
+  const known = vocabIds();
+  const vocabTargets = (step?.reviewTargets ?? []).filter((id) => known.has(id));
+  if (vocabTargets.length > 0) return new Set(vocabTargets);
+
+  // Only the words that begin with a token of the answer are worth trying.
   const answer = words(mistake.expected);
-  const word = words(entry.german);
-  if (word.length === 0) return false;
-  for (let start = 0; start + word.length <= answer.length; start += 1) {
-    if (word.every((token, offset) => answer[start + offset] === token)) return true;
+  const found = new Set<string>();
+  for (let start = 0; start < answer.length; start += 1) {
+    for (const { id, tokens } of vocabByFirstWord().get(answer[start]!) ?? []) {
+      if (tokens.every((token, offset) => answer[start + offset] === token)) found.add(id);
+    }
   }
-  return false;
+  return found;
+}
+
+let vocabIdSet: Set<string> | null = null;
+function vocabIds(): Set<string> {
+  vocabIdSet ??= new Set(VOCABULARY.map((entry) => entry.id));
+  return vocabIdSet;
+}
+
+/** Every word's German as tokens, filed under its first token. A word with none is never matched. */
+let firstWordIndex: Map<string, Array<{ id: string; tokens: string[] }>> | null = null;
+function vocabByFirstWord() {
+  if (!firstWordIndex) {
+    firstWordIndex = new Map();
+    for (const entry of VOCABULARY) {
+      const tokens = words(entry.german);
+      if (tokens.length === 0) continue;
+      const list = firstWordIndex.get(tokens[0]!) ?? [];
+      list.push({ id: entry.id, tokens });
+      firstWordIndex.set(tokens[0]!, list);
+    }
+  }
+  return firstWordIndex;
 }
 
 /*
