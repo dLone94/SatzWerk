@@ -523,6 +523,26 @@ describe('both teaching paths are authored, not translated placeholders', () => 
     expect(suspicious).toEqual([]);
   });
 
+  it('puts a comma before без да, as Bulgarian requires', () => {
+    // 46 of the 48 "без да" clauses had it; the two that did not were the
+    // ones a native reader stopped at.
+    const missing: string[] = [];
+    const targets: Array<{ id: string; node: unknown }> = [
+      ...availableLessons().map((lesson) => ({ id: lesson.id, node: lesson as unknown })),
+      ...allCheckpoints().map((cp) => ({ id: cp.id, node: cp as unknown })),
+      ...GRAMMAR_CONCEPTS.map((g) => ({ id: g.id, node: g as unknown })),
+      ...VOCABULARY.map((v) => ({ id: v.id, node: v as unknown })),
+    ];
+    for (const { id, node } of targets) {
+      const texts: Array<{ text: Bilingual; scope: TeachingLanguage[] }> = [];
+      collectBilinguals(node, ['en', 'bg'], texts);
+      for (const { text } of texts) {
+        if (/[^,—–\s]\s+без да/u.test(text.bg)) missing.push(`${id}: ${text.bg}`);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
   it('includes explanations that exist only in one path', () => {
     const scoped = GRAMMAR_CONCEPTS.flatMap((concept) => concept.blocks).filter((block) => block.only);
     const bgOnly = scoped.filter((block) => block.only?.includes('bg') && !block.only.includes('en'));

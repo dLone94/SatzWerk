@@ -42,7 +42,7 @@ export const UI = {
   dailyPhraseCount: s('Phrase {n} of {total}', 'Фраза {n} от {total}'),
   dailyBuildingBlock: s('A pattern you can reuse', 'Модел, който можеш да използваш отново'),
   dailySwapNote: s('Keep the frame and change one part. These examples show what fits.', 'Запази модела и промени една част. Примерите показват какво може да се сложи.'),
-  dailyPhraseTip: s('Read it once, listen if you can, and say it aloud. Next you will recall it without looking.', 'Прочети веднъж, слушай, ако можеш, и го кажи на глас. После ще си го припомниш без да гледаш.'),
+  dailyPhraseTip: s('Read it once, listen if you can, and say it aloud. Next you will recall it without looking.', 'Прочети веднъж, слушай, ако можеш, и го кажи на глас. После ще си го припомниш, без да гледаш.'),
   dailyNextPhrase: s('Next phrase', 'Следваща фраза'),
   dailyPutToUse: s('Let’s put these to use', 'Нека ги използваме'),
   dailyReviewClear: s('Your review is clear', 'Няма нищо за повторение'),
@@ -60,11 +60,11 @@ export const UI = {
   dailyAlreadyDone: s('You have already finished a practice today. Another one is optional.', 'Вече завърши една практика днес. Можеш да направиш още една, ако искаш.'),
   dailySaveFailed: s('That part could not be saved. Your answers are kept when the connection drops. Try again to continue.', 'Тази част не се запази. Отговорите се задържат при прекъсване на връзката. Опитай отново, за да продължиш.'),
   dailyRealProgress: s('YOUR GERMAN IN REAL LIFE', 'ТВОЯТ НЕМСКИ В РЕАЛНИЯ ЖИВОТ'),
-  dailyAbilitiesTitle: s('Conversations you have practised', 'Разговори, които си упражнил'),
+  dailyAbilitiesTitle: s('Conversations you have practised', 'Упражнени разговори'),
   dailyWeekProgress: s('{done} / {target} practice days this week', '{done} / {target} учебни дни тази седмица'),
   dailyWeekLeft: s('{n} more practice days towards your weekly goal. Pick the days that suit you.', 'Още {n} учебни дни до седмичната цел. Избери удобните за теб дни.'),
   dailyWeekDone: s('Your weekly goal is complete. Keep going if you feel like it.', 'Седмичната цел е изпълнена. Продължи, ако ти се учи.'),
-  dailyAbilitiesEmpty: s('Your first completed conversation will appear here. You will see what you have practised, not just a points total.', 'Първият завършен разговор ще се появи тук. Ще виждаш какво си упражнил, а не само сбор от точки.'),
+  dailyAbilitiesEmpty: s('Your first completed conversation will appear here. You will see what you have practised, not just a points total.', 'Първият завършен разговор ще се появи тук. Ще виждаш какво е упражнено, а не само сбор от точки.'),
   dailyAbilityConfident: s('Best practice: {n}% right without hints', 'Най-добра практика: {n}% верни без подсказки'),
   dailyAbilityPractised: s('Practised · keep building confidence ({n}% without hints)', 'Упражнено · продължи да трупаш увереност ({n}% без подсказки)'),
   dailyDashboardTitle: s('Let’s go places. In German.', 'Да открием света. На немски.'),
@@ -87,7 +87,7 @@ export const UI = {
   studioLearn: s('LEARN', 'УЧИ'),
   studioExplore: s('EXPLORE', 'ОТКРИВАЙ'),
   studioDaily: s('Your next conversation starts here.', 'Следващият ти разговор започва тук.'),
-  studioGreeting: s('Ready for a little adventure?', 'Готов ли си за малко приключение?'),
+  studioGreeting: s('Ready for a little adventure?', 'Да тръгваме ли на малко приключение?'),
   studioHeroNote: s('Small steps. Real conversations.', 'Малки стъпки. Истински разговори.'),
   studioPath: s('Your learning path', 'Твоят учебен път'),
   studioRhythm: s('Your rhythm', 'Твоят ритъм'),
@@ -123,10 +123,10 @@ export const UI = {
   navSettings: s('Settings', 'Настройки'),
   navMore: s('More', 'Още'),
   moreTitle: s('Everything else', 'Всичко останало'),
-  moreVocabulary: s('Every word you have met, and how well you know it', 'Всяка дума, която си срещал, и колко добре я знаеш'),
+  moreVocabulary: s('Every word you have met, and how well you know it', 'Всяка дума от курса досега и колко добре я знаеш'),
   moreMistakes: s('What keeps going wrong, and practice aimed at it', 'Какво все се обърква, и упражнения точно за него'),
   moreRealLife: s('Conversations at the bakery, the doctor, the Bürgeramt', 'Разговори в пекарната, при лекаря, в Bürgeramt'),
-  moreCoach: s('Check a piece of your own writing', 'Провери нещо, което си написал сам'),
+  moreCoach: s('Check a piece of your own writing', 'Провери нещо, написано от теб'),
   moreSettings: s('Teaching path, daily target, who is studying', 'Път на обучение, дневна цел, кой учи'),
 
   // Login, shown only when the app is hosted behind a password
@@ -173,10 +173,10 @@ export const UI = {
   ),
 
   // Onboarding
-  onboardingTitle: s('Welcome to SatzWerk', 'Добре дошъл в SatzWerk'),
+  onboardingTitle: s('Welcome to SatzWerk', 'Добре дошли в SatzWerk'),
   onboardingIntro: s(
     'SatzWerk teaches German step by step, from the very first letters — no German needed to start. You read a little, listen, and then type German yourself. Choose the language for the explanations.',
-    'SatzWerk учи немски стъпка по стъпка, от първите букви — не ти трябва немски, за да започнеш. Четеш малко, слушаш и после сам пишеш на немски. Избери езика на обясненията.',
+    'SatzWerk учи немски стъпка по стъпка, от първите букви — не ти трябва немски, за да започнеш. Четеш малко, слушаш и после пишеш на немски самостоятелно. Избери езика на обясненията.',
   ),
   onboardingPathEn: s('Explain German to me in English', 'Обяснявай ми немския на английски'),
   onboardingPathBg: s('Explain German to me in Bulgarian', 'Обяснявай ми немския на български'),
@@ -235,7 +235,7 @@ export const UI = {
   sessionTitle: s('Daily round', 'Дневен кръг'),
   sessionLede: s(
     'One short round: what is due, what keeps going wrong, and the lesson you are in the middle of.',
-    'Един кратък кръг: дължимото, това, което постоянно се обърква, и урокът, който си започнал.',
+    'Един кратък кръг: дължимото, това, което постоянно се обърква, и започнатият урок.',
   ),
   sessionWhatsIn: s('What is in this round', 'Какво има в този кръг'),
   sessionStart: s('Start the round', 'Започни кръга'),
@@ -485,7 +485,7 @@ export const UI = {
   exerciseReveal: s('Show the answer', 'Покажи отговора'),
   exerciseRevealType: s(
     'Now type it yourself — typing it is what makes it stay.',
-    'Сега го напиши сам — писането е това, което го запомня.',
+    'Сега го напиши ти — така ще остане в паметта ти.',
   ),
   exerciseRevealWarning: s(
     'Showing the answer means no credit for this item, and it will come back soon.',
@@ -602,7 +602,7 @@ export const UI = {
   exerciseFreeWriting: s('Write freely', 'Пиши свободно'),
   exerciseFreeWritingNote: s(
     'There is no single right answer. SatzWerk checks that you used the target language, and the Coach can review it.',
-    'Няма един правилен отговор. SatzWerk проверява дали си използвал целевите изрази, а Наставникът може да го прегледа.',
+    'Няма един правилен отговор. SatzWerk проверява дали в текста има целевите изрази, а Наставникът може да го прегледа.',
   ),
   exerciseFreeWritingMissing: s('Still missing: {words}', 'Все още липсва: {words}'),
   exerciseFreeWritingOk: s('That contains what the task asked for.', 'Това съдържа каквото задачата поиска.'),
@@ -721,7 +721,7 @@ export const UI = {
   mistakesPractiseCategory: s('Practise this kind', 'Упражнявай този вид'),
   mistakesCategoryIntro: s(
     'Practice for a whole kind of mistake uses the course\u2019s own tasks for that skill, not a replay of the sentences you got wrong.',
-    'Упражнението за цял вид грешка използва задачите на курса за това умение, а не повторение на изреченията, които си сбъркал.',
+    'Упражнението за цял вид грешка използва задачите на курса за това умение, а не повторение на сбърканите изречения.',
   ),
   mistakesResolve: s('Mark as sorted', 'Отбележи като решено'),
   mistakesByCategory: s('By kind of mistake', 'По вид грешка'),
@@ -742,7 +742,7 @@ export const UI = {
     'Това не е изпит и не удостоверява нищо. Двайсет въпроса могат да ти подскажат приблизително кое ниво няма да те отегчи и няма да те удави, а резултатът ти показва сметката, за да можеш да не се съгласиш с нея.',
   ),
   placementStart: s('Start the check', 'Започни проверката'),
-  placementSkip: s('Skip it, I will choose myself', 'Пропусни, ще избера сам'),
+  placementSkip: s('Skip it, I will choose myself', 'Пропусни, ще избера аз'),
   placementResultTitle: s('What the answers suggest', 'Какво подсказват отговорите'),
   placementStartAt: s('Start at', 'Започни от'),
   placementBands: s('By level', 'По ниво'),
@@ -781,7 +781,7 @@ export const UI = {
   realLifeBest: s('best {percent}% first time', 'най-добре {percent}% от първи опит'),
   realLifeNothingPlayed: s(
     'You have not played any of these yet.',
-    'Още не си играл нито един от тези.',
+    'Още нито един от тези не е изигран.',
   ),
 
   // A scenario, played
@@ -868,7 +868,7 @@ export const UI = {
   learnersStudying: s('studying now', 'учи сега'),
   learnersSwitch: s('Hand over', 'Подай нататък'),
   learnersAdd: s('Add somebody', 'Добави някого'),
-  learnersName: s('Their name', 'Името им'),
+  learnersName: s('Their name', 'Име'),
   learnersSave: s('Add', 'Добави'),
   learnersRename: s('Rename', 'Преименувай'),
   learnersWaiting: s(
@@ -940,7 +940,7 @@ export const UI = {
   offlineTitle: s('No connection', 'Няма връзка'),
   offlineBody: s(
     'SatzWerk is here, but it cannot reach your progress right now. It will load by itself as soon as there is a connection again.',
-    'SatzWerk е тук, но в момента не може да стигне до напредъка ти. Ще се зареди сам, щом има връзка.',
+    'SatzWerk е тук, но в момента не може да стигне до напредъка ти. Ще се зареди автоматично, щом има връзка.',
   ),
   offlineWaiting: s(
     '{n} answers are waiting to be saved. They are kept and will be sent when there is a connection.',

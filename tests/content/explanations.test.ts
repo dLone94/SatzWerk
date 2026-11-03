@@ -7,6 +7,7 @@ import {
   lessonById,
   lessonExercises,
   sectionBlocks,
+  unitById,
   vocabById,
 } from '../../src/content/index.ts';
 import type { Block, ExerciseStep, Lesson, TeachingLanguage } from '../../src/content/types.ts';
@@ -268,5 +269,21 @@ describe('the word page for hängen', () => {
       expect(entry.notes?.[lang], lang).toContain('hat gehängt');
       expect(entry.notes?.[lang], lang).toContain('hat gehangen');
     }
+  });
+});
+
+describe('the Bulgarian dative comparison', () => {
+  it('reads as Bulgarian rather than as a calque', () => {
+    // "Повече от това" is "More than that" word for word, and "което учи"
+    // reads first as "which studies"; the rest of the course says "научи".
+    const text = lessonText('a1-u5-l2', 'bg');
+    expect(text).toContain('Нещо повече: „брат ми“, което научи още в раздел 1');
+    expect(text).not.toContain('Повече от това');
+  });
+
+  it('welcomes a learner to the first unit without assuming a gender', () => {
+    // The course never asks for a form of address; "Добре дошъл" is the
+    // masculine singular.
+    expect(unitById('pre-a1-u1')!.title.bg).toBe('Добре дошли в немския');
   });
 });
