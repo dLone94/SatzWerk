@@ -74,7 +74,7 @@ const COMPARE: VocabEntry[] = [
     plural: 'die Flüge',
     wordType: 'noun',
     translation: { en: 'flight', bg: 'полет' },
-    pronunciation: { en: 'floog', bg: 'флуг' },
+    pronunciation: { en: 'flook', bg: 'флук' },
     example: {
       de: 'Der Flug war billiger als der Zug.',
       gloss: { en: 'The flight was cheaper than the train.', bg: 'Полетът беше по-евтин от влака.' },

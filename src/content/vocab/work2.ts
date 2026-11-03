@@ -102,7 +102,7 @@ const WORK: VocabEntry[] = [
     gender: 'n',
     wordType: 'noun',
     translation: { en: 'money', bg: 'пари' },
-    pronunciation: { en: 'gelt', bg: 'гелд' },
+    pronunciation: { en: 'gelt', bg: 'гелт' },
     example: {
       de: 'Ich habe kein Geld.',
       gloss: { en: 'I have no money.', bg: 'Нямам пари.' },

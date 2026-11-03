@@ -121,7 +121,7 @@ const OPINION: VocabEntry[] = [
     plural: 'die Gründe',
     wordType: 'noun',
     translation: { en: 'reason', bg: 'причина' },
-    pronunciation: { en: 'groont', bg: 'грунд' },
+    pronunciation: { en: 'groont', bg: 'грунт' },
     example: {
       de: 'Es gibt mehrere Gründe dafür.',
       gloss: { en: 'There are several reasons for it.', bg: 'Има няколко причини за това.' },

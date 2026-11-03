@@ -33,7 +33,7 @@ const PLACES: VocabEntry[] = [
     plural: 'die Wände',
     wordType: 'noun',
     translation: { en: 'wall (inside a room)', bg: 'стена' },
-    pronunciation: { en: 'vant', bg: 'ванд' },
+    pronunciation: { en: 'vant', bg: 'вант' },
     example: {
       de: 'Das Bild hängt an der Wand.',
       gloss: { en: 'The picture is hanging on the wall.', bg: 'Картината виси на стената.' },
@@ -186,7 +186,7 @@ const PLACES: VocabEntry[] = [
     plural: 'die Bilder',
     wordType: 'noun',
     translation: { en: 'picture', bg: 'картина, снимка' },
-    pronunciation: { en: 'bilt', bg: 'билд' },
+    pronunciation: { en: 'bilt', bg: 'билт' },
     example: {
       de: 'Das Bild ist schön.',
       gloss: { en: 'The picture is beautiful.', bg: 'Картината е хубава.' },

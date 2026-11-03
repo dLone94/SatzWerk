@@ -137,7 +137,7 @@ const TIME: VocabEntry[] = [
     plural: 'die Ausflüge',
     wordType: 'noun',
     translation: { en: 'trip, outing', bg: 'екскурзия, излет' },
-    pronunciation: { en: 'OWS-floog', bg: 'АУС-флуг' },
+    pronunciation: { en: 'OWS-flook', bg: 'АУС-флук' },
     example: {
       de: 'Wir haben einen Ausflug gemacht.',
       gloss: { en: 'We went on a trip.', bg: 'Направихме излет.' },
@@ -368,7 +368,7 @@ const STORY: VocabEntry[] = [
     display: 'langweilig',
     wordType: 'adjective',
     translation: { en: 'boring', bg: 'скучен, скучно' },
-    pronunciation: { en: 'LANG-vy-lish', bg: 'ЛАНГ-вай-лих' },
+    pronunciation: { en: 'LANG-vy-likh', bg: 'ЛАНГ-вай-лих' },
     example: {
       de: 'Der Film war langweilig.',
       gloss: { en: 'The film was boring.', bg: 'Филмът беше скучен.' },

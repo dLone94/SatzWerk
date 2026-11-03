@@ -302,7 +302,7 @@ const SMALL_TALK: VocabEntry[] = [
     gender: 'm',
     wordType: 'noun',
     translation: { en: 'the end of the working day', bg: 'краят на работния ден' },
-    pronunciation: { en: 'FY-er-ah-bent', bg: 'ФАЙ-ер-а-бенд' },
+    pronunciation: { en: 'FY-er-ah-bent', bg: 'ФАЙ-ер-а-бент' },
     example: {
       de: 'Ich mache jetzt Feierabend.',
       gloss: {
@@ -425,7 +425,7 @@ const FLAVOUR: VocabEntry[] = [
     gender: 'n',
     wordType: 'noun',
     translation: { en: 'stuff', bg: 'нещата, вещи' },
-    pronunciation: { en: 'tsoyk', bg: 'цойг' },
+    pronunciation: { en: 'tsoyk', bg: 'цойк' },
     example: {
       de: 'Nimm dein Zeug bitte mit.',
       gloss: {

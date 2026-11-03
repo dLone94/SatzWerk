@@ -286,7 +286,7 @@ const APPLYING: VocabEntry[] = [
     plural: 'die Anträge',
     wordType: 'noun',
     translation: { en: 'application', bg: 'заявление' },
-    pronunciation: { en: 'AN-trahk', bg: 'АН-траг' },
+    pronunciation: { en: 'AN-trahk', bg: 'АН-трак' },
     example: {
       de: 'Der Antrag muss bis Freitag eingereicht werden.',
       gloss: {

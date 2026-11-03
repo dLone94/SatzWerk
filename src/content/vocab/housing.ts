@@ -236,7 +236,7 @@ const CONTRACT: VocabEntry[] = [
     plural: 'die Mietverträge',
     wordType: 'noun',
     translation: { en: 'rental contract, lease', bg: 'договор за наем' },
-    pronunciation: { en: 'MEET-fer-trahk', bg: 'МИТ-фер-траг' },
+    pronunciation: { en: 'MEET-fer-trahk', bg: 'МИТ-фер-трак' },
     example: {
       de: 'Ich habe den Mietvertrag noch nicht unterschrieben.',
       gloss: {
@@ -367,7 +367,7 @@ const CONTRACT: VocabEntry[] = [
     plural: 'die Aufzüge',
     wordType: 'noun',
     translation: { en: 'lift, elevator', bg: 'асансьор' },
-    pronunciation: { en: 'OWF-tsook', bg: 'АУФ-цуг' },
+    pronunciation: { en: 'OWF-tsook', bg: 'АУФ-цук' },
     example: {
       de: 'Das Haus hat leider keinen Aufzug.',
       gloss: { en: 'The building unfortunately has no lift.', bg: 'Сградата за съжаление няма асансьор.' },

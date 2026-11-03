@@ -555,6 +555,27 @@ describe('vocabulary', () => {
     }
   });
 
+  it('respells a final b, d or g the way the first lesson says it sounds', () => {
+    /*
+     * Lesson 1 teaches that -b, -d, -g sound like p, t, k at the end of a word
+     * and shows der Hund as „ХУНТ“; one lesson later the word list said
+     * [ХУНД], and so did 26 other Bulgarian respellings and four English
+     * ones (floog for Flug). Both paths now follow the rule the course states.
+     * -ig is the one exception, said with the ch of ich.
+     */
+    const failures: string[] = [];
+    for (const entry of VOCABULARY) {
+      const last = entry.german.toLowerCase().split(/[\s/]+/).filter(Boolean).pop() ?? '';
+      if (!/[bdg]$/.test(last) || /ng$/.test(last)) continue;
+      const devoiced = /ig$/.test(last) ? { en: /kh$/i, bg: /х$/i } : { en: /[ptk]$/i, bg: /[птк]$/i };
+      for (const lang of ['en', 'bg'] as const) {
+        const said = entry.pronunciation?.[lang].trim() ?? '';
+        if (!devoiced[lang].test(said)) failures.push(`${entry.id} (${lang}): ${said}`);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
   it('feeds the validator lexicon with genders and plurals', () => {
     expect(LEXICON.nounGender.get('tochter')).toBe('f');
     expect(LEXICON.nounGender.get('haus')).toBe('n');

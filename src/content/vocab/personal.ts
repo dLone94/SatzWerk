@@ -82,7 +82,7 @@ const COUNTRIES_AND_LANGUAGES: VocabEntry[] = [
     gender: 'n',
     wordType: 'noun',
     translation: { en: 'England', bg: 'Англия' },
-    pronunciation: { en: 'ENG-lahnt', bg: 'ЕНГ-ланд' },
+    pronunciation: { en: 'ENG-lahnt', bg: 'ЕНГ-лант' },
     example: {
       de: 'Sie wohnt in England.',
       gloss: { en: 'She lives in England.', bg: 'Тя живее в Англия.' },

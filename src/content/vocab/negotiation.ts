@@ -361,7 +361,7 @@ const ARGUING: VocabEntry[] = [
     gender: 'm',
     wordType: 'noun',
     translation: { en: 'effort, expenditure of time or money', bg: 'усилие, разход на време или средства' },
-    pronunciation: { en: 'OWF-vant', bg: 'АУФ-ванд' },
+    pronunciation: { en: 'OWF-vant', bg: 'АУФ-вант' },
     example: {
       de: 'Je größer der Aufwand, desto höher die Kosten.',
       gloss: {
