@@ -462,7 +462,12 @@ const lesson2: Lesson = {
              */
             alternatives: ['Ich treffe mich mit meinen Freunden.'],
             reviewTargets: ['v-treffen'],
-            hints: [bi('No preposition after treffen.', 'Без предлог след treffen.')],
+            hints: [
+              bi(
+                'treffen takes the person you meet directly, with no preposition (sich mit … treffen is the other way to say it).',
+                'treffen взима човека, с когото се срещаш, директно, без предлог (sich mit … treffen е другият начин да се каже).',
+              ),
+            ],
           },
         ],
         ['g-gern-lieber'],
