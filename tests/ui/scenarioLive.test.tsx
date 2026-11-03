@@ -3,12 +3,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
-import { SCENARIO_SCRIPTS } from '../../src/content/index.ts';
+import { SCENARIO_SCRIPTS, scriptAnswerCount } from '../../src/content/index.ts';
 import { tr } from '../../src/i18n.ts';
 import { AppStateContext } from '../../src/state/AppState.tsx';
 import { ScenarioPlayer, segmentsOf } from '../../src/ui/components/ScenarioPlayer.tsx';
 import { ScenarioPage } from '../../src/ui/pages/ScenarioPage.tsx';
-import { stubState } from './playerStub.tsx';
+import { play, stepIdOnScreen, stubState } from './playerStub.tsx';
 
 /** A conversation, heard as well as seen. */
 
@@ -53,5 +53,42 @@ describe('a conversation', () => {
     await user.click(screen.getByRole('link', { name: 'elsewhere' }));
     expect(document.querySelector('.scenario')).toBeNull();
     expect(screen.getByRole('button', { name: tr('scenarioStart', 'en') })).toBeInTheDocument();
+  });
+});
+
+describe('counting a conversation', () => {
+  /*
+   * The introduction counted the things you say, four in the first bakery
+   * conversation, and so did the score at the end. The header in between
+   * counted turns of the conversation, three, so it read "3 of 3" while two
+   * answers were still to come.
+   */
+  it('counts the things you say, the same as the introduction and the score', async () => {
+    const user = userEvent.setup();
+    const total = scriptAnswerCount(first!, 'en');
+    let finished: { total: number } | null = null;
+    render(
+      <AppStateContext.Provider value={stubState()}>
+        <ScenarioPlayer script={first!} onFinish={(summary) => (finished = summary)} onExit={() => {}} />
+      </AppStateContext.Provider>,
+    );
+    const seen = new Map<string, string>();
+    const asked = await play(
+      user,
+      first!.beats.flatMap((beat) => (beat.who === 'you' ? [beat.exercise] : [])),
+      {
+        right: () => true,
+        done: () => {
+          const step = stepIdOnScreen();
+          if (step && !seen.has(step)) seen.set(step, document.querySelector('.scenario__progress')!.textContent!);
+          return finished !== null;
+        },
+      },
+    );
+    expect(asked).toHaveLength(total);
+    expect(asked.map((step) => seen.get(step))).toEqual(
+      asked.map((_, index) => tr('exerciseProgress', 'en', { done: index + 1, total })),
+    );
+    expect(finished!.total).toBe(total);
   });
 });
