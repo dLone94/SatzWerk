@@ -403,4 +403,10 @@ describe('a wrong choice in a listening exercise', () => {
     expect(en.join(' ')).toContain('It was "vier", not "wir".');
     expect(bg.join(' ')).toContain('Беше „vier“, а не „wir“.');
   });
+
+  // The choice is quoted as it was shown, not rebuilt from its words.
+  it('quotes the choice with its marks', () => {
+    const { en } = explain('8:30', spec('7:30'), { exerciseKind: 'listenChoose' });
+    expect(en.join(' ')).toContain('It was "7:30", not "8:30".');
+  });
 });

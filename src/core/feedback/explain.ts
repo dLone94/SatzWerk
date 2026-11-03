@@ -1,6 +1,6 @@
 import type { Bilingual, ErrorCategory, Gender } from '../../content/types.ts';
 import type { GermanLexicon } from '../validation/lexicon.ts';
-import { lower } from '../validation/text.ts';
+import { lower, PLAIN_VOWEL } from '../validation/text.ts';
 import { categorizePair, pairContext, type TokenDiffEntry, type ValidationResult } from '../validation/validate.ts';
 
 /**
@@ -480,16 +480,13 @@ function dedupeLines(lines: Bilingual[]): Bilingual[] {
   });
 }
 
-const PLAIN_VOWEL: Record<string, string> = { 'ä': 'a', 'ö': 'o', 'ü': 'u' };
-
 /**
  * A wrong choice in a listening exercise, explained by what was said. When
  * only the dots tell the two apart, the line names the letter: that sound is
  * what the exercise is training the ear for.
  */
-function misheardLine(result: ValidationResult): Bilingual {
+function misheardLine(result: ValidationResult, chosen: string): Bilingual {
   const said = result.target;
-  const chosen = result.diff.flatMap((entry) => (entry.given ? [entry.given] : [])).join(' ');
   const word = result.diff.find((entry) => entry.status === 'changed' && /[äöü]/i.test(entry.expected ?? ''));
   if (!result.categories.includes('umlaut') || !word) {
     return bi(
@@ -576,7 +573,7 @@ export function buildFeedback(result: ValidationResult, ctx: FeedbackContext): F
     return {
       tone: 'error',
       headline: HEADLINES.error,
-      lines: [misheardLine(result)],
+      lines: [misheardLine(result, result.misheard.chose)],
       correction: result.target,
       askRetype: false,
     };

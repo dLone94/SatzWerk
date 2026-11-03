@@ -934,14 +934,20 @@ describe('a wrong choice in a listening exercise', () => {
     expect(r.verdict).toBe('incorrect');
     expect(r.credit).toBe(0);
     expect(r.categories).toEqual(['umlaut']);
-    expect(r.misheard).toBe(true);
+    expect(r.misheard).toEqual({ chose: 'die Tochter' });
   });
 
   it('is a different word heard when more than the dots differ', () => {
     const r = validateAnswer('wir', word(['vier']), listening);
     expect(r.verdict).toBe('incorrect');
     expect(r.categories).toEqual(['vocabulary']);
-    expect(r.misheard).toBe(true);
+    expect(r.misheard).toEqual({ chose: 'wir' });
+  });
+
+  // Only the dots are the special letter: a capital or a moved mark is not.
+  it('is filed as an umlaut only when the dots alone differ', () => {
+    expect(validateAnswer('Sie', word(['sie']), listening).categories).toEqual(['vocabulary']);
+    expect(validateAnswer('73:0', word(['7:30']), listening).categories).toEqual(['vocabulary']);
   });
 
   it('is right when the right one is tapped', () => {

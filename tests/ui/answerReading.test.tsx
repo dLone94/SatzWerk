@@ -98,4 +98,39 @@ describe('a wrong choice in a listening exercise', () => {
     expect(document.querySelector('.micro-tip')).toBeNull();
     expect(document.querySelector('.tag--plural')).toBeNull();
   });
+
+  /*
+   * u5l3-ex1 is authored as listenChoose but plays nothing: it asks what
+   * "halb acht" means. A wrong tap was told to play a recording that is not
+   * there, and "8:30" was quoted as "830".
+   */
+  it('is an ordinary choice when the step plays nothing', async () => {
+    const user = userEvent.setup();
+    const time = multipleChoice(
+      'time',
+      bi('What does halb acht mean?', 'Какво значи halb acht?'),
+      [
+        {
+          id: 'time-s1',
+          prompt: bi('"Es ist halb acht." What time is it?', '„Es ist halb acht.“ Колко е часът?'),
+          choices: [
+            { id: 'a', de: '7:30', gloss: bi('half past seven', 'седем и половина') },
+            { id: 'b', de: '8:30', gloss: bi('half past eight', 'осем и половина') },
+          ],
+          correct: 'a',
+          answer: '7:30',
+          shape: 'word',
+        },
+      ],
+      'listenChoose',
+    );
+    mount([time], 'en');
+    await user.click(screen.getByText('8:30'));
+    await waitFor(() => expect(attempts).toHaveLength(1));
+
+    expect(attempts[0]).toMatchObject({ verdict: 'incorrect', credit: 0 });
+    const lines = document.querySelector('.feedback__lines')?.textContent ?? '';
+    expect(lines).not.toContain('Play it again');
+    expect(lines).not.toContain('830');
+  });
 });

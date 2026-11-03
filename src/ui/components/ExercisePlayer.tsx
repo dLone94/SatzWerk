@@ -1099,8 +1099,15 @@ export function ExercisePlayer({
   /** Submitting a multiple-choice option runs it through the same validator. */
   async function submitChoice(chosen: string): Promise<void> {
     if (!current || finishedRef.current) return;
-    // The kind says whether the choice was about a sound heard.
-    const validation = validateAnswer(chosen, current.step.answer, { lexicon, exerciseKind: current.exercise.kind });
+    // A choice is about a sound heard only when the step plays a recording it
+    // does not show. A listenChoose step with nothing to hear (u5l3-ex1 asks
+    // what "halb acht" means) is graded as an ordinary choice, and its wrong
+    // taps are not sent back to a recording that is not there.
+    const heard = current.step.audio?.hideText === true;
+    const validation = validateAnswer(chosen, current.step.answer, {
+      lexicon,
+      exerciseKind: heard ? current.exercise.kind : undefined,
+    });
     const message = buildFeedback(validation, { lexicon, describeNoun });
     setBusy(true);
     try {

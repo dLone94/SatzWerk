@@ -88,8 +88,9 @@ export interface ValidationResult {
   /**
    * A wrong choice in a listening exercise: the learner heard one word for
    * another, which is explained by its sound rather than its grammar.
+   * `chose` is the option as it was shown ("8:30"), marks and all.
    */
-  misheard?: boolean;
+  misheard?: { chose: string };
 }
 
 export interface ValidateOptions {
@@ -108,7 +109,9 @@ export interface ValidateOptions {
   scaffold?: string;
   /**
    * The kind of exercise the answer belongs to. In a dictation the recording
-   * fixes the exact words, and in the word-order drills the order is the task.
+   * fixes the exact words, in the word-order drills the order is the task,
+   * and a wrong listenChoose choice was misheard. The player passes that one
+   * only for a step that plays a recording it does not show.
    */
   exerciseKind?: ExerciseKind;
 }
@@ -321,21 +324,22 @@ export function validateAnswer(
 
 /**
  * A wrong choice in a listening exercise. When only the dots tell the two
- * apart, what was missed is the sound of the special letter.
+ * apart, what was missed is the sound of the special letter. Case and marks
+ * count: "Sie" for "sie" or "73:0" for "7:30" is not a question of dots.
  */
 function misheard(raw: string, target: string): ValidationResult {
-  const plain = (text: string) => shapeKey(text).replace(/[äöü]/g, (letter) => PLAIN_VOWEL[letter]!);
+  const undotted = (text: string) => tidy(text).normalize('NFD').replace(/\u0308/g, '').normalize('NFC');
   return {
     verdict: 'incorrect',
     credit: 0,
     target,
     matched: target,
-    categories: [plain(raw) === plain(target) ? 'umlaut' : 'vocabulary'],
+    categories: [undotted(raw) === undotted(target) ? 'umlaut' : 'vocabulary'],
     notes: [],
     // A choice is not retyped.
     requireRetype: false,
     diff: buildDiff(raw, target),
-    misheard: true,
+    misheard: { chose: raw },
   };
 }
 
