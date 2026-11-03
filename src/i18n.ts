@@ -708,8 +708,13 @@ export const UI = {
   vocabEmpty: s('No words match those filters.', 'Няма думи, отговарящи на тези филтри.'),
   vocabCount: s('{n} words', '{n} думи'),
   vocabKnownRule: s(
-    'A word counts as known once you have remembered it on two later days, a few days apart. Answers on the day it was taught keep it learning.',
-    'Една дума става „Научена“, когато си я спомниш в два по-късни дни, с няколко дни между тях. Отговорите в деня, в който е преподадена, я оставят „Учи се“.',
+    'A word counts as known once you have remembered it on two later days, a few days apart.',
+    'Думата минава в „Научени“, когато си я спомниш в два по-късни дни, с няколко дни между тях.',
+  ),
+  // Only on the Learning tab, where a whole clean lesson is waiting.
+  vocabSameDayRule: s(
+    'Answers on the day a word is taught do not make it known.',
+    'Отговорите в деня, в който думата е въведена, не я правят научена.',
   ),
   vocabCountOne: s('{n} word', '{n} дума'),
   vocabFavorite: s('Add to favourites', 'Добави в любими'),
@@ -734,6 +739,12 @@ export const UI = {
   wordStateLearningHow: s(
     'It counts as known once you have remembered it on two later days, a few days apart.',
     'Става „Научено“, когато си спомниш думата в два по-късни дни, с няколко дни между тях.',
+  ),
+  // A word past its learning steps: one good review may be all that is left,
+  // as it is for the words that migration 10 took back from known.
+  wordStateLearningNextHow: s(
+    'It has passed its first reviews. Remember it again at its next review, a few days on, and it will usually count as known.',
+    'Мина първите си повторения. Ако си я спомниш и при следващото, след няколко дни, обикновено става „Научено“.',
   ),
   wordStateLapsedHow: s(
     'You forgot it at its last review, so it is being learnt again from the start.',

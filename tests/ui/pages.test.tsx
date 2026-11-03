@@ -1123,6 +1123,10 @@ describe.each(LANGS)('learning states after one lesson, in the %s path', (lang) 
     expect(screen.queryByText(tr('vocabKnownRule', lang))).toBeNull();
     await userEvent.click(screen.getByRole('tab', { name: new RegExp(tr('vocabKnown', lang)) }));
     expect(screen.getByText(tr('vocabKnownRule', lang))).toBeInTheDocument();
+    // What a lesson's answers do not do is said where the lesson's words are.
+    expect(screen.queryByText(tr('vocabSameDayRule', lang), { exact: false })).toBeNull();
+    await userEvent.click(screen.getByRole('tab', { name: new RegExp(tr('vocabLearning', lang)) }));
+    expect(screen.getByText(`${tr('vocabKnownRule', lang)} ${tr('vocabSameDayRule', lang)}`)).toBeInTheDocument();
   });
 
   it('says on the word page what "learning" is waiting for', () => {
@@ -1136,6 +1140,21 @@ describe.each(LANGS)('learning states after one lesson, in the %s path', (lang) 
     );
     expect(screen.getByText(tr('reviewStateLearning', lang))).toBeInTheDocument();
     expect(screen.getByText(tr('wordStateLearningHow', lang))).toBeInTheDocument();
+  });
+
+  it('does not promise two more days to a word past its learning steps', () => {
+    // As migration 10 left the words it took back from known: four days, learning.
+    const migrated = reviewItems.map((item) => ({ ...item, state: 'learning' as const, intervalDays: 4, learningStep: 2 }));
+    mount(
+      <Routes>
+        <Route path="/vocabulary/:wordId" element={<WordPage />} />
+      </Routes>,
+      lang,
+      { reviewItems: migrated },
+      '/vocabulary/v-der-hund',
+    );
+    expect(screen.getByText(tr('wordStateLearningNextHow', lang))).toBeInTheDocument();
+    expect(screen.queryByText(tr('wordStateLearningHow', lang))).toBeNull();
   });
 
   it('calls a word known once it has been remembered on two later days', () => {
