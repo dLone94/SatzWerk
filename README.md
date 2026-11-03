@@ -16,7 +16,7 @@ translations of each other — each explains German from where its own speakers
 actually stand, and a test fails if either one's prompts ever become a
 translation of the other's.
 
-Beside the course sit the **Real Life scenarios**: 13 rooms, 41 conversations,
+Beside the course sit the **Real Life scenarios**: 13 rooms, 47 conversations,
 and someone who answers back. A lesson tells you what to say; there, the other
 person's line decides it.
 
@@ -32,7 +32,12 @@ today** on the dashboard or open **Practice** in the navigation:
 
 Personalisation selects everyday life, travel, work or exam practice and a level
 from Pre-A1 to B2. Exam practice rehearses language skills rather than an official
-exam format. Beginners start with common greetings and polite requests. Estimates
+exam format. Beginners start with common greetings and polite requests. The
+conversation changes from day to day: it stays at the chosen level, keeps to the
+goal's own conversations wherever there are two or more, and is never the one
+practised today or yesterday while another fits. The three phrases come from that
+conversation, lines the learner has not met yet first, and a phrase met before
+says so. Estimates
 use the learner's recorded pace, with a provisional default until enough answers
 exist; they are not a timer or a promise of fluency.
 
@@ -995,7 +1000,7 @@ that is openly planned:
 | AI mistake explanation | **Real, when a key is set.** `server/ai-claude.ts` implements `AiProvider` against the Claude API. With no `ANTHROPIC_API_KEY` the app behaves exactly as before and says so. The key is read server-side only and is not prefixed `VITE_`, so it cannot reach the client bundle. See below. |
 | Generated practice, conversation | **Decided against, not planned.** `generatePractice` and `converse` stay `available: false` with a reason, and the API says `not-generated` rather than `planned`. Every German sentence in this app has been read by a person; a generated one sitting beside an authored one with no way to tell them apart would end that quietly. |
 | Phoneme-level pronunciation scoring | **Not built, and not claimed.** Speaking *is* real (see below) — the app checks whether a recogniser understood your words. Scoring an accent is a different thing and needs a different engine; `AudioRecorder` / `SpeechToText` in `src/services/speech/index.ts` remain the interfaces a server-side recogniser would implement. |
-| Real Life scenarios | **Playable.** 13 scenarios, 41 conversations, 169 answer steps, both teaching paths. Your turn is an ordinary exercise handed to the ordinary player, so the validator, the hints and the mandatory retyping are the same ones the course uses — and a mistake made in a scenario lands in the mistake bank like any other. The status badge is derived from whether a script exists, so it cannot claim more than has been written. |
+| Real Life scenarios | **Playable.** 13 scenarios, 47 conversations, 195 answer steps, both teaching paths. Your turn is an ordinary exercise handed to the ordinary player, so the validator, the hints and the mandatory retyping are the same ones the course uses — and a mistake made in a scenario lands in the mistake bank like any other. The status badge is derived from whether a script exists, so it cannot claim more than has been written. |
 | Content beyond B2 | **Nothing is outstanding inside the curriculum.** All five levels are authored end to end, each with its units, unit checkpoints and a level checkpoint. What does not exist is anything above B2 — see the next row. |
 | C1 / C2 | Not implemented, but `CefrLevel` already includes them, so adding them is content, not a refactor. |
 
@@ -1226,7 +1231,7 @@ always had.
   (`.github/workflows/ci.yml`). The numbers quoted here were produced locally;
   the runner is what stops them going stale.
 - **The bundle is a single chunk** (2.4 MB, 638 kB gzipped — five levels of
-  curriculum and forty-one scenario scripts are typed data compiled into it,
+  curriculum and forty-seven scenario scripts are typed data compiled into it,
   and it grows with every lesson written). Fine over wifi for a personal app;
   route-level code splitting is the obvious first step if this ever ships
   publicly, and the first thing to do if it ever feels slow to open.

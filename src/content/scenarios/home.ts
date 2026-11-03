@@ -433,6 +433,134 @@ const APARTMENT_B2 = script({
   ],
 });
 
+const NEIGHBOURS_PRE_A1 = script({
+  id: 'sc-neighbours-pre-a1',
+  scenarioId: 'sc-neighbours',
+  level: 'pre-a1',
+  register: 'Sie',
+  partner: bi('Mr Becker from the first floor', 'господин Бекер от първия етаж'),
+  goal: bi(
+    'Say good evening to a neighbour on the stairs, tell him your name, and ask how he is.',
+    'Кажи добър вечер на съсед по стълбите, кажи му името си и го попитай как е.',
+  ),
+  lessonIds: ['pre-a1-u2-l1', 'pre-a1-u2-l2', 'pre-a1-u2-l3'],
+  outro: bi(
+    'A greeting that fits the hour, your name, and the question back. The question back is what turns an answer into a conversation.',
+    'Поздрав според часа, името ти и въпросът обратно. Точно въпросът обратно превръща отговора в разговор.',
+  ),
+  beats: [
+    narrator(
+      bi(
+        'Evening. You are carrying shopping up the stairs, and the man from the first floor is on his way down.',
+        'Вечер е. Качваш покупки по стълбите, а мъжът от първия етаж слиза.',
+      ),
+    ),
+    them('Guten Abend!', bi('Good evening!', 'Добър вечер!')),
+    you(
+      'sc-neighbours-pre-a1-t1',
+      bi('Greet him back', 'Поздрави го в отговор'),
+      [
+        {
+          id: 'sc-neighbours-pre-a1-t1-s1',
+          prompt: bi('It is evening. Say good evening back.', 'Вечер е. Кажи му и ти добър вечер.'),
+          answer: 'Guten Abend!',
+          alternatives: ['Hallo!'],
+          shape: 'phrase',
+          reviewTargets: ['v-guten-abend'],
+          hints: [
+            bi('Not Morgen and not Tag: it is the evening greeting.', 'Не „Morgen“ и не „Tag“: това е вечерният поздрав.'),
+            bi('Guten A____!', 'Guten A____!'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Ich bin Herr Becker. Und wie heißen Sie?', bi('I am Mr Becker. And what is your name?', 'Аз съм господин Бекер. А Вие как се казвате?'), {
+      note: bi(
+        'He asks with Sie, the polite you. Your answer does not change with it: ich heiße is ich heiße, whoever asks.',
+        '„Wie heißen Sie?“ е точно „Как се казвате?“ — учтивото „Вие“. Отговорът ти е същият като на „Wie heißt du?“: „Ich heiße …“.',
+      ),
+    }),
+    you(
+      'sc-neighbours-pre-a1-t2',
+      bi('Tell him your name', 'Кажи му името си'),
+      [
+        {
+          id: 'sc-neighbours-pre-a1-t2-s1',
+          prompt: bi('Your name is Alex.', 'Казваш се Алекс.'),
+          answer: 'Ich heiße Alex.',
+          alternatives: ['Ich bin Alex.', 'Mein Name ist Alex.'],
+          shape: 'sentence',
+          reviewTargets: ['v-heissen'],
+          hints: [
+            bi('heißen, with ich: the ending is -e.', '„heißen“ с „ich“: окончанието е -e.'),
+            bi('Ich h____ Alex.', 'Ich h____ Alex.'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Freut mich! Wie geht es Ihnen?', bi('Nice to meet you! How are you?', 'Приятно ми е! Как сте?'), {
+      note: bi(
+        'The lesson taught "Wie geht es dir?". To somebody you say Sie to, dir becomes Ihnen: Wie geht es Ihnen?',
+        'В урока беше „Wie geht es dir?“ — „Как си?“. Тук е „Как сте?“: „dir“ става „Ihnen“, както „ти“ става „Вие“.',
+      ),
+    }),
+    you(
+      'sc-neighbours-pre-a1-t3',
+      bi('Answer, and ask him back', 'Отговори и го попитай и ти'),
+      [
+        {
+          id: 'sc-neighbours-pre-a1-t3-s1',
+          prompt: bi('Say you are well, thank you.', 'Кажи, че си добре, благодаря.'),
+          answer: 'Gut, danke.',
+          alternatives: ['Danke, gut.', 'Sehr gut, danke.'],
+          shape: 'phrase',
+          reviewTargets: ['v-gut-danke'],
+          hints: [bi('Two words: well, thanks.', 'Две думи: добре, благодаря.')],
+        },
+        {
+          id: 'sc-neighbours-pre-a1-t3-s2',
+          instruction: bi(
+            'German asks back with two words: und, and the polite form he just used.',
+            'Немският пита обратно с две думи: „und“ и учтивата форма, която той току-що използва.',
+          ),
+          prompt: bi('Ask him back: and you?', 'Попитай го и ти: а Вие?'),
+          answer: 'Und Ihnen?',
+          alternatives: ['Und wie geht es Ihnen?'],
+          shape: 'phrase',
+          traps: [registerTrap('Und dir?', 'Sie')],
+          hints: [
+            bi('The word he used in his question: Ihnen.', 'Думата от неговия въпрос: „Ihnen“.'),
+            bi('Und I_____?', 'Und I_____?'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Danke, auch gut. Schönen Abend noch!', bi('Fine too, thanks. Have a nice evening!', 'Благодаря, и аз съм добре. Приятна вечер!')),
+    you(
+      'sc-neighbours-pre-a1-t4',
+      bi('Say goodbye', 'Сбогувай се'),
+      [
+        {
+          id: 'sc-neighbours-pre-a1-t4-s1',
+          prompt: bi('Thank him and say goodbye.', 'Благодари му и се сбогувай.'),
+          answer: 'Danke, auf Wiedersehen!',
+          alternatives: ['Danke schön, auf Wiedersehen!', 'Vielen Dank, auf Wiedersehen!', 'Danke, Ihnen auch! Auf Wiedersehen!'],
+          shape: 'phrase',
+          reviewTargets: ['v-danke', 'v-auf-wiedersehen'],
+          hints: [
+            bi('Thanks, then the goodbye for people you say Sie to.', 'Благодаря, после сбогуването за хора, на които казваш „Sie“.'),
+            bi('Danke, auf W_________!', 'Danke, auf W_________!'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+  ],
+});
+
 const NEIGHBOURS_A1 = script({
   id: 'sc-neighbours-a1',
   scenarioId: 'sc-neighbours',
@@ -812,6 +940,7 @@ export const HOME_SCRIPTS: ScenarioScript[] = [
   APARTMENT_A2,
   APARTMENT_B1,
   APARTMENT_B2,
+  NEIGHBOURS_PRE_A1,
   NEIGHBOURS_A1,
   NEIGHBOURS_A2,
   NEIGHBOURS_B1,

@@ -7,7 +7,8 @@ import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import { CURRICULUM, SCENARIO_SCRIPTS, VOCABULARY } from '../src/content/index.ts';
 import { tr } from '../src/i18n.ts';
-import { dailyListening, phraseRecall } from '../src/ui/dailyBuilder.ts';
+import { chooseDailyScript, dailyListening, phraseRecall } from '../src/ui/dailyBuilder.ts';
+import { todayHere } from '../src/core/progress/days.ts';
 
 // Always use an isolated, disposable database. No deployment or learner data
 // is involved. CI installs Chromium; local runs can point to system Chromium.
@@ -171,8 +172,12 @@ try {
   await page.reload();
   await page.getByRole('button', { name: tr('dailyResume', 'en'), exact: true }).waitFor();
   await page.getByRole('button', { name: tr('dailyResume', 'en'), exact: true }).click();
-  const dailyExercises = [...phraseRecall(scenario, 'en'),
-    ...scenario.beats.filter(beat => beat.who === 'you').map(beat => beat.exercise), ...dailyListening(scenario, 'en')];
+  // The day's conversation changes from day to day; a new learner is at Pre-A1 with everyday goals.
+  // Chosen from the catalog, played from the full script, which has the answers.
+  const dailyId = chooseDailyScript('everyday', 'pre-a1', [], todayHere()).id;
+  const daily = SCENARIO_SCRIPTS.find(script => script.id === dailyId);
+  const dailyExercises = [...phraseRecall(daily, 'en'),
+    ...daily.beats.filter(beat => beat.who === 'you').map(beat => beat.exercise), ...dailyListening(daily, 'en')];
   const dailyResult = await play(dailyExercises, 'en', async () => await page.getByRole('button', { name: tr('dailyFinish', 'en'), exact: true }).count() > 0, true);
   const shadowAxe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   observations.push({ path: '/daily#shadow', violations: shadowAxe.violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => node.target) })) });

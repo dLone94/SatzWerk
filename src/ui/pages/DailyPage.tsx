@@ -1,13 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { scriptById, scriptAnswerCount, patternById } from '../../content/browser.ts';
-import { phraseFrame } from '../../content/phraseFrames.ts';
+import { otherExamples, phraseFrame } from '../../content/phraseFrames.ts';
 import { todayHere } from '../../core/progress/days.ts';
 import { GOAL_LABELS, type DailyRunInput } from '../../core/progress/daily.ts';
 import { secondsPerAnswer } from '../../core/progress/session.ts';
 import { newWriteId } from '../../services/api/outbox.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { chooseDailyScript, dailyListening, dailyPhrases, dailyReview, fitsGoal, phraseRecall } from '../dailyBuilder.ts';
+import { chooseDailyScript, dailyListening, dailyPhrases, dailyReview, fitsGoal, goalScripts, phraseRecall } from '../dailyBuilder.ts';
 import { AudioButton, Card, Meter } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 import { Icon } from '../components/icons.tsx';
@@ -67,14 +67,26 @@ function DailyPractice() {
   const planScript = fitting ? scriptById(fitting.scriptId)! : script;
   // The script on screen: the round being played, or the plan card's.
   const currentScript = run && !paused ? scriptById(run.scriptId)! : planScript;
-  const phrases = dailyPhrases(currentScript, lang);
+  // Which lines are new depends on what is in review, and answering today's
+  // recall puts them there. Counting only what was met before today keeps the
+  // same cards through the whole day: a round reopened after a reload listens
+  // to the phrases it began with. Reviewing a met phrase today changes when it
+  // was last reviewed but not whether it was met, and the cards ask no more.
+  const metBefore = reviewItems.filter(item => {
+    const at = new Date(item.createdAt);
+    return !Number.isNaN(at.getTime()) && todayHere(at) < day;
+  });
+  const metKey = metBefore.map(item => item.refId).sort().join(' ');
+  const phrases = useMemo(() => dailyPhrases(currentScript, lang, metBefore, day),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [currentScript.id, lang, day, metKey]);
   const review = useMemo(() => dailyReview(reviewItems, mistakes, currentScript.level, lang,
     Math.max(2, Math.min(6, Math.round(profile.dailyTargetMinutes / 3)))),
   // Frozen at the beginning of a run: due dates move with every answer.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [run?.id, currentScript.id, lang, profile.dailyTargetMinutes]);
-  const recall = phraseRecall(currentScript, lang);
-  const listening = dailyListening(currentScript, lang);
+  const recall = phraseRecall(currentScript, lang, phrases);
+  const listening = dailyListening(currentScript, lang, phrases);
   const estimate = Math.max(5, Math.ceil((scriptAnswerCount(currentScript, lang) + recall.length + review.length + listening.length)
     * secondsPerAnswer(stats).seconds / 60 + 2));
 
@@ -163,8 +175,9 @@ function DailyPractice() {
     <section className="daily-plan" aria-labelledby="daily-plan-title">
       <div className="daily-plan__copy"><span className="daily-plan__tag">{say(GOAL_LABELS[goal])} · {currentScript.level.toUpperCase()}</span>
         <h2 id="daily-plan-title">{say(currentScript.goal)}</h2>
-        {/* A goal with nothing written at this level is given another conversation; the tag alone hid that. */}
-        {fitsGoal(currentScript, goal) ? null : <p>{t('dailyGoalElsewhere')}</p>}
+        {/* A conversation from outside the goal says why; the tag alone hid that. */}
+        {fitsGoal(currentScript, goal) ? null
+          : <p>{t(goalScripts(goal, currentScript.level).length > 0 ? 'dailyGoalResting' : 'dailyGoalElsewhere')}</p>}
         <p>{t('dailyPlanNote')}</p>
         <button type="button" className="btn daily-plan__start" disabled={busy}
           onClick={() => fitting ? resume(fitting) : start()}>
@@ -195,12 +208,13 @@ function DailyPractice() {
         aria-current={index === run.stage ? 'step' : undefined}><span>{index < run.stage ? <Icon name="check" size={14} /> : index + 1}</span><span>{t(key)}</span></li>)}</ol>
     {notice}
     {run.stage === 0 && card ? <Card title={t('dailyPhraseCount', { n: cardIndex + 1, total: phrases.length })} titleRef={phraseTitle}>
-      <div className="phrase-card"><div className="phrase-card__buddy"><DackelMark /><span>{t('playSayIt')}</span></div>
+      <div className="phrase-card"><div className="phrase-card__buddy"><DackelMark /><span>{t('playSayIt')}</span>
+        {card.again ? <span className="phrase-card__again">{t('dailyPhraseAgain')}</span> : null}</div>
         <p className="phrase-card__purpose">{say(card.purpose)}</p>
         <p className="phrase-card__german" lang="de">{card.german}</p>
         <div className="phrase-card__audio"><AudioButton text={card.german} /><AudioButton text={card.german} slow /></div>
         {frame ? <div className="phrase-frame"><p className="phrase-card__pattern"><span>{t('dailyBuildingBlock')}</span><strong lang="de">{frame.template}</strong></p>
-          <p className="muted">{t('dailySwapNote')}</p>{frame.examples.map(example => <p className="phrase-frame__example" key={example.de}>
+          <p className="muted">{t('dailySwapNote')}</p>{otherExamples(frame, card.german).map(example => <p className="phrase-frame__example" key={example.de}>
             <span lang="de">{example.de}</span><span>{say(example.gloss)}</span><AudioButton text={example.de} compact /></p>)}</div> : null}
         {!frame ? (card.step.reviewTargets ?? []).map(id => patternById(id)).filter(Boolean).map(pattern =>
           <p className="phrase-card__pattern" key={pattern!.id}><span>{t('dailyBuildingBlock')}</span><strong lang="de">{pattern!.template}</strong></p>) : null}
