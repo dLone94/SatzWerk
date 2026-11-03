@@ -14,11 +14,12 @@ import {
   applyCompletion,
   applyMastery,
   applyRecoveryRound,
+  countsAsRight,
   markSectionSeen as markSectionSeenIn,
   recordStepOutcome,
   type LessonProgress,
 } from '../core/progress/lesson.ts';
-import { streakOn, todayHere } from '../core/progress/days.ts';
+import { localDay, plausibleOffset, streakOn, todayHere } from '../core/progress/days.ts';
 import { scheduleReview, type RecallGrade, type ReviewItem } from '../core/srs/scheduler.ts';
 import { tr, type UiKey } from '../i18n.ts';
 import {
@@ -198,6 +199,27 @@ function emptyProgress(lessonId: string): LessonProgress {
 /** The days that actually hold answers, which is all a streak is counted from. */
 function daysAnswered(studyDays: AppStateSnapshot['studyDays']): string[] {
   return studyDays.filter((day) => day.answers > 0).map((day) => day.day);
+}
+
+/**
+ * The study days with one saved answer counted in, on the day and by the rule
+ * the server filed it under.
+ *
+ * Only the minute's study time used to bring the days back, so a short round
+ * answered right throughout finished on "0 / 4 practice days this week", with
+ * no streak, beside its own result: nothing else it sent fetched them.
+ */
+function withAnswerCounted(
+  studyDays: AppStateSnapshot['studyDays'],
+  attempt: AttemptPayload,
+): AppStateSnapshot['studyDays'] {
+  const day = localDay(attempt.at ? new Date(attempt.at) : new Date(), plausibleOffset(attempt.tzOffsetMinutes));
+  const right = countsAsRight(attempt.verdict, attempt.requireRetype) && !attempt.revealed ? 1 : 0;
+  const prior = studyDays.find((row) => row.day === day);
+  if (prior) {
+    return studyDays.map((row) => (row === prior ? { ...row, answers: row.answers + 1, correct: row.correct + right } : row));
+  }
+  return [...studyDays, { day, secondsActive: 0, answers: 1, correct: right }].sort((a, b) => b.day.localeCompare(a.day));
 }
 
 function indexLessons(lessons: LessonProgress[]): Record<string, LessonProgress> {
@@ -562,7 +584,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             if (!current) return current;
             const byId = new Map(current.reviewItems.map((item) => [item.id, item]));
             for (const item of response.reviewItems) byId.set(item.id, item);
-            return { ...current, stats: response.stats, reviewItems: [...byId.values()] };
+            return {
+              ...current,
+              stats: response.stats,
+              reviewItems: [...byId.values()],
+              studyDays: withAnswerCounted(current.studyDays, write.payload),
+            };
           });
           if (response.lessonProgress) mergeLesson(withHeldLesson(response.lessonProgress));
           // The mistake bank changes shape on a wrong answer or a retype.

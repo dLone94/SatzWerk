@@ -16,11 +16,14 @@ const TOPICS: Record<LearningGoal, string[]> = {
   exams: ['sc-neighbours', 'sc-work', 'sc-apartment', 'sc-restaurant', 'sc-buergeramt', 'sc-kita'],
 };
 
+/** Whether a conversation is about what this goal is for, rather than a stand-in at its level. */
+export const fitsGoal = (script: ScenarioScript, goal: LearningGoal) => TOPICS[goal].includes(script.scenarioId);
+
 /** Stay at the chosen level. Beginners share a small, useful first exchange. */
 export function chooseDailyScript(goal: LearningGoal, level: CefrLevel, runs: ScenarioRun[], day: string): ScenarioScript {
   const atLevel = SCENARIO_SCRIPTS.filter(script => script.level === level);
   const available = atLevel.length > 0 ? atLevel : SCENARIO_SCRIPTS.filter(script => script.level === 'pre-a1');
-  const relevant = available.filter(script => TOPICS[goal].includes(script.scenarioId));
+  const relevant = available.filter(script => fitsGoal(script, goal));
   const candidates = relevant.length > 0 ? relevant : available;
   const seed = [...day].reduce((value, char) => value + char.charCodeAt(0), 0);
   const ranked = candidates.map((script, index) => {

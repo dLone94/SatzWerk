@@ -113,12 +113,16 @@ export async function ensureContent(path: string): Promise<void> {
       hydrateCheckpoint((await import('./placement/checkpoint.ts')).PLACEMENT_CHECKPOINT);
     });
   } else if (route === 'scenario' || route === 'daily') {
-    await once('scenarios', async () => {
+    const scenarios = once('scenarios', async () => {
       for (const script of (await import('./scenarios/index.ts')).SCENARIO_SCRIPTS) {
         Object.assign(scriptById(script.id)!, script);
       }
     });
-    if (route === 'daily') await Promise.all([loadGrammar(), loadVocabulary(), ...CURRICULUM.map(level => loadLevel(level.id))]);
+    // Asked for together: nothing in the levels waits on the conversations,
+    // and daily practice used to download them one after the other.
+    await (route === 'daily'
+      ? Promise.all([scenarios, loadGrammar(), loadVocabulary(), ...CURRICULUM.map(level => loadLevel(level.id))])
+      : scenarios);
   } else if (['review', 'mistakes', 'session'].includes(route ?? '')) {
     // These rounds can mix any level, including old mistakes from a lower one.
     await Promise.all([loadGrammar(), loadVocabulary(), ...CURRICULUM.map(level => loadLevel(level.id))]);
