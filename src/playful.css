@@ -25,7 +25,10 @@ html { scroll-padding-top: calc(var(--topbar-height) + 8px); }
 .topbar__avatar { background: var(--play-coral); color: var(--play-ink); border: 2px solid var(--surface); }
 .lang-toggle { border-radius: 12px; border-width: 2px; background: var(--surface); }
 .lang-toggle__btn.is-active { background: var(--accent); color: var(--on-accent); }
-.nav { backdrop-filter: none; -webkit-backdrop-filter: none; }
+/* The unprefixed property only: the build adds the -webkit- copy itself, and
+   given both in this order it kept only that copy, which Chromium ignores, so
+   the old saturate filter tinted the dark sidebar blue. */
+.nav { backdrop-filter: none; }
 .nav__item { border-radius: 14px; min-height: 47px; }
 .nav__item.is-active { background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
 .nav__item.is-active .nav__icon { transform: rotate(-7deg); }
@@ -112,7 +115,9 @@ html { scroll-padding-top: calc(var(--topbar-height) + 8px); }
 .daily-plan__world-note { margin: 12px 15px 0; color: #514935; text-align: center; font-size: 12px; line-height: 1.6; }
 .daily-plan__steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 12px 0 10px; margin: 0; gap: 12px; background: none; border: 0; }
 .daily-plan__steps li { flex-direction: column; align-items: flex-start; font-size: 12px; gap: 12px; line-height: 1.4; }
-.daily-plan__steps li > span { width: 38px; height: 38px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-ink); border: 2px solid var(--line); border-radius: 12px; font-size: 13px; font-weight: 750; box-shadow: 0 3px 0 var(--line); }
+/* Five fixed pastels, the first one included: on the theme's soft accent it
+   turned dark navy in dark mode, one sunken tile beside four bright ones. */
+.daily-plan__steps li > span { width: 38px; height: 38px; display: grid; place-items: center; background: #eaf0ff; color: #294e9c; border: 2px solid var(--line); border-radius: 12px; font-size: 13px; font-weight: 750; box-shadow: 0 3px 0 var(--line); }
 .daily-plan__steps li:nth-child(2) > span { background: #fae7df; color: #753c27; }
 .daily-plan__steps li:nth-child(3) > span { background: #ece4fb; color: #604489; }
 .daily-plan__steps li:nth-child(4) > span { background: #e1f1e1; color: #285938; }
@@ -246,7 +251,7 @@ html { scroll-padding-top: calc(var(--topbar-height) + 8px); }
 @media (prefers-color-scheme: dark) {
   .studio-explore__card--conversation { background: #fff0df; }
   .weekly-rhythm__bar > span { background: var(--accent); }
-  .daily-plan__steps li:nth-child(n+2) > span { border-color: transparent; }
+  .daily-plan__steps li > span { border-color: transparent; }
   .btn--primary { box-shadow: 0 4px 0 #5c77ad; }
   .btn--primary:hover { box-shadow: 0 5px 0 #5c77ad; }
   .btn--primary:active { box-shadow: 0 1px 0 #5c77ad; }

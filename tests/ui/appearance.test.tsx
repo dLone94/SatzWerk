@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
+import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { styledPage, type Viewer } from './shippedStyles.ts';
+import { DackelMark } from '../../src/ui/components/Dackel.tsx';
+import { contrast, luminance, styledPage, type Viewer } from './shippedStyles.ts';
 
 /**
  * What the stylesheet decides: which of its three layers wins, in the CSS the
@@ -50,5 +52,111 @@ describe('the sticky top bar', () => {
     const page = styledPage({ width }, SHELL);
     expect(page.value('.topbar', 'position')).toBe('sticky');
     expect(page.px('html', 'scroll-padding-top')).toBeGreaterThanOrEqual(page.px('.topbar', 'min-height'));
+  });
+});
+
+describe('buttons that are drawn with an outline', () => {
+  /*
+   * A ghost button, a button on the yellow hero and a danger button have no
+   * fill of their own; their outline is the only thing that says "button".
+   * The outline was an inset shadow, and the studio layer's `.btn {
+   * box-shadow: none }` comes later in the cascade with the same weight, so
+   * "Play a sample", "Practise this kind", "Record my voice" and the "Today"
+   * and "Course" buttons on a finished lesson read as plain bold text.
+   */
+  const BUTTONS = `<div class="card">
+      <button class="btn btn--ghost">Play a sample</button>
+      <button class="btn btn--danger">Reset</button>
+    </div>
+    <div class="done-hero"><button class="btn btn--on-hero">Course</button></div>`;
+  const hasEdge = (page: ReturnType<typeof styledPage>, selector: string) =>
+    (page.value(selector, 'border-top-style') !== 'none' && page.px(selector, 'border-top-width') > 0) ||
+    page.value(selector, 'box-shadow') !== 'none';
+
+  it.each(EVERY)('keep their outline (%s)', (_, viewer) => {
+    const page = styledPage(viewer, BUTTONS);
+    for (const selector of ['.btn--ghost', '.btn--danger', '.btn--on-hero']) {
+      expect(hasEdge(page, selector), `${name(viewer)}: ${selector}`).toBe(true);
+    }
+  });
+});
+
+describe('the sidebar on a desktop', () => {
+  /*
+   * playful.css switches the navigation's backdrop filter off, but it wrote
+   * the plain property and then the -webkit- one, and the minifier kept only
+   * the prefixed copy, which Chromium ignores. The older saturate-and-blur
+   * filter stayed on, and in dark mode the sidebar showed a bluer rectangle
+   * behind its links.
+   */
+  it.each(EVERY)('has no backdrop filter in the shipped CSS (%s)', (_, viewer) => {
+    const page = styledPage(viewer, SHELL);
+    expect(page.value('.nav', 'backdrop-filter')).toBe('none');
+  });
+});
+
+describe('the finished-lesson card', () => {
+  /*
+   * The card is the same yellow in both themes, but the score ring and the
+   * next-lesson button took the theme's green and blue, which turn pastel in
+   * dark mode: 1.27:1 and 1.39:1 against the yellow, a washed-out halo and a
+   * button with no edge.
+   */
+  const HERO = `<div class="done-hero">
+    <div class="score-ring score-ring--passed"><svg class="score-ring__dial"><circle class="score-ring__value"></circle></svg></div>
+    <a class="done-hero__next" href="/lesson/x"><span class="done-hero__next-title">Next</span></a>
+  </div>`;
+
+  it.each(EVERY)('keeps its ring and its next button visible on the yellow (%s)', (_, viewer) => {
+    const page = styledPage(viewer, HERO);
+    const card = page.value('.done-hero', 'background');
+    expect(contrast(page.value('.score-ring__value', 'stroke'), card), `${name(viewer)}: ring`).toBeGreaterThanOrEqual(3);
+    const next = page.value('.done-hero__next', 'background');
+    expect(contrast(next, card), `${name(viewer)}: next button`).toBeGreaterThanOrEqual(3);
+    expect(contrast(page.value('.done-hero__next', 'color'), next), `${name(viewer)}: next label`).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('the five milestones of the daily plan', () => {
+  /*
+   * Tiles two to five are fixed pastels; tile one took the theme's soft
+   * accent, which is dark navy in dark mode. One tile of five sank into the
+   * page while the others glowed, and read like a highlighted step.
+   */
+  const STEPS = `<ol class="daily-plan__steps">${[1, 2, 3, 4, 5]
+    .map((n) => `<li><span>0${n}</span><strong>Step ${n}</strong></li>`)
+    .join('')}</ol>`;
+
+  it.each(EVERY)('are drawn alike (%s)', (_, viewer) => {
+    const page = styledPage(viewer, STEPS);
+    const tiles = [...document.querySelectorAll('.daily-plan__steps li > span')];
+    const borders = new Set(tiles.map((tile) => page.value(tile, 'border-top-color')));
+    expect(borders.size, `${name(viewer)}: one border colour`).toBe(1);
+    for (const [index, tile] of tiles.entries()) {
+      const fill = page.value(tile, 'background');
+      const ink = page.value(tile, 'color');
+      expect(contrast(fill, ink), `${name(viewer)}: tile ${index + 1} is readable`).toBeGreaterThanOrEqual(4.5);
+      expect(luminance(fill), `${name(viewer)}: tile ${index + 1} is a pastel with dark ink`).toBeGreaterThan(luminance(ink));
+    }
+  });
+});
+
+describe('the dachshund', () => {
+  /*
+   * The mark is navy ink: ears, outline and face. In the top bar and the
+   * sidebar it sits on a yellow disc, but beside "Give it a go!" on a phrase
+   * card it sat straight on the card, and in dark mode navy on the dark card
+   * is 1.14:1 — only the tan face was left.
+   */
+  it('brings its own yellow disc, so its ink shows on any card', () => {
+    const { container } = render(<DackelMark />);
+    const svg = container.querySelector('svg')!;
+    const disc = svg.firstElementChild!;
+    expect(disc.tagName.toLowerCase()).toBe('circle');
+    // The whole drawing, not a spot behind the face.
+    const viewBox = svg.getAttribute('viewBox')!.split(' ').map(Number);
+    expect(Number(disc.getAttribute('r')) * 2).toBe(viewBox[2]);
+    const ink = svg.querySelector('path')!.getAttribute('stroke')!;
+    expect(contrast(ink, disc.getAttribute('fill')!)).toBeGreaterThanOrEqual(4.5);
   });
 });

@@ -5084,6 +5084,13 @@ h4,
   color: var(--on-hero);
   text-align: center;
   isolation: isolate;
+  /* The card is the same yellow in both themes, so what sits on it keeps the
+     light theme's green and blue. Dark mode's pastel ones measured 1.3:1
+     against the yellow: a washed-out score ring and a next-lesson button
+     with no edge. */
+  --good: #286c49;
+  --accent: #3159b9;
+  --on-accent: #ffffff;
 }
 
 .done-hero .score-ring {
@@ -5193,10 +5200,9 @@ h4,
 }
 
 .btn--on-hero {
-  border: 0;
+  border-color: color-mix(in srgb, var(--on-hero) 24%, transparent);
   background: transparent;
   color: var(--on-hero);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--on-hero) 24%, transparent);
 }
 
 .btn--on-hero:hover:not(:disabled) {
@@ -5872,10 +5878,14 @@ a:hover {
   border-radius: 12px;
 }
 
+/* These three have no fill of their own, so their outline is what makes
+   them buttons. It is the border, as on every other button, not an inset
+   shadow: the shadow is the layer that hover, focus and the studio layer's
+   `.btn { box-shadow: none }` all rewrite, and the last of those took the
+   outline away, leaving "Play a sample" and the rest as plain bold text. */
 .btn--ghost {
-  border: 0;
+  border-color: var(--line);
   background: var(--surface);
-  box-shadow: inset 0 0 0 1.5px var(--line);
 }
 
 .btn--ghost:hover:not(:disabled) {
@@ -5888,8 +5898,7 @@ a:hover {
 }
 
 .btn--danger {
-  border: 0;
-  box-shadow: inset 0 0 0 1.5px var(--bad);
+  border-color: var(--bad);
 }
 
 .audio-btn {

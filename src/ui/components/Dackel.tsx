@@ -6,9 +6,14 @@ export function DackelScene({ className = '' }: { className?: string }) {
   </div>;
 }
 
-/** A small ink drawing keeps the character recognisable at navigation size. */
+/**
+ * A small ink drawing keeps the character recognisable at navigation size.
+ * It brings its own yellow disc: the ink is navy, and on a dark card with
+ * nothing behind it the ears and outline disappeared, leaving a floating face.
+ */
 export function DackelMark({ className = '' }: { className?: string }) {
   return <svg className={`dackel-mark ${className}`} viewBox="0 0 64 64" fill="none" aria-hidden="true">
+    <circle cx="32" cy="32" r="32" fill="#FFDF87" />
     <path d="M17 19C8 15 5 27 8 40c2 8 9 9 12 1l3-19M47 19c9-4 12 8 9 21-2 8-9 9-12 1l-3-19" fill="#293548" stroke="#293548" strokeWidth="3" />
     <path d="M17 27c0-15 30-15 30 0v12c0 18-30 18-30 0V27Z" fill="#C98650" stroke="#293548" strokeWidth="3" />
     <path d="M18 30c-2-16 31-16 29 0l-8-5-7 6-7-6-7 5Z" fill="#293548" />
