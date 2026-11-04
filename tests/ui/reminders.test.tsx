@@ -181,13 +181,13 @@ describe('when reminders arrive', () => {
    * morning-or-evening choice it could not keep.
    */
   it('says the hour in the learner’s own time when the server knows it', async () => {
-    const { reminderClockTime } = await vi.importActual<typeof import('../../src/services/push/index.ts')>(
+    const { reminderClockWindow } = await vi.importActual<typeof import('../../src/services/push/index.ts')>(
       '../../src/services/push/index.ts',
     );
     readPushStatus.mockResolvedValue({ state: 'off', sendHourUtc: 18 });
     mount();
     expect(
-      await screen.findByText(tr('remindersAt', 'en', { time: reminderClockTime(18, 'en') })),
+      await screen.findByText(tr('remindersAt', 'en', reminderClockWindow(18, 'en'))),
     ).toBeInTheDocument();
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
   });
@@ -196,7 +196,7 @@ describe('when reminders arrive', () => {
     readPushStatus.mockResolvedValue({ state: 'off' });
     mount();
     await screen.findByRole('button', { name: tr('remindersEnable', 'en') });
-    expect(screen.queryByText(/about .* your time/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/your time/)).not.toBeInTheDocument();
   });
 });
 

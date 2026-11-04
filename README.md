@@ -208,10 +208,11 @@ anything else that can hold the secret.
 
 That one daily job is the only schedule, because it is all the hosting plan
 allows, so the reminder time is the same for everybody and cannot be chosen in
-the app; Settings says when it is in the learner's own time (*at about 20:00*
-in Sofia in summer). Self-hosted, the app cannot see when your scheduler calls
-the job, so it names no time unless you set `REMINDER_HOUR_UTC` to the hour
-you scheduled.
+the app; Settings says when it is in the learner's own time, as the hour it
+falls in, because a daily job may start at any minute of its hour (*between
+20:00 and 21:00* in Sofia in winter, *21:00 and 22:00* in summer).
+Self-hosted, the app cannot see when your scheduler calls the job, so it names
+no time unless you set `REMINDER_HOUR_UTC` to the hour you scheduled.
 
 **On an iPhone the app has to be installed.** iOS exposes no `PushManager` in a
 Safari tab at all, so: open the URL in Safari → *Share* → *Add to Home Screen* →
@@ -678,11 +679,19 @@ do. It is governed by these rules:
   back after four days, so a learner who did well on day one had nothing due
   on days two to four, which is exactly when beginners drift away, and heard
   nothing. Until they have studied on five days (and for at most two weeks
-  from their first), a day without study gets *"Today's practice is ready: At
-  the bakery."*, naming the conversation the practice page will really open,
-  chosen by the same code from the same rows. It opens that page. After three
-  days away in a row it stops, because three unanswered reminders say that
-  reminders are not what is missing.
+  from their first), a day without study gets *"Today's practice is ready: Meet
+  a neighbour on the stairs and introduce yourself."*, quoting the heading the practice page will open on:
+  the goal of the conversation it really offers, chosen by the same code from
+  the same rows. It opens that page. After three days away in a row it stops,
+  because three unanswered reminders say that reminders are not what is
+  missing. The due count below has no such stop: once there is a queue, it is
+  the learner's own work waiting, the count says exactly how much, and the
+  switch in Settings is theirs to use; whether it should still ease off after
+  a long absence is an open question rather than a decision taken here.
+- **Not at night, for that note.** The job runs at 18:00 UTC for everybody,
+  which is the small hours in East Asia and Australia, so the practice note is
+  only sent when the device's clock says between 08:00 and 22:00. The due
+  count keeps its old rule and goes whatever the hour.
 - **Never on a day already studied**, by the learner's own calendar: each
   device says how far from UTC it is when it subscribes, and the job reads the
   study log for that day.

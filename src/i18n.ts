@@ -554,13 +554,14 @@ export const UI = {
   remindersTitle: s('Reminders', 'Напомняния'),
   remindersWhat: s(
     'In your first two weeks, a note on a day you have not practised yet. After that, a notification when review is actually due — and nothing on the days when it is not.',
-    'През първите две седмици: бележка в ден, в който още не е имало упражнение. След това: известие, когато наистина има какво да повториш — и нищо в дните, когато няма.',
+    'През първите две седмици: напомняне в ден без упражнение. След това: известие, когато наистина има какво да повториш — и нищо в дните, когато няма.',
   ),
   // One daily job sends every reminder, so the hour is a fact to state in the
-  // learner's own time, not a setting to offer.
+  // learner's own time, not a setting to offer. A window, not a minute: a
+  // daily job may run at any point in its hour.
   remindersAt: s(
-    'They arrive at about {time} your time. The hour is the same for everyone and cannot be changed here.',
-    'Пристигат около {time} по твоето време. Часът е един и същ за всички и не може да се промени тук.',
+    'They arrive between {from} and {to} your time. The hour is the same for everyone and cannot be changed here.',
+    'Пристигат между {from} и {to} по твоето време. Часът е един и същ за всички и не може да се промени тук.',
   ),
   remindersOn: s('Reminders are on', 'Напомнянията са включени'),
   remindersOff: s('Reminders are off', 'Напомнянията са изключени'),
@@ -596,21 +597,26 @@ export const UI = {
   ),
   // Asked once, at the end of a finished lesson or daily practice. The
   // Bulgarian avoids "you have practised" because the past participle would
-  // have to choose a gender for the learner.
+  // have to choose a gender for the learner. "At most": many days bring
+  // nothing, and the invitation must not promise one every day.
   inviteTitle: s('Shall we remind you?', 'Да ти напомняме ли?'),
   inviteWhen: s(
-    'One notification a day, at about {time} your time, and only on a day you have not practised yet.',
-    'Едно известие на ден, около {time} по твоето време, и само в ден, в който още не е имало упражнение.',
+    'At most one notification a day, between {from} and {to} your time, and only on a day you have not practised yet.',
+    'Най-много едно известие на ден, между {from} и {to} по твоето време, и само в ден без упражнение.',
   ),
   inviteWhenever: s(
     'At most one notification a day, and only on a day you have not practised yet.',
-    'Най-много едно известие на ден и само в ден, в който още не е имало упражнение.',
+    'Най-много едно известие на ден и само в ден без упражнение.',
   ),
   inviteHonest: s(
     'No streaks, no nagging. You can change this in Settings at any time.',
     'Без серии, без досаждане. Можеш да го промениш в Настройки по всяко време.',
   ),
   inviteNotNow: s('Not now', 'Не сега'),
+  // After an answer that is not "on", the one invitation is used up, so the
+  // card says where the switch still is rather than ending in a shrug.
+  inviteRetry: s('You can try again in Settings.', 'Можеш да опиташ отново от Настройки.'),
+  inviteClose: s('Close', 'Затвори'),
   inviteDone: s(
     'Reminders are on. You can turn them off in Settings.',
     'Напомнянията са включени. Можеш да ги изключиш от Настройки.',

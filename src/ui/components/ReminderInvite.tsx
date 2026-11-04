@@ -4,7 +4,7 @@ import {
   enablePush,
   inviteOffered,
   readPushStatus,
-  reminderClockTime,
+  reminderClockWindow,
   rememberInviteOffered,
   type PushStatus,
 } from '../../services/push/index.ts';
@@ -22,6 +22,15 @@ import { Card } from './bits.tsx';
  * first opening the app, when there is nothing yet to be reminded of.
  *
  * Offered once on a device, whatever the answer; Settings keeps the switch.
+ * It counts as offered once it is on screen, answered or not: a learner who
+ * scrolls past it to the next lesson has answered too, and keeping it until
+ * it is tapped would put it under every lesson until it is, which is the
+ * nagging the reminders themselves promise not to do. Once per device rather
+ * than per learner, because what it sets up is the browser's: a second
+ * learner on a shared phone gets that phone's reminders, and Settings.
+ * A browser that has granted permission and has no subscription had them on
+ * and turned them off, so it is not asked again.
+ *
  * On an iPhone in Safari there is no push at all until the app is on the Home
  * Screen, so there it shows how to put it there instead, and the invitation
  * proper waits for the installed app, where it is offered afresh.
@@ -69,15 +78,16 @@ export function ReminderInvite() {
     void readPushStatus()
       .then((status) => {
         if (!alive) return;
-        if (status.state === 'off') {
+        if (status.state === 'off' && !status.turnedOff) {
           rememberInviteOffered('enable');
           setShown({ kind: 'enable', status });
         } else if (status.state === 'needs-install' && !inviteOffered('install')) {
           rememberInviteOffered('install');
           setShown({ kind: 'install' });
         }
-        // On, blocked, unsupported or not configured: nothing to invite, and
-        // nothing used up, so the question can still come if that changes.
+        // On, turned off, blocked, unsupported or not configured: nothing to
+        // invite, and nothing used up, so the question can still come if that
+        // changes.
       })
       .catch(() => undefined);
     return () => {
@@ -106,23 +116,34 @@ export function ReminderInvite() {
 
   if (shown.kind === 'result') {
     const { status, failure } = shown;
+    // Not on, and not something only the device's own settings can change:
+    // the switch in Settings is the way on from here.
+    const retry = Boolean(failure) || status.state === 'off';
     return (
       <Card title={t('inviteTitle')} titleRef={title} titleDescribedBy="reminder-invite-answer">
-        <p role="status" id="reminder-invite-answer">
-          {failure
-            ? tr('remindersFailed', lang, { reason: failure })
-            : status.state === 'on'
-              ? t('inviteDone')
-              : status.state === 'denied'
-                ? t('remindersDenied')
-                : status.state === 'needs-install'
-                  ? t('remindersNeedsInstall')
-                  : status.state === 'unsupported'
-                    ? t('remindersUnsupported')
-                    : status.state === 'not-configured'
-                      ? t('remindersNotConfigured')
-                      : t('remindersOff')}
-        </p>
+        <div role="status" id="reminder-invite-answer">
+          <p>
+            {failure
+              ? tr('remindersFailed', lang, { reason: failure })
+              : status.state === 'on'
+                ? t('inviteDone')
+                : status.state === 'denied'
+                  ? t('remindersDenied')
+                  : status.state === 'needs-install'
+                    ? t('remindersNeedsInstall')
+                    : status.state === 'unsupported'
+                      ? t('remindersUnsupported')
+                      : status.state === 'not-configured'
+                        ? t('remindersNotConfigured')
+                        : t('remindersOff')}
+          </p>
+          {retry ? <p>{t('inviteRetry')}</p> : null}
+        </div>
+        <div className="section-nav">
+          <button type="button" className="btn btn--ghost" onClick={dismiss}>
+            {t('inviteClose')}
+          </button>
+        </div>
       </Card>
     );
   }
@@ -146,7 +167,7 @@ export function ReminderInvite() {
 
   return (
     <Card title={t('inviteTitle')} titleRef={title}>
-      <p>{hour === undefined ? t('inviteWhenever') : t('inviteWhen', { time: reminderClockTime(hour, lang) })}</p>
+      <p>{hour === undefined ? t('inviteWhenever') : t('inviteWhen', reminderClockWindow(hour, lang))}</p>
       <div className="section-nav">
         <button type="button" className="btn btn--primary" disabled={busy} onClick={() => void accept()}>
           {busy ? t('remindersWorking') : t('remindersEnable')}

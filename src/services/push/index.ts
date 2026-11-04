@@ -36,6 +36,11 @@ export interface PushStatus {
    * their own time, not a setting.
    */
   sendHourUtc?: number;
+  /**
+   * Off, although this browser has granted permission: somebody turned
+   * reminders on here and then off again. Nothing to invite them to.
+   */
+  turnedOff?: boolean;
 }
 
 /** Is this a web app running from the Home Screen rather than a browser tab? */
@@ -112,7 +117,67 @@ export async function readPushStatus(): Promise<PushStatus> {
 
   const registration = await navigator.serviceWorker.getRegistration();
   const existing = await registration?.pushManager.getSubscription();
-  return existing ? { state: 'on', endpoint: existing.endpoint, ...hour } : { state: 'off', ...hour };
+  if (!existing) {
+    return { state: 'off', ...hour, ...(Notification.permission === 'granted' ? { turnedOff: true } : {}) };
+  }
+  void refreshPushOffset(existing);
+  return { state: 'on', endpoint: existing.endpoint, ...hour };
+}
+
+/*
+ * Where this device was when it last told the server, so a move can be told.
+ * The server reads "today" for this learner from it, and an offset sent once
+ * at subscribing went stale with the clocks changing or a flight east, and
+ * was never sent at all by subscriptions older than the offset itself.
+ */
+const OFFSET_KEY = 'satzwerk.pushOffset';
+const deviceOffset = () => -new Date().getTimezoneOffset();
+
+function rememberOffset(endpoint: string, offset: number): void {
+  try {
+    globalThis.localStorage?.setItem(OFFSET_KEY, `${offset} ${endpoint}`);
+  } catch {
+    // Not remembered: it is sent again next time, which is harmless.
+  }
+}
+
+function rememberedOffset(): string | null {
+  try {
+    return globalThis.localStorage?.getItem(OFFSET_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function postSubscription(subscription: PushSubscription, offset: number): Promise<Response> {
+  const json = subscription.toJSON() as { endpoint?: string; keys?: Record<string, string> };
+  return fetch('/api/push/subscribe', {
+    method: 'POST',
+    headers: { ...CLIENT_HEADERS, 'content-type': 'application/json' },
+    // Where this device is, so the reminder job knows which day it is here:
+    // nothing goes out on a day already studied, and study days are filed on
+    // the learner's own calendar.
+    body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys, tzOffsetMinutes: offset }),
+  });
+}
+
+/**
+ * Tell the server where this device is now, when that has changed since it
+ * last heard. Re-posting the same subscription is safe: the endpoint is its
+ * identity, so the row is updated in place. Asks the person nothing, and any
+ * failure leaves things as they were, to be tried on the next start.
+ */
+export async function refreshPushOffset(known?: PushSubscription | null): Promise<void> {
+  try {
+    const registration = known || !pushApiPresent() ? undefined : await navigator.serviceWorker.getRegistration();
+    const subscription = known ?? (await registration?.pushManager.getSubscription());
+    if (!subscription) return;
+    const offset = deviceOffset();
+    if (rememberedOffset() === `${offset} ${subscription.endpoint}`) return;
+    if ((await postSubscription(subscription, offset)).ok) rememberOffset(subscription.endpoint, offset);
+  } catch {
+    // Offline, or the browser would not say: next time.
+  }
 }
 
 /**
@@ -193,20 +258,10 @@ export async function enablePush(): Promise<PushStatus> {
       'The push service',
     ));
 
-  const json = subscription.toJSON() as { endpoint?: string; keys?: Record<string, string> };
-  const response = await fetch('/api/push/subscribe', {
-    method: 'POST',
-    headers: { ...CLIENT_HEADERS, 'content-type': 'application/json' },
-    // Where this device is, so the reminder job knows which day it is here:
-    // nothing goes out on a day already studied, and study days are filed on
-    // the learner's own calendar.
-    body: JSON.stringify({
-      endpoint: json.endpoint,
-      keys: json.keys,
-      tzOffsetMinutes: -new Date().getTimezoneOffset(),
-    }),
-  });
+  const offset = deviceOffset();
+  const response = await postSubscription(subscription, offset);
   if (!response.ok) return { state: 'off', ...hour };
+  rememberOffset(subscription.endpoint, offset);
 
   return { state: 'on', endpoint: subscription.endpoint, ...hour };
 }
@@ -228,12 +283,25 @@ export async function disablePush(): Promise<PushStatus> {
 
 /**
  * The send hour as a clock time where the learner is: "20:00" in Sofia in
- * summer for an 18:00 UTC job. Read off today's date, so it follows the
- * clocks changing.
+ * winter for an 18:00 UTC job, "21:00" in summer. Read off today's date, so
+ * it follows the clocks changing.
  */
 export function reminderClockTime(hourUtc: number, lang: 'en' | 'bg', now = new Date()): string {
   const at = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hourUtc));
   return new Intl.DateTimeFormat(lang === 'bg' ? 'bg-BG' : 'en-GB', { hour: '2-digit', minute: '2-digit' }).format(at);
+}
+
+/**
+ * The hour reminders go out in, as the learner's clock shows it. A window
+ * rather than "about 20:00", because a daily job may start at any minute of
+ * its hour (on some hosting plans it does), so 20:00 could be 20:59.
+ */
+export function reminderClockWindow(
+  hourUtc: number,
+  lang: 'en' | 'bg',
+  now = new Date(),
+): { from: string; to: string } {
+  return { from: reminderClockTime(hourUtc, lang, now), to: reminderClockTime(hourUtc + 1, lang, now) };
 }
 
 /**
