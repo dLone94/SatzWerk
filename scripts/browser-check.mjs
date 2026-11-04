@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -31,6 +31,29 @@ for (let attempt = 0; ; attempt++) {
   if (attempt === 100) { server.kill(); throw new Error('Browser server did not start: ' + serverLog); }
   await new Promise(resolve => setTimeout(resolve, 100));
 }
+/*
+ * The first download stays what it was: three.js and the wooden scenes are a
+ * chunk of their own, fetched only by WoodScene's dynamic import, never part
+ * of the entry or of what the service worker downloads on install. The entry
+ * was 327 kB before the scenes; they may add their small component and
+ * strings to it, and no more.
+ */
+const ENTRY_BUDGET_BYTES = 340_000;
+const builtFiles = JSON.parse(await readFile('dist/asset-manifest.json', 'utf8'));
+const built = async path => readFile('dist' + path, 'utf8');
+const entryPath = builtFiles.precache.find(path => /^\/assets\/index-[^/]+\.js$/.test(path));
+assert.ok(entryPath, 'The build names its entry chunk');
+const entrySource = await built(entryPath);
+assert.ok(Buffer.byteLength(entrySource) <= ENTRY_BUDGET_BYTES, `The entry chunk is ${Buffer.byteLength(entrySource)} bytes; its budget is ${ENTRY_BUDGET_BYTES}`);
+const threeChunks = [];
+for (const path of builtFiles.files.filter(path => path.endsWith('.js'))) {
+  if ((await built(path)).includes('WebGLRenderer')) threeChunks.push(path);
+}
+assert.equal(threeChunks.length, 1, 'three.js is in exactly one chunk');
+assert.ok(!builtFiles.precache.includes(threeChunks[0]), 'The scene chunk is not downloaded on install');
+assert.ok(entrySource.includes(threeChunks[0].split('/').pop()), 'The entry reaches the scene chunk only by name, through import()');
+const bundle = { entryPath, entryBytes: Buffer.byteLength(entrySource), sceneChunk: threeChunks[0], sceneBytes: Buffer.byteLength(await built(threeChunks[0])) };
+
 const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, headless: true,
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] }).catch(async error => {
   server.kill('SIGTERM');
@@ -81,20 +104,20 @@ async function eventually(check) {
 }
 // `reading`: a lesson's teaching sections come between its questions, each
 // with its own short try, so between questions the way on is the section's
-// primary button (Next, Try it, Final check).
-async function play(exercises, lang, finished, wrongOnce = false, reading = false) {
+// primary button (Next, Try it, Final check). `on` is the page to play in.
+async function play(exercises, lang, finished, wrongOnce = false, reading = false, on = page) {
   const steps = new Map(exercises.flatMap(exercise => exercise.steps.map(step => [step.id, { step, kind: exercise.kind }])));
   let slipped = false;
   let answered = 0;
   for (let action = 0; action < 250; action++) {
     if (await finished()) return { answered, slipped };
-    const continuation = page.getByRole('button', { name: tr('exerciseContinue', lang), exact: true });
+    const continuation = on.getByRole('button', { name: tr('exerciseContinue', lang), exact: true });
     if (await continuation.count()) {
       await continuation.click();
       continue;
     }
-    const task = page.locator('[data-step-id]');
-    const onward = page.locator('.section-nav .btn--primary');
+    const task = on.locator('[data-step-id]');
+    const onward = on.locator('.section-nav .btn--primary');
     if (reading && !await task.count() && await onward.count()) {
       await onward.click();
       continue;
@@ -107,11 +130,11 @@ async function play(exercises, lang, finished, wrongOnce = false, reading = fals
     const entry = steps.get(id);
     assert.ok(entry, 'Authored step exists: ' + id);
     const { step, kind } = entry;
-    const retyping = await page.locator('.feedback__retype-label').count() > 0;
-    const textbox = page.getByRole('textbox');
+    const retyping = await on.locator('.feedback__retype-label').count() > 0;
+    const textbox = on.getByRole('textbox');
     if (await textbox.count()) {
       let answer = step.answer.accepted[0];
-      if (retyping) answer = await page.locator('#player-retype-target').innerText();
+      if (retyping) answer = await on.locator('#player-retype-target').innerText();
       else if (wrongOnce && !slipped && kind !== 'freeWriting') {
         answer = 'völlig falsch';
         slipped = true;
@@ -120,11 +143,11 @@ async function play(exercises, lang, finished, wrongOnce = false, reading = fals
       await textbox.press(kind === 'freeWriting' ? 'Control+Enter' : 'Enter');
     } else {
       const choice = step.choices.find(choice => choice.id === step.correctChoiceId);
-      await task.locator('.choice').filter({ has: page.locator('.choice__de', { hasText: choice.de }) }).click();
+      await task.locator('.choice').filter({ has: on.locator('.choice__de', { hasText: choice.de }) }).click();
     }
     answered++;
     await eventually(async () => await finished() || await continuation.count() > 0 ||
-      (!retyping && await page.locator('.feedback__retype-label').count() > 0));
+      (!retyping && await on.locator('.feedback__retype-label').count() > 0));
   }
   throw new Error('Learning flow exceeded 250 actions');
 }
@@ -389,12 +412,102 @@ try {
   await coldPage.locator('.today-plan').waitFor();
   const firstUsableMs = Date.now() - started;
   const resources = await coldPage.evaluate(() => performance.getEntriesByType('resource').filter(entry => entry.name.endsWith('.js')).map(entry => ({ name: entry.name.split('/').pop(), bytes: entry.decodedBodySize })));
-  const javascriptBytes = resources.reduce((bytes, resource) => bytes + resource.bytes, 0);
+  // The scene chunk is fetched once Today is usable and the page is idle; it
+  // is not part of the start, and on a slow line it can land before this is
+  // read. It is counted on its own, and must not have held up the page.
+  const sceneName = bundle.sceneChunk.split('/').pop();
+  const javascriptBytes = resources.filter(resource => resource.name !== sceneName).reduce((bytes, resource) => bytes + resource.bytes, 0);
   assert.ok(javascriptBytes < 1_400_000, 'Initial JavaScript stays below the startup budget');
   const metrics = { firstUsableMs, javascriptBytes, resources, conditions: { latencyMs: 150, downloadBytesPerSecond: 200000, cpuSlowdown: 4 } };
   await writeFile(report + '/performance.json', JSON.stringify(metrics, null, 2));
   observations.push({ journey: 'Throttled cold startup', ...metrics });
   await cold.close();
+
+  /*
+   * The wooden scenes, drawn. The browser above has no WebGL and gets the
+   * pictures they replace; this one has a software renderer, and each scene
+   * has to put a real frame on its canvas: Today's town, the course's board,
+   * a question's rail with typing in its slot, and the swap after a wrong
+   * answer one word off. Then a quick back and forth between pages, which
+   * must give every WebGL context back: a browser holds about sixteen and
+   * says so in the console when a page runs through them.
+   */
+  const glBrowser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, headless: true,
+    args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const glContext = await glBrowser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const glPage = await glContext.newPage();
+  const glErrors = [];
+  glPage.on('pageerror', error => glErrors.push(error.message));
+  glPage.on('console', message => {
+    if (message.type() === 'error' || /WebGL|THREE/i.test(message.text())) glErrors.push(`${message.type()}: ${message.text()}`);
+  });
+  const glOpen = async path => {
+    await glPage.goto(base + path);
+    await glPage.locator('#main h1').waitFor();
+    await glPage.locator('.route-loading').waitFor({ state: 'hidden' });
+  };
+  /** How much of a scene's canvas is drawn: distinct colours, and the share unlike its first pixel. */
+  const drawn = async selector => {
+    const canvas = glPage.locator(`${selector}.is-live .wood-scene__canvas`);
+    await canvas.waitFor({ timeout: 20_000 });
+    await glPage.waitForTimeout(1500);
+    const png = (await canvas.screenshot()).toString('base64');
+    return glPage.evaluate(async data => {
+      const image = new Image();
+      image.src = 'data:image/png;base64,' + data;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext('2d');
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const colours = new Set();
+      let unlike = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        colours.add(((pixels[i] >> 3) << 10) | ((pixels[i + 1] >> 3) << 5) | (pixels[i + 2] >> 3));
+        if (Math.abs(pixels[i] - pixels[0]) + Math.abs(pixels[i + 1] - pixels[1]) + Math.abs(pixels[i + 2] - pixels[2]) > 30) unlike++;
+      }
+      return { colours: colours.size, covered: unlike / (pixels.length / 4) };
+    }, png);
+  };
+  const scenes = {};
+  const expectDrawn = async (name, selector) => {
+    scenes[name] = await drawn(selector);
+    assert.ok(scenes[name].colours > 150 && scenes[name].covered > 0.1, `${name}: the scene drew a real frame (${JSON.stringify(scenes[name])})`);
+  };
+  await glOpen('/');
+  await expectDrawn('today', '.today-plan .wood-scene');
+  assert.match(await glPage.locator('.today-plan [role="img"]').getAttribute('aria-label'), /\S/, 'The town is a named picture');
+  await glPage.screenshot({ path: report + '/scene-today.png' });
+  await glOpen('/course');
+  await expectDrawn('course', '.course-welcome .wood-scene');
+  // The board is decoration with a name; the lessons are still the links.
+  assert.ok(await glPage.locator('.trail-stop__link').count() > 0, 'The lesson list is still the way into lessons');
+  await glPage.screenshot({ path: report + '/scene-course.png' });
+  // "Ich komme ___ Bulgarien.": the rail, then one wrong word.
+  const gapLesson = CURRICULUM[0].units.flatMap(unit => unit.lessons).find(item => item.id === 'pre-a1-u2-l4');
+  await glOpen('/lesson/' + gapLesson.id);
+  await play([...gapLesson.exercises, ...gapLesson.mastery.exercises], 'en',
+    async () => await glPage.locator('[data-step-id="u2l4-ex2-s2"]').count() > 0, false, true, glPage);
+  await glPage.getByRole('textbox').pressSequentially('au');
+  await expectDrawn('question', '.wood-scene--question');
+  assert.equal(await glPage.locator('.wood-scene--question .wood-scene__stage').getAttribute('aria-hidden'), 'true', 'The rail repeats the sentence beside it');
+  await glPage.screenshot({ path: report + '/scene-question.png' });
+  await glPage.getByRole('textbox').fill('von');
+  await glPage.getByRole('textbox').press('Enter');
+  await expectDrawn('feedback', '.wood-scene--feedback');
+  await glPage.getByRole('button', { name: tr('sceneShowAgain', 'en'), exact: true }).click();
+  await glPage.screenshot({ path: report + '/scene-feedback.png', fullPage: true });
+  for (let visit = 0; visit < 12; visit++) {
+    await glOpen(visit % 2 ? '/course' : '/');
+    await glPage.waitForTimeout(400);
+  }
+  await expectDrawn('today-again', '.wood-scene');
+  await glContext.close();
+  await glBrowser.close();
+  assert.deepEqual(glErrors, []);
+  observations.push({ journey: 'Wooden scenes drawn with WebGL, every context given back, the first download unchanged', bundle, scenes, passed: true });
   assert.deepEqual(errors, []);
   assert.equal(observations.filter(item => item.violations?.length).length, 0);
   console.log(JSON.stringify({ checkedPages: observations.filter(item => item.path).length, errors, journeys: observations.filter(item => item.journey) }, null, 2));

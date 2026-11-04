@@ -1036,6 +1036,45 @@ this the app looks like it did nothing. It is guarded with an optional call
 because jsdom has no `scrollIntoView` at all — which took the whole player down
 the first time, and is now covered by a test both ways.
 
+### The wooden scenes
+
+Five places have a small three.js scene of lacquered wooden toys: Today's town
+(the building of today's step is lit), the course's board game (the pawn on the
+lesson the course sends you to next, the unit checkpoint as a tower at the end),
+a fill-in-the-gap question as blocks on a rail (the slot holds what you type and
+nothing else — the scene is never given the answer), the swap after a wrong
+answer that was one word off, and the finished lesson or practice, whose new
+words stack into a tower. Everything they show comes from the same data as the
+page around them; the decisions are plain functions in `src/ui/three/`
+(`board.ts`, `rails.ts`, `tower.ts`, `sceneData.ts`) and are tested without
+WebGL.
+
+- **They cost the first screen nothing.** three.js and the scenes are one chunk
+  (`engine-*.js`, about 620 kB, 160 kB gzipped), reached only by a dynamic
+  `import()` in `WoodScene.tsx`, after the page is idle. The service worker
+  does not download it on install; like any built file it is kept the first
+  time it is fetched, and opens offline from then on. Offline before that, the
+  import fails and the picture that was there stays. `npm run test:browser`
+  fails if three ever reaches the entry chunk or the entry outgrows 340 kB.
+- **They step aside.** No WebGL, a lost context, Save-Data, 2 GB of memory or
+  two cores or fewer: the scene is not drawn at all and the dachshund stays —
+  or nothing, where nothing was before. `prefers-reduced-motion` draws the
+  finished pose once, with no loop and no dust. The loop stops while the canvas
+  is scrolled away or the tab is hidden, the pixel ratio stops at 2, and every
+  geometry, texture and WebGL context is given back on unmount (browsers hold
+  about sixteen).
+- **They are pictures.** Each is `role="img"` with a label built from the real
+  data ("…your pawn stands on lesson 1, Sounds and four extra letters…"), or
+  hidden where it repeats the words beside it, as the question's rail does.
+  Nothing in them can be focused; the lesson list is still how you open a
+  lesson.
+
+To tune one, change its file in `src/ui/three/engine/scenes/`. Colours are sRGB
+hex as in the stylesheet (three's colour management converts them); light
+intensities in `stage.ts` are the original values times π, the scale physically
+based lights use. `npm run test:browser` draws each scene in Chromium's software
+renderer and saves `artifacts/browser/scene-*.png`.
+
 ---
 
 ## Where should I start?
