@@ -28,6 +28,7 @@ import {
   type Object3D,
   type WebGLRenderTarget,
 } from 'three';
+import { frameView } from './framing.ts';
 import { Kit } from './kit.ts';
 import { seeded } from './motion.ts';
 
@@ -318,38 +319,7 @@ export class Stage {
    * slot of this shape.
    */
   frame(points: Vector3[], tilt: Vector3, fill = 0.86): { look: Vector3; pos: Vector3 } {
-    const camera = this.camera.clone();
-    const look = points.reduce((sum, p) => sum.add(p), new Vector3()).multiplyScalar(1 / points.length);
-    const dir = tilt.clone().normalize();
-    let distance = 10;
-    const right = new Vector3();
-    const up = new Vector3();
-    const ndc = new Vector3();
-    for (let i = 0; i < 40; i++) {
-      camera.position.copy(look).addScaledVector(dir, distance);
-      camera.lookAt(look);
-      camera.updateMatrixWorld(true);
-      let minX = Infinity;
-      let maxX = -Infinity;
-      let minY = Infinity;
-      let maxY = -Infinity;
-      for (const p of points) {
-        ndc.copy(p).project(camera);
-        minX = Math.min(minX, ndc.x);
-        maxX = Math.max(maxX, ndc.x);
-        minY = Math.min(minY, ndc.y);
-        maxY = Math.max(maxY, ndc.y);
-      }
-      const extent = Math.max(maxX - minX, maxY - minY) / 2;
-      const halfH = distance * Math.tan(MathUtils.degToRad(camera.fov / 2));
-      const halfW = halfH * camera.aspect;
-      right.setFromMatrixColumn(camera.matrixWorld, 0);
-      up.setFromMatrixColumn(camera.matrixWorld, 1);
-      look.addScaledVector(right, ((minX + maxX) / 2) * halfW * 0.8);
-      look.addScaledVector(up, ((minY + maxY) / 2) * halfH * 0.8);
-      distance *= 0.3 + 0.7 * (extent / fill);
-    }
-    return { look, pos: look.clone().addScaledVector(dir, distance) };
+    return frameView(this.camera, points, tilt, fill);
   }
 
   /** Runs `fn` once when the clock passes `at`; `restart` re-arms it. */

@@ -1,64 +1,98 @@
 import {
-  CatmullRomCurve3,
   CylinderGeometry,
   DoubleSide,
   Group,
   Mesh,
   MeshBasicMaterial,
-  MeshPhysicalMaterial,
   MeshStandardMaterial,
   PlaneGeometry,
   RingGeometry,
+  Sprite,
+  SpriteMaterial,
+  TorusGeometry,
   Vector3,
+  type Texture,
 } from 'three';
+import { PER_GAP, boardPlan, pawnAt, pawnMove } from '../../boardPlan.ts';
 import type { SceneSpec, Station } from '../../sceneData.ts';
+import type { Kit } from '../kit.ts';
 import { C } from '../kit.ts';
-import { clamp01, easeInOut, easeOutCubic } from '../motion.ts';
-import { block, cloud, die, house, motes, pawn, tree } from '../pieces.ts';
+import { clamp01, easeInOut, easeOutBack, easeOutCubic } from '../motion.ts';
+import { block, die, house, motes, pawn, tree } from '../pieces.ts';
 import type { Stage } from '../stage.ts';
 
-/** Fields between one lesson's station and the next. The die shows this many. */
-const PER_GAP = 3;
-
-const STATION_COLOUR: Record<Station | 'gate', number> = {
-  done: C.das,
-  current: C.der,
-  todo: 0xf6ecd8,
-  planned: 0xd8cdb9,
-  gate: C.birch,
+/**
+ * How each station reads at a glance: done is a full green with a tick,
+ * the pawn's a gold one, one still ahead is cream with its number, one not
+ * written yet sinks into the board, small and grey.
+ */
+const LOOK: Record<Station | 'gate', { colour: number; radius: number; height: number; ink: string }> = {
+  done: { colour: C.das, radius: 0.46, height: 0.16, ink: '#FFFFFF' },
+  current: { colour: C.verb, radius: 0.5, height: 0.18, ink: '#1E1B17' },
+  todo: { colour: 0xfbf3e2, radius: 0.46, height: 0.16, ink: '#3D372F' },
+  planned: { colour: 0xcfc4b0, radius: 0.36, height: 0.07, ink: '#8C8170' },
+  gate: { colour: C.birchDark, radius: 0.5, height: 0.18, ink: '#1E1B17' },
 };
 
+/** A station's number, painted to lie on its top. */
+function numberTexture(kit: Kit, n: number, ink: string): Texture {
+  return kit.canvasTexture(`station-${n}-${ink}`, 128, 128, (g, W) => {
+    g.clearRect(0, 0, W, W);
+    g.fillStyle = ink;
+    g.font = `900 ${Math.round(W * 0.62)}px "Nunito", "Onest", system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(String(n), W / 2, W / 2 + W * 0.04);
+  });
+}
+
+/** The pawn's badge: its lesson's number on a gold tile, always facing the camera. */
+function badgeTexture(kit: Kit, n: number): Texture {
+  return kit.canvasTexture(`badge-${n}`, 128, 128, (g, W) => {
+    g.clearRect(0, 0, W, W);
+    const r = W * 0.2;
+    const x = W * 0.08;
+    const s = W * 0.84;
+    g.fillStyle = 'rgba(30,27,23,0.25)';
+    g.beginPath();
+    g.roundRect(x, x + W * 0.05, s, s - W * 0.02, r);
+    g.fill();
+    g.fillStyle = '#F2B630';
+    g.beginPath();
+    g.roundRect(x, x, s, s - W * 0.04, r);
+    g.fill();
+    g.fillStyle = '#1E1B17';
+    g.font = `900 ${Math.round(W * 0.56)}px "Nunito", "Onest", system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(String(n), W / 2, W / 2 + W * 0.01);
+  });
+}
+
 /**
- * The unit as a wooden board game: one station per lesson, green when done,
- * then the checkpoint's little tower at the end. The die rolls the three
- * fields from the last station, and the pawn hops them to the lesson the
- * course says is next. On a wide slot the board lies across the view.
+ * The unit as a wooden board game: one numbered station per lesson, green
+ * with a tick when done, then the checkpoint's tower at the end. The die
+ * rolls the three fields from the last station, and the pawn hops them to
+ * the lesson the course says is next, where a gold tile shows its number.
+ * The road winds through as many rows as fill the slot (see boardPlan),
+ * and the camera frames the whole board.
  */
 export function path(s: Stage, spec: Extract<SceneSpec, { scene: 'path' }>): void {
   const count = spec.stations.length;
   const current = Math.max(0, Math.min(count, spec.current));
-  const landscape = s.aspect >= 1.6;
+  const plan = boardPlan(count, s.aspect);
+  const shape = `${plan.rows}${plan.upright}`;
   const board = new Group();
-  // Laid across a wide view, the path runs left to right.
-  if (landscape) board.rotation.y = -Math.PI / 2;
   s.scene.add(board);
-  const curve = new CatmullRomCurve3(
-    [[-1.4, 4.6], [0.9, 3.6], [1.6, 1.9], [-0.2, 0.9], [-1.7, -0.6], [-0.3, -2.0], [1.5, -2.9], [0.6, -4.6], [-1.3, -5.9]]
-      .map(([x, z]) => new Vector3(x, 0, z)),
-  );
-  const top = block(s, null, 0xe4cfa6, { w: 6.6, h: 0.32, d: 14.2, noShadowBlob: true, mat: { clearcoat: 0.9 } });
-  top.group.position.set(0, -0.32, -0.65);
+  const { minX, maxX, minZ, maxZ } = plan.bounds;
+  const cx = (minX + maxX) / 2;
+  const cz = (minZ + maxZ) / 2;
+  const top = block(s, null, 0xe8d3a8, { w: maxX - minX, h: 0.3, d: maxZ - minZ, noShadowBlob: true, mat: { clearcoat: 0.9 } });
+  top.group.position.set(cx, -0.3, cz);
   board.add(top.group);
-  const edge = block(s, null, C.walnut, { w: 7.0, h: 0.2, d: 14.6, noShadowBlob: true });
-  edge.group.position.set(0, -0.5, -0.65);
+  const edge = block(s, null, C.walnut, { w: maxX - minX + 0.36, h: 0.2, d: maxZ - minZ + 0.36, noShadowBlob: true });
+  edge.group.position.set(cx, -0.46, cz);
   board.add(edge.group);
-  const river = new Mesh(new PlaneGeometry(6.6, 0.7), new MeshPhysicalMaterial({ color: 0x5fa4d6, roughness: 0.1, clearcoat: 1, transparent: true, opacity: 0.92 }));
-  river.rotation.x = -Math.PI / 2;
-  river.position.set(0, 0.005, -1.35);
-  board.add(river);
-  const bridge = block(s, null, C.walnut, { w: 0.9, h: 0.12, d: 1.0, noShadowBlob: true });
-  bridge.group.position.set(-1.0, 0, -1.35);
-  board.add(bridge.group);
 
   const tick = s.kit.canvasTexture('tick', 128, 128, (g, W) => {
     g.strokeStyle = '#ffffff';
@@ -71,133 +105,121 @@ export function path(s: Stage, spec: Extract<SceneSpec, { scene: 'path' }>): voi
     g.lineTo(W * 0.74, W * 0.35);
     g.stroke();
   });
-  // Lesson stations with small stepping fields between them; the last
-  // station is the checkpoint.
   const fields: Vector3[] = [];
-  const total = count * PER_GAP;
-  // A short unit takes the first part of the winding road, not all of it
-  // stretched thin: stations stay a few fields apart whatever the count.
-  const span = Math.max(count, 6) * PER_GAP;
-  const walked = current * PER_GAP;
-  const stepMaterial = s.kit.lacquer(0xf3e6cd, { noGrain: true, clearcoat: 1 });
-  const walkedMaterial = s.kit.lacquer(0xbfe0c9, { noGrain: true, clearcoat: 1 });
-  const stepGeometry = new CylinderGeometry(0.2, 0.21, 0.08, 40);
-  const stationGeometry = new CylinderGeometry(0.42, 0.44, 0.14, 40);
-  const tickGeometry = new PlaneGeometry(0.5, 0.5);
-  for (let f = 0; f <= total; f++) {
-    const p = curve.getPointAt(f / span);
-    const station = f % PER_GAP === 0;
+  const move = pawnMove(spec.stations, current);
+  const stepMaterial = s.kit.lacquer(0xf6ead2, { noGrain: true, clearcoat: 1 });
+  const walkedMaterial = s.kit.lacquer(0x8fd0a6, { noGrain: true, clearcoat: 1 });
+  const stepGeometry = new CylinderGeometry(0.17, 0.18, 0.07, 32);
+  const topPlane = new PlaneGeometry(1, 1);
+  plan.fields.forEach((spot, f) => {
+    const isStation = f % PER_GAP === 0;
     const index = f / PER_GAP;
-    let disc: Mesh;
-    if (station) {
+    if (isStation) {
       const state: Station | 'gate' = index === count ? 'gate' : index === current ? 'current' : spec.stations[index]!;
-      disc = new Mesh(stationGeometry, s.kit.lacquer(STATION_COLOUR[state], { clearcoat: 1, noGrain: state === 'planned' }));
-      if (state === 'done') {
-        const mark = new Mesh(tickGeometry, new MeshBasicMaterial({ map: tick, transparent: true, depthWrite: false }));
+      const look = LOOK[state];
+      const disc = new Mesh(new CylinderGeometry(look.radius, look.radius + 0.03, look.height, 48),
+        s.kit.lacquer(look.colour, { clearcoat: 1, noGrain: state !== 'todo' && state !== 'gate' }));
+      disc.position.set(spot.x, look.height / 2, spot.z);
+      disc.castShadow = state !== 'planned';
+      disc.receiveShadow = true;
+      board.add(disc);
+      if (state === 'gate') {
+        // The checkpoint's gate: a gold rim round the disc.
+        const rim = new Mesh(new TorusGeometry(look.radius + 0.02, 0.05, 12, 48), s.kit.lacquer(C.gold, { noGrain: true, metalness: 0.4, roughness: 0.3 }));
+        rim.rotation.x = -Math.PI / 2;
+        rim.position.set(spot.x, look.height, spot.z);
+        board.add(rim);
+      }
+      // Done: a tick. Ahead or not written yet: its number. The pawn's own
+      // number is on its badge, where the pawn does not hide it.
+      const face = state === 'done' ? tick : state === 'todo' || state === 'planned' ? numberTexture(s.kit, index + 1, look.ink) : null;
+      if (face) {
+        const mark = new Mesh(topPlane, new MeshBasicMaterial({ map: face, transparent: true, depthWrite: false }));
         mark.rotation.x = -Math.PI / 2;
-        mark.position.set(p.x, 0.145, p.z);
+        const size = look.radius * (state === 'done' ? 1.25 : 1.45);
+        mark.scale.set(size, size, 1);
+        mark.position.set(spot.x, look.height + 0.004, spot.z);
         board.add(mark);
       }
+      fields.push(new Vector3(spot.x, look.height, spot.z));
     } else {
-      // Walked: up to the pawn, and only on from a lesson that is done.
+      // Walked: on from a lesson that is done, up to the pawn.
       const from = Math.floor(f / PER_GAP);
-      disc = new Mesh(stepGeometry, f < walked && spec.stations[from] === 'done' ? walkedMaterial : stepMaterial);
+      const walked = f < move.to && spec.stations[from] === 'done';
+      const disc = new Mesh(stepGeometry, walked ? walkedMaterial : stepMaterial);
+      disc.position.set(spot.x, 0.035, spot.z);
+      disc.castShadow = true;
+      disc.receiveShadow = true;
+      board.add(disc);
+      fields.push(new Vector3(spot.x, 0.07, spot.z));
     }
-    disc.position.set(p.x, station ? 0.07 : 0.04, p.z);
-    disc.castShadow = true;
-    disc.receiveShadow = true;
-    board.add(disc);
-    fields.push(new Vector3(p.x, station ? 0.14 : 0.08, p.z));
-  }
-  const end = fields[fields.length - 1]!;
-  const tower = house(s, 0xf6ecd8, C.roofRed, { w: 0.75, h: 1.05, d: 0.75, roofH: 0.55, windows: 1 });
-  tower.group.position.set(end.x + 0.9, 0, end.z);
+  });
+
+  // The checkpoint's tower, with its flag.
+  const tower = house(s, 0xf6ecd8, C.roofRed, { w: 0.7, h: 1.0, d: 0.7, roofH: 0.5, windows: 1 });
+  tower.group.position.set(plan.tower.x, 0, plan.tower.z);
   for (const w of tower.windows) w.emissiveIntensity = 0.9;
   board.add(tower.group);
-  const flagPole = new Mesh(new CylinderGeometry(0.02, 0.02, 0.7, 8), s.kit.lacquer(C.ink, { noGrain: true }));
-  flagPole.position.set(end.x + 0.9, 1.9, end.z);
+  const flagPole = new Mesh(new CylinderGeometry(0.02, 0.02, 0.62, 8), s.kit.lacquer(C.ink, { noGrain: true }));
+  flagPole.position.set(plan.tower.x, 1.72, plan.tower.z);
   board.add(flagPole);
-  const flag = new Mesh(new PlaneGeometry(0.36, 0.22, 8, 2), new MeshStandardMaterial({ color: C.verb, side: DoubleSide }));
-  flag.position.set(end.x + 1.08, 2.12, end.z);
+  const flag = new Mesh(new PlaneGeometry(0.34, 0.2, 8, 2), new MeshStandardMaterial({ color: C.verb, side: DoubleSide }));
+  flag.position.set(plan.tower.x + 0.17, 1.92, plan.tower.z);
   board.add(flag);
-  ([[2.5, 3.4], [-2.6, 2.2], [2.6, -0.4], [-2.5, -3.4], [2.4, -5.3], [-2.6, 5.2], [2.7, 5.6], [-2.7, -5.8], [0.4, 5.9]] as const).forEach(([x, z], j) => {
-    const t = tree(s, 0.75 + (j % 3) * 0.15, j % 2 ? C.leafDark : C.leaf);
-    t.position.set(x, 0, z);
+  plan.trees.forEach((spot, j) => {
+    const t = tree(s, 0.55 + (j % 3) * 0.08, j % 2 ? C.leafDark : C.leaf);
+    t.position.set(spot.x, 0, spot.z);
     board.add(t);
   });
-  // A cottage by the road, unless the checkpoint's tower stands there.
-  if (Math.hypot(end.x + 0.9 - 2.3, end.z - 1.0) > 2.2) {
-    const cottage = house(s, 0xf4e3c3, C.roofBlue, { w: 0.9, h: 0.8 });
-    cottage.group.position.set(2.3, 0, 1.0);
-    cottage.group.rotation.y = -0.6;
-    board.add(cottage.group);
-  }
-  // Clouds drift over a tall board seen from high up; close to the board, or
-  // across a wide one, they would hang in front of it.
-  const clouds = (landscape || s.aspect > 0.7 ? [] : [[-1.5, 3.4, 2.0], [1.8, 3.8, -2.5], [-0.4, 4.2, -6.0]])
-    .map(([x, y, z]) => {
-      const c = cloud();
-      c.position.set(x!, y!, z!);
-      board.add(c);
-      return c;
-    });
-  [C.die, C.das, C.verb].forEach((colour, i) => {
-    const home = pawn(s, colour);
-    home.scale.setScalar(0.62);
-    home.position.set(2.0 + (i % 2) * 0.5, 0, 4.9 + Math.floor(i / 2) * 0.5);
-    board.add(home);
-  });
+
   const me = pawn(s, C.der);
+  me.scale.setScalar(0.92);
   board.add(me);
   const haloMaterial = new MeshBasicMaterial({ color: C.verb, transparent: true, opacity: 0, depthWrite: false });
-  const halo = new Mesh(new RingGeometry(0.55, 0.66, 64), haloMaterial);
+  const halo = new Mesh(new RingGeometry(0.56, 0.68, 64), haloMaterial);
   halo.rotation.x = -Math.PI / 2;
   board.add(halo);
+  // The lesson's number over the pawn, once it has arrived. None at the
+  // checkpoint: the tower says where it stands.
+  const badgeMaterial = current < count ? new SpriteMaterial({ map: badgeTexture(s.kit, current + 1), transparent: true, depthWrite: false, opacity: 0 }) : null;
+  const badge = badgeMaterial ? new Sprite(badgeMaterial) : null;
+  if (badge) {
+    badge.scale.set(0.64, 0.64, 1);
+    board.add(badge);
+  }
 
-  // A hop needs a finished lesson behind it: on the first lesson, or after
-  // one left undone, the pawn just stands where it is.
-  const roll = current > 0 && spec.stations[current - 1] === 'done' ? PER_GAP : 0;
-  const target = current * PER_GAP;
-  const startField = target - roll;
-  const cube = roll > 0 ? die(s, roll) : undefined;
+  const cube = move.roll > 0 ? die(s, move.roll) : undefined;
   if (cube) board.add(cube);
   const rollT0 = 0.3;
   const rollDur = 1.3;
-  const hopT0 = roll > 0 ? rollT0 + rollDur + 0.25 : 0.3;
+  const hopT0 = move.roll > 0 ? rollT0 + rollDur + 0.25 : 0.3;
   const hopDur = 0.42;
-  const hopsTotal = Math.max(1, roll);
   const spin = new Vector3(9.4, 6.3, 7.9);
-  // The die comes to rest beside the pawn, on the side away from the tower.
-  const restAt = fields[target]!.clone().add(target === total ? new Vector3(-0.9, 0, 0.9) : new Vector3(0.95, 0, 0.75));
-  s.stillTime = hopT0 + hopDur * hopsTotal + 1.2;
-  s.cam.parallax = 0.5;
-  motes(s, 50, landscape ? [14, 4, 7] : [7, 4, 14]);
+  // The die comes to rest beside the pawn, on the near side.
+  const restAt = fields[move.to]!.clone().add(new Vector3(0.72, 0, 0.55));
+  restAt.y = 0;
+  s.stillTime = hopT0 + hopDur * Math.max(1, move.roll) + 1.2;
+  s.cam.parallax = 0.35;
+  motes(s, 30, [maxX - minX, 3, maxZ - minZ]);
 
   /*
-   * Framing. A wide slot shows the whole unit; a narrower one the stretch
-   * around the pawn: the station behind it and two ahead (the tower, when
-   * it is that close). Each field counts with room for what
-   * stands on it.
+   * Framing: the whole board, its corners and what stands tallest on it,
+   * filling the slot. The board is laid out for the slot's shape; past the
+   * point where another layout fits better, it is laid out again.
    */
-  board.updateMatrixWorld(true);
-  const from = landscape ? 0 : Math.max(0, (current - 1) * PER_GAP);
-  const to = landscape ? total : Math.min(total, (current + 2) * PER_GAP);
   const framed: Vector3[] = [];
-  for (const f of fields.slice(from, to + 1)) {
-    for (const [dx, dz] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]] as const) {
-      framed.push(board.localToWorld(new Vector3(f.x + dx, 0.1, f.z + dz)), board.localToWorld(new Vector3(f.x + dx, 1.1, f.z + dz)));
-    }
-  }
-  if (to === total) framed.push(board.localToWorld(new Vector3(end.x + 0.9, 2.4, end.z)), board.localToWorld(new Vector3(end.x + 1.4, 0, end.z + 0.5)));
+  for (const x of [minX - 0.18, maxX + 0.18]) for (const z of [minZ - 0.18, maxZ + 0.18]) framed.push(new Vector3(x, -0.36, z));
+  for (const spot of plan.trees) framed.push(new Vector3(spot.x, 0.85, spot.z));
+  framed.push(new Vector3(plan.tower.x, 2.05, plan.tower.z), new Vector3(plan.tower.x + 0.4, 2.05, plan.tower.z));
+  if (badge) framed.push(new Vector3(fields[move.to]!.x, 1.85, fields[move.to]!.z));
   const camBase = new Vector3();
   s.framing(() => {
-    // The board lies one way or the other by the slot's shape: past that
-    // point it is laid out again rather than seen side on.
-    if ((s.aspect >= 1.6) !== landscape) {
+    const now = boardPlan(count, s.aspect);
+    if (`${now.rows}${now.upright}` !== shape) {
       s.rebuild();
       return;
     }
-    const { look, pos } = s.frame(framed, new Vector3(0, 0.8, 0.6));
+    const { look, pos } = s.frame(framed, new Vector3(0, 1, 0.62), 0.96);
     s.cam.look.copy(look);
     s.cam.pos.copy(pos);
     camBase.copy(pos);
@@ -207,63 +229,48 @@ export function path(s: Stage, spec: Extract<SceneSpec, { scene: 'path' }>): voi
       const r = clamp01((t - rollT0) / rollDur);
       const lift = r < 1 ? Math.abs(Math.sin(r * Math.PI * 3.2)) * (1 - r) * 1.6 : 0;
       const e = easeOutCubic(r);
-      cube.position.set(restAt.x + (1 - r) * 1.2, 0.31 + lift + (t < rollT0 ? 3 : 0), restAt.z + (1 - r) * 2.0);
+      cube.position.set(restAt.x + (1 - r) * 1.2, 0.31 + lift + (t < rollT0 ? 3 : 0), restAt.z + (1 - r) * 1.4);
       cube.rotation.set(spin.x * (1 - e), spin.y * (1 - e), spin.z * (1 - e));
       s.once('dieland', t, rollT0 + rollDur * 0.32, () => {
-        const at = cube.position.clone().setY(0.05);
-        board.localToWorld(at);
-        s.spawn(at, { count: 8, color: 0xe8d6b6, opacity: 0.6, size: 0.16, grow: 2, life: 0.6, speed: 0.8, up: 0.2 });
+        s.spawn(cube.position.clone().setY(0.05), { count: 8, color: 0xe8d6b6, opacity: 0.6, size: 0.16, grow: 2, life: 0.6, speed: 0.8, up: 0.2 });
       });
     }
-    const hops = roll > 0 ? clamp01((t - hopT0) / (hopDur * roll)) : 1;
-    const hf = hops * roll;
-    const step = Math.min(Math.max(0, roll - 1), Math.floor(hf));
-    let within = hf - step;
-    let a = fields[startField + step]!;
-    let b = fields[Math.min(target, startField + step + 1)]!;
-    if (hops >= 1) {
-      a = b = fields[target]!;
-      within = 1;
-    }
-    const x = a.x + (b.x - a.x) * easeInOut(within);
-    const z = a.z + (b.z - a.z) * easeInOut(within);
-    const y = Math.max(a.y, b.y) + Math.sin(within * Math.PI) * 0.7 * (hops < 1 ? 1 : 0);
-    const idle = hops >= 1 && !s.still ? Math.abs(Math.sin((t - hopT0 - hopDur * roll) * 2.4)) * 0.1 : 0;
+    const at = pawnAt(t, move, hopT0, hopDur);
+    const a = fields[at.a]!;
+    const b = fields[at.b]!;
+    const x = a.x + (b.x - a.x) * easeInOut(at.within);
+    const z = a.z + (b.z - a.z) * easeInOut(at.within);
+    const y = Math.max(a.y, b.y) + (at.hopping ? Math.sin(at.within * Math.PI) * 0.7 : 0);
+    const rested = !at.hopping && at.a === move.to;
+    const idle = rested && !s.still ? Math.abs(Math.sin((t - hopT0 - hopDur * move.roll) * 2.4)) * 0.08 : 0;
     me.position.set(x, y + idle, z);
-    const ms = hops < 1 ? 1 - Math.sin(within * Math.PI * 2) * 0.06 : 1;
-    me.scale.set(1 / Math.sqrt(ms), ms, 1 / Math.sqrt(ms));
-    for (let k = 1; k <= roll; k++) {
+    const ms = at.hopping ? 1 - Math.sin(at.within * Math.PI * 2) * 0.06 : 1;
+    me.scale.set(0.92 / Math.sqrt(ms), 0.92 * ms, 0.92 / Math.sqrt(ms));
+    for (let k = 1; k <= move.roll; k++) {
       s.once(`hop${k}`, t, hopT0 + hopDur * k, () => {
-        const f = fields[startField + k]!.clone();
-        board.localToWorld(f);
-        s.spawn(f.add(new Vector3(0, 0.05, 0)), k === roll
+        const f = fields[move.from + k]!.clone();
+        s.spawn(f.add(new Vector3(0, 0.05, 0)), k === move.roll
           ? { count: 22, color: C.gold, additive: true, opacity: 1, size: 0.13, grow: 0.3, life: 1, speed: 2, up: 1.2, gravity: 2.5 }
           : { count: 5, color: 0xe8d6b6, opacity: 0.6, size: 0.12, grow: 2, life: 0.5, speed: 0.6, up: 0.2 });
       });
     }
-    const here = fields[target]!;
-    const hp = (t * 0.6) % 1;
+    const here = fields[move.to]!;
+    const arrived = clamp01((t - (hopT0 + hopDur * move.roll)) / 0.4);
+    const hp = s.still ? 0.25 : (t * 0.6) % 1;
     halo.position.set(here.x, here.y + 0.01, here.z);
-    haloMaterial.opacity = hops >= 1 ? 0.8 * (1 - hp) : 0;
-    halo.scale.setScalar(1 + hp * 0.6);
-    clouds.forEach((c, i) => {
-      if (s.still) return;
-      if (landscape) {
-        // Along the board, which runs across the view.
-        c.position.z -= 0.004 * (i + 1);
-        if (c.position.z < -7.5) c.position.z += 15;
-      } else {
-        c.position.x = ((c.position.x + 0.004 * (i + 1) + 4) % 8) - 4;
-      }
-    });
+    haloMaterial.opacity = rested ? 0.85 * (1 - hp) : 0;
+    halo.scale.setScalar(1 + hp * 0.5);
+    if (badge && badgeMaterial) {
+      badge.position.set(here.x, 1.5 + (1 - easeOutBack(arrived)) * 0.3 + idle, here.z);
+      badgeMaterial.opacity = rested ? arrived : 0;
+    }
     const verts = flag.geometry.attributes.position!;
     for (let vi = 0; vi < verts.count; vi++) {
       const vx = verts.getX(vi);
-      verts.setZ(vi, Math.sin(vx * 14 + t * 6) * 0.03 * (vx + 0.18));
+      verts.setZ(vi, Math.sin(vx * 14 + t * 6) * 0.03 * (vx + 0.17));
     }
     verts.needsUpdate = true;
     // A slow sway, so the board reads as a thing on a table.
-    s.cam.pos.x = camBase.x + Math.sin(t * 0.2) * 0.3;
+    s.cam.pos.x = camBase.x + Math.sin(t * 0.2) * 0.2;
   });
 }
-
