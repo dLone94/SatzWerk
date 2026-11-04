@@ -44,6 +44,7 @@ import { createSpeechRecogniser, type SpeechRecogniser } from '../services/speec
 import { trackStudy } from '../services/studyTracker.ts';
 import type { StudyStatus } from '../core/progress/studyClock.ts';
 import { mergeDailyRun, type DailyRun, type DailyRunInput } from '../core/progress/daily.ts';
+import { DEFAULT_DAILY_GOAL_MINUTES } from '../core/progress/goal.ts';
 import { deviceLanguage, markPageLanguage, rememberLanguage } from '../ui/deviceLanguage.ts';
 
 /**
@@ -183,7 +184,7 @@ const EMPTY_STATS: Stats = {
 
 const DEFAULT_PROFILE: Profile = {
   teachingLanguage: 'en',
-  dailyTargetMinutes: 20,
+  dailyTargetMinutes: DEFAULT_DAILY_GOAL_MINUTES,
   displayName: null,
   onboarded: false,
   createdAt: new Date().toISOString(),

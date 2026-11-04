@@ -1,4 +1,5 @@
 import type { Db, Dialect } from './driver.ts';
+import { DEFAULT_DAILY_GOAL_MINUTES } from '../src/core/progress/goal.ts';
 
 /**
  * SatzWerk's schema.
@@ -743,10 +744,13 @@ async function seedProfile(db: Db): Promise<void> {
      ON CONFLICT (id) DO NOTHING`,
     now,
   );
+  // The goal is named here rather than left to the column's default, which
+  // old migrations fixed at 20. A row already here keeps the goal it has.
   await db.run(
     `INSERT INTO profile (user_id, teaching_language, daily_target_minutes, onboarded, created_at, updated_at)
-     VALUES (1, 'en', 20, 0, ?, ?)
+     VALUES (1, 'en', ?, 0, ?, ?)
      ON CONFLICT (user_id) DO NOTHING`,
+    DEFAULT_DAILY_GOAL_MINUTES,
     now,
     now,
   );

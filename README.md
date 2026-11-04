@@ -551,6 +551,13 @@ paths: **daily practice** (phrases and a conversation), **review** (what comes
 back before it is forgotten), the **mixed round** (below), and the **daily
 goal** (minutes).
 
+**A goal the size of a habit.** The welcome screen preselected 20 minutes a
+day while the daily practice takes about six, so a beginner who did it was
+told "17 more to your goal" every evening. A new learner now starts at 10
+minutes and is offered 5, 10, 15 or 20, or any number typed in
+(`src/core/progress/goal.ts`). A goal already stored is the learner's own and
+is never moved: only profiles created from now on start at 10.
+
 **The mixed round: one button, ten minutes.** A lesson here is twenty-five to
 thirty minutes, which is right for meeting something new and wrong for a
 Tuesday evening. Before this existed, a learner with ten minutes was handed a
@@ -1126,7 +1133,7 @@ clock-telling being backwards.
 Run `npm run dev`, open <http://localhost:5173>, and:
 
 1. **Onboarding.** Pick *Обяснявай ми немския на български*. The screen switches
-   to Bulgarian immediately. Choose 20 minutes and start.
+   to Bulgarian immediately. Ten minutes is already chosen; start.
 2. **Dashboard.** "Следващата ти полезна стъпка" suggests the first lesson.
    Accuracy shows `—` with "Още няма данни", not 0%. Speaking reads
    "Планирано — още не е направено".

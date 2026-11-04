@@ -21,6 +21,7 @@ import type { Verdict } from '../src/core/validation/validate.ts';
 import { localDay, plausibleOffset, streakOn } from '../src/core/progress/days.ts';
 import type { Db } from './db.ts';
 import type { DailyRun, DailyRunInput, LearningGoal } from '../src/core/progress/daily.ts';
+import { DEFAULT_DAILY_GOAL_MINUTES } from '../src/core/progress/goal.ts';
 
 /**
  * All database access lives here.
@@ -88,9 +89,10 @@ export async function createLearner(db: Db, name: string): Promise<Learner> {
   const id = Number(inserted!.id);
   await db.run(
     `INSERT INTO profile (user_id, teaching_language, daily_target_minutes, onboarded, created_at, updated_at)
-     VALUES (?, 'en', 20, 0, ?, ?)
+     VALUES (?, 'en', ?, 0, ?, ?)
      ON CONFLICT (user_id) DO NOTHING`,
     id,
+    DEFAULT_DAILY_GOAL_MINUTES,
     now,
     now,
   );
@@ -123,7 +125,7 @@ export async function getProfile({ db, userId }: Scope): Promise<Profile> {
        FROM profile WHERE user_id = ?`, userId) as Record<string, unknown> | undefined ?? {};
   return {
     teachingLanguage: (row.teaching_language as TeachingLanguage) ?? 'en',
-    dailyTargetMinutes: Number(row.daily_target_minutes ?? 20),
+    dailyTargetMinutes: Number(row.daily_target_minutes ?? DEFAULT_DAILY_GOAL_MINUTES),
     displayName: (row.display_name as string | null) ?? null,
     onboarded: Number(row.onboarded ?? 0) === 1,
     learningGoal: (row.learning_goal as LearningGoal) ?? 'everyday',
@@ -190,7 +192,7 @@ export async function updateProfile(scope: Scope, patch: ProfilePatch): Promise<
 }
 
 function clampTarget(minutes: number): number {
-  if (!Number.isFinite(minutes)) return 20;
+  if (!Number.isFinite(minutes)) return DEFAULT_DAILY_GOAL_MINUTES;
   return Math.min(180, Math.max(5, Math.round(minutes)));
 }
 

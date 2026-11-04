@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { contentStats, partialLevels, unauthoredLevels } from '../../content/browser.ts';
 import type { TeachingLanguage } from '../../content/types.ts';
+import { DAILY_GOAL_CHOICES } from '../../core/progress/goal.ts';
 import { tr } from '../../i18n.ts';
 import {
   disablePush,
@@ -12,8 +13,6 @@ import { SAMPLE_PHRASE } from '../../services/tts/phraseKey.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { LearningPreferences } from '../components/LearningPreferences.tsx';
 import { Card, learnerName } from '../components/bits.tsx';
-
-const TARGETS = [10, 20, 30];
 
 export function SettingsPage() {
   const { t, lang, profile, updateProfile, setTeachingLanguage, resetAll, session, signOut, changePassword } =
@@ -72,7 +71,7 @@ export function SettingsPage() {
 
       <Card title={t('settingsDailyTarget')}>
         <div className="chips">
-          {TARGETS.map((minutes) => (
+          {DAILY_GOAL_CHOICES.map((minutes) => (
             <button
               key={minutes}
               type="button"
