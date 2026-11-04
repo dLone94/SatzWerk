@@ -315,7 +315,7 @@ body { background: var(--paper); }
 /* One line at most, cut short with an ellipsis: the card above says it in full. */
 .wood-scene__chip { position: absolute; left: 12px; top: 12px; display: block; max-width: calc(100% - 24px); padding: 6px 10px; border-radius: 10px; background: #fbf6ec; color: #1e1b17; font-size: 13px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 3px 0 rgb(30 27 23 / 12%); }
 .wood-scene__chip::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 4px; background: #f2b630; vertical-align: 1px; }
-.wood-scene__replay { position: absolute; right: 10px; top: 10px; display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border: 0; border-radius: 11px; background: #fbf6ec; color: #1e1b17; font: inherit; font-size: 13px; font-weight: 700; box-shadow: 0 3px 0 rgb(30 27 23 / 14%); cursor: pointer; }
+.wood-scene__replay { position: absolute; right: 10px; top: 10px; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 11px; background: #fbf6ec; color: #1e1b17; font: inherit; font-size: 13px; font-weight: 700; box-shadow: 0 3px 0 rgb(30 27 23 / 14%); cursor: pointer; }
 .wood-scene__replay:focus-visible { outline: 3px solid var(--focus, #2f6fdb); outline-offset: 2px; }
 
 /* The illustrated scene carries the personality; its text stays in the DOM. */
