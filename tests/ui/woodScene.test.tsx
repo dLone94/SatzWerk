@@ -14,7 +14,7 @@ import type { SceneSpec } from '../../src/ui/three/sceneData.ts';
 
 const env = vi.hoisted(() => ({ webgl: false, reducedMotion: false, probes: 0, cores: undefined as number | undefined }));
 const engine = vi.hoisted(() => ({
-  mounted: [] as Array<{ spec: unknown; still: boolean; disposed: boolean; ghosts: string[]; replays: number; lose: () => void }>,
+  mounted: [] as Array<{ spec: unknown; still: boolean; settled: number; disposed: boolean; ghosts: string[]; replays: number; lose: () => void }>,
   fail: false,
 }));
 
@@ -40,18 +40,39 @@ vi.mock('../../src/ui/three/engine/index.ts', () => ({
     if (engine.fail) throw new Error('no context');
     const canvas = document.createElement('canvas');
     host.appendChild(canvas);
-    const record = { spec, still: options.still, disposed: false, ghosts: [options.ghost ?? ''], replays: 0, lose: options.onLost };
+    const record = { spec, still: options.still, settled: 0, disposed: false, ghosts: [options.ghost ?? ''], replays: 0, lose: options.onLost };
     engine.mounted.push(record);
     options.onReady();
     return {
       setGhost: (text: string) => { record.ghosts.push(text); },
       replay: () => { record.replays++; },
+      settle: () => { record.settled++; },
       dispose: () => { record.disposed = true; canvas.remove(); },
     };
   },
 }));
 
-const { WoodScene } = await import('../../src/ui/three/WoodScene.tsx');
+const { WoodScene, useSceneMode } = await import('../../src/ui/three/WoodScene.tsx');
+
+/*
+ * The browser's prefers-reduced-motion, as a query that can be changed while
+ * a scene runs, the way a learner changes it in the system's settings.
+ */
+const motion = {
+  listeners: new Set<(event: MediaQueryListEvent) => void>(),
+  set(reduce: boolean) {
+    env.reducedMotion = reduce;
+    act(() => { for (const listener of [...motion.listeners]) listener({ matches: reduce } as MediaQueryListEvent); });
+  },
+};
+function stubMatchMedia() {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    get matches() { return query.includes('reduced-motion') && env.reducedMotion; },
+    media: query,
+    addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => { motion.listeners.add(listener); },
+    removeEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => { motion.listeners.delete(listener); },
+  }));
+}
 
 const town: SceneSpec = { scene: 'today', bubble: 'Hallo!', sign: 'house', done: false };
 const rail: SceneSpec = { scene: 'question', before: [{ text: 'Ich', tone: 'birch' }, { text: 'komme', tone: 'birch' }], after: [{ text: 'Bulgarien.', tone: 'birch' }], tail: '' };
@@ -64,8 +85,13 @@ beforeEach(() => {
   env.cores = undefined;
   engine.mounted = [];
   engine.fail = false;
+  motion.listeners.clear();
+  stubMatchMedia();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe('a wooden scene without WebGL', () => {
   it('shows the picture that was there, exactly, and nothing more', async () => {
@@ -151,6 +177,56 @@ describe('a wooden scene with WebGL', () => {
     render(<WoodScene spec={town} label="A town" />);
     await waitFor(() => expect(engine.mounted).toHaveLength(1));
     expect(engine.mounted[0]!.still).toBe(true);
+  });
+
+  /*
+   * Reduced motion turned on in the system's settings while a scene plays:
+   * it used to play on until the page was left.
+   */
+  it('settles a running scene into its finished pose when reduced motion is turned on', async () => {
+    render(<WoodScene spec={town} label="A town" />);
+    await waitFor(() => expect(live()).toHaveLength(1));
+    expect(engine.mounted[0]!.still).toBe(false);
+    motion.set(true);
+    // The same scene, on the same canvas, told to stand still: nothing new is made.
+    expect(engine.mounted).toHaveLength(1);
+    expect(engine.mounted[0]!.settled).toBe(1);
+    expect(live()).toHaveLength(1);
+  });
+
+  it('draws the scene moving again when reduced motion is turned off', async () => {
+    env.reducedMotion = true;
+    render(<WoodScene spec={town} label="A town" />);
+    await waitFor(() => expect(live()).toHaveLength(1));
+    expect(engine.mounted[0]!.still).toBe(true);
+    motion.set(false);
+    await waitFor(() => expect(live()).toHaveLength(1));
+    await waitFor(() => expect(live()[0]!.still).toBe(false));
+    // The still one was given back.
+    expect(engine.mounted[0]!.disposed).toBe(true);
+  });
+
+  it('settles once only, and stops listening when it goes', async () => {
+    const { unmount } = render(<WoodScene spec={town} label="A town" />);
+    await waitFor(() => expect(live()).toHaveLength(1));
+    expect(motion.listeners.size).toBeGreaterThan(0);
+    motion.set(true);
+    motion.set(true);
+    expect(engine.mounted[0]!.settled).toBe(1);
+    unmount();
+    expect(motion.listeners.size).toBe(0);
+  });
+
+  it('tells the page the scene no longer moves, so "Show again" can go', async () => {
+    function Mode() {
+      return <p>{useSceneMode()}</p>;
+    }
+    render(<Mode />);
+    expect(screen.getByText('animate')).toBeInTheDocument();
+    motion.set(true);
+    expect(screen.getByText('still')).toBeInTheDocument();
+    motion.set(false);
+    expect(screen.getByText('animate')).toBeInTheDocument();
   });
 
   it('keeps one scene alive under StrictMode, and gives every one back on unmount', async () => {

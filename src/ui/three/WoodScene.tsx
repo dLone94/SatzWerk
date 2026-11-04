@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { whenQuiet } from '../../services/loading.ts';
 import type { SceneHandle } from './engine/index.ts';
 import type { SceneSpec } from './sceneData.ts';
-import { canUseWebgl, hintMode, readHints, type SceneMode } from './sceneMode.ts';
+import { canUseWebgl, hintMode, readHints, reducedMotionNow, watchReducedMotion, type SceneMode } from './sceneMode.ts';
 
 type Engine = typeof import('./engine/index.ts');
 
@@ -111,6 +111,13 @@ export function WoodScene({
 }) {
   const [mode, setMode] = useState<SceneMode>(() => hintMode(readHints()));
   const [live, setLive] = useState(false);
+  const reduced = useReducedMotion();
+  const reducedRef = useRef(reduced);
+  reducedRef.current = reduced;
+  /** The scene on the canvas is drawn still: from the start, or since it settled. */
+  const drawnStill = useRef(false);
+  /** Bumped to draw the scene moving again once reduced motion is turned off. */
+  const [moving, setMoving] = useState(0);
   const host = useRef<HTMLDivElement | null>(null);
   const handle = useRef<SceneHandle | null>(null);
   // A new scene only when what it shows changes, not on every render.
@@ -138,8 +145,10 @@ export function WoodScene({
     played.current = replayRef.current;
     const draw = ({ mountScene }: Engine) => {
       if (abort.signal.aborted) return;
+      const still = mode === 'still' || reducedRef.current;
+      drawnStill.current = still;
       mounted = mountScene(target, drawn, {
-        still: mode === 'still',
+        still,
         ghost: ghostRef.current,
         onReady: () => { if (!abort.signal.aborted) setLive(true); },
         onLost: () => {
@@ -189,7 +198,26 @@ export function WoodScene({
       handle.current = null;
       setLive(false);
     };
-  }, [key, mode]);
+  }, [key, mode, moving]);
+
+  /*
+   * Reduced motion turned on mid-scene: the scene settles at once into its
+   * finished pose, on the canvas it has. Turned off again, the scene is
+   * drawn afresh, moving — where the browser would have drawn it moving.
+   */
+  useEffect(() => {
+    if (reduced) {
+      if (live && !drawnStill.current) {
+        drawnStill.current = true;
+        handle.current?.settle();
+      }
+    } else if (mode === 'still') {
+      // Drawn still because reduced motion was on when it began.
+      setMode('animate');
+    } else if (live && drawnStill.current && mode === 'animate') {
+      setMoving((count) => count + 1);
+    }
+  }, [reduced, live, mode]);
 
   useEffect(() => {
     if (live && ghost !== undefined) handle.current?.setGhost(ghost);
@@ -221,5 +249,17 @@ export function WoodScene({
  */
 export function useSceneMode(): SceneMode {
   const [mode] = useState<SceneMode>(() => hintMode(readHints()));
-  return mode;
+  const reduced = useReducedMotion();
+  return mode === 'animate' && reduced ? 'still' : mode;
+}
+
+/** prefers-reduced-motion as it is now, following the learner's changes to it. */
+export function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(reducedMotionNow);
+  useEffect(() => {
+    // Changed between the first render and now: caught up here.
+    setReduced(reducedMotionNow());
+    return watchReducedMotion(setReduced);
+  }, []);
+  return reduced;
 }

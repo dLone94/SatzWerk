@@ -96,6 +96,8 @@ export function complete(s: Stage, spec: Extract<SceneSpec, { scene: 'complete' 
   for (let i = 0; i < N; i++) {
     seeds.push({ x: (s.rand() - 0.5) * 9, z: (s.rand() - 0.5) * 4, v: 1.2 + s.rand() * 1.4, r: s.rand() * 6, d: s.rand() * 1.5, w: 1 + s.rand() * 2 });
   }
+  // Reduced motion asked for mid-scene: the tower stands, the chips are gone.
+  s.onSettle(() => chips.forEach((im) => { im.visible = false; }));
   chips.forEach((im, j) => {
     // No shadows: forty chips' shadows on the table read as dirt, not confetti.
     im.castShadow = false;

@@ -114,8 +114,7 @@ interface NavigatorHints {
  */
 export function readHints(): SceneHints {
   const hints = (typeof navigator === 'undefined' ? {} : navigator) as NavigatorHints;
-  const reducedMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reducedMotion = reducedMotionNow();
   return {
     webglApi: typeof WebGLRenderingContext !== 'undefined',
     reducedMotion,
@@ -124,4 +123,28 @@ export function readHints(): SceneHints {
     saveData: hints.connection?.saveData === true,
     effectiveType: typeof hints.connection?.effectiveType === 'string' ? hints.connection.effectiveType : undefined,
   };
+}
+
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
+
+/** Whether the learner asks for less motion, now. False where the browser cannot say. */
+export function reducedMotionNow(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(REDUCED_MOTION).matches;
+}
+
+/**
+ * Call `onChange` whenever the learner turns reduced motion on or off — in
+ * the system's settings, mid-lesson. Returns how to stop listening.
+ */
+export function watchReducedMotion(onChange: (reduced: boolean) => void): () => void {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return () => {};
+  const query = window.matchMedia(REDUCED_MOTION);
+  const listener = (event: MediaQueryListEvent) => onChange(event.matches);
+  // Safari before 14 knows only the old pair.
+  if (typeof query.addEventListener === 'function') {
+    query.addEventListener('change', listener);
+    return () => query.removeEventListener('change', listener);
+  }
+  query.addListener(listener);
+  return () => query.removeListener(listener);
 }

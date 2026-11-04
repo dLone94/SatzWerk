@@ -142,7 +142,8 @@ export class Stage {
   readonly renderer: WebGLRenderer;
   readonly kit: Kit;
   readonly rand: () => number;
-  readonly still: boolean;
+  /** Drawn in its finished pose only: reduced motion, from the start or since `settle`. */
+  still: boolean;
   readonly cam = { pos: new Vector3(0, 3, 8), look: new Vector3(0, 0.5, 0), parallax: 0.35 };
   /** The moment of the scene drawn under reduced motion: its finished pose. */
   stillTime = 6;
@@ -150,6 +151,7 @@ export class Stage {
   private readonly frames: FrameFn[] = [];
   private particles: Particle[] = [];
   private readonly framers: Array<() => void> = [];
+  private readonly settlers: Array<() => void> = [];
   /** The scene's clock when something last happened that is worth watching. */
   private stirredAt = 0;
   private fired = new Set<string>();
@@ -289,6 +291,11 @@ export class Stage {
 
   onFrame(fn: FrameFn): void {
     this.frames.push(fn);
+  }
+
+  /** What to put away when the scene settles mid-way (see `settle`): drifting dust, falling chips. */
+  onSettle(fn: () => void): void {
+    this.settlers.push(fn);
   }
 
   /** The distance at which a width `w` fills the view. */
@@ -512,6 +519,22 @@ export class Stage {
     if (!this.started || !this.alive) return;
     if (this.still) this.draw(this.stillTime, 0);
     else this.stir();
+  }
+
+  /**
+   * Reduced motion was asked for while the scene runs: stop the loop and
+   * draw the finished pose, once, as if it had been drawn still from the
+   * start. It stays still for the rest of its life; the next scene asks
+   * the browser afresh.
+   */
+  settle(): void {
+    if (this.still || !this.alive) return;
+    this.still = true;
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
+    this.clearParticles();
+    for (const fn of this.settlers) fn();
+    if (this.started) this.draw(this.stillTime, 0);
   }
 
   /** Play the scene from the start. */

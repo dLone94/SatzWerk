@@ -420,9 +420,12 @@ export function motes(stage: Stage, n: number, box: [number, number, number], co
   }
   const attribute = new Float32BufferAttribute(arr, 3);
   geometry.setAttribute('position', attribute);
-  stage.scene.add(new Points(geometry, new PointsMaterial({
+  const points = new Points(geometry, new PointsMaterial({
     map: stage.kit.glow(), color, size: 0.09, transparent: true, opacity: 0.75, depthWrite: false, blending: AdditiveBlending, sizeAttenuation: true,
-  })));
+  }));
+  stage.scene.add(points);
+  // Reduced motion asked for mid-scene: the dust goes with the motion.
+  stage.onSettle(() => { points.visible = false; });
   stage.onFrame((t, dt) => {
     for (let i = 0; i < n; i++) {
       let y = arr[i * 3 + 1]! + dt * (0.08 + (seed[i]! % 1) * 0.1);

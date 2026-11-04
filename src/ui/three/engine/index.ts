@@ -18,6 +18,8 @@ export interface SceneHandle {
   setGhost(text: string): void;
   /** Play the feedback's swap again. */
   replay(): void;
+  /** Reduced motion was turned on: stop moving and stand in the finished pose. */
+  settle(): void;
   dispose(): void;
 }
 
@@ -39,6 +41,8 @@ export interface MountOptions {
  */
 export function mountScene(host: HTMLElement, spec: SceneSpec, options: MountOptions): SceneHandle {
   let disposed = false;
+  // Settled once, a scene built again for a new slot shape is built still.
+  let settled = options.still;
   let ghost = options.ghost ?? '?';
   let built = build();
 
@@ -50,7 +54,7 @@ export function mountScene(host: HTMLElement, spec: SceneSpec, options: MountOpt
     try {
       stage = new Stage(canvas, {
         mood: spec.scene === 'today' ? 'evening' : 'day',
-        still: options.still,
+        still: settled,
         onReady: options.onReady,
         onLost: options.onLost,
         // Once this frame is done with: never from inside the stage's own callbacks.
@@ -107,6 +111,11 @@ export function mountScene(host: HTMLElement, spec: SceneSpec, options: MountOpt
       });
     },
     replay: () => { if (!disposed) built.replay(); },
+    settle: () => {
+      if (disposed) return;
+      settled = true;
+      built.stage.settle();
+    },
     dispose() {
       if (disposed) return;
       disposed = true;
