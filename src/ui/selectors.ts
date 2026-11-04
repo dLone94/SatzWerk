@@ -29,13 +29,13 @@ import {
   type VocabEntry,
 } from '../content/types.ts';
 import type { DailyRun, DailyRunInput, LearningGoal } from '../core/progress/daily.ts';
-import { todayHere } from '../core/progress/days.ts';
+import { streakOn, todayHere } from '../core/progress/days.ts';
 import { allStepIds, isLessonComplete, lessonRequirements, type LessonProgress } from '../core/progress/lesson.ts';
 import type { SessionSources } from '../core/progress/session.ts';
-import { dueItems, dueReason, orderQueue, type ReviewItem } from '../core/srs/scheduler.ts';
+import { dueItems, dueReason, isDue, orderQueue, type ReviewItem } from '../core/srs/scheduler.ts';
 import { toDigraphs } from '../core/validation/text.ts';
 import { CATEGORY_LABELS, type UiKey } from '../i18n.ts';
-import type { CheckpointResult, MistakeRecord } from '../services/api/client.ts';
+import type { CheckpointResult, MistakeRecord, StudyDay } from '../services/api/client.ts';
 import { authoredStep, buildMistakePractice, buildReviewExercises } from './reviewBuilder.ts';
 
 /**
@@ -430,7 +430,72 @@ export function fitsDailyPlan(
     || run.goal === goal && (!chosenLevel || scriptById(run.scriptId)?.level === chosenLevel);
 }
 
-export type TodayStepKind = Exclude<NextActionKind, 'idle'> | 'daily' | 'continue-daily' | 'done';
+/**
+ * Days between study days that make a break: the learner left on Monday and
+ * is back on Thursday. One or two days off is an ordinary week, and the day
+ * goes on as usual.
+ */
+export const WELCOME_BACK_DAYS = 3;
+
+/**
+ * How many items the warm-up after a break takes: a few minutes, enough to
+ * bring back what is most at risk without facing the whole pile at once.
+ */
+export const CATCH_UP_SIZE = 12;
+
+/**
+ * The warm-up after a break: the first items of the review queue, as far as
+ * they can be typed, CATCH_UP_SIZE at most.
+ *
+ * The queue's own order is the right one for it. The forgotten come first,
+ * then what is still being learnt, which is the newest material and what the
+ * next lesson builds on, then what has waited longest past its date. Only as
+ * many items are built as the warm-up needs: Today asks on every render how
+ * long it would be.
+ */
+export function catchUpExercises(reviewItems: ReviewItem[], lang?: TeachingLanguage, now = new Date()): Exercise[] {
+  return firstExercises(orderQueue(reviewItems, now), CATCH_UP_SIZE, lang);
+}
+
+/** The first `limit` exercises the items make, built from the front until there are enough. */
+function firstExercises(items: ReviewItem[], limit: number, lang?: TeachingLanguage): Exercise[] {
+  // A longer front gives the same cards first, so nothing changes but the work.
+  for (let end = limit; ; end += limit) {
+    const built = buildReviewExercises(items.slice(0, end), lang).exercises;
+    if (built.length >= limit || end >= items.length) return built.slice(0, limit);
+  }
+}
+
+/** A learner back after a break, as Today's welcome tells it. */
+export interface WelcomeBack {
+  /** Days since the last day with answers. */
+  days: number;
+  /** How many days in a row ended there. */
+  run: number;
+  /** How many items the warm-up takes. */
+  warmUp: number;
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * The last day with answers before `today`, and how many days away that is.
+ * Days are calendar days where the learner is, as the streak counts them; a
+ * day with study minutes but no answers is not counted, as it is not for the
+ * streak.
+ */
+function lastStudyBefore(studyDays: StudyDayInput[], today: string): { day: string; days: number } | undefined {
+  const last = studyDays
+    .filter((entry) => entry.answers > 0 && entry.day < today)
+    .reduce<string | undefined>((latest, entry) => (latest === undefined || entry.day > latest ? entry.day : latest), undefined);
+  if (!last) return undefined;
+  const days = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${last}T00:00:00Z`)) / DAY_MS);
+  return { day: last, days };
+}
+
+type StudyDayInput = Pick<StudyDay, 'day' | 'answers'>;
+
+export type TodayStepKind = Exclude<NextActionKind, 'idle'> | 'daily' | 'continue-daily' | 'welcome-back' | 'done';
 
 export interface TodayInput {
   lessons: Record<string, LessonProgress>;
@@ -444,6 +509,10 @@ export interface TodayInput {
   targetMinutes: number;
   /** Whether an open practice fits today's plan; see fitsDailyPlan. Every one does without it. */
   fitsPlan?: (run: DailyRun) => boolean;
+  /** The days studied, for a break and the run of days before it. None means no break to welcome back from. */
+  studyDays?: StudyDayInput[];
+  /** The teaching path, which decides what the warm-up can ask. */
+  lang?: TeachingLanguage;
   now?: Date;
 }
 
@@ -464,6 +533,8 @@ export interface TodayStep {
    * done, a way to keep going.
    */
   then?: 'daily' | 'course';
+  /** Back after a break: how long, the run before it, and the warm-up. Only on the welcome-back step. */
+  welcome?: WelcomeBack;
 }
 
 /**
@@ -477,11 +548,28 @@ export interface TodayStep {
  * next step. Once the daily goal in minutes is met, or the practice is done
  * and the course has nothing waiting, the day is done, and nothing nags: what
  * comes next is offered, never pressed.
+ *
+ * A learner back after a break (WELCOME_BACK_DAYS or more since the last day
+ * with answers) used to meet the same Today as any other day: the lesson left
+ * days ago first, a pile of reviews below it, and the run of days they had
+ * built gone without a word. Before anything is answered on the day back,
+ * the first step is a short warm-up of the items most at risk. Once the
+ * learner has answered something that day, they are back: the day goes on as
+ * usual, except that the rest of the backlog no longer leads it or holds back
+ * new material. It comes back over the following days, a round at a time.
  */
 export function todayStep(input: TodayInput): TodayStep {
   const now = input.now ?? new Date();
   const day = todayHere(now);
-  const course = nextAction(input.lessons, input.reviewItems, input.mistakes, input.onboarded, input.checkpointResults, now);
+  const studyDays = input.studyDays ?? [];
+  const away = lastStudyBefore(studyDays, day);
+  const returning = away !== undefined && away.days >= WELCOME_BACK_DAYS;
+  const answeredToday = studyDays.some((entry) => entry.day === day && entry.answers > 0);
+  // Back, and the warm-up (or anything else) done: what is still due waits
+  // for the days after, so the course offers its next step as if none were.
+  const caughtUp = returning && answeredToday;
+  const courseItems = caughtUp ? input.reviewItems.filter((item) => !isDue(item, now)) : input.reviewItems;
+  const course = nextAction(input.lessons, courseItems, input.mistakes, input.onboarded, input.checkpointResults, now);
   const runs = input.dailyRuns.filter((candidate) => candidate.day === day);
   // The practice the practice page would continue: one whose conversation
   // still exists and that fits the plan. One that does not fit is set aside
@@ -500,10 +588,21 @@ export function todayStep(input: TodayInput): TodayStep {
     return { ...base, kind: 'done', to: '/', then: practice !== 'done' ? 'daily' : courseLeads ? 'course' : undefined };
   }
   if (practice === 'open') return { ...base, kind: 'continue-daily', to: '/daily', then: courseLeads ? 'course' : undefined };
+  if (returning && !answeredToday) {
+    const warmUp = catchUpExercises(input.reviewItems, input.lang, now).length;
+    if (warmUp > 0) {
+      // Then what was under way before the break, by name; failing that,
+      // today's practice. Never the review pile the warm-up was cut from.
+      const resumes = course.kind === 'continue-lesson' || course.kind === 'checkpoint';
+      const then = resumes ? 'course' : practice === 'todo' ? 'daily' : courseLeads && course.kind !== 'review' ? 'course' : undefined;
+      const run = streakOn(studyDays.filter((entry) => entry.answers > 0).map((entry) => entry.day), away.day);
+      return { ...base, kind: 'welcome-back', to: '/review?catch-up', then, welcome: { days: away.days, run, warmUp } };
+    }
+  }
   if (course.kind === 'continue-lesson' || course.kind === 'checkpoint') {
     return { ...base, kind: course.kind, to: course.to, then: afterCourse };
   }
-  if (due >= REVIEW_BACKLOG) return { ...base, kind: 'review', to: '/review', then: afterCourse };
+  if (due >= REVIEW_BACKLOG && !caughtUp) return { ...base, kind: 'review', to: '/review', then: afterCourse };
   if (practice === 'todo') return { ...base, kind: 'daily', to: '/daily', then: courseLeads ? 'course' : undefined };
   // Only a finished practice with the course leading reaches this line, and
   // a course that leads is never idle; the check says so to the compiler.
@@ -954,12 +1053,7 @@ export function earlyReviewExercises(reviewItems: ReviewItem[], now = new Date()
     .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
   // Built from the front until there are enough, not for every item ahead:
   // Today asks for one on each render, only to know whether there is one.
-  // A longer front gives the same cards first, so nothing changes but the
-  // work.
-  for (let end = limit; ; end += limit) {
-    const built = buildReviewExercises(ahead.slice(0, end)).exercises;
-    if (built.length >= limit || end >= ahead.length) return built.slice(0, limit);
-  }
+  return firstExercises(ahead, limit);
 }
 
 export function reasonKey(reason: ReturnType<typeof dueReason>): TeachingLanguageKey {
