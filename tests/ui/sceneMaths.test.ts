@@ -1,6 +1,6 @@
 import { PerspectiveCamera, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { PER_GAP, boardPlan, pawnAt, pawnMove } from '../../src/ui/three/boardPlan.ts';
+import { PER_GAP, TOWER_ROOM, boardPlan, pawnAt, pawnMove } from '../../src/ui/three/boardPlan.ts';
 import { frameView } from '../../src/ui/three/engine/framing.ts';
 import type { Station } from '../../src/ui/three/sceneData.ts';
 import { BLOCK_HEIGHT, BLOCK_WIDTH, ONE_LINE, labelLines, towerBlockWidth, towerLayout } from '../../src/ui/three/tower.ts';
@@ -88,6 +88,15 @@ describe('the board\'s layout', () => {
       }
       // Trees stand clear of the road.
       for (const tree of trees) for (const field of fields) expect(Math.hypot(tree.x - field.x, tree.z - field.z)).toBeGreaterThan(0.7);
+    }
+  });
+
+  /* In a unit of three or four lessons the checkpoint's red roof hung over the board's rim. */
+  it('leaves room round the checkpoint\'s house for its height', () => {
+    for (const [count, aspect] of [[2, 1.4], [3, 1.4], [3, 1.5], [4, 1.5], [8, 1.45], [3, 0.8], [4, 0.75]] as const) {
+      const { tower, bounds } = boardPlan(count, aspect);
+      const room = Math.min(tower.x - bounds.minX, bounds.maxX - tower.x, tower.z - bounds.minZ, bounds.maxZ - tower.z);
+      expect(room, `${count} lessons at ${aspect}`).toBeGreaterThanOrEqual(TOWER_ROOM - 1e-9);
     }
   });
 

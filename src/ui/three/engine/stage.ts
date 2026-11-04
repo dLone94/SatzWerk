@@ -156,6 +156,8 @@ export class Stage {
   /** The scene's clock when something last happened that is worth watching. */
   private stirredAt = 0;
   private fired = new Set<string>();
+  /** Story moments at or before this time pass without happening: the scene resumed past them. */
+  private quietUntil = -1;
   private readonly pointer = { x: 0, y: 0, tx: 0, ty: 0 };
   private readonly envTarget: WebGLRenderTarget;
   private raf = 0;
@@ -326,7 +328,7 @@ export class Stage {
   once(key: string, t: number, at: number, fn: () => void): void {
     if (t >= at && !this.fired.has(key)) {
       this.fired.add(key);
-      fn();
+      if (at > this.quietUntil) fn();
     }
   }
 
@@ -494,8 +496,8 @@ export class Stage {
   /**
    * Reduced motion was asked for while the scene runs: stop the loop and
    * draw the finished pose, once, as if it had been drawn still from the
-   * start. It stays still for the rest of its life; the next scene asks
-   * the browser afresh.
+   * start. It stays still until `resume`; the next scene asks the browser
+   * afresh.
    */
   settle(): void {
     if (this.still || !this.alive) return;
@@ -507,8 +509,29 @@ export class Stage {
     if (this.started) this.draw(this.stillTime, 0);
   }
 
+  /**
+   * Reduced motion was turned off again after `settle`: the loop runs on
+   * from the finished pose, so only the ambient motion comes back (a bob, a
+   * turning star). The story's moments — a landing's dust, a burst of
+   * sparkles — are past and do not happen again; what `settle` put away
+   * stays away.
+   */
+  resume(): boolean {
+    // A stage made still listens for nothing that moves it: it cannot pick up.
+    if (!this.alive || this.options.still) return false;
+    if (!this.still) return true;
+    this.still = false;
+    this.t = Math.max(this.t, this.stillTime);
+    this.quietUntil = this.t;
+    this.stirredAt = this.t;
+    this.last = 0;
+    if (this.started) this.wake();
+    return true;
+  }
+
   /** Play the scene from the start. */
   restart(): void {
+    this.quietUntil = -1;
     this.fired = new Set();
     this.clearParticles();
     this.t = 0;

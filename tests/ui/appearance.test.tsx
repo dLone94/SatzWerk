@@ -135,6 +135,22 @@ describe('the finished-lesson card', () => {
   });
 });
 
+describe('the learner\'s own lines in a conversation', () => {
+  /*
+   * The bubble went sand-coloured but kept the accent bubble's light text:
+   * 1.2:1 in both themes, with only a coloured article readable in it.
+   */
+  it.each(EVERY)('are dark ink on the sand bubble (%s)', (_, viewer) => {
+    const page = styledPage(viewer, `<div class="chat"><div class="chat__past"><div class="chat__turn chat__turn--you">
+      <div class="chat__bubble chat__bubble--you"><p class="chat__de" lang="de">Wo ist der Bahnhof?</p></div>
+    </div></div></div>`);
+    const fill = page.value('.chat__bubble--you', 'background');
+    expect(contrast(page.value('.chat__de', 'color'), fill), `${name(viewer)}: text`).toBeGreaterThanOrEqual(4.5);
+    // Said earlier, the turn steps back, but not below what can be read.
+    expect(Number(page.value('.chat__past', 'opacity'))).toBeGreaterThanOrEqual(0.8);
+  });
+});
+
 describe('the five milestones of the daily plan', () => {
   /*
    * Tiles two to five are fixed pastels; tile one took the theme's soft

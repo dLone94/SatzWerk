@@ -20,6 +20,8 @@ export interface SceneHandle {
   replay(): void;
   /** Reduced motion was turned on: stop moving and stand in the finished pose. */
   settle(): void;
+  /** Reduced motion was turned off again after `settle`: the ambient motion only, from the finished pose. */
+  resume(): void;
   dispose(): void;
 }
 
@@ -115,6 +117,12 @@ export function mountScene(host: HTMLElement, spec: SceneSpec, options: MountOpt
       if (disposed) return;
       settled = true;
       built.stage.settle();
+    },
+    resume: () => {
+      if (disposed) return;
+      settled = false;
+      // Rebuilt still for a new slot shape since it settled: built again, moving.
+      if (!built.stage.resume()) rebuild();
     },
     dispose() {
       if (disposed) return;

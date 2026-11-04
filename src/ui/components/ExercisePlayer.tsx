@@ -1153,15 +1153,14 @@ export function ExercisePlayer({
           {swapScene ? (
             /* A picture of what the comparison above already says, word for
                word: hidden from assistive technology like the question's rail. */
-            <WoodScene key={step.id} spec={swapScene} replay={replays}>
-              {sceneMoves ? (
-                <button type="button" className="wood-scene__replay" aria-label={t('sceneShowAgainLabel')}
-                  onClick={() => setReplays((count) => count + 1)}>
-                  <Icon name="review" size={16} />
-                  {t('sceneShowAgain')}
-                </button>
-              ) : null}
-            </WoodScene>
+            <WoodScene key={step.id} spec={swapScene} replay={replays} after={sceneMoves ? (
+              /* Under the picture, not on it: over it, it hid the swap it replays. */
+              <button type="button" className="wood-scene__replay" aria-label={t('sceneShowAgainLabel')}
+                onClick={() => setReplays((count) => count + 1)}>
+                <Icon name="review" size={16} />
+                {t('sceneShowAgain')}
+              </button>
+            ) : null} />
           ) : null}
 
           {feedback.lines.length > 0 ? (

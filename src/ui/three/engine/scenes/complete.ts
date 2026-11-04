@@ -75,7 +75,8 @@ export function complete(s: Stage, spec: Extract<SceneSpec, { scene: 'complete' 
   const frame: Vector3[] = [];
   for (const x of [-widest / 2, widest / 2]) for (const y of [0.3, height]) for (const z of [-0.4, 0.4]) frame.push(new Vector3(x, y, z));
   for (const x of [-radius, radius]) frame.push(new Vector3(x, 0, 0), new Vector3(x, 0.3, 0));
-  frame.push(new Vector3(0, 0, radius));
+  // The plinth's near rim, the lowest thing on screen, along its front.
+  for (const a of [-0.6, -0.3, 0, 0.3, 0.6]) frame.push(new Vector3(Math.sin(a) * radius, 0, Math.cos(a) * radius));
   let view = { look: new Vector3(), pos: new Vector3() };
   let toward = new Vector3();
   s.framing(() => {
@@ -141,7 +142,12 @@ export function complete(s: Stage, spec: Extract<SceneSpec, { scene: 'complete' 
       }
       chips.forEach((im) => { im.instanceMatrix.needsUpdate = true; });
     }
-    s.cam.pos.copy(view.pos).addScaledVector(toward, easeInOut(clamp01(t / 3)) * 0.06);
-    s.scene.rotation.y = Math.sin(t * 0.28) * 0.2;
+    // A slow push in that ends where the frame was worked out, so the
+    // plinth's near rim, which grows most as the camera comes closer, is
+    // not pushed out of the slot's foot.
+    s.cam.pos.copy(view.pos).addScaledVector(toward, (easeInOut(clamp01(t / 3)) - 1) * 0.06);
+    // A gentle sway, square to the camera in the finished pose: turned, the
+    // outer blocks of the bottom row slant and their lettering with them.
+    s.scene.rotation.y = Math.sin((t - s.stillTime) * 0.28) * 0.08;
   });
 }

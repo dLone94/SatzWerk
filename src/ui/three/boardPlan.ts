@@ -38,8 +38,15 @@ export interface BoardPlan {
 const STEP = { min: 2.1, max: 3.0 } as const;
 /** Between two rows' centres, at least and at most. */
 const ROW_GAP = { min: 2.2, max: 3.4 } as const;
-/** Board left round the road and the tower: room for the trees. */
+/** Board left round the road: room for the trees. */
 const MARGIN = 0.85;
+/**
+ * Board left round the checkpoint's house, from its centre. Its footprint is
+ * only half a unit either way, but it is the tallest thing on the board: seen
+ * from the camera's tilt, a house standing at the edge leans out past a rim
+ * that clears its walls, and its roof hung over the board's edge.
+ */
+export const TOWER_ROOM = 1.45;
 /** How much shorter the board looks than it is, seen from the camera's tilt. */
 const FORESHORTEN = 0.8;
 /** How far a turn between rows bulges out past the last station. */
@@ -66,7 +73,7 @@ export function boardPlan(count: number, aspect: number): BoardPlan {
     const cols = Math.ceil(n / rows);
     if (rows > 1 && cols * (rows - 1) >= n) continue;
     // A full last row ends at the board's edge, and the tower stands past it.
-    const bulge = (rows > 1 ? BULGE : 0) + (n % cols === 0 ? 0.95 : 0);
+    const bulge = (rows > 1 ? BULGE : 0) + (n % cols === 0 ? 0.95 + TOWER_ROOM - MARGIN : 0);
     const widthAt = (step: number) => ((cols - 1) * step + 2 * MARGIN + bulge) * across;
     const depthAt = (gap: number) => ((rows - 1) * gap + 2 * MARGIN) * away;
     // Spread the stations along the rows, or the rows apart, towards the slot's shape.
@@ -113,13 +120,13 @@ export function boardPlan(count: number, aspect: number): BoardPlan {
   const turn = (spot: Spot): Spot => (upright ? { x: spot.z, z: spot.x } : spot);
   const fields = planned.map(turn);
   const tower = turn(towerSpot);
-  const xs = [...fields.map((f) => f.x), tower.x];
-  const zs = [...fields.map((f) => f.z), tower.z];
+  const xs = fields.map((f) => f.x);
+  const zs = fields.map((f) => f.z);
   const bounds = {
-    minX: Math.min(...xs) - MARGIN,
-    maxX: Math.max(...xs) + MARGIN,
-    minZ: Math.min(...zs) - MARGIN,
-    maxZ: Math.max(...zs) + MARGIN,
+    minX: Math.min(Math.min(...xs) - MARGIN, tower.x - TOWER_ROOM),
+    maxX: Math.max(Math.max(...xs) + MARGIN, tower.x + TOWER_ROOM),
+    minZ: Math.min(Math.min(...zs) - MARGIN, tower.z - TOWER_ROOM),
+    maxZ: Math.max(Math.max(...zs) + MARGIN, tower.z + TOWER_ROOM),
   };
   return { fields, rows, upright, tower, bounds, trees: treeSpots(bounds, fields, tower) };
 }

@@ -31,7 +31,7 @@ vi.mock('../../src/ui/three/engine/index.ts', () => ({
     // Held: the first frame has not been drawn yet.
     if (engine.hold) engine.release = () => options.onReady();
     else options.onReady();
-    return { setGhost: () => {}, replay: () => {}, settle: () => {}, dispose: () => canvas.remove() };
+    return { setGhost: () => {}, replay: () => {}, settle: () => {}, resume: () => {}, dispose: () => canvas.remove() };
   },
 }));
 
@@ -91,10 +91,16 @@ describe('what the tower is said to show', () => {
   it('marks each German word as German, parts them with a semicolon and drops their full stops', async () => {
     const said = await label(show(words('Woher kommst du?', 'Gut, danke.', 'Hallo!', 'Moment…', 'die Katze')).container);
     const german = [...said.querySelectorAll('[lang="de"]')].map((span) => span.textContent);
-    expect(german).toEqual(['Woher kommst du', 'Gut, danke', 'Hallo', 'Moment', 'die Katze']);
-    expect(said.textContent).toContain('Woher kommst du; Gut, danke; Hallo; Moment; die Katze');
+    // A question and an exclamation keep their marks: a German voice says them as such.
+    expect(german).toEqual(['Woher kommst du?', 'Gut, danke', 'Hallo!', 'Moment', 'die Katze']);
+    expect(said.textContent).toContain('Woher kommst du?; Gut, danke; Hallo!; Moment; die Katze.');
     // Only the words are German: the sentence round them is the learner's.
     expect(said.closest('[lang="de"]')).toBeNull();
+  });
+
+  it('adds no full stop after a last word that ends in a question mark', async () => {
+    const said = await label(show(words('der Hund', 'Wo wohnst du?')).container);
+    expect(said.textContent).toMatch(/der Hund; Wo wohnst du\?$/u);
   });
 });
 
@@ -113,8 +119,13 @@ describe('the one celebration a finish gets', () => {
     expect(engine.mounted).toBe(0);
     const sketch = container.querySelector('.wood-scene--sketch.done-hero__tower .tower-sketch')!;
     expect(sketch).toHaveAttribute('aria-hidden', 'true');
-    // One block per word, in its gender's colour where it has one.
+    // One block per word, in its gender's colour where it has one, lettered as the scene's are.
     expect(sketch.querySelectorAll('.tower-sketch__block')).toHaveLength(2);
+    expect([...sketch.querySelectorAll('.tower-sketch__text')].map((text) => text.textContent).sort()).toEqual(['der Hund', 'die Katze']);
+    // And it says which words it stacks, as the drawn scene would have.
+    const said = container.querySelector('.wood-scene--sketch .wood-scene__label')!;
+    expect(said.textContent).toBe(tr('sceneCompleteLabel', 'en', { n: 2, words: 'der Hund; die Katze' }));
+    expect([...said.querySelectorAll('[lang="de"]')].map((span) => span.textContent)).toEqual(['der Hund', 'die Katze']);
   });
 
   it('falls back the same way when the scene cannot start', async () => {
@@ -122,7 +133,8 @@ describe('the one celebration a finish gets', () => {
     const { container } = show(words('der Hund'));
     await waitFor(() => expect(container.querySelector('.confetti')).not.toBeNull());
     expect(container.querySelector('.tower-sketch')).not.toBeNull();
-    expect(container.querySelector('.wood-scene__label')).toBeNull();
+    expect(container.querySelectorAll('.wood-scene__label')).toHaveLength(1);
+    expect(container.querySelector('.wood-scene--sketch .wood-scene__label')).not.toBeNull();
   });
 
   it('has nothing to stack without new words: the paper and the page\'s own picture', () => {
@@ -145,14 +157,18 @@ describe('while three.js is on its way', () => {
   /*
    * A lesson's finish showed an empty patch of sand for seconds while the
    * engine was fetched: the box is held for the tower, so nothing jumps.
+   * It then showed the finished tower, which vanished at the first frame
+   * (an empty plinth, the blocks still to fall) and was built again.
    */
-  it('stands a flat drawing of the tower in the box until the first frame', async () => {
+  it('stands the bare plinth in the box until the first frame, where the blocks are about to fall onto it', async () => {
     engine.hold = true;
     const { container } = show(words('der Hund', 'die Katze', 'das Haus'));
     const box = container.querySelector('.wood-scene--complete')!;
     expect(box).toHaveClass('is-waiting');
-    expect(box.querySelector('.wood-scene__fallback .tower-sketch')).not.toBeNull();
-    expect(box.querySelectorAll('.tower-sketch__block--der, .tower-sketch__block--die, .tower-sketch__block--das')).toHaveLength(0);
+    const waiting = box.querySelector('.wood-scene__fallback .tower-sketch')!;
+    expect(waiting).toHaveClass('tower-sketch--bare');
+    expect(waiting.querySelector('.tower-sketch__plinth')).not.toBeNull();
+    expect(waiting.querySelectorAll('.tower-sketch__block, .tower-sketch__star, .tower-sketch__text')).toHaveLength(0);
     await waitFor(() => expect(engine.mounted).toBe(1));
     engine.release();
     await waitFor(() => expect(box).toHaveClass('is-live'));
@@ -160,7 +176,19 @@ describe('while three.js is on its way', () => {
     expect(container.querySelector('.confetti')).toBeNull();
   });
 
+  it('stands the finished tower in the box where the scene will be drawn finished, still', async () => {
+    env.reducedMotion = true;
+    engine.hold = true;
+    const { container } = show(words('der Hund', 'die Katze'));
+    const waiting = container.querySelector('.wood-scene--complete.is-waiting .wood-scene__fallback .tower-sketch')!;
+    expect(waiting).not.toHaveClass('tower-sketch--bare');
+    expect(waiting.querySelectorAll('.tower-sketch__block')).toHaveLength(2);
+    expect(waiting.querySelector('.tower-sketch__star')).not.toBeNull();
+    await waitFor(() => expect(engine.mounted).toBe(1));
+  });
+
   it('colours the drawing\'s blocks as the scene does', () => {
+    env.reducedMotion = true;
     engine.hold = true;
     const { container } = show([{ display: 'der Hund', article: 'der' }, { display: 'die Katze', article: 'die' }, { display: 'Hallo' }]);
     const blocks = [...container.querySelectorAll('.tower-sketch__block')].map((block) => block.getAttribute('class'));

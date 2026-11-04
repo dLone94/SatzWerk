@@ -14,7 +14,7 @@ import type { SceneSpec } from '../../src/ui/three/sceneData.ts';
 
 const env = vi.hoisted(() => ({ webgl: false, reducedMotion: false, probes: 0, cores: undefined as number | undefined }));
 const engine = vi.hoisted(() => ({
-  mounted: [] as Array<{ spec: unknown; still: boolean; settled: number; disposed: boolean; ghosts: string[]; replays: number; lose: () => void }>,
+  mounted: [] as Array<{ spec: unknown; still: boolean; settled: number; resumed: number; disposed: boolean; ghosts: string[]; replays: number; lose: () => void }>,
   fail: false,
 }));
 
@@ -40,13 +40,14 @@ vi.mock('../../src/ui/three/engine/index.ts', () => ({
     if (engine.fail) throw new Error('no context');
     const canvas = document.createElement('canvas');
     host.appendChild(canvas);
-    const record = { spec, still: options.still, settled: 0, disposed: false, ghosts: [options.ghost ?? ''], replays: 0, lose: options.onLost };
+    const record = { spec, still: options.still, settled: 0, resumed: 0, disposed: false, ghosts: [options.ghost ?? ''], replays: 0, lose: options.onLost };
     engine.mounted.push(record);
     options.onReady();
     return {
       setGhost: (text: string) => { record.ghosts.push(text); },
       replay: () => { record.replays++; },
       settle: () => { record.settled++; },
+      resume: () => { record.resumed++; },
       dispose: () => { record.disposed = true; canvas.remove(); },
     };
   },
@@ -192,6 +193,26 @@ describe('a wooden scene with WebGL', () => {
     expect(engine.mounted).toHaveLength(1);
     expect(engine.mounted[0]!.settled).toBe(1);
     expect(live()).toHaveLength(1);
+  });
+
+  /*
+   * Turned off again, the scene used to be thrown away and drawn afresh: the
+   * blocks tumbled onto an empty plinth a second time, and on the course
+   * board the die rolled and the pawn hopped as if the learner had moved.
+   */
+  it('picks up only the ambient motion of a settled scene when reduced motion is turned off', async () => {
+    render(<WoodScene spec={town} label="A town" />);
+    await waitFor(() => expect(live()).toHaveLength(1));
+    motion.set(true);
+    motion.set(false);
+    // The same scene on the same canvas, told to move on from where it stands.
+    expect(engine.mounted).toHaveLength(1);
+    expect(engine.mounted[0]!).toMatchObject({ settled: 1, resumed: 1, disposed: false });
+    // And settles again the next time.
+    motion.set(true);
+    expect(engine.mounted[0]!.settled).toBe(2);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(engine.mounted).toHaveLength(1);
   });
 
   it('draws the scene moving again when reduced motion is turned off', async () => {

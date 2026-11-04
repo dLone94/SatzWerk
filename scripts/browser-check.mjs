@@ -287,6 +287,44 @@ try {
   assert.ok(state.lessons.find(item => item.lessonId === lesson.id).completedAt);
   await page.screenshot({ path: report + '/lesson-complete.png', fullPage: true });
   observations.push({ journey: 'English lesson 1: German typed on its second screen, tries between sections, wrong answer and retype, mastery, lost acknowledgement retry', result, receiptCopies: copies, uniqueAttempts: writes.size });
+  /*
+   * A finished lesson's "Next" is on the first screen of a phone, above the
+   * floating tab bar, however its titles wrap: the lesson's, the next one's
+   * ("Nouns: capital letters and der / die / das" is two lines) and the
+   * longer Bulgarian of both. It sat under the bar on the first lesson every
+   * new learner finishes.
+   */
+  const nextPlaces = {};
+  const nextAboveTabBar = async name => {
+    for (const lang of ['en', 'bg']) {
+      if ((await page.locator('html').getAttribute('lang')) !== lang) {
+        await page.locator(`.lang-toggle__btn[lang="${lang}"]`).click();
+        await eventually(async () => (await page.locator('html').getAttribute('lang')) === lang);
+      }
+      for (const [width, height] of [[320, 640], [375, 667], [390, 760]]) {
+        await page.setViewportSize({ width, height });
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForTimeout(150);
+        const place = await page.evaluate(() => ({
+          next: Math.round(document.querySelector('.done-hero__next').getBoundingClientRect().bottom),
+          bar: Math.round(document.querySelector('nav.nav').getBoundingClientRect().top),
+          tower: Math.round(document.querySelector('.done-hero__tower').getBoundingClientRect().height),
+        }));
+        nextPlaces[`${name} ${lang} ${width}x${height}`] = place;
+        assert.ok(place.next <= place.bar, `${name} (${lang}, ${width}x${height}): "Next" ends at ${place.next}px, under the tab bar at ${place.bar}px`);
+        assert.ok(place.tower >= 120, `${name} (${lang}, ${width}x${height}): the tower keeps its height (${place.tower}px)`);
+      }
+    }
+    await page.locator('.lang-toggle__btn[lang="en"]').click();
+    await eventually(async () => (await page.locator('html').getAttribute('lang')) === 'en');
+    await page.setViewportSize({ width: 390, height: 844 });
+  };
+  await nextAboveTabBar(lesson.id);
+  const secondLesson = CURRICULUM[0].units[0].lessons[1];
+  await open('/lesson/' + secondLesson.id);
+  await play([...secondLesson.exercises, ...secondLesson.mastery.exercises], 'en', async () => await page.locator('.done-hero').count() > 0, false, true);
+  await nextAboveTabBar(secondLesson.id);
+  observations.push({ journey: 'A finished lesson keeps "Next" above the tab bar on short phones, in English and Bulgarian', nextPlaces, passed: true });
   await open('/checkpoint/' + checkpoint.id);
   await page.locator('.btn--primary').last().click();
   const checkpointResult = await play(checkpoint.exercises, 'en', async () => await page.locator('.score-ring').count() > 0);
@@ -294,7 +332,17 @@ try {
   await context.request.patch(base + '/api/profile', { headers: { 'X-Requested-With': 'SatzWerk' }, data: { teachingLanguage: 'bg' } });
   await open('/scenario/' + scenario.id);
   await page.getByRole('button', { name: tr('scenarioStart', 'bg'), exact: true }).click();
-  const scenarioResult = await play(scenario.beats.filter(beat => beat.who === 'you').map(beat => beat.exercise), 'bg', async () => await page.locator('.score-ring').count() > 0);
+  const scenarioTurns = scenario.beats.filter(beat => beat.who === 'you').map(beat => beat.exercise);
+  // The learner's own lines, once one is said: dark ink on the sand bubble,
+  // in both schemes. They were pale text on sand, 1.2:1.
+  await play(scenarioTurns, 'bg', async () => await page.locator('.chat__bubble--you').count() > 0);
+  for (const colorScheme of ['light', 'dark']) {
+    await page.emulateMedia({ colorScheme });
+    const answeredAxe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    observations.push({ path: '/scenario#answered', colorScheme, violations: answeredAxe.violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => node.target) })) });
+  }
+  await page.emulateMedia({ colorScheme: 'light' });
+  const scenarioResult = await play(scenarioTurns, 'bg', async () => await page.locator('.score-ring').count() > 0);
   observations.push({ journey: 'Bulgarian real-life conversation', result: scenarioResult });
   await open('/course');
   await page.screenshot({ path: report + '/course-mobile.png', fullPage: true });
@@ -566,6 +614,17 @@ try {
   assert.ok(await glPage.locator('.daily-finished .wood-scene__label [lang="de"]').count() > 0, 'The day\'s tower says which German words it stacks');
   assert.equal(await glPage.locator('.daily-finished .confetti').count(), 0, 'The day\'s drawn tower has no paper confetti on top');
   await glPage.screenshot({ path: report + '/scene-daily-finish.png' });
+  // The day's phrases are the longest a tower carries: its box is the
+  // lesson finish's size on a phone, not the dachshund's 210 x 140 thumbnail.
+  for (const width of [320, 390]) {
+    await glPage.setViewportSize({ width, height: 844 });
+    await glPage.waitForTimeout(400);
+    const box = await glPage.locator('.daily-finished .wood-scene--complete').boundingBox();
+    assert.ok(box.height >= 170 && box.width >= width - 90, `The day's tower is large enough to read at ${width}px (${Math.round(box.width)} x ${Math.round(box.height)})`);
+    scenes[`daily-finish-${width}`] = { width: Math.round(box.width), height: Math.round(box.height) };
+    await glPage.locator('.daily-finished .wood-scene--complete').screenshot({ path: report + `/scene-daily-finish-${width}.png` });
+  }
+  await glPage.setViewportSize({ width: 390, height: 844 });
   // Within the app, as a learner taps between tabs: the engine is in hand
   // after the first scene, so each visit makes a context and gives it back.
   await glOpen('/');

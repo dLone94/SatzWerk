@@ -85,7 +85,9 @@ function hasBox(element: HTMLElement): boolean {
  * German words in it can carry their own language; with no label (it
  * repeats what is written beside it) nothing is said at all. Nothing in it
  * can be clicked or focused. `children` are laid over it and are ordinary
- * page content: a chip, or the feedback's "Show again".
+ * page content (a chip); `after` follows the box in the page, shown only
+ * once the scene is drawn (the feedback's "Show again", which over the
+ * picture would hide the very swap it replays).
  */
 export function WoodScene({
   spec,
@@ -97,6 +99,7 @@ export function WoodScene({
   replay = 0,
   onStatic,
   children,
+  after,
 }: {
   spec: SceneSpec;
   label?: ReactNode;
@@ -115,6 +118,8 @@ export function WoodScene({
   /** Called once the fallback is final: no scene will be drawn here. */
   onStatic?: () => void;
   children?: ReactNode;
+  /** Page content under the scene, shown once it is drawn. */
+  after?: ReactNode;
 }) {
   const [mode, setMode] = useState<SceneMode>(() => hintMode(readHints()));
   const [live, setLive] = useState(false);
@@ -123,7 +128,9 @@ export function WoodScene({
   reducedRef.current = reduced;
   /** The scene on the canvas is drawn still: from the start, or since it settled. */
   const drawnStill = useRef(false);
-  /** Bumped to draw the scene moving again once reduced motion is turned off. */
+  /** It began moving and was settled mid-way: it can pick up its motion where it stood. */
+  const settledLive = useRef(false);
+  /** Bumped to draw a scene that began still moving once reduced motion is turned off. */
   const [moving, setMoving] = useState(0);
   const host = useRef<HTMLDivElement | null>(null);
   const handle = useRef<SceneHandle | null>(null);
@@ -154,6 +161,7 @@ export function WoodScene({
       if (abort.signal.aborted) return;
       const still = mode === 'still' || reducedRef.current;
       drawnStill.current = still;
+      settledLive.current = false;
       mounted = mountScene(target, drawn, {
         still,
         ghost: ghostRef.current,
@@ -209,18 +217,26 @@ export function WoodScene({
 
   /*
    * Reduced motion turned on mid-scene: the scene settles at once into its
-   * finished pose, on the canvas it has. Turned off again, the scene is
-   * drawn afresh, moving — where the browser would have drawn it moving.
+   * finished pose, on the canvas it has. Turned off again, a scene that had
+   * been moving takes up only its ambient motion from that pose — its story
+   * is not told twice (the die is not rolled again as if the learner had
+   * moved). A scene that began still has told no story yet: it is drawn
+   * afresh, moving, where the browser would have drawn it moving.
    */
   useEffect(() => {
     if (reduced) {
       if (live && !drawnStill.current) {
         drawnStill.current = true;
+        settledLive.current = true;
         handle.current?.settle();
       }
     } else if (mode === 'still') {
       // Drawn still because reduced motion was on when it began.
       setMode('animate');
+    } else if (live && settledLive.current) {
+      drawnStill.current = false;
+      settledLive.current = false;
+      handle.current?.resume();
     } else if (live && drawnStill.current && mode === 'animate') {
       setMoving((count) => count + 1);
     }
@@ -240,12 +256,15 @@ export function WoodScene({
   const named = live && label !== undefined && label !== null && label !== '';
   const waiting = placeholder ?? fallback;
   return (
-    <div className={`wood-scene wood-scene--${spec.scene} ${live ? 'is-live' : 'is-waiting'} ${className}`}>
-      {waiting ? <div className="wood-scene__fallback">{waiting}</div> : null}
-      <div ref={host} className="wood-scene__stage" aria-hidden="true" />
-      {named ? <p className="visually-hidden wood-scene__label">{label}</p> : null}
-      {live ? children : null}
-    </div>
+    <>
+      <div className={`wood-scene wood-scene--${spec.scene} ${live ? 'is-live' : 'is-waiting'} ${className}`}>
+        {waiting ? <div className="wood-scene__fallback">{waiting}</div> : null}
+        <div ref={host} className="wood-scene__stage" aria-hidden="true" />
+        {named ? <p className="visually-hidden wood-scene__label">{label}</p> : null}
+        {live ? children : null}
+      </div>
+      {live ? after : null}
+    </>
   );
 }
 

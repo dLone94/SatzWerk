@@ -37,13 +37,15 @@ interface SceneCall { spec: SceneSpec; replay?: number; ghost?: string; fallback
 const scenes = vi.hoisted(() => ({ mode: 'animate' as 'animate' | 'still' | 'static', calls: [] as unknown[] }));
 
 vi.mock('../../src/ui/three/WoodScene.tsx', async () => {
-  const { createElement } = await import('react');
+  const { createElement, Fragment } = await import('react');
   return {
-    WoodScene: (props: SceneCall & { children?: ReactNode; label?: ReactNode }) => {
+    WoodScene: (props: SceneCall & { children?: ReactNode; label?: ReactNode; after?: ReactNode }) => {
       scenes.calls.push(props);
-      return createElement('div', { className: `stub-scene stub-scene--${props.spec.scene} ${props.className ?? ''}`, 'data-replay': props.replay ?? '' },
-        props.label ? createElement('p', { className: 'stub-scene__label' }, props.label) : null,
-        props.children);
+      return createElement(Fragment, null,
+        createElement('div', { className: `stub-scene stub-scene--${props.spec.scene} ${props.className ?? ''}`, 'data-replay': props.replay ?? '' },
+          props.label ? createElement('p', { className: 'stub-scene__label' }, props.label) : null,
+          props.children),
+        props.after);
     },
     useSceneMode: () => scenes.mode,
   };
@@ -226,11 +228,17 @@ describe('the lesson\'s finish', () => {
     const taught = L2.vocabIds.map((id) => vocabById(id)!).map((entry) => ({ text: entry.display, tone: nounArticle(entry) ?? 'birch' }));
     expect((tower.spec as Extract<SceneSpec, { scene: 'complete' }>).words).toEqual(taught.slice(0, 6));
     expect(taught.some((word) => word.tone !== 'birch')).toBe(true);
-    // No dachshund here: a flat drawing of the same tower holds the box.
+    // No dachshund here. Until the first frame the box holds the plinth the
+    // blocks are about to fall onto; where no tower is drawn, a flat drawing
+    // of the same tower, described as the scene would be.
     expect(tower.placeholder).toBeTruthy();
     expect(tower.fallback).toBeTruthy();
-    const { container } = render(<>{tower.placeholder}</>);
+    const waiting = render(<>{tower.placeholder}</>).container;
+    expect(waiting.querySelector('.tower-sketch--bare')).not.toBeNull();
+    expect(waiting.querySelectorAll('.tower-sketch__block')).toHaveLength(0);
+    const { container } = render(<>{tower.fallback}</>);
     expect(container.querySelectorAll('.tower-sketch__block')).toHaveLength(Math.min(6, taught.length));
+    expect(container.querySelectorAll('.wood-scene__label [lang="de"]')).toHaveLength(Math.min(6, taught.length));
     // Said in words beside the picture, the German marked as German.
     const label = document.querySelector('.done-hero .stub-scene__label')!;
     expect(label.querySelectorAll('[lang="de"]').length).toBe(Math.min(6, taught.length));

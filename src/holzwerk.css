@@ -291,19 +291,26 @@ body { background: var(--paper); }
 .wood-scene--complete { width: 100%; height: clamp(190px, 26vh, 300px); }
 /* A lesson's finish: the tower beside the score, so the way on stays on the first screen. */
 .done-hero__top { display: flex; align-items: center; justify-content: center; gap: 4px; align-self: stretch; }
-.done-hero__top .done-hero__tower { flex: 1 1 0; max-width: 380px; }
+/* Beside the score it is as tall as the screen allows, and as wide as the
+   hero's empty side: on a desktop it was smaller than on a phone. */
+.done-hero__top .done-hero__tower { flex: 1 1 0; max-width: 460px; height: clamp(220px, 34vh, 320px); }
 .done-hero:has(.done-hero__tower) { padding-top: 1rem; }
 .done-hero__top:has(.done-hero__tower) .score-ring__dial { width: 7rem; height: 7rem; }
 .done-hero__top:has(.done-hero__tower) .score-ring__num { font-size: 1.7rem; }
-/* On a phone the row is too narrow to share, above all with the longer
-   Bulgarian caption: the tower takes the full width, and the score sits in
-   one row under it, so "Next" still stays on the first screen. */
+/*
+ * On a phone the row is too narrow to share, above all with the longer
+ * Bulgarian caption: the tower takes the full width, and the score sits in
+ * one row under it. "Next" stays on the first screen, above the floating tab
+ * bar, whatever the titles above and in it wrap to: the hero fills the
+ * screen from where it starts (under the top bar, 92px) to the tab bar
+ * (84px and the safe area), less what follows "Next" (the two buttons under
+ * it and the hero's padding, 80px), and the tower takes whatever height the
+ * text leaves — the taller, the larger its lettering.
+ */
 @media (max-width: 480px) {
-  .done-hero:has(.done-hero__tower) { padding-top: 0.75rem; }
-  .done-hero__top:has(.done-hero__tower) { flex-direction: column; gap: 6px; }
-  /* As tall as the screen allows with "Next" above the tab bar: the taller
-     the tower, the larger its lettering. */
-  .done-hero__top .done-hero__tower { flex: none; width: 100%; max-width: none; height: 176px; height: clamp(176px, calc(100vh - 548px), 240px); height: clamp(176px, calc(100svh - 548px), 240px); }
+  .done-hero:has(.done-hero__tower) { padding-top: 0.75rem; min-height: calc(100vh - 104px); min-height: calc(100svh - 104px - env(safe-area-inset-bottom)); }
+  .done-hero__top:has(.done-hero__tower) { flex: 1 1 auto; flex-direction: column; gap: 6px; }
+  .done-hero__top .done-hero__tower { flex: 1 1 0; width: 100%; max-width: none; height: auto; min-height: 150px; max-height: 300px; }
   .done-hero__top:has(.done-hero__tower) .score-ring { flex-direction: row; gap: 0.75rem; }
   .done-hero__top:has(.done-hero__tower) .score-ring__dial { width: 4.5rem; height: 4.5rem; }
   .done-hero__top:has(.done-hero__tower) .score-ring__num { font-size: 1.3rem; }
@@ -312,31 +319,47 @@ body { background: var(--paper); }
 /* The tower as a flat drawing: in its box until the first frame, and for good where no tower is drawn. Fixed colours, as the scene's are. */
 .tower-sketch { position: absolute; inset: 14px 12px 10px; width: calc(100% - 24px); height: calc(100% - 24px); }
 .tower-sketch__plinth { fill: #6e4a2c; }
-.tower-sketch__block { stroke: rgb(30 27 23 / 16%); stroke-width: 2; }
+.tower-sketch--bare { inset: 0; width: 100%; height: 100%; }
+.tower-sketch__plinth-side { fill: #4f3420; }
+.tower-sketch__block { stroke: rgb(30 27 23 / 32%); stroke-width: 2; }
+.tower-sketch__text { fill: #ffffff; font-family: "Nunito", "Onest", system-ui, sans-serif; font-weight: 800; }
+.tower-sketch__text--birch { fill: #1e1b17; }
 .tower-sketch__block--birch { fill: #e9d4b0; }
 .tower-sketch__block--der { fill: #2f6fdb; }
 .tower-sketch__block--die { fill: #d9473b; }
 .tower-sketch__block--das { fill: #2e9b5a; }
 .tower-sketch__star { fill: #f5c04a; stroke: #c99a2e; stroke-width: 2; stroke-linejoin: round; }
 /* A short phone (320 x 640, 390 x 664): the German cheer gives way and the
-   score sits smaller, so "Next" clears the tab bar with the tower still there. */
+   score sits smaller, so the tower keeps more of the little height there is;
+   what follows "Next" is 6px shorter. On the shortest (320 x 568) the count
+   of new words goes too: the tower shows them. */
 @media (max-width: 480px) and (max-height: 740px) {
-  .done-hero:has(.done-hero__tower) { gap: 0.4rem; padding-bottom: 1rem; }
-  .done-hero__top .done-hero__tower { height: 150px; height: clamp(150px, calc(100vh - 475px), 200px); height: clamp(150px, calc(100svh - 475px), 200px); }
+  .done-hero:has(.done-hero__tower) { gap: 0.4rem; padding-bottom: 1rem; min-height: calc(100vh - 110px); min-height: calc(100svh - 110px - env(safe-area-inset-bottom)); }
+  .done-hero__top .done-hero__tower { min-height: 130px; }
   .done-hero:has(.done-hero__tower) .done-hero__de { display: none; }
   .done-hero__top:has(.done-hero__tower) .score-ring__dial { width: 3.75rem; height: 3.75rem; }
   .done-hero__top:has(.done-hero__tower) .score-ring__num { font-size: 1.1rem; }
   .done-hero:has(.done-hero__tower) .done-hero__actions { margin-top: 0.4rem; }
 }
-/* The day's finish: the tower takes the dachshund's place at its size. */
-.daily-finished__tower.wood-scene--complete { width: 260px; max-width: 100%; height: auto; margin: 0 auto 12px; border-radius: 20px; }
-.daily-finished__tower .daily-finished__scene { margin: 0; }
+@media (max-width: 480px) and (max-height: 600px) {
+  .done-hero__top .done-hero__tower { min-height: 100px; }
+  .done-hero:has(.done-hero__tower) .done-hero__fact { display: none; }
+}
+/* The day's finish: the tower's box at the lesson finish's size, not the
+   dachshund's thumbnail — its phrases are the longest any tower carries.
+   The dachshund waits in the middle of it until the first frame. */
+.daily-finished__tower.wood-scene--complete { width: min(100%, 440px); height: clamp(200px, 30vh, 260px); margin: 0 auto 12px; border-radius: 20px; }
+.daily-finished__tower > .wood-scene__fallback { position: absolute; inset: 0; display: grid; place-items: center; }
+.daily-finished__tower .daily-finished__scene { width: auto; height: 100%; max-width: 100%; margin: 0; }
+.daily-finished__tower .daily-finished__scene img { width: auto; height: 100%; max-width: 100%; object-fit: contain; }
 /* On a short phone the answer field comes first; the rail is only decoration. */
 @media (max-height: 640px) { .wood-scene--question { display: none; } }
 /* One line at most, cut short with an ellipsis: the card above says it in full. */
 .wood-scene__chip { position: absolute; left: 12px; top: 12px; display: block; max-width: calc(100% - 24px); padding: 6px 10px; border-radius: 10px; background: #fbf6ec; color: #1e1b17; font-size: 13px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 3px 0 rgb(30 27 23 / 12%); }
 .wood-scene__chip::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 4px; background: #f2b630; vertical-align: 1px; }
-.wood-scene__replay { position: absolute; right: 10px; top: 10px; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 11px; background: #fbf6ec; color: #1e1b17; font: inherit; font-size: 13px; font-weight: 700; box-shadow: 0 3px 0 rgb(30 27 23 / 14%); cursor: pointer; }
+/* Under the feedback's scene, at its right, in the flow: nothing it replays passes behind it. */
+.wood-scene--feedback:has(+ .wood-scene__replay) { margin-bottom: 0; }
+.wood-scene__replay { align-self: flex-end; margin: -2px 0 4px auto; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 11px; background: var(--sand); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; box-shadow: 0 3px 0 var(--card-drop); cursor: pointer; }
 .wood-scene__replay:focus-visible { outline: 3px solid var(--focus, #2f6fdb); outline-offset: 2px; }
 
 /* The illustrated scene carries the personality; its text stays in the DOM. */
@@ -454,11 +477,21 @@ body { background: var(--paper); }
 .daily-finished__phrases li { border: 0; background: var(--surface-alt); }
 .micro-tip { border-left: 0; border-radius: 14px; background: var(--warn-soft); color: var(--ink); }
 /* On a phone the picture gives up a little height, so the one next step is on the first screen in both languages. */
-@media (max-width: 480px) { .daily-finished__scene, .daily-finished__tower.wood-scene--complete { width: 210px; margin-bottom: 6px; } .daily-finished__mark { margin-bottom: 12px; } }
+@media (max-width: 480px) {
+  .daily-finished__scene { width: 210px; margin-bottom: 6px; }
+  .daily-finished__tower.wood-scene--complete { width: 100%; max-width: 340px; height: 170px; height: clamp(170px, 26svh, 220px); margin-bottom: 10px; }
+  .daily-finished__mark { margin-bottom: 12px; }
+  /* The tower is the finish's celebration: the tick under it gives way, so
+     the larger tower costs the way on no more room than the thumbnail did. */
+  .daily-finished:has(.daily-finished__tower) .daily-finished__mark { display: none; }
+}
 
 /* ---------------- The course ---------------- */
 
 .course-welcome { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; align-items: center; padding: 24px 26px; border-radius: var(--radius-lg); background: var(--surface); border: 0; box-shadow: var(--card); }
+/* On a wide screen the board gets the room a phone gives it, and more:
+   at 260px its station numbers were 9px high. */
+@media (min-width: 1024px) { .course-welcome { grid-template-columns: minmax(0, 1fr) 360px; } .course-welcome__scene { min-height: 240px; } }
 .course-welcome .page__title { margin: 8px 0 12px; }
 .course-welcome .page__lede { margin: 0; font-size: 15px; }
 .course-welcome__scene { align-self: stretch; display: flex; align-items: flex-end; }
@@ -509,7 +542,12 @@ body { background: var(--paper); }
 .chat__bubble { border: 0; border-radius: 22px 22px 22px 6px; background: var(--surface); box-shadow: var(--card-sm); }
 /* The sheet's grab handle, in the verdict's colour. */
 .feedback::before { content: ''; align-self: center; width: 44px; height: 6px; margin-top: -4px; border-radius: 3px; background: var(--tone); }
-.chat__bubble--you { border-radius: 22px 22px 6px 22px; background: var(--sand); }
+/* The learner's own line, dark ink on sand: the accent bubble's light text
+   would vanish on it. */
+.chat__bubble--you { border-radius: 22px 22px 6px 22px; background: var(--sand); color: var(--ink); }
+/* Earlier turns step back less: at 0.62 their names, stage lines and glosses
+   fell under 4.5:1 on the light paper. */
+.chat__past { opacity: 0.8; }
 .section-nav .btn--primary { min-width: 9rem; }
 
 /* ---------------- Vocabulary and words ---------------- */
@@ -563,7 +601,7 @@ body { background: var(--paper); }
 .more { gap: 12px; }
 .more__link { border-radius: 20px; }
 .more__link:hover, .more__link:focus-visible { box-shadow: 0 0 0 2px var(--ink), 0 6px 0 var(--card-drop); text-decoration: none; }
-.more__icon { background: var(--sand); color: var(--ink); }
+.more__icon { background: var(--sand); }
 .more__label { font-family: var(--font-display); font-weight: 800; }
 .onboarding__scene { width: 330px; max-width: 85%; margin: 0 auto 20px; }
 .onboarding .path-card { border-radius: 20px; }
