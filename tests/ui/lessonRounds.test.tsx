@@ -512,3 +512,30 @@ describe('where focus goes as a lesson moves on', () => {
     }
   });
 });
+
+describe('what a lesson asks for, on its overview', () => {
+  it('is three steps with their progress, not five conditions', () => {
+    for (const lang of ['en', 'bg'] as const) {
+      const progress = { ...emptyLessonProgress(L2.id), sectionsSeen: [L2.sections[0]!.id] };
+      const view = render(
+        <Harness
+          lessonId={L2.id}
+          initial={progress}
+          calls={newCalls()}
+          overrides={{ lang, t: (key, vars) => tr(key, lang, vars), say: (text) => (text ? text[lang] : '') }}
+        />,
+      );
+      const steps = [...document.querySelectorAll('.lesson-stages > li')];
+      expect(steps).toHaveLength(3);
+      expect(steps[0]).toHaveTextContent(tr('lessonStageRead', lang));
+      expect(steps[0]).toHaveTextContent(`1 / ${L2.sections.length}`);
+      expect(steps[1]).toHaveTextContent(tr('lessonStagePractise', lang));
+      expect(steps[1]).toHaveTextContent(`0 / ${practiceSteps(L2).length}`);
+      expect(steps[2]).toHaveTextContent(tr('lessonStageCheck', lang));
+      // Reading is where the learner is.
+      expect(steps[0]).toHaveAttribute('aria-current', 'step');
+      expect(screen.queryByText(/60%/)).toBeNull();
+      view.unmount();
+    }
+  });
+});

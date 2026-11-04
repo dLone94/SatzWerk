@@ -6,9 +6,10 @@ import {
   allStepIds,
   isLessonComplete,
   masteryPassMark,
-  lessonRequirements,
+  lessonStages,
   needsRecovery,
   recoveryStepIds,
+  type LessonStage,
 } from '../../core/progress/lesson.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { nextAction } from '../selectors.ts';
@@ -442,7 +443,7 @@ function LessonView() {
             </Card>
           ) : null}
           <Card>
-            <Requirements lesson={lesson} />
+            <LessonStages lesson={lesson} />
           </Card>
         </div>
       );
@@ -497,7 +498,7 @@ function LessonView() {
             </p>
           )}
 
-          <Requirements lesson={lesson} />
+          <LessonStages lesson={lesson} />
 
           <div className="section-nav">
             <Link className="btn btn--ghost" to="/course">
@@ -583,7 +584,7 @@ function LessonView() {
       </Card>
 
       <Card title={t('lessonRequirements')}>
-        <Requirements lesson={lesson} />
+        <LessonStages lesson={lesson} />
         <div className="section-nav">
           <button
             type="button"
@@ -634,34 +635,47 @@ function PlayerHeader({ lesson, phase }: { lesson: Lesson; phase: string }) {
   );
 }
 
-function Requirements({ lesson }: { lesson: Lesson }) {
-  const { say, t, lessonProgress } = useApp();
-  const requirements = lessonRequirements(lesson, lessonProgress(lesson.id));
+/*
+ * What finishing the lesson takes, as three steps: read, practise, final
+ * check. Each with its count, the one the learner is on marked as current.
+ * The detailed rules are still what decides (`lessonStages` is built from
+ * them); the 60% first-try rule is part of the final check, which settles it,
+ * and is only spoken of when a check is not passed.
+ */
+const STAGE_LABEL = {
+  read: 'lessonStageRead',
+  practise: 'lessonStagePractise',
+  check: 'lessonStageCheck',
+} as const satisfies Record<LessonStage['id'], string>;
+
+function LessonStages({ lesson }: { lesson: Lesson }) {
+  const { t, lessonProgress } = useApp();
+  const stages = lessonStages(lesson, lessonProgress(lesson.id));
+  const current = stages.findIndex((stage) => !stage.satisfied);
   return (
-    <ul className="requirements">
-      {requirements.map((requirement) => (
-        <li key={requirement.id} className={requirement.satisfied ? 'is-done' : ''}>
-          <span className="requirements__mark" aria-hidden="true">
-            {requirement.satisfied ? '✓' : '○'}
+    <ol className="lesson-stages">
+      {stages.map((stage, index) => (
+        <li
+          key={stage.id}
+          className={stage.satisfied ? 'is-done' : index === current ? 'is-current' : undefined}
+          aria-current={index === current ? 'step' : undefined}
+        >
+          <span className="lesson-stages__mark" aria-hidden="true">
+            {stage.satisfied ? '✓' : index + 1}
           </span>
-          <span className="requirements__label">{say(requirement.label)}</span>
-          {/* The mark is drawn, not read; "Pass the final check" has no
-              count, so without this it sounded the same passed or not. */}
-          <span className="visually-hidden">
-            {requirement.satisfied ? t('requirementMet') : t('requirementNotMet')}
-          </span>
-          {/* A share reads as a share ("40%", not "40 / 100"), and not at all
-              before there is anything to measure. */}
-          {requirement.id === 'accuracy' ? (
-            requirement.done ? <span className="requirements__count">{requirement.done}%</span> : null
-          ) : requirement.total !== undefined ? (
-            <span className="requirements__count">
-              {requirement.done} / {requirement.total}
+          <span className="lesson-stages__label">{t(STAGE_LABEL[stage.id])}</span>
+          {/* The mark is drawn, not read; the final check has no count, so
+              without this it sounded the same passed or not. */}
+          <span className="visually-hidden">{stage.satisfied ? t('requirementMet') : t('requirementNotMet')}</span>
+          {stage.total !== undefined ? (
+            <span className="lesson-stages__count">
+              {stage.done} / {stage.total}
             </span>
           ) : null}
+          {stage.total ? <Meter value={stage.done ?? 0} max={stage.total} tone={stage.satisfied ? 'good' : 'accent'} decorative /> : null}
         </li>
       ))}
-    </ul>
+    </ol>
   );
 }
 

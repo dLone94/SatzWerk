@@ -487,11 +487,15 @@ rung of support (first word → first letters → word bank → fill in the blan
 two clean answers take it away again, so the learner returns to full recall.
 
 **Lesson completion is earned.** `lessonRequirements()` returns the live state of
-every condition, and the UI shows it as a checklist: read all sections, resolve
-every exercise, recall the key words, type the key sentences, reach 60% first-try
-accuracy or pass the final check, and pass the final check. Scrolling through
-completes nothing. If practice accuracy falls below 70%, a short redo of just the
-missed steps is inserted automatically before the final check.
+every condition: read all sections, resolve every exercise, recall the key words,
+type the key sentences, reach 60% first-try accuracy or pass the final check, and
+pass the final check. The lesson page shows them as three steps with their
+progress — **Read 2/6 · Practise 4/12 · Final check** — because the key words and
+sentences are some of the exercises, and passing the final check settles the
+accuracy rule; `lessonStages()` builds the steps from the requirements, so all
+three done is exactly every requirement met. Scrolling through completes nothing.
+If practice accuracy falls below 70%, a short redo of just the missed steps is
+inserted automatically before the final check.
 
 A first try cannot be taken again, so the accuracy condition is also met by
 passing the final check: otherwise a beginner whose first attempt went badly
@@ -1133,8 +1137,8 @@ Run `npm run dev`, open <http://localhost:5173>, and:
 3. **Course.** All five levels are listed. Pre-A1, A1 and B1 each show six
    linked units and a level checkpoint, A2 five, B2 five. Nothing is labelled
    "Планирано" any more, because nothing is.
-4. **Lesson.** Open *Откъде си и къде живееш*. The requirement checklist shows
-   0/6 sections, 0/24 exercises and so on. Work through the six teaching
+4. **Lesson.** Open *Откъде си и къде живееш*. The three steps show
+   Четене 0/6, Упражнения 0/24 and the final check. Work through the six teaching
    sections — note the Bulgarian-only comparison of free Bulgarian word order
    with German verb-second.
 5. **Type German.** Answer the `wohnen` conjugation table, then the guided gap

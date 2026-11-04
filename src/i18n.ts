@@ -447,6 +447,13 @@ export const UI = {
     'These were tricky the first time. One more go at just these, then the final check.',
     'Тези бяха трудни от първия път. Още веднъж само тях, после финалната проверка.',
   ),
+  /*
+   * The three steps a lesson is shown as. One word each, because a beginner
+   * reads them before having tried anything; what counts is in the numbers.
+   */
+  lessonStageRead: s('Read', 'Четене'),
+  lessonStagePractise: s('Practise', 'Упражнения'),
+  lessonStageCheck: s('Final check', 'Финална проверка'),
   lessonPhasePractice: s('Practice', 'Упражнения'),
   lessonPhaseMastery: s('Final check', 'Финална проверка'),
   lessonBackToLesson: s('Back to the lesson', 'Обратно към урока'),

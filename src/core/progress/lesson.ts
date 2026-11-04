@@ -332,6 +332,37 @@ export function lessonRequirements(lesson: Lesson, progress: LessonProgress): Re
   return requirements;
 }
 
+/**
+ * The requirements as a beginner is shown them: read, practise, final check.
+ *
+ * Five conditions read as admin before anything had been tried, and two were
+ * implied by the others. The key words and key sentences are some of the
+ * exercises, so practising is done when every exercise is; and passing the
+ * final check satisfies the first-try rule, so that rule is part of the check
+ * and only ever matters to someone who has not passed it. The stages are made
+ * from the requirements, never worked out beside them, so all three done is
+ * exactly every requirement met.
+ */
+export interface LessonStage {
+  id: 'read' | 'practise' | 'check';
+  satisfied: boolean;
+  done?: number;
+  total?: number;
+}
+
+export function lessonStages(lesson: Lesson, progress: LessonProgress): LessonStage[] {
+  const requirements = lessonRequirements(lesson, progress);
+  const met = (...ids: string[]) =>
+    requirements.filter((requirement) => ids.includes(requirement.id)).every((requirement) => requirement.satisfied);
+  const sections = requirements.find((requirement) => requirement.id === 'sections')!;
+  const exercises = requirements.find((requirement) => requirement.id === 'exercises')!;
+  return [
+    { id: 'read', satisfied: met('sections'), done: sections.done, total: sections.total },
+    { id: 'practise', satisfied: met('exercises', 'words', 'sentences'), done: exercises.done, total: exercises.total },
+    { id: 'check', satisfied: met('accuracy', 'mastery') },
+  ];
+}
+
 export function isLessonComplete(lesson: Lesson, progress: LessonProgress): boolean {
   return lessonRequirements(lesson, progress).every((r) => r.satisfied);
 }
