@@ -12,6 +12,7 @@ import { AudioButton, Card, Meter } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 import { Icon } from '../components/icons.tsx';
 import { inferredPracticeLevel, LearningPreferences } from '../components/LearningPreferences.tsx';
+import { ReminderInvite } from '../components/ReminderInvite.tsx';
 import { PracticalProgress } from '../components/PracticalProgress.tsx';
 import { ScenarioPlayer } from '../components/ScenarioPlayer.tsx';
 import { SpeakCheck } from '../components/Speaking.tsx';
@@ -168,7 +169,7 @@ function DailyPractice() {
       <p className="muted">{t('dailyFinishedNote')}</p>
       <div className="section-nav"><Link className="btn btn--primary" to="/">{t('navToday')}</Link>
         <button type="button" className="btn btn--ghost" onClick={() => { setRun(null); setPaused(false); }}>{t(planScript.id === currentScript.id ? 'dailyAgain' : 'dailyAnother')}</button></div>
-    </section><PracticalProgress /></div>;
+    </section><ReminderInvite /><PracticalProgress /></div>;
 
   if (!run || paused) return <div className="page daily-page">
     <header className="daily-intro"><p className="section-eyebrow">{t('dailyEyebrow')}</p>

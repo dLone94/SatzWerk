@@ -553,8 +553,14 @@ export const UI = {
   // configure the server. "Couldn't turn on notifications" would help nobody.
   remindersTitle: s('Reminders', 'Напомняния'),
   remindersWhat: s(
-    'A notification when review is actually due — and nothing on the days when it is not.',
-    'Известие, когато наистина има какво да повториш — и нищо в дните, когато няма.',
+    'In your first two weeks, a note on a day you have not practised yet. After that, a notification when review is actually due — and nothing on the days when it is not.',
+    'През първите две седмици: бележка в ден, в който още не е имало упражнение. След това: известие, когато наистина има какво да повториш — и нищо в дните, когато няма.',
+  ),
+  // One daily job sends every reminder, so the hour is a fact to state in the
+  // learner's own time, not a setting to offer.
+  remindersAt: s(
+    'They arrive at about {time} your time. The hour is the same for everyone and cannot be changed here.',
+    'Пристигат около {time} по твоето време. Часът е един и същ за всички и не може да се промени тук.',
   ),
   remindersOn: s('Reminders are on', 'Напомнянията са включени'),
   remindersOff: s('Reminders are off', 'Напомнянията са изключени'),
@@ -577,8 +583,8 @@ export const UI = {
     'Известията са блокирани за това приложение. Разреши ги в настройките на устройството и се върни.',
   ),
   remindersHonest: s(
-    'One a day at most, only when something is due. No streaks, no nagging.',
-    'Най-много едно на ден и само когато има какво да се повтаря. Без серии, без досаждане.',
+    'One a day at most, and never on a day you have already practised. No streaks, no nagging.',
+    'Най-много едно на ден и никога в ден, в който вече е имало упражнение. Без серии, без досаждане.',
   ),
   // Shown when the browser refuses the subscription outright. Without it a tap
   // on "Turn on reminders" left the card exactly as it was, which reads as the
@@ -588,6 +594,44 @@ export const UI = {
     'Your browser would not set this up: {reason}',
     'Браузърът ти отказа да го настрои: {reason}',
   ),
+  // Asked once, at the end of a finished lesson or daily practice. The
+  // Bulgarian avoids "you have practised" because the past participle would
+  // have to choose a gender for the learner.
+  inviteTitle: s('Shall we remind you?', 'Да ти напомняме ли?'),
+  inviteWhen: s(
+    'One notification a day, at about {time} your time, and only on a day you have not practised yet.',
+    'Едно известие на ден, около {time} по твоето време, и само в ден, в който още не е имало упражнение.',
+  ),
+  inviteWhenever: s(
+    'At most one notification a day, and only on a day you have not practised yet.',
+    'Най-много едно известие на ден и само в ден, в който още не е имало упражнение.',
+  ),
+  inviteHonest: s(
+    'No streaks, no nagging. You can change this in Settings at any time.',
+    'Без серии, без досаждане. Можеш да го промениш в Настройки по всяко време.',
+  ),
+  inviteNotNow: s('Not now', 'Не сега'),
+  inviteDone: s(
+    'Reminders are on. You can turn them off in Settings.',
+    'Напомнянията са включени. Можеш да ги изключиш от Настройки.',
+  ),
+  // iOS has no web push in a Safari tab, only in an app added to the Home
+  // Screen, so on an iPhone this is the only useful thing to say.
+  installTitle: s('Add SatzWerk to your Home Screen', 'Добави SatzWerk към началния екран'),
+  installWhy: s(
+    'On iPhone, reminders only work in the installed app.',
+    'На iPhone напомнянията работят само в инсталираното приложение.',
+  ),
+  installStepShare: s('Tap the Share button.', 'Натисни бутона „Сподели“.'),
+  installStepAdd: s(
+    'Choose “Add to Home Screen”.',
+    'Избери „Добави към началния екран“ (Add to Home Screen).',
+  ),
+  installStepOpen: s(
+    'Open SatzWerk from the new icon and turn on reminders there.',
+    'Отвори SatzWerk от новата икона и включи напомнянията там.',
+  ),
+  installGotIt: s('Got it', 'Разбрах'),
 
   // Asking why an answer was wrong. The label is not decoration: a generated
   // explanation sitting unlabelled beside an authored one would make the

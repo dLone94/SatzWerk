@@ -14,6 +14,7 @@ import { useApp } from '../../state/AppState.tsx';
 import { nextAction } from '../selectors.ts';
 import { Blocks, Card, EmptyState, Meter, ScoreRing, VocabRow } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
+import { ReminderInvite } from '../components/ReminderInvite.tsx';
 
 type Stage = 'overview' | 'sections' | 'practice' | 'recovery' | 'mastery' | 'saving' | 'done';
 
@@ -435,6 +436,9 @@ function LessonView() {
               </div>
             </div>
           </section>
+
+          {/* Once on a device: whether to send reminders, now that a lesson is behind them. */}
+          <ReminderInvite />
 
           {lesson.summary ? (
             <Card title={t('lessonMasteryPassed')}>

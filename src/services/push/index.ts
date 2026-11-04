@@ -30,6 +30,12 @@ export interface PushStatus {
   state: PushState;
   /** The endpoint this browser is subscribed with, when it is. */
   endpoint?: string;
+  /**
+   * The hour, in UTC, at which the server sends reminders, when it knows.
+   * One daily job sends them all, so this is a fact to tell the learner in
+   * their own time, not a setting.
+   */
+  sendHourUtc?: number;
 }
 
 /** Is this a web app running from the Home Screen rather than a browser tab? */
@@ -63,12 +69,16 @@ function looksLikeIos(): boolean {
   return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && 'ontouchend' in document);
 }
 
-async function serverKey(): Promise<string | null> {
+async function serverPush(): Promise<{ publicKey: string; sendHourUtc?: number } | null> {
   try {
     const response = await fetch('/api/push/status');
     if (!response.ok) return null;
-    const body = (await response.json()) as { configured?: boolean; publicKey?: string };
-    return body.configured && body.publicKey ? body.publicKey : null;
+    const body = (await response.json()) as { configured?: boolean; publicKey?: string; sendHourUtc?: number };
+    if (!body.configured || !body.publicKey) return null;
+    return {
+      publicKey: body.publicKey,
+      ...(Number.isInteger(body.sendHourUtc) ? { sendHourUtc: body.sendHourUtc } : {}),
+    };
   } catch {
     return null;
   }
@@ -95,12 +105,14 @@ export async function readPushStatus(): Promise<PushStatus> {
   if (!pushApiPresent()) {
     return { state: looksLikeIos() && !isStandalone() ? 'needs-install' : 'unsupported' };
   }
-  if (!(await serverKey())) return { state: 'not-configured' };
+  const server = await serverPush();
+  if (!server) return { state: 'not-configured' };
   if (Notification.permission === 'denied') return { state: 'denied' };
+  const hour = server.sendHourUtc === undefined ? {} : { sendHourUtc: server.sendHourUtc };
 
   const registration = await navigator.serviceWorker.getRegistration();
   const existing = await registration?.pushManager.getSubscription();
-  return existing ? { state: 'on', endpoint: existing.endpoint } : { state: 'off' };
+  return existing ? { state: 'on', endpoint: existing.endpoint, ...hour } : { state: 'off', ...hour };
 }
 
 /**
@@ -157,11 +169,13 @@ export async function enablePush(): Promise<PushStatus> {
   if (!pushApiPresent()) {
     return { state: looksLikeIos() && !isStandalone() ? 'needs-install' : 'unsupported' };
   }
-  const key = await serverKey();
-  if (!key) return { state: 'not-configured' };
+  const server = await serverPush();
+  if (!server) return { state: 'not-configured' };
+  const key = server.publicKey;
+  const hour = server.sendHourUtc === undefined ? {} : { sendHourUtc: server.sendHourUtc };
 
   const permission = await Notification.requestPermission();
-  if (permission !== 'granted') return { state: permission === 'denied' ? 'denied' : 'off' };
+  if (permission !== 'granted') return { state: permission === 'denied' ? 'denied' : 'off', ...hour };
 
   const registration = await navigator.serviceWorker.register('/sw.js');
   await withTimeout(navigator.serviceWorker.ready, SUBSCRIBE_TIMEOUT_MS, 'The service worker');
@@ -183,11 +197,18 @@ export async function enablePush(): Promise<PushStatus> {
   const response = await fetch('/api/push/subscribe', {
     method: 'POST',
     headers: { ...CLIENT_HEADERS, 'content-type': 'application/json' },
-    body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
+    // Where this device is, so the reminder job knows which day it is here:
+    // nothing goes out on a day already studied, and study days are filed on
+    // the learner's own calendar.
+    body: JSON.stringify({
+      endpoint: json.endpoint,
+      keys: json.keys,
+      tzOffsetMinutes: -new Date().getTimezoneOffset(),
+    }),
   });
-  if (!response.ok) return { state: 'off' };
+  if (!response.ok) return { state: 'off', ...hour };
 
-  return { state: 'on', endpoint: subscription.endpoint };
+  return { state: 'on', endpoint: subscription.endpoint, ...hour };
 }
 
 /** Turn reminders off, in the browser and on the server. */
@@ -203,4 +224,41 @@ export async function disablePush(): Promise<PushStatus> {
     await subscription.unsubscribe().catch(() => undefined);
   }
   return { state: 'off' };
+}
+
+/**
+ * The send hour as a clock time where the learner is: "20:00" in Sofia in
+ * summer for an 18:00 UTC job. Read off today's date, so it follows the
+ * clocks changing.
+ */
+export function reminderClockTime(hourUtc: number, lang: 'en' | 'bg', now = new Date()): string {
+  const at = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hourUtc));
+  return new Intl.DateTimeFormat(lang === 'bg' ? 'bg-BG' : 'en-GB', { hour: '2-digit', minute: '2-digit' }).format(at);
+}
+
+/**
+ * The invitation to turn reminders on, and the iPhone install hint, are each
+ * offered once on a device. Remembered in the browser because what they are
+ * about belongs to the browser too: a subscription, an installed app.
+ */
+export type ReminderInvite = 'enable' | 'install';
+
+const INVITE_KEY = 'satzwerk.reminderInvite.';
+
+export function inviteOffered(kind: ReminderInvite): boolean {
+  try {
+    return (globalThis.localStorage?.getItem(INVITE_KEY + kind) ?? null) !== null;
+  } catch {
+    // Storage refused (a private window). It is offered again next time,
+    // which is the most a page that cannot remember anything can do.
+    return false;
+  }
+}
+
+export function rememberInviteOffered(kind: ReminderInvite): void {
+  try {
+    globalThis.localStorage?.setItem(INVITE_KEY + kind, new Date().toISOString());
+  } catch {
+    // As above: nothing to remember it in.
+  }
 }
