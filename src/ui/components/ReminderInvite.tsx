@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { tr } from '../../i18n.ts';
 import {
   enablePush,
@@ -31,10 +31,36 @@ type Shown =
   | { kind: 'install' }
   | { kind: 'result'; status: PushStatus; failure?: string };
 
+/** What a keyboard can reach, for finding the control before the card. */
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex="0"]';
+
 export function ReminderInvite() {
   const { t, lang } = useApp();
   const [shown, setShown] = useState<Shown | null>(null);
   const [busy, setBusy] = useState(false);
+  const title = useRef<HTMLHeadingElement>(null);
+
+  // The answer replaces the buttons that were just pressed: focus its title,
+  // which is described by the answer, so it is read out where it appears.
+  useEffect(() => {
+    if (shown?.kind === 'result') title.current?.focus();
+  }, [shown]);
+
+  /*
+   * Gone, the card would take focus with it to the top of the page. It goes
+   * to the last control before the card instead (the finished screen's own
+   * buttons), so the next Tab carries on from where the learner was.
+   */
+  const dismiss = () => {
+    const card = title.current?.closest('section');
+    if (card) {
+      const before = [...document.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+        (element) => card.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_PRECEDING,
+      );
+      before.at(-1)?.focus();
+    }
+    setShown(null);
+  };
 
   useEffect(() => {
     // A device that has been asked has its answer; nothing to look up.
@@ -63,14 +89,14 @@ export function ReminderInvite() {
 
   if (shown.kind === 'install') {
     return (
-      <Card title={t('installTitle')} subtitle={t('installWhy')}>
+      <Card title={t('installTitle')} subtitle={t('installWhy')} titleRef={title}>
         <ol className="reminder-invite__steps">
           <li>{t('installStepShare')}</li>
           <li>{t('installStepAdd')}</li>
           <li>{t('installStepOpen')}</li>
         </ol>
         <div className="section-nav">
-          <button type="button" className="btn btn--ghost" onClick={() => setShown(null)}>
+          <button type="button" className="btn btn--ghost" onClick={dismiss}>
             {t('installGotIt')}
           </button>
         </div>
@@ -81,8 +107,8 @@ export function ReminderInvite() {
   if (shown.kind === 'result') {
     const { status, failure } = shown;
     return (
-      <Card title={t('inviteTitle')}>
-        <p role="status">
+      <Card title={t('inviteTitle')} titleRef={title} titleDescribedBy="reminder-invite-answer">
+        <p role="status" id="reminder-invite-answer">
           {failure
             ? tr('remindersFailed', lang, { reason: failure })
             : status.state === 'on'
@@ -119,13 +145,13 @@ export function ReminderInvite() {
   };
 
   return (
-    <Card title={t('inviteTitle')}>
+    <Card title={t('inviteTitle')} titleRef={title}>
       <p>{hour === undefined ? t('inviteWhenever') : t('inviteWhen', { time: reminderClockTime(hour, lang) })}</p>
       <div className="section-nav">
         <button type="button" className="btn btn--primary" disabled={busy} onClick={() => void accept()}>
           {busy ? t('remindersWorking') : t('remindersEnable')}
         </button>
-        <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => setShown(null)}>
+        <button type="button" className="btn btn--ghost" disabled={busy} onClick={dismiss}>
           {t('inviteNotNow')}
         </button>
       </div>

@@ -84,6 +84,36 @@ describe('the invitation to be reminded', () => {
     expect(enablePush).not.toHaveBeenCalled();
   });
 
+  /*
+   * The card goes or changes under the learner's finger. Left alone, focus
+   * falls to the top of the page and a keyboard or screen reader user starts
+   * again from the header.
+   */
+  it('keeps the learner where they were when the card changes or goes', async () => {
+    readPushStatus.mockResolvedValue({ state: 'off' });
+    enablePush.mockResolvedValue({ state: 'on', endpoint: 'https://push.example/x' });
+    const page = () =>
+      render(
+        <AppStateContext.Provider value={stubState({}, 'en')}>
+          <button type="button">Today</button>
+          <ReminderInvite />
+          <a href="/next">Later</a>
+        </AppStateContext.Provider>,
+      );
+    page();
+    await userEvent.click(await screen.findByRole('button', { name: tr('remindersEnable', 'en') }));
+    // The answer, focused through its title, so it is read out in place.
+    await screen.findByText(tr('inviteDone', 'en'));
+    expect(screen.getByRole('heading', { name: tr('inviteTitle', 'en') })).toHaveFocus();
+
+    cleanup();
+    localStorage.clear();
+    page();
+    await userEvent.click(await screen.findByRole('button', { name: tr('inviteNotNow', 'en') }));
+    // Gone: focus on the control just before it, so Tab goes on from there.
+    expect(screen.getByRole('button', { name: 'Today' })).toHaveFocus();
+  });
+
   it('says what happened when the browser refuses', async () => {
     readPushStatus.mockResolvedValue({ state: 'off' });
     enablePush.mockResolvedValue({ state: 'denied' });
