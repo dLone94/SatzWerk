@@ -10,6 +10,8 @@ import {
   NUDGE_DAYS_AWAY,
   REMINDER_HOUR_UTC,
   SETTLED_STUDY_DAYS,
+  WAKING_FROM_HOUR,
+  WAKING_UNTIL_HOUR,
   decideReminder,
   learnerDay,
   listSubscriptions,
@@ -20,7 +22,6 @@ import {
   type PushSender,
 } from '../../server/push.ts';
 import * as store from '../../server/store.ts';
-import { SCENARIOS } from '../../src/content/outline/realLife.ts';
 import { chooseDailyScript } from '../../src/ui/dailyBuilder.ts';
 
 /**
@@ -80,7 +81,7 @@ describe("the learner's day", () => {
 });
 
 describe('when a first-weeks reminder may be sent', () => {
-  const newcomer = (daysAway: number) => ({ today: DAY, studiedToday: false, newcomer: true, daysAway });
+  const newcomer = (daysAway: number) => ({ today: DAY, studiedToday: false, newcomer: true, daysAway, waking: true });
 
   it('sends one about the day’s practice when nothing is due', () => {
     expect(decideReminder(0, { lastSentAt: null }, at(DAY), newcomer(1))).toEqual({
@@ -125,6 +126,33 @@ describe('when a first-weeks reminder may be sent', () => {
     expect(decideReminder(2, { lastSentAt: null }, at(DAY), settled)).toMatchObject({ send: true, kind: 'due' });
   });
 
+  /*
+   * One job, one hour, for everybody: 18:00 UTC is three in the morning in
+   * Tokyo. "Today's practice is ready" at that hour is not the gentle note
+   * it is meant to be, so there it waits for a day it would arrive awake.
+   */
+  it('does not send the practice note at night where the device is', () => {
+    expect([WAKING_FROM_HOUR, WAKING_UNTIL_HOUR]).toEqual([8, 22]);
+    const history = { studied: ['2026-03-09'], startedAt: '2026-03-09T08:00:00.000Z' };
+    // Sofia in winter, 20:00: awake.
+    const sofia = learnerDay(history, at(DAY), 120);
+    expect(sofia.waking).toBe(true);
+    expect(decideReminder(0, { lastSentAt: null }, at(DAY), sofia)).toMatchObject({ send: true, kind: 'practice' });
+    // Tokyo, 03:00 on the 11th; Kolkata, 23:30 on the 10th.
+    for (const offset of [540, 330]) {
+      const night = learnerDay(history, at(DAY), offset);
+      expect(night.waking).toBe(false);
+      expect(decideReminder(0, { lastSentAt: null }, at(DAY), night)).toEqual({
+        send: false,
+        dueCount: 0,
+        reason: 'quiet-hours',
+      });
+    }
+    // The real due count keeps its old rule, whatever the hour.
+    const tokyo = learnerDay(history, at(DAY), 540);
+    expect(decideReminder(2, { lastSentAt: null }, at(DAY), tokyo)).toMatchObject({ send: true, kind: 'due' });
+  });
+
   it('still sends at most once a day', () => {
     expect(decideReminder(0, { lastSentAt: `${DAY}T06:00:00.000Z` }, at(DAY), newcomer(1)).reason).toBe(
       'already-sent-today',
@@ -133,18 +161,16 @@ describe('when a first-weeks reminder may be sent', () => {
 });
 
 describe('what a first-weeks reminder says', () => {
-  it('names the conversation, in the learner’s language', () => {
-    expect(practiceReminderText({ en: 'At the bakery', bg: 'В пекарната' }, 'en').body).toBe(
-      'Today’s practice is ready: At the bakery.',
-    );
-    expect(practiceReminderText({ en: 'At the bakery', bg: 'В пекарната' }, 'bg').body).toBe(
-      'Днешната практика е готова: В пекарната.',
-    );
+  it('quotes what the practice page will open on, in the learner’s language', () => {
+    const goal = { en: 'Buy two rolls and pay.', bg: 'Купи две хлебчета и плати' };
+    expect(practiceReminderText(goal, 'en').body).toBe('Today’s practice is ready: Buy two rolls and pay.');
+    // A goal written without a full stop still ends like a sentence.
+    expect(practiceReminderText(goal, 'bg').body).toBe('Днешната практика е готова: Купи две хлебчета и плати.');
   });
 
   it('never pressures, and never invents a figure', () => {
     for (const lang of ['en', 'bg'] as const) {
-      const text = practiceReminderText({ en: 'At the bakery', bg: 'В пекарната' }, lang);
+      const text = practiceReminderText({ en: 'Buy two rolls and pay.', bg: 'Купи две хлебчета и плати.' }, lang);
       expect(`${text.title} ${text.body}`).not.toMatch(/streak|miss|don't|lose|behind|!|серия|пропус|изгуб/i);
       expect(text.body).not.toMatch(/\d/);
     }
@@ -193,9 +219,15 @@ describe.each(databases)('first-weeks reminders on %s', (_name, open) => {
 
   const scope = () => ({ db, userId: 1 });
   const payloadOf = (send: ReturnType<typeof vi.fn<PushSender>>, call = 0) =>
-    JSON.parse(send.mock.calls[call]![1]) as { title: string; body: string; url: string; dueCount: number };
+    JSON.parse(send.mock.calls[call]![1]) as { title: string; body: string; url: string; dueCount?: number };
 
-  it('names the conversation the practice page will offer, and opens it', async () => {
+  /*
+   * The note named the scenario ("Neighbours and the phone"), which the
+   * practice page does not show until the end; the learner tapped it and
+   * met a heading with other words. It now quotes that heading: the goal of
+   * the very conversation the page opens on, which is what it puts in h2.
+   */
+  it('quotes the heading the practice page will open on, and opens it', async () => {
     db = await open();
     // Studied on the evening of the 9th in Sofia, which is the 9th there.
     await store.addStudyTime(scope(), 300, at('2026-03-09', '19:00:00'), 120);
@@ -206,8 +238,41 @@ describe.each(databases)('first-weeks reminders on %s', (_name, open) => {
 
     expect(report).toMatchObject({ sent: 1, dueCount: 0 });
     const script = chooseDailyScript('everyday', 'pre-a1', [], DAY, 120);
-    const title = SCENARIOS.find((scenario) => scenario.id === script.scenarioId)!.title;
-    expect(payloadOf(send)).toMatchObject({ body: `Днешната практика е готова: ${title.bg}.`, url: '/daily' });
+    const payload = payloadOf(send);
+    expect(payload).toMatchObject({ body: `Днешната практика е готова: ${script.goal.bg}`, url: '/daily' });
+    expect(payload).not.toHaveProperty('dueCount');
+  });
+
+  it('keeps the practice note for a waking hour', async () => {
+    db = await open();
+    await store.addStudyTime(scope(), 300, at('2026-03-09', '10:00:00'), 540);
+    await saveSubscription(scope(), { endpoint: 'https://push.example/phone', ...browserKeys(), tzOffsetMinutes: 540 });
+
+    const send = vi.fn<PushSender>(async () => undefined);
+    const report = await sendDueReminder(scope(), { env, send, now: at(DAY) });
+    expect(report).toMatchObject({ sent: 0, reason: 'quiet-hours' });
+    expect(send).not.toHaveBeenCalled();
+    // Nothing was claimed, so nothing stands in the way of a later day.
+    expect((await listSubscriptions(scope()))[0]!.lastSentAt).toBeNull();
+  });
+
+  /*
+   * A database that fails mid-run used to lose the claim's error inside
+   * Promise.allSettled: no send, and no word of why in the report.
+   */
+  it('reports a claim that the database refused', async () => {
+    db = await open();
+    await store.addStudyTime(scope(), 300, at('2026-03-09', '10:00:00'), 0);
+    await saveSubscription(scope(), { endpoint: 'https://push.example/phone', ...browserKeys() });
+    const run = db.run.bind(db);
+    vi.spyOn(db, 'run').mockImplementation((sql: string, ...params: Parameters<Db['run']>[1][]) =>
+      /SET last_sent_at/.test(sql) ? Promise.reject(new Error('database went away')) : run(sql, ...params),
+    );
+
+    const send = vi.fn<PushSender>(async () => undefined);
+    const report = await sendDueReminder(scope(), { env, send, now: at(DAY) });
+    expect(send).not.toHaveBeenCalled();
+    expect(report).toMatchObject({ sent: 0, skipped: 1, errors: ['https://push.example/phone: database went away'] });
   });
 
   it('stays quiet on a day already studied, by the learner’s own calendar', async () => {

@@ -24,10 +24,17 @@ import { listReviewItems, type Scope } from './store.ts';
  *    who did well on day one had nothing due on days two to four (exactly
  *    the days a beginner drifts off) and heard nothing. Until they have
  *    studied on five days, a day without study gets one note that today's
- *    practice is ready, naming the conversation the practice page will
- *    really open. That is as true as a due count: the practice is there
- *    every day. After three such days in a row it stops, because three
- *    unanswered reminders say that reminders are not what is missing.
+ *    practice is ready, in the words the practice page will greet them
+ *    with: the goal of the conversation it really opens. That is as true
+ *    as a due count: the practice is there every day. After three such
+ *    days in a row it stops, because three unanswered reminders say that
+ *    reminders are not what is missing.
+ *  - That note is not sent at night where the device is. The job runs at one
+ *    hour for everybody, which is the small hours in East Asia and
+ *    Australia, and a gentle "it's ready" at three in the morning is not
+ *    gentle. The due count keeps its old rule and goes whatever the hour:
+ *    silencing it would leave those learners with no reminder at all, which
+ *    is a change to that rule, not this one.
  *  - Nothing is sent on a day the learner has already studied, by their own
  *    calendar. They have done their day; the app has nothing to add.
  *  - The number in the message is the real count from the review queue.
@@ -76,7 +83,8 @@ export function pushConfig(env: NodeJS.ProcessEnv = process.env): PushConfig | n
  * the two together. One daily job is all the hosting plan allows, so the hour
  * is the same for everybody and the learner cannot choose it: morning or
  * evening would need a second job, or an hourly one. What the app can do
- * honestly is say when it is, in the learner's own time.
+ * honestly is say when it is, in the learner's own time, and as the whole
+ * hour: on some plans a daily job starts at any minute of the hour it names.
  */
 export const REMINDER_HOUR_UTC = 18;
 
@@ -216,7 +224,13 @@ export interface ReminderDecision {
   /** What the reminder is about, when one is going out. */
   kind?: 'due' | 'practice';
   /** Why nothing is going out, when nothing is. */
-  reason?: 'nothing-due' | 'already-sent-today' | 'studied-today' | 'not-configured' | 'no-subscriptions';
+  reason?:
+    | 'nothing-due'
+    | 'already-sent-today'
+    | 'studied-today'
+    | 'quiet-hours'
+    | 'not-configured'
+    | 'no-subscriptions';
 }
 
 /** Two ISO timestamps on the same UTC day? */
@@ -230,6 +244,14 @@ export const FIRST_WEEKS_DAYS = 14;
 export const SETTLED_STUDY_DAYS = 5;
 /** Days away after which a new learner's reminder about the practice stops. */
 export const NUDGE_DAYS_AWAY = 3;
+/**
+ * The hours, on the device's clock, in which the practice note may arrive:
+ * from 08:00 until 22:00. With the job at 18:00 UTC that keeps it for
+ * everybody from Hawaii to the Gulf and leaves out India, East Asia and
+ * Australia, where it would land between 23:30 and five in the morning.
+ */
+export const WAKING_FROM_HOUR = 8;
+export const WAKING_UNTIL_HOUR = 22;
 
 /** Where a learner stands today, on their own calendar. */
 export interface LearnerDay {
@@ -239,6 +261,8 @@ export interface LearnerDay {
   newcomer: boolean;
   /** Whole days since they last studied, or since they started when they have not yet. */
   daysAway: number;
+  /** Whether it is a waking hour on the device's clock right now. */
+  waking: boolean;
 }
 
 const DAY_MS = 86_400_000;
@@ -263,11 +287,13 @@ export function learnerDay(
   const started = new Date(history.startedAt);
   const first = days[0] ?? (Number.isNaN(started.getTime()) ? today : localDay(started, offsetMinutes));
   const last = days.at(-1) ?? first;
+  const hour = new Date(now.getTime() + offsetMinutes * 60_000).getUTCHours();
   return {
     today,
     studiedToday: days.includes(today),
     newcomer: daysBetween(first, today) < FIRST_WEEKS_DAYS && days.length < SETTLED_STUDY_DAYS,
     daysAway: Math.max(0, daysBetween(last, today)),
+    waking: hour >= WAKING_FROM_HOUR && hour < WAKING_UNTIL_HOUR,
   };
 }
 
@@ -284,12 +310,9 @@ export function decideReminder(
   day?: LearnerDay,
 ): ReminderDecision {
   if (day?.studiedToday) return { send: false, dueCount, reason: 'studied-today' };
-  const kind =
-    dueCount > 0
-      ? 'due'
-      : day?.newcomer && day.daysAway >= 1 && day.daysAway <= NUDGE_DAYS_AWAY
-        ? 'practice'
-        : null;
+  const nudge = Boolean(day?.newcomer && day.daysAway >= 1 && day.daysAway <= NUDGE_DAYS_AWAY);
+  if (dueCount === 0 && nudge && !day?.waking) return { send: false, dueCount, reason: 'quiet-hours' };
+  const kind = dueCount > 0 ? 'due' : nudge ? 'practice' : null;
   if (!kind) return { send: false, dueCount, reason: 'nothing-due' };
   if (subscription.lastSentAt && sameUtcDay(subscription.lastSentAt, now.toISOString())) {
     return { send: false, dueCount, reason: 'already-sent-today' };
@@ -315,37 +338,42 @@ export function reminderText(dueCount: number, lang: 'en' | 'bg'): { title: stri
 }
 
 /**
- * The first weeks' message: what is ready, by name. No count, because there
- * is none to give, and nothing about the days that went before.
+ * The first weeks' message: what is ready, in the words of the practice page.
+ * No count, because there is none to give, and nothing about the days that
+ * went before.
+ *
+ * It quotes the conversation's goal ("Meet a neighbour on the stairs and
+ * introduce yourself."), which is the heading the page opens on. The scenario's title
+ * named it first, but the page does not show that title until the end, so
+ * the learner tapped "Neighbours and the phone" and found nothing called that.
  */
-export function practiceReminderText(
-  conversation: Bilingual | null,
-  lang: 'en' | 'bg',
-): { title: string; body: string } {
+export function practiceReminderText(goal: Bilingual | null, lang: 'en' | 'bg'): { title: string; body: string } {
   if (lang === 'bg') {
     return {
       title: 'SatzWerk',
-      body: conversation ? `Днешната практика е готова: ${conversation.bg}.` : 'Днешната практика е готова.',
+      body: goal ? `Днешната практика е готова: ${sentence(goal.bg)}` : 'Днешната практика е готова.',
     };
   }
   return {
     title: 'SatzWerk',
-    body: conversation ? `Today’s practice is ready: ${conversation.en}.` : 'Today’s practice is ready.',
+    body: goal ? `Today’s practice is ready: ${sentence(goal.en)}` : 'Today’s practice is ready.',
   };
 }
 
+/** Goals are written as sentences; one that is not still ends like one. */
+const sentence = (text: string) => (/[.!?…]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
+
 /**
- * The conversation today's practice opens with, chosen by the code the
- * practice page uses, from the same rows, on the learner's own day.
+ * The goal of the conversation today's practice opens with, chosen by the
+ * code the practice page uses, from the same rows, on the learner's own day.
  *
  * Imported only when a first-weeks reminder is going out: it reads the course
  * catalogue, which no other request to the server needs.
  */
-async function practiceConversation(scope: Scope, day: string, offsetMinutes: number): Promise<Bilingual | null> {
-  const [{ chooseDailyScript }, { inferredPracticeLevel }, { SCENARIOS }] = await Promise.all([
+async function practiceGoal(scope: Scope, day: string, offsetMinutes: number): Promise<Bilingual | null> {
+  const [{ chooseDailyScript }, { inferredPracticeLevel }] = await Promise.all([
     import('../src/ui/dailyBuilder.ts'),
     import('../src/ui/selectors.ts'),
-    import('../src/content/outline/realLife.ts'),
   ]);
   const [profile, lessons, checkpoints, runs] = await Promise.all([
     store.getProfile(scope),
@@ -355,12 +383,11 @@ async function practiceConversation(scope: Scope, day: string, offsetMinutes: nu
   ]);
   const byLesson = Object.fromEntries(lessons.map((progress) => [progress.lessonId, progress]));
   const level = profile.practiceLevel ?? inferredPracticeLevel(byLesson, checkpoints);
-  const script = chooseDailyScript(profile.learningGoal ?? 'everyday', level, runs, day, offsetMinutes);
-  return SCENARIOS.find((scenario) => scenario.id === script.scenarioId)?.title ?? null;
+  return chooseDailyScript(profile.learningGoal ?? 'everyday', level, runs, day, offsetMinutes).goal;
 }
 
 /** Every day this learner studied on, and when they began. */
-async function studyHistory({ db, userId }: Scope): Promise<{ studied: string[]; startedAt: string }> {
+async function studyHistory({ db, userId }: Scope, now: Date): Promise<{ studied: string[]; startedAt: string }> {
   const [days, profile] = await Promise.all([
     db.all<{ day: string }>(
       'SELECT day FROM study_days WHERE user_id = ? AND (answers > 0 OR seconds_active > 0)',
@@ -370,7 +397,8 @@ async function studyHistory({ db, userId }: Scope): Promise<{ studied: string[];
   ]);
   return {
     studied: days.map((row) => String(row.day)),
-    startedAt: profile?.created_at == null ? new Date().toISOString() : String(profile.created_at),
+    // No profile row yet: they begin now, by the run's clock like everything else here.
+    startedAt: profile?.created_at == null ? now.toISOString() : String(profile.created_at),
   };
 }
 
@@ -479,11 +507,11 @@ export async function sendDueReminder(
   const timeoutMs = options.timeoutMs ?? SEND_TIMEOUT_MS;
   const send: PushSender = options.send ?? webPushSender(timeoutMs);
   const lang = options.lang ?? 'en';
-  const history = await studyHistory(scope);
+  const history = await studyHistory(scope, now);
 
   // Each device decides on its own calendar: a phone in Sofia and a laptop
   // left set to UTC can be on different days at the same moment.
-  const conversations = new Map<string, Promise<Bilingual | null>>();
+  const goals = new Map<string, Promise<Bilingual | null>>();
   const payloadFor = async (kind: 'due' | 'practice', day: LearnerDay, offsetMinutes: number) => {
     if (kind === 'due') {
       return JSON.stringify({
@@ -501,11 +529,12 @@ export async function sendDueReminder(
     }
     const key = `${day.today} ${offsetMinutes}`;
     // A catalogue that will not load costs the name, not the reminder.
-    if (!conversations.has(key)) {
-      conversations.set(key, practiceConversation(scope, day.today, offsetMinutes).catch(() => null));
+    if (!goals.has(key)) {
+      goals.set(key, practiceGoal(scope, day.today, offsetMinutes).catch(() => null));
     }
-    // The practice page, which opens on the conversation this one names.
-    return JSON.stringify({ ...practiceReminderText(await conversations.get(key)!, lang), url: '/daily', dueCount });
+    // The practice page, which opens on the goal this one quotes. No
+    // dueCount: there is none, and nothing reads a zero.
+    return JSON.stringify({ ...practiceReminderText(await goals.get(key)!, lang), url: '/daily' });
   };
 
   let sent = 0;
@@ -541,14 +570,23 @@ export async function sendDueReminder(
        * a phone handed to somebody else in the meantime from getting this
        * learner's reminder.
        */
-      const claimed = await db.run(
-        `UPDATE push_subscriptions SET last_sent_at = ?
-         WHERE endpoint = ? AND user_id = ? AND (last_sent_at IS NULL OR last_sent_at < ?)`,
-        sentAt,
-        subscription.endpoint,
-        scope.userId,
-        startOfDay,
-      );
+      let claimed: Awaited<ReturnType<Scope['db']['run']>>;
+      try {
+        claimed = await db.run(
+          `UPDATE push_subscriptions SET last_sent_at = ?
+           WHERE endpoint = ? AND user_id = ? AND (last_sent_at IS NULL OR last_sent_at < ?)`,
+          sentAt,
+          subscription.endpoint,
+          scope.userId,
+          startOfDay,
+        );
+      } catch (error) {
+        // Outside allSettled's sight, a failed claim was a reminder that did
+        // not go out with no word of why: the invisible failure above.
+        skipped += 1;
+        errors.push(`${subscription.endpoint}: ${(error as Error).message}`);
+        return;
+      }
       if (claimed.changes !== 1) {
         skipped += 1;
         reason = 'already-sent-today';
@@ -569,12 +607,14 @@ export async function sendDueReminder(
       } catch (error) {
         // Nothing arrived, so the day is not used up: give the claim back,
         // unless another run has stamped the row since.
-        await db.run(
-          'UPDATE push_subscriptions SET last_sent_at = ? WHERE endpoint = ? AND last_sent_at = ?',
-          subscription.lastSentAt,
-          subscription.endpoint,
-          sentAt,
-        );
+        await db
+          .run(
+            'UPDATE push_subscriptions SET last_sent_at = ? WHERE endpoint = ? AND last_sent_at = ?',
+            subscription.lastSentAt,
+            subscription.endpoint,
+            sentAt,
+          )
+          .catch((restore: Error) => errors.push(`${subscription.endpoint}: ${restore.message}`));
         const status = (error as { statusCode?: number }).statusCode;
         if (status === 404 || status === 410) {
           await deleteSubscription(scope, subscription.endpoint);
