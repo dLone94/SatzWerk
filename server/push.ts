@@ -1,5 +1,8 @@
 import webpush from 'web-push';
+import type { Bilingual } from '../src/content/types.ts';
+import { localDay, plausibleOffset } from '../src/core/progress/days.ts';
 import { dueItems } from '../src/core/srs/scheduler.ts';
+import * as store from './store.ts';
 import { listReviewItems, type Scope } from './store.ts';
 
 /**
@@ -16,11 +19,29 @@ import { listReviewItems, type Scope } from './store.ts';
  *  - Nothing is sent when nothing is due. Silence is the correct output most
  *    days, and a notification that arrives on an empty queue teaches the
  *    learner to ignore the next one.
+ *  - Except in the first two weeks, which is when that rule was most wrong. A
+ *    word answered right first time comes back after four days, so a learner
+ *    who did well on day one had nothing due on days two to four (exactly
+ *    the days a beginner drifts off) and heard nothing. Until they have
+ *    studied on five days, a day without study gets one note that today's
+ *    practice is ready, in the words the practice page will greet them
+ *    with: the goal of the conversation it really opens. That is as true
+ *    as a due count: the practice is there every day. After three such
+ *    days in a row it stops, because three unanswered reminders say that
+ *    reminders are not what is missing.
+ *  - That note is not sent at night where the device is. The job runs at one
+ *    hour for everybody, which is the small hours in East Asia and
+ *    Australia, and a gentle "it's ready" at three in the morning is not
+ *    gentle. The due count keeps its old rule and goes whatever the hour:
+ *    silencing it would leave those learners with no reminder at all, which
+ *    is a change to that rule, not this one.
+ *  - Nothing is sent on a day the learner has already studied, by their own
+ *    calendar. They have done their day; the app has nothing to add.
  *  - The number in the message is the real count from the review queue.
  *  - There is no streak, no guilt and no urgency language. It says what is
  *    waiting; deciding whether to do it is the learner's business.
- *  - At most one reminder a day, enforced by last_sent_at, so a re-run of the
- *    sender cannot double up.
+ *  - At most one reminder a day, claimed in last_sent_at before sending, so
+ *    a re-run of the sender, even one at the same moment, cannot double up.
  */
 
 export interface PushSubscriptionRecord {
@@ -28,6 +49,8 @@ export interface PushSubscriptionRecord {
   p256dh: string;
   auth: string;
   lastSentAt: string | null;
+  /** Minutes from UTC where the device was when it subscribed; 0 when unknown. */
+  tzOffsetMinutes: number;
 }
 
 export interface PushConfig {
@@ -53,28 +76,59 @@ export function pushConfig(env: NodeJS.ProcessEnv = process.env): PushConfig | n
   return { publicKey, privateKey, subject };
 }
 
+/**
+ * The hour, in UTC, at which the hosted deployment sends reminders.
+ *
+ * It is the schedule of the single cron job in vercel.json, and a test holds
+ * the two together. One daily job is all the hosting plan allows, so the hour
+ * is the same for everybody and the learner cannot choose it: morning or
+ * evening would need a second job, or an hourly one. What the app can do
+ * honestly is say when it is, in the learner's own time, and as the whole
+ * hour: on some plans a daily job starts at any minute of the hour it names.
+ */
+export const REMINDER_HOUR_UTC = 18;
+
+/**
+ * When reminders go out here, if anybody knows.
+ *
+ * Hosted, the cron above decides. Self-hosted, whatever calls /api/push/run
+ * decides, and the app cannot see that, so it claims no time unless the
+ * operator says which hour they scheduled.
+ */
+export function reminderHourUtc(env: NodeJS.ProcessEnv = process.env): number | null {
+  const stated = env.REMINDER_HOUR_UTC?.trim();
+  if (stated) {
+    const hour = Number(stated);
+    return Number.isInteger(hour) && hour >= 0 && hour <= 23 ? hour : null;
+  }
+  return env.VERCEL ? REMINDER_HOUR_UTC : null;
+}
+
 /* ------------------------------------------------------------------ *
  * Storage
  * ------------------------------------------------------------------ */
 
 export async function saveSubscription(
   { db, userId }: Scope,
-  input: { endpoint: string; p256dh: string; auth: string },
+  input: { endpoint: string; p256dh: string; auth: string; tzOffsetMinutes?: number },
   now = new Date(),
 ): Promise<void> {
   // The endpoint is the identity, so re-subscribing from the same browser
   // refreshes the keys rather than making a duplicate. It also moves the
   // subscription to whoever is studying here now: one phone, one person at a
-  // time, and the reminder should be about their reviews.
+  // time, and the reminder should be about their reviews. And it refreshes
+  // where the phone is, which is what "today" means for its learner.
   await db.run(
-    `INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_id, created_at)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT (endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth, user_id = excluded.user_id`,
+    `INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_id, created_at, tz_offset_minutes)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT (endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth,
+       user_id = excluded.user_id, tz_offset_minutes = excluded.tz_offset_minutes`,
     input.endpoint,
     input.p256dh,
     input.auth,
     userId,
     now.toISOString(),
+    plausibleOffset(input.tzOffsetMinutes ?? 0),
   );
 }
 
@@ -143,7 +197,7 @@ export async function deleteSubscription({ db }: Scope, endpoint: string): Promi
 
 export async function listSubscriptions({ db, userId }: Scope): Promise<PushSubscriptionRecord[]> {
   const rows = (await db.all(
-    'SELECT endpoint, p256dh, auth, last_sent_at FROM push_subscriptions WHERE user_id = ?',
+    'SELECT endpoint, p256dh, auth, last_sent_at, tz_offset_minutes FROM push_subscriptions WHERE user_id = ?',
     userId,
   )) as Array<Record<string, unknown>>;
   return rows.map((row) => ({
@@ -151,6 +205,7 @@ export async function listSubscriptions({ db, userId }: Scope): Promise<PushSubs
     p256dh: String(row.p256dh),
     auth: String(row.auth),
     lastSentAt: row.last_sent_at == null ? null : String(row.last_sent_at),
+    tzOffsetMinutes: plausibleOffset(row.tz_offset_minutes ?? 0),
   }));
 }
 
@@ -166,8 +221,16 @@ export async function isSubscribed({ db }: Scope, endpoint: string): Promise<boo
 export interface ReminderDecision {
   send: boolean;
   dueCount: number;
+  /** What the reminder is about, when one is going out. */
+  kind?: 'due' | 'practice';
   /** Why nothing is going out, when nothing is. */
-  reason?: 'nothing-due' | 'already-sent-today' | 'not-configured' | 'no-subscriptions';
+  reason?:
+    | 'nothing-due'
+    | 'already-sent-today'
+    | 'studied-today'
+    | 'quiet-hours'
+    | 'not-configured'
+    | 'no-subscriptions';
 }
 
 /** Two ISO timestamps on the same UTC day? */
@@ -175,16 +238,86 @@ export function sameUtcDay(a: string, b: string): boolean {
   return a.slice(0, 10) === b.slice(0, 10);
 }
 
+/** How long a learner counts as new: two weeks from their first day of study. */
+export const FIRST_WEEKS_DAYS = 14;
+/** Days of study after which the learner has a rhythm, and due items carry it. */
+export const SETTLED_STUDY_DAYS = 5;
+/** Days away after which a new learner's reminder about the practice stops. */
+export const NUDGE_DAYS_AWAY = 3;
+/**
+ * The hours, on the device's clock, in which the practice note may arrive:
+ * from 08:00 until 22:00. With the job at 18:00 UTC that keeps it for
+ * everybody from Hawaii to the Gulf and leaves out India, East Asia and
+ * Australia, where it would land between 23:30 and five in the morning.
+ */
+export const WAKING_FROM_HOUR = 8;
+export const WAKING_UNTIL_HOUR = 22;
+
+/** Where a learner stands today, on their own calendar. */
+export interface LearnerDay {
+  today: string;
+  studiedToday: boolean;
+  /** In the first two weeks and not yet studied on five days. */
+  newcomer: boolean;
+  /** Whole days since they last studied, or since they started when they have not yet. */
+  daysAway: number;
+  /** Whether it is a waking hour on the device's clock right now. */
+  waking: boolean;
+}
+
+const DAY_MS = 86_400_000;
+const daysBetween = (from: string, to: string) =>
+  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
+
+/**
+ * Today for this learner, where the device is.
+ *
+ * `studied` is every day with any study in it, as the study log files them:
+ * on the learner's own calendar. The two weeks run from the first of those
+ * rather than from when the profile was made, because somebody who opened the
+ * app once a month ago and begins properly today is in their first week now.
+ */
+export function learnerDay(
+  history: { studied: readonly string[]; startedAt: string },
+  now: Date,
+  offsetMinutes: number,
+): LearnerDay {
+  const today = localDay(now, offsetMinutes);
+  const days = [...new Set(history.studied)].filter((day) => day <= today).sort();
+  const started = new Date(history.startedAt);
+  const first = days[0] ?? (Number.isNaN(started.getTime()) ? today : localDay(started, offsetMinutes));
+  const last = days.at(-1) ?? first;
+  const hour = new Date(now.getTime() + offsetMinutes * 60_000).getUTCHours();
+  return {
+    today,
+    studiedToday: days.includes(today),
+    newcomer: daysBetween(first, today) < FIRST_WEEKS_DAYS && days.length < SETTLED_STUDY_DAYS,
+    daysAway: Math.max(0, daysBetween(last, today)),
+    waking: hour >= WAKING_FROM_HOUR && hour < WAKING_UNTIL_HOUR,
+  };
+}
+
+/**
+ * Whether to send, and about what.
+ *
+ * Without `day` this is the rule as it always was, the due count alone. The
+ * sender always knows the learner's day and passes it.
+ */
 export function decideReminder(
   dueCount: number,
   subscription: Pick<PushSubscriptionRecord, 'lastSentAt'>,
   now = new Date(),
+  day?: LearnerDay,
 ): ReminderDecision {
-  if (dueCount === 0) return { send: false, dueCount, reason: 'nothing-due' };
+  if (day?.studiedToday) return { send: false, dueCount, reason: 'studied-today' };
+  const nudge = Boolean(day?.newcomer && day.daysAway >= 1 && day.daysAway <= NUDGE_DAYS_AWAY);
+  if (dueCount === 0 && nudge && !day?.waking) return { send: false, dueCount, reason: 'quiet-hours' };
+  const kind = dueCount > 0 ? 'due' : nudge ? 'practice' : null;
+  if (!kind) return { send: false, dueCount, reason: 'nothing-due' };
   if (subscription.lastSentAt && sameUtcDay(subscription.lastSentAt, now.toISOString())) {
     return { send: false, dueCount, reason: 'already-sent-today' };
   }
-  return { send: true, dueCount };
+  return { send: true, dueCount, kind };
 }
 
 /** The message, in the learner's own language. Plain counts, nothing else. */
@@ -201,6 +334,71 @@ export function reminderText(dueCount: number, lang: 'en' | 'bg'): { title: stri
   return {
     title: 'SatzWerk',
     body: dueCount === 1 ? '1 item is due for review.' : `${dueCount} items are due for review.`,
+  };
+}
+
+/**
+ * The first weeks' message: what is ready, in the words of the practice page.
+ * No count, because there is none to give, and nothing about the days that
+ * went before.
+ *
+ * It quotes the conversation's goal ("Meet a neighbour on the stairs and
+ * introduce yourself."), which is the heading the page opens on. The scenario's title
+ * named it first, but the page does not show that title until the end, so
+ * the learner tapped "Neighbours and the phone" and found nothing called that.
+ */
+export function practiceReminderText(goal: Bilingual | null, lang: 'en' | 'bg'): { title: string; body: string } {
+  if (lang === 'bg') {
+    return {
+      title: 'SatzWerk',
+      body: goal ? `Днешната практика е готова: ${sentence(goal.bg)}` : 'Днешната практика е готова.',
+    };
+  }
+  return {
+    title: 'SatzWerk',
+    body: goal ? `Today’s practice is ready: ${sentence(goal.en)}` : 'Today’s practice is ready.',
+  };
+}
+
+/** Goals are written as sentences; one that is not still ends like one. */
+const sentence = (text: string) => (/[.!?…]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
+
+/**
+ * The goal of the conversation today's practice opens with, chosen by the
+ * code the practice page uses, from the same rows, on the learner's own day.
+ *
+ * Imported only when a first-weeks reminder is going out: it reads the course
+ * catalogue, which no other request to the server needs.
+ */
+async function practiceGoal(scope: Scope, day: string, offsetMinutes: number): Promise<Bilingual | null> {
+  const [{ chooseDailyScript }, { inferredPracticeLevel }] = await Promise.all([
+    import('../src/ui/dailyBuilder.ts'),
+    import('../src/ui/selectors.ts'),
+  ]);
+  const [profile, lessons, checkpoints, runs] = await Promise.all([
+    store.getProfile(scope),
+    store.getAllLessonProgress(scope),
+    store.listCheckpointResults(scope),
+    store.listScenarioRuns(scope),
+  ]);
+  const byLesson = Object.fromEntries(lessons.map((progress) => [progress.lessonId, progress]));
+  const level = profile.practiceLevel ?? inferredPracticeLevel(byLesson, checkpoints);
+  return chooseDailyScript(profile.learningGoal ?? 'everyday', level, runs, day, offsetMinutes).goal;
+}
+
+/** Every day this learner studied on, and when they began. */
+async function studyHistory({ db, userId }: Scope, now: Date): Promise<{ studied: string[]; startedAt: string }> {
+  const [days, profile] = await Promise.all([
+    db.all<{ day: string }>(
+      'SELECT day FROM study_days WHERE user_id = ? AND (answers > 0 OR seconds_active > 0)',
+      userId,
+    ),
+    db.get<{ created_at: string | null }>('SELECT created_at FROM profile WHERE user_id = ?', userId),
+  ]);
+  return {
+    studied: days.map((row) => String(row.day)),
+    // No profile row yet: they begin now, by the run's clock like everything else here.
+    startedAt: profile?.created_at == null ? now.toISOString() : String(profile.created_at),
   };
 }
 
@@ -308,18 +506,36 @@ export async function sendDueReminder(
   webpush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
   const timeoutMs = options.timeoutMs ?? SEND_TIMEOUT_MS;
   const send: PushSender = options.send ?? webPushSender(timeoutMs);
-  const payload = JSON.stringify({
-    ...reminderText(dueCount, options.lang ?? 'en'),
-    /*
-     * The reminder opens the daily round rather than the review queue.
-     *
-     * What brings somebody back at nine in the evening is a round they can
-     * finish, not a queue they have to decide how much of to do — and the
-     * round starts with exactly the items this notification is about.
-     */
-    url: '/session',
-    dueCount,
-  });
+  const lang = options.lang ?? 'en';
+  const history = await studyHistory(scope, now);
+
+  // Each device decides on its own calendar: a phone in Sofia and a laptop
+  // left set to UTC can be on different days at the same moment.
+  const goals = new Map<string, Promise<Bilingual | null>>();
+  const payloadFor = async (kind: 'due' | 'practice', day: LearnerDay, offsetMinutes: number) => {
+    if (kind === 'due') {
+      return JSON.stringify({
+        ...reminderText(dueCount, lang),
+        /*
+         * The reminder opens the daily round rather than the review queue.
+         *
+         * What brings somebody back at nine in the evening is a round they can
+         * finish, not a queue they have to decide how much of to do — and the
+         * round starts with exactly the items this notification is about.
+         */
+        url: '/session',
+        dueCount,
+      });
+    }
+    const key = `${day.today} ${offsetMinutes}`;
+    // A catalogue that will not load costs the name, not the reminder.
+    if (!goals.has(key)) {
+      goals.set(key, practiceGoal(scope, day.today, offsetMinutes).catch(() => null));
+    }
+    // The practice page, which opens on the goal this one quotes. No
+    // dueCount: there is none, and nothing reads a zero.
+    return JSON.stringify({ ...practiceReminderText(await goals.get(key)!, lang), url: '/daily' });
+  };
 
   let sent = 0;
   let skipped = 0;
@@ -327,21 +543,55 @@ export async function sendDueReminder(
   let reason: ReminderDecision['reason'] | undefined;
   const errors: string[] = [];
 
-  const due: PushSubscriptionRecord[] = [];
+  const due: Array<{ subscription: PushSubscriptionRecord; kind: 'due' | 'practice'; day: LearnerDay }> = [];
   for (const subscription of subscriptions) {
-    const decision = decideReminder(dueCount, subscription, now);
-    if (decision.send) {
-      due.push(subscription);
+    const day = learnerDay(history, now, subscription.tzOffsetMinutes);
+    const decision = decideReminder(dueCount, subscription, now, day);
+    if (decision.send && decision.kind) {
+      due.push({ subscription, kind: decision.kind, day });
     } else {
       skipped += 1;
       reason = decision.reason;
     }
   }
 
+  const sentAt = now.toISOString();
+  const startOfDay = `${sentAt.slice(0, 10)}T00:00:00.000Z`;
+
   // All at once rather than one after another, so a slow device costs its
   // own deadline and nobody else's.
   await Promise.allSettled(
-    due.map(async (subscription) => {
+    due.map(async ({ subscription, kind, day }) => {
+      /*
+       * Claimed before it is sent. Reading last_sent_at, sending and then
+       * stamping it let two runs at the same moment (a retried cron and a
+       * manual run, or two instances) both read an empty value and both send.
+       * Only the run whose update changes the row goes on; the user_id keeps
+       * a phone handed to somebody else in the meantime from getting this
+       * learner's reminder.
+       */
+      let claimed: Awaited<ReturnType<Scope['db']['run']>>;
+      try {
+        claimed = await db.run(
+          `UPDATE push_subscriptions SET last_sent_at = ?
+           WHERE endpoint = ? AND user_id = ? AND (last_sent_at IS NULL OR last_sent_at < ?)`,
+          sentAt,
+          subscription.endpoint,
+          scope.userId,
+          startOfDay,
+        );
+      } catch (error) {
+        // Outside allSettled's sight, a failed claim was a reminder that did
+        // not go out with no word of why: the invisible failure above.
+        skipped += 1;
+        errors.push(`${subscription.endpoint}: ${(error as Error).message}`);
+        return;
+      }
+      if (claimed.changes !== 1) {
+        skipped += 1;
+        reason = 'already-sent-today';
+        return;
+      }
       try {
         await withDeadline(
           send(
@@ -349,17 +599,22 @@ export async function sendDueReminder(
               endpoint: subscription.endpoint,
               keys: { p256dh: subscription.p256dh, auth: subscription.auth },
             },
-            payload,
+            await payloadFor(kind, day, subscription.tzOffsetMinutes),
           ),
           timeoutMs,
         );
-        await db.run(
-          'UPDATE push_subscriptions SET last_sent_at = ? WHERE endpoint = ?',
-          now.toISOString(),
-          subscription.endpoint,
-        );
         sent += 1;
       } catch (error) {
+        // Nothing arrived, so the day is not used up: give the claim back,
+        // unless another run has stamped the row since.
+        await db
+          .run(
+            'UPDATE push_subscriptions SET last_sent_at = ? WHERE endpoint = ? AND last_sent_at = ?',
+            subscription.lastSentAt,
+            subscription.endpoint,
+            sentAt,
+          )
+          .catch((restore: Error) => errors.push(`${subscription.endpoint}: ${restore.message}`));
         const status = (error as { statusCode?: number }).statusCode;
         if (status === 404 || status === 410) {
           await deleteSubscription(scope, subscription.endpoint);

@@ -206,6 +206,14 @@ that as a **GET** with `Authorization: Bearer $CRON_SECRET`, which is what the
 endpoint expects; it also accepts POST, so the same job can be triggered by
 anything else that can hold the secret.
 
+That one daily job is the only schedule, because it is all the hosting plan
+allows, so the reminder time is the same for everybody and cannot be chosen in
+the app; Settings says when it is in the learner's own time, as the hour it
+falls in, because a daily job may start at any minute of its hour (*between
+20:00 and 21:00* in Sofia in winter, *21:00 and 22:00* in summer).
+Self-hosted, the app cannot see when your scheduler calls the job, so it names
+no time unless you set `REMINDER_HOUR_UTC` to the hour you scheduled.
+
 **On an iPhone the app has to be installed.** iOS exposes no `PushManager` in a
 Safari tab at all, so: open the URL in Safari → *Share* → *Add to Home Screen* →
 open it from the Home Screen icon → *Settings* → *Turn on reminders*. Until
@@ -720,19 +728,43 @@ somebody actually comes back on the day, so the app can send one push
 notification — *"3 words are due"* — which opens the mixed round rather than
 the review queue, because what brings somebody back at nine in the evening is a
 round they can finish rather than a queue they have to decide how much of to
-do. It is governed by three rules:
+do. It is governed by these rules:
 
 - **Only when something is really due.** The job reads `review_items` and sends
   nothing when the count is zero. There is no "keep your streak" notification,
   because a streak is not a reason to study and a reminder about nothing is how
   people turn reminders off.
-- **At most one a day.** `last_sent_at` is stamped per subscription and a second
-  run on the same UTC day is a no-op, so a cron misfire cannot produce two.
+- **Except in the first two weeks.** A word answered right first time comes
+  back after four days, so a learner who did well on day one had nothing due
+  on days two to four, which is exactly when beginners drift away, and heard
+  nothing. Until they have studied on five days (and for at most two weeks
+  from their first), a day without study gets *"Today's practice is ready: Meet
+  a neighbour on the stairs and introduce yourself."*, quoting the heading the practice page will open on:
+  the goal of the conversation it really offers, chosen by the same code from
+  the same rows. It opens that page. After three days away in a row it stops,
+  because three unanswered reminders say that reminders are not what is
+  missing. The due count below has no such stop: once there is a queue, it is
+  the learner's own work waiting, the count says exactly how much, and the
+  switch in Settings is theirs to use; whether it should still ease off after
+  a long absence is an open question rather than a decision taken here.
+- **Not at night, for that note.** The job runs at 18:00 UTC for everybody,
+  which is the small hours in East Asia and Australia, so the practice note is
+  only sent when the device's clock says between 08:00 and 22:00. The due
+  count keeps its old rule and goes whatever the hour.
+- **Never on a day already studied**, by the learner's own calendar: each
+  device says how far from UTC it is when it subscribes, and the job reads the
+  study log for that day.
+- **At most one a day.** `last_sent_at` is claimed per subscription before the
+  send, so a second run on the same UTC day, even one at the same moment, is a
+  no-op and a cron misfire cannot produce two.
 - **It says the real number.** The text comes from the same query the Review
   page counts, in the learner's own teaching language.
 
-It is off until it is switched on from Settings, from a real tap — a permission
-prompt on page load is both bad manners and ignored by Safari. The card names
+It is off until it is switched on from a real tap — a permission prompt on page
+load is both bad manners and ignored by Safari. The app asks once, on the
+screen that ends the learner's first finished lesson or daily practice, and
+otherwise leaves it to Settings; on an iPhone in Safari it shows the *Add to
+Home Screen* steps there instead, since nothing else would work. The card names
 the actual obstacle rather than failing generically: *add the app to your Home
 Screen* on an iPhone (iOS exposes no `PushManager` in a Safari tab, so nothing
 else will work), *notifications are blocked for this site*, or *not configured

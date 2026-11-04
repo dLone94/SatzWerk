@@ -12,6 +12,7 @@ import { AudioButton, Card, Meter } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 import { Icon } from '../components/icons.tsx';
 import { inferredPracticeLevel, LearningPreferences } from '../components/LearningPreferences.tsx';
+import { ReminderInvite } from '../components/ReminderInvite.tsx';
 import { PracticalProgress } from '../components/PracticalProgress.tsx';
 import { ScenarioPlayer } from '../components/ScenarioPlayer.tsx';
 import { SpeakCheck } from '../components/Speaking.tsx';
@@ -242,7 +243,7 @@ function DailyPractice() {
             <AudioButton text={card.german} compact /></li>)}</ul>
         </div> : null}
         <p className="muted">{t('dailyFinishedNote')}</p>
-      </section><PracticalProgress week={false} /></div>;
+      </section><ReminderInvite /><PracticalProgress week={false} /></div>;
   }
 
   if (!run || paused) return <div className="page daily-page">

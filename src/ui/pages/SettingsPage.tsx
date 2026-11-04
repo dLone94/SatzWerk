@@ -7,6 +7,7 @@ import {
   disablePush,
   enablePush,
   readPushStatus,
+  reminderClockWindow,
   type PushStatus,
 } from '../../services/push/index.ts';
 import { SAMPLE_PHRASE } from '../../services/tts/phraseKey.ts';
@@ -481,6 +482,9 @@ function RemindersCard() {
         <p className="muted">{t('remindersNotConfigured')}</p>
       ) : null}
       {status.state === 'denied' ? <p className="muted">{t('remindersDenied')}</p> : null}
+      {canToggle && status.sendHourUtc !== undefined ? (
+        <p className="muted">{t('remindersAt', reminderClockWindow(status.sendHourUtc, lang))}</p>
+      ) : null}
 
       {canToggle ? (
         <button

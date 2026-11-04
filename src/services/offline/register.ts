@@ -12,6 +12,8 @@
  * registering the same script at the same scope twice is one registration.
  */
 
+import { refreshPushOffset } from '../push/index.ts';
+
 /** Left alone in a browser without service workers, and in the tests. */
 export function registerServiceWorker(): void {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
@@ -22,10 +24,15 @@ export function registerServiceWorker(): void {
   // After load, so fetching the worker never competes with the app's own
   // first paint — the thing this whole feature exists to make faster.
   const start = () => {
-    void navigator.serviceWorker.register('/sw.js').catch(() => {
-      // A failed registration costs the offline open and nothing else. The app
-      // is already running by the time this happens.
-    });
+    void navigator.serviceWorker
+      .register('/sw.js')
+      // A phone that moved since it subscribed tells the reminder job where
+      // it is now, so "today" there is today where the learner is.
+      .then(() => refreshPushOffset())
+      .catch(() => {
+        // A failed registration costs the offline open and nothing else. The app
+        // is already running by the time this happens.
+      });
   };
 
   if (document.readyState === 'complete') start();
