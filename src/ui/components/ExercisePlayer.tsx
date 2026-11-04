@@ -25,6 +25,7 @@ import type { AttemptPayload, TargetSpec } from '../../services/api/client.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AnswerInput, type AnswerInputHandle } from './AnswerInput.tsx';
 import { AudioButton } from './bits.tsx';
+import { GenderedGerman } from './Gender.tsx';
 
 /**
  * The exercise engine.
@@ -1109,7 +1110,9 @@ export function ExercisePlayer({
               </dd>
               <dt>{t('feedbackExpected')}</dt>
               <dd lang="de" className="feedback__expected">
-                {feedback.correction}
+                <span className="feedback__answer">
+                  <GenderedGerman text={feedback.correction} />
+                </span>
                 <AudioButton text={feedback.correction} compact />
               </dd>
             </dl>

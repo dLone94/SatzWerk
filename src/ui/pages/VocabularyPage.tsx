@@ -6,6 +6,7 @@ import { TOPIC_LABELS, UI, WORD_TYPE_LABELS } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Icon } from '../components/icons.tsx';
 import { AudioButton, EmptyState } from '../components/bits.tsx';
+import { GenderLegend, NounDisplay } from '../components/Gender.tsx';
 import { buildVocabViews, vocabMatches, type VocabView } from '../selectors.ts';
 
 type Tab = 'all' | 'learning' | 'known' | 'due' | 'favorites' | 'mistakes' | 'new';
@@ -159,6 +160,8 @@ export function VocabularyPage() {
       </details>
 
       <p className="vocab__count">{t('vocabCount', { n: filtered.length })}</p>
+      {/* What the colours on the articles mean, once, beside the words. */}
+      <GenderLegend />
       {/* Where the learner is looking at the two states, what separates them. */}
       {tab === 'learning' || tab === 'known' ? (
         <p className="vocab__rule">
@@ -176,7 +179,7 @@ export function VocabularyPage() {
               <li key={view.entry.id} className={`word-row word-row--${view.state}`}>
                 <Link to={`/vocabulary/${view.entry.id}`} className="word-row__main">
                   <span className="word-row__de" lang="de">
-                    {view.entry.display}
+                    <NounDisplay entry={view.entry} />
                   </span>
                   <span className="word-row__gloss">{say(view.entry.translation)}</span>
                   <span className="word-row__meta">

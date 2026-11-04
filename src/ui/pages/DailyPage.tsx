@@ -18,6 +18,7 @@ import { ScenarioPlayer } from '../components/ScenarioPlayer.tsx';
 import { SpeakCheck } from '../components/Speaking.tsx';
 import { ShadowRecorder } from '../components/ShadowRecorder.tsx';
 import { DackelMark, DackelScene } from '../components/Dackel.tsx';
+import { GenderedGerman, NounDisplay } from '../components/Gender.tsx';
 import { Confetti } from '../components/Confetti.tsx';
 import { Rhythm } from '../components/Rhythm.tsx';
 import { reviewItemsForPath } from '../reviewBuilder.ts';
@@ -256,7 +257,7 @@ function DailyPractice() {
         {fitsGoal(currentScript, goal) ? null
           : <p>{t(goalScripts(goal, currentScript.level).length > 0 ? 'dailyGoalResting' : 'dailyGoalElsewhere')}</p>}
         <p>{t('dailyPlanNote')}</p>
-        <button type="button" className="btn daily-plan__start" disabled={busy}
+        <button type="button" className="btn btn--primary daily-plan__start" disabled={busy}
           onClick={() => fitting ? resume(fitting) : start()}>
           {t(busy ? 'loading' : fitting ? 'dailyResume' : 'dailyStart')}<Icon name="arrow" size={20} /></button>
         <p className="daily-plan__estimate">{t('dailyEstimate', { n: estimate })}</p>
@@ -288,7 +289,7 @@ function DailyPractice() {
       <div className="phrase-card"><div className="phrase-card__buddy"><DackelMark /><span>{t('playSayIt')}</span>
         {card.again ? <span className="phrase-card__again">{t('dailyPhraseAgain')}</span> : null}</div>
         <p className="phrase-card__purpose">{say(card.purpose)}</p>
-        <p className="phrase-card__german" lang="de">{card.german}</p>
+        <p className="phrase-card__german" lang="de"><GenderedGerman text={card.german} /></p>
         <div className="phrase-card__audio"><AudioButton text={card.german} /><AudioButton text={card.german} slow /></div>
         {frame ? <div className="phrase-frame"><p className="phrase-card__pattern"><span>{t('dailyBuildingBlock')}</span><strong lang="de">{frame.template}</strong></p>
           <p className="muted">{t('dailySwapNote')}</p>{otherExamples(frame, card.german).map(example => <p className="phrase-frame__example" key={example.de}>
@@ -296,7 +297,7 @@ function DailyPractice() {
         {!frame ? (card.step.reviewTargets ?? []).map(id => patternById(id)).filter(Boolean).map(pattern =>
           <p className="phrase-card__pattern" key={pattern!.id}><span>{t('dailyBuildingBlock')}</span><strong lang="de">{pattern!.template}</strong></p>) : null}
         {card.words.filter(word => word.wordType === 'noun').map(word => <p className="phrase-card__noun" key={word.id}>
-          <span lang="de">{word.display}{word.plural ? ` → ${word.plural}` : ''}</span><span>{say(word.translation)}</span></p>)}
+          <span lang="de"><NounDisplay entry={word} />{word.plural ? ` → ${word.plural}` : ''}</span><span>{say(word.translation)}</span></p>)}
         <p className="muted">{t('dailyPhraseTip')}</p><SpeakCheck target={card.german} spec={card.step.answer} />
       </div><div className="section-nav"><button type="button" className="btn btn--primary" disabled={busy}
         onClick={() => cardIndex + 1 < phrases.length ? setCardIndex(cardIndex + 1) : advance(1)}>

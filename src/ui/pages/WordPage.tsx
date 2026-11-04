@@ -6,6 +6,7 @@ import { useApp } from '../../state/AppState.tsx';
 import { Icon } from '../components/icons.tsx';
 import { AudioButton, Card, EmptyState, formatRelativeDate } from '../components/bits.tsx';
 import { SpeakCheck } from '../components/Speaking.tsx';
+import { Article, NounDisplay, nounArticle } from '../components/Gender.tsx';
 import { buildVocabViews, mistakeMatchesVocab, type VocabView } from '../selectors.ts';
 import { stateLabel } from './VocabularyPage.tsx';
 
@@ -65,7 +66,7 @@ export function WordPage() {
       <div className="word-head">
         <div>
           <h1 className="word-head__de" lang="de">
-            {entry.display}
+            <NounDisplay entry={entry} />
           </h1>
           <p className="word-head__gloss">{say(entry.translation)}</p>
         </div>
@@ -95,7 +96,7 @@ export function WordPage() {
             {entry.article ? (
               <>
                 <dt>{t('wordArticle')}</dt>
-                <dd lang="de">{entry.article}</dd>
+                <dd lang="de">{nounArticle(entry) ? <Article article={entry.article} /> : entry.article}</dd>
               </>
             ) : null}
             {genderLabel ? (

@@ -5,6 +5,7 @@ import { examplesIn, speakable, splitExamples } from '../../services/tts/speakab
 import { useApp } from '../../state/AppState.tsx';
 import { WORD_TYPE_LABELS, tr } from '../../i18n.ts';
 import { Icon, type IconName } from './icons.tsx';
+import { NounDisplay } from './Gender.tsx';
 
 /** Small shared building blocks: buttons, badges, meters, block rendering. */
 
@@ -458,10 +459,10 @@ export function VocabRow({ entry, onOpen }: { entry: VocabEntry; onOpen?: () => 
         <p className="vocab-row__de" lang="de">
           {onOpen ? (
             <button type="button" className="linkish" onClick={onOpen}>
-              {entry.display}
+              <NounDisplay entry={entry} />
             </button>
           ) : (
-            entry.display
+            <NounDisplay entry={entry} />
           )}
         </p>
         <p className="vocab-row__gloss">{say(entry.translation)}</p>

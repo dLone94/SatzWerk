@@ -903,6 +903,7 @@ export const UI = {
   wordGenderF: s('feminine', 'женски род'),
   wordGenderN: s('neuter', 'среден род'),
   wordPluralOnly: s('plural only — no gender', 'само множествено число — без род'),
+  genderLegend: s('Article colours', 'Цветове на членовете'),
 
   // Mistakes
   mistakesTitle: s('Mistake bank', 'Банка с грешки'),

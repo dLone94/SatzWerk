@@ -241,8 +241,16 @@ describe.each(LANGS)('pages render in the %s path', (lang) => {
     mount(<VocabularyPage />, lang);
     expect(screen.getByPlaceholderText(tr('vocabSearchShort', lang))).toBeInTheDocument();
     expect(screen.getByLabelText(tr('vocabSearch', lang))).toBeInTheDocument();
-    // Nouns are listed with their article.
-    expect(screen.getAllByText('die Tochter').length).toBeGreaterThan(0);
+    // Nouns are listed with their article (the article in its own coloured
+    // span, so the words are read from the row rather than one text node).
+    const rows = [...document.querySelectorAll('.word-row__de')].map((row) => row.textContent);
+    expect(rows).toContain('die Tochter');
+    // Its article stands on the die colour; a word that is not a noun has none.
+    const tochter = [...document.querySelectorAll('.word-row__de')].find((row) => row.textContent === 'die Tochter')!;
+    expect(tochter.querySelector('.gender--die')).toHaveTextContent('die');
+    const hallo = [...document.querySelectorAll('.word-row__de')].find((row) => row.textContent === 'Hallo');
+    expect(hallo).toBeDefined();
+    expect(hallo!.querySelector('.gender')).toBeNull();
   });
 
   it('word detail', () => {
@@ -256,6 +264,7 @@ describe.each(LANGS)('pages render in the %s path', (lang) => {
     );
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('die Tochter');
     expect(screen.getByText('die Töchter')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 }).querySelector('.gender--die')).toHaveTextContent('die');
   });
 
   it('word detail: a plural-only noun is not called feminine', () => {
