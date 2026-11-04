@@ -13,13 +13,12 @@ import {
   Vector3,
 } from 'three';
 import type { SceneSpec } from '../../sceneData.ts';
-import { towerRows } from '../../tower.ts';
+import { ROW_GAP, TOWER_GAP, labelLines, towerBlockWidth, towerLayout } from '../../tower.ts';
 import { C } from '../kit.ts';
 import { bounce, clamp01, easeInOut, easeOutBack, easeOutCubic, squash } from '../motion.ts';
 import { block, layoutRow, setSquash, toneColour, type Block } from '../pieces.ts';
 import type { Stage } from '../stage.ts';
 
-const ROW = 0.8;
 
 /**
  * The session's new words tumble into a tower, a gold star crowns it, and
@@ -28,9 +27,10 @@ const ROW = 0.8;
  * with no chips.
  */
 export function complete(s: Stage, spec: Extract<SceneSpec, { scene: 'complete' }>): void {
-  const rows = towerRows(spec.words.length);
-  const widest = Math.max(...rows) * 1.75 + (Math.max(...rows) - 1) * 0.08;
-  const radius = Math.max(1.7, widest / 2 + 0.55);
+  // The widest blocks at the bottom; a phrase on two lines (see tower.ts).
+  const { rows, widths, heights } = towerLayout(spec.words);
+  const widest = Math.max(...widths);
+  const radius = Math.max(1.7, widest / 2 + 0.32);
   const plinth = new Mesh(new CylinderGeometry(radius - 0.2, radius, 0.3, 80), s.kit.lacquer(C.walnut));
   plinth.position.y = 0.15;
   plinth.castShadow = true;
@@ -38,21 +38,22 @@ export function complete(s: Stage, spec: Extract<SceneSpec, { scene: 'complete' 
   s.scene.add(plinth);
   const Y0 = 0.3;
   const placed: Array<{ b: Block; y: number; delay: number; landAt: number; spin: number }> = [];
-  let next = 0;
-  rows.forEach((count, ri) => {
-    const bs = spec.words.slice(next, next + count).map((word) => block(s, word.text, toneColour(word.tone), { w: 1.75, h: 0.78 }));
-    next += count;
-    const xs = layoutRow(bs.map((b) => b.w), 0.08);
+  rows.forEach((row, ri) => {
+    const bs = row.map((index) => {
+      const word = spec.words[index]!;
+      return block(s, labelLines(word.text).join('\n'), toneColour(word.tone), { w: towerBlockWidth(word.text), h: heights[ri]! });
+    });
+    const xs = layoutRow(bs.map((b) => b.w), TOWER_GAP);
     bs.forEach((b, j) => {
       const delay = 0.15 + placed.length * 0.2;
       b.group.position.set(xs[j]!, 10, 0);
       s.scene.add(b.group);
-      placed.push({ b, y: Y0 + ri * ROW, delay, landAt: delay + 0.3, spin: (s.rand() - 0.5) * 2 });
+      placed.push({ b, y: Y0 + heights.slice(0, ri).reduce((sum, h) => sum + h + ROW_GAP, 0), delay, landAt: delay + 0.3, spin: (s.rand() - 0.5) * 2 });
     });
   });
   const starShape = new Shape();
   for (let i = 0; i < 10; i++) {
-    const r = i % 2 ? 0.24 : 0.55;
+    const r = i % 2 ? 0.21 : 0.48;
     const a = (i / 10) * Math.PI * 2 + Math.PI / 2;
     if (i) starShape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
     else starShape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
@@ -61,7 +62,7 @@ export function complete(s: Stage, spec: Extract<SceneSpec, { scene: 'complete' 
   starGeometry.center();
   const star = new Mesh(starGeometry, s.kit.lacquer(C.gold, { noGrain: true, metalness: 0.55, roughness: 0.25, clearcoat: 1, env: 1.6 }));
   star.castShadow = true;
-  const starY = Y0 + rows.length * ROW + 0.6;
+  const starY = Y0 + heights.reduce((sum, h) => sum + h + ROW_GAP, 0) + 0.52;
   star.position.set(0, 12, 0);
   s.scene.add(star);
   const haloMaterial = new SpriteMaterial({ map: s.kit.glow(), color: 0xffd36a, transparent: true, depthWrite: false, blending: AdditiveBlending, opacity: 0 });
@@ -78,7 +79,7 @@ export function complete(s: Stage, spec: Extract<SceneSpec, { scene: 'complete' 
   let view = { look: new Vector3(), pos: new Vector3() };
   let toward = new Vector3();
   s.framing(() => {
-    view = s.frame(frame, new Vector3(0, 0.22, 1), 0.92);
+    view = s.frame(frame, new Vector3(0, 0.16, 1), 0.95);
     s.cam.look.copy(view.look);
     s.cam.pos.copy(view.pos);
     toward = view.look.clone().sub(view.pos);

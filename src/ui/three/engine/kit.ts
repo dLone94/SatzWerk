@@ -193,20 +193,27 @@ export class Kit {
     const paint = () => {
       if (!g || this.disposed || !this.labels.has(texture)) return;
       g.clearRect(0, 0, W, H);
+      // A line break in the text is a second line (a phrase on a tower
+      // block), each line as large as the two of them allow.
+      const lines = text.split('\n');
       // Measured once and scaled: lettering is as wide as its size, so one
       // measurement says what size fits, without trying size after size.
-      const largest = Math.round(H * 0.56);
+      const largest = Math.round(H * (lines.length > 1 ? 0.4 : 0.56));
       g.font = `800 ${largest}px ${LABEL_FONT}`;
-      const wide = g.measureText(text).width;
+      const wide = Math.max(...lines.map((line) => g.measureText(line).width));
       const size = wide > W * 0.84 ? Math.max(12, Math.floor((largest * W * 0.84) / wide)) : largest;
       g.font = `800 ${size}px ${LABEL_FONT}`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       const light = ink === '#FFFFFF';
-      g.fillStyle = light ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.55)';
-      g.fillText(text, W / 2 + 2, H / 2 + size * 0.04 + 3);
-      g.fillStyle = ink;
-      g.fillText(text, W / 2, H / 2 + size * 0.04);
+      const step = size * 1.02;
+      lines.forEach((line, index) => {
+        const y = H / 2 + size * 0.04 + (index - (lines.length - 1) / 2) * step;
+        g.fillStyle = light ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.55)';
+        g.fillText(line, W / 2 + 2, y + 3);
+        g.fillStyle = ink;
+        g.fillText(line, W / 2, y);
+      });
       texture.needsUpdate = true;
     };
     this.labels.add(texture);

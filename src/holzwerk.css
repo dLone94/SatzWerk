@@ -301,11 +301,32 @@ body { background: var(--paper); }
 @media (max-width: 480px) {
   .done-hero:has(.done-hero__tower) { padding-top: 0.75rem; }
   .done-hero__top:has(.done-hero__tower) { flex-direction: column; gap: 6px; }
-  .done-hero__top .done-hero__tower { flex: none; width: 100%; max-width: none; height: 176px; }
+  /* As tall as the screen allows with "Next" above the tab bar: the taller
+     the tower, the larger its lettering. */
+  .done-hero__top .done-hero__tower { flex: none; width: 100%; max-width: none; height: 176px; height: clamp(176px, calc(100vh - 548px), 240px); height: clamp(176px, calc(100svh - 548px), 240px); }
   .done-hero__top:has(.done-hero__tower) .score-ring { flex-direction: row; gap: 0.75rem; }
   .done-hero__top:has(.done-hero__tower) .score-ring__dial { width: 4.5rem; height: 4.5rem; }
   .done-hero__top:has(.done-hero__tower) .score-ring__num { font-size: 1.3rem; }
   .done-hero__top:has(.done-hero__tower) .score-ring__caption { max-width: 13rem; text-align: left; }
+}
+/* The tower as a flat drawing: in its box until the first frame, and for good where no tower is drawn. Fixed colours, as the scene's are. */
+.tower-sketch { position: absolute; inset: 14px 12px 10px; width: calc(100% - 24px); height: calc(100% - 24px); }
+.tower-sketch__plinth { fill: #6e4a2c; }
+.tower-sketch__block { stroke: rgb(30 27 23 / 16%); stroke-width: 2; }
+.tower-sketch__block--birch { fill: #e9d4b0; }
+.tower-sketch__block--der { fill: #2f6fdb; }
+.tower-sketch__block--die { fill: #d9473b; }
+.tower-sketch__block--das { fill: #2e9b5a; }
+.tower-sketch__star { fill: #f5c04a; stroke: #c99a2e; stroke-width: 2; stroke-linejoin: round; }
+/* A short phone (320 x 640, 390 x 664): the German cheer gives way and the
+   score sits smaller, so "Next" clears the tab bar with the tower still there. */
+@media (max-width: 480px) and (max-height: 740px) {
+  .done-hero:has(.done-hero__tower) { gap: 0.4rem; padding-bottom: 1rem; }
+  .done-hero__top .done-hero__tower { height: 150px; height: clamp(150px, calc(100vh - 475px), 200px); height: clamp(150px, calc(100svh - 475px), 200px); }
+  .done-hero:has(.done-hero__tower) .done-hero__de { display: none; }
+  .done-hero__top:has(.done-hero__tower) .score-ring__dial { width: 3.75rem; height: 3.75rem; }
+  .done-hero__top:has(.done-hero__tower) .score-ring__num { font-size: 1.1rem; }
+  .done-hero:has(.done-hero__tower) .done-hero__actions { margin-top: 0.4rem; }
 }
 /* The day's finish: the tower takes the dachshund's place at its size. */
 .daily-finished__tower.wood-scene--complete { width: 260px; max-width: 100%; height: auto; margin: 0 auto 12px; border-radius: 20px; }

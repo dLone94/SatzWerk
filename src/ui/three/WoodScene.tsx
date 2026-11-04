@@ -92,6 +92,7 @@ export function WoodScene({
   label,
   className = '',
   fallback = null,
+  placeholder,
   ghost,
   replay = 0,
   onStatic,
@@ -101,6 +102,12 @@ export function WoodScene({
   label?: ReactNode;
   className?: string;
   fallback?: ReactNode;
+  /**
+   * What stands in the scene's box until its first frame, where that is not
+   * the `fallback`: a light picture of the same thing, so the box is never
+   * empty while three.js is fetched. Defaults to the fallback.
+   */
+  placeholder?: ReactNode;
   /** The question's slot: the learner's typing, or "?". */
   ghost?: string;
   /** Bumped to play the feedback scene again. */
@@ -231,9 +238,10 @@ export function WoodScene({
 
   if (mode === 'static') return <>{fallback}</>;
   const named = live && label !== undefined && label !== null && label !== '';
+  const waiting = placeholder ?? fallback;
   return (
     <div className={`wood-scene wood-scene--${spec.scene} ${live ? 'is-live' : 'is-waiting'} ${className}`}>
-      {fallback ? <div className="wood-scene__fallback">{fallback}</div> : null}
+      {waiting ? <div className="wood-scene__fallback">{waiting}</div> : null}
       <div ref={host} className="wood-scene__stage" aria-hidden="true" />
       {named ? <p className="visually-hidden wood-scene__label">{label}</p> : null}
       {live ? children : null}
