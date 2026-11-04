@@ -11,6 +11,7 @@ import {
   type PushStatus,
 } from '../../services/push/index.ts';
 import { SAMPLE_PHRASE } from '../../services/tts/phraseKey.ts';
+import { useLocation } from 'react-router-dom';
 import { useApp } from '../../state/AppState.tsx';
 import { LearningPreferences } from '../components/LearningPreferences.tsx';
 import { Card, learnerName } from '../components/bits.tsx';
@@ -523,6 +524,15 @@ function RemindersCard() {
  */
 function Learners() {
   const { t, learners, studyingAs, studyAs, addLearner, renameLearner } = useApp();
+  const { hash } = useLocation();
+  const title = useRef<HTMLHeadingElement>(null);
+  // The name in the header opens Settings here, where somebody else in the
+  // household can be added or switched to without hunting down the page.
+  useEffect(() => {
+    if (hash !== '#learners' || !title.current) return;
+    title.current.scrollIntoView?.({ block: 'start' });
+    title.current.focus({ preventScroll: true });
+  }, [hash]);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(0);
@@ -539,7 +549,7 @@ function Learners() {
   };
 
   return (
-    <Card title={t('learnersTitle')} subtitle={t('learnersNote')}>
+    <Card title={t('learnersTitle')} subtitle={t('learnersNote')} titleRef={title}>
       <ul className="learners">
         {learners.map((learner) => (
           <li key={learner.id} className={`learners__row${learner.id === studyingAs ? ' is-active' : ''}`}>

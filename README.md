@@ -309,14 +309,16 @@ database, so sessions survive a redeploy. Sessions are signed with it bound to
 the current password, so changing the password signs out every other device,
 whichever secret is in use.
 
-### One learner, by design
+### Several learners, one password
 
-`profile` and `users` each hold one row. Migration 2 adds a `user_id` column to
-every progress table so that supporting a second person later is a query change
-rather than a migration over live data — but **the queries do not filter by it
-yet**, so a second row in `users` would share one set of progress. Nothing
-creates one. Until that query pass happens, two people means two deployments
-with two databases.
+The password protects the copy of the app, not a person. Everybody in a
+household signs in with the same one, once per device, and then each person
+studies as themselves: every progress table carries a `user_id`, every query
+filters by it, and each learner has their own progress, reviews, mistakes and
+teaching path. Adding somebody takes a name and nothing else — no second
+password, no account. The name in the header opens Settings at *Who is
+studying?*, where somebody is added or switched to; see *Who is studying*
+below for how a device and a tab decide who they are.
 
 ---
 
