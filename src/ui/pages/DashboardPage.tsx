@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { SCENARIOS, checkpointById, contentStats, scriptById, unitForLesson } from '../../content/browser.ts';
 import { todayHere } from '../../core/progress/days.ts';
-import { estimatedMinutes, planSession } from '../../core/progress/session.ts';
+import { estimatedMinutes, planSession, secondsPerAnswer } from '../../core/progress/session.ts';
 import { summarizeQueue } from '../../core/srs/scheduler.ts';
 import { UI, type UiKey } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
@@ -35,7 +35,8 @@ import {
  * learner has really done, with one quiet link to what follows it. Once the
  * daily goal is met the card says so, says what was done, and offers more
  * without asking for it. Everything below it is a tile or a link, never a
- * second button of the same weight.
+ * second button of the same weight. On the day back from a break, the card
+ * welcomes the learner back with a short warm-up before the day goes on.
  */
 export function DashboardPage() {
   const { t, say, lang, lessons, reviewItems, mistakes, favorites, stats, studyDays, profile, checkpointResults, dailyRuns,
@@ -53,7 +54,7 @@ export function DashboardPage() {
   const planScript = chooseDailyScript(goal, profile.practiceLevel ?? inferredPracticeLevel(lessons, checkpointResults),
     scenarioRuns, day);
   const step = todayStep({ lessons, reviewItems: onPath, mistakes, onboarded: profile.onboarded, checkpointResults,
-    dailyRuns, minutesToday, targetMinutes: target,
+    dailyRuns, minutesToday, targetMinutes: target, studyDays, lang,
     fitsPlan: (run) => fitsDailyPlan(run, planScript.id, goal, profile.practiceLevel) });
   const action = step.course;
   // The same plan the round itself will build, so the two never disagree.
@@ -72,6 +73,9 @@ export function DashboardPage() {
   const finished = dailyRuns.find((run) => run.day === day && run.stage >= 5);
   // Nothing answered and no practice begun: the practice is this learner's first German.
   const firstTime = stats.totalAnswers === 0 && dailyRuns.length === 0;
+
+  // A warm-up or a round after a break, timed at this learner's own pace.
+  const minutesFor = (answers: number) => Math.max(1, Math.round((answers * secondsPerAnswer(stats).seconds) / 60));
 
   const courseLabel = (next: NextAction) =>
     next.kind === 'continue-lesson'
@@ -112,14 +116,20 @@ export function DashboardPage() {
       ? `${t('todayUpNext')} · ${unit ? say(unit.title) : ''}`
       : step.kind === 'review'
         ? t('todayReviewEyebrow')
-        : step.kind === 'done'
+        : step.kind === 'welcome-back'
+          ? t('welcomeBackEyebrow')
+          : step.kind === 'done'
           ? t('todayDoneEyebrow')
           : t('dashboardNextAction');
   const title = practising
     ? say(scenario?.title ?? script.goal)
     : step.kind === 'review'
-      ? t('todayReviewTitle', { n: step.due })
-      : step.kind === 'done'
+      ? step.round
+        ? t('catchUpRoundTitle', { k: step.round, n: step.due })
+        : t('todayReviewTitle', { n: step.due })
+      : step.kind === 'welcome-back'
+        ? t('welcomeBackTitle')
+        : step.kind === 'done'
         ? t(step.goalMet ? 'todayDoneGoal' : 'todayDoneAll')
         : say(action.title);
   const cta = step.kind === 'done'
@@ -130,7 +140,9 @@ export function DashboardPage() {
         ? t('dailyResume')
         : step.kind === 'review'
           ? t('dashboardReviewDue')
-          : courseLabel(action);
+          : step.kind === 'welcome-back'
+            ? t('welcomeBackStart')
+            : courseLabel(action);
   const practiceLabel = t(step.practice === 'open' ? 'dailyResume' : 'todayPracticeName');
   const practiceDone = finished
     ? `${t('todayPracticeDone')}${finished.total > 0 ? ` · ${t('exerciseScore', { correct: finished.firstTryCorrect, total: finished.total })}` : ''}`
@@ -188,11 +200,34 @@ export function DashboardPage() {
                 <p className="today-plan__what">{t(firstTime ? 'todayPracticeFirst' : 'todayPracticeWhat')}</p>
               )}
             </>
+          ) : step.kind === 'review' && step.round ? (
+            // After a break, the day's one round is timed, not the whole pile.
+            <p className="today-plan__detail">
+              {t('catchUpRoundWhat')}
+              <span className="today-plan__time"> {t('dashboardEstimate', { n: minutesFor(step.round) })}</span>
+            </p>
           ) : step.kind === 'review' ? (
             <p className="today-plan__detail">
               {t('todayReviewWhat')}
               <span className="today-plan__time"> {t('dashboardEstimate', { n: Math.max(1, Math.round(step.due * 0.4)) })}</span>
             </p>
+          ) : step.welcome ? (
+            <>
+              {/* What happened, plainly, and nothing about what was missed. */}
+              <p className="today-plan__detail">{t('welcomeBackAway', { n: step.welcome.days })}</p>
+              <p className="today-plan__detail">
+                {step.due > step.welcome.warmUp
+                  ? t('welcomeBackWaiting', { n: step.due, k: step.welcome.warmUp })
+                  : t('welcomeBackAll', { n: step.due })}
+                <span className="today-plan__time">
+                  {' '}
+                  {t('dashboardEstimate', { n: minutesFor(step.welcome.warmUp) })}
+                </span>
+              </p>
+              {/* The run of days before the break is not lost from view: it
+                  is named, and today is the first day of the next one. */}
+              {step.welcome.run >= 2 ? <p className="today-plan__what">{t('welcomeBackRun', { n: step.welcome.run })}</p> : null}
+            </>
           ) : step.kind === 'done' ? (
             <>
               <ul className="today-plan__achieved">
@@ -270,16 +305,20 @@ export function DashboardPage() {
             <Icon name="review" />
           </span>
           <p className="today-tile__main">
-            {queue.total > 0 ? t('todayDue', { n: queue.total }) : t('todayNothingDue')}
+            {queue.total > 0 ? t(step.spread ? 'catchUpTileWaiting' : 'todayDue', { n: queue.total }) : t('todayNothingDue')}
           </p>
           {/* "Review early" only when there is something to review: a new
-              learner was offered it and the review page had nothing to give. */}
+              learner was offered it and the review page had nothing to give.
+              After a break the pile is not timed as one sitting: the card
+              above says it comes back over the next days, and so does this. */}
           <p className="today-tile__note">
-            {queue.total > 0
-              ? t('dashboardEstimate', { n: Math.max(1, Math.round(queue.total * 0.4)) })
-              : earlyReviewExercises(onPath, new Date(), 1).length > 0
-                ? t('reviewPracticeEarly')
-                : t('todayReviewLater')}
+            {queue.total > 0 && step.spread
+              ? t('catchUpTileSpread')
+              : queue.total > 0
+                ? t('dashboardEstimate', { n: Math.max(1, Math.round(queue.total * 0.4)) })
+                : earlyReviewExercises(onPath, new Date(), 1).length > 0
+                  ? t('reviewPracticeEarly')
+                  : t('todayReviewLater')}
           </p>
         </Link>
       </div>
