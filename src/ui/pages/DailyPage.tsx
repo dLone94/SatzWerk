@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { scriptById, scriptAnswerCount, patternById } from '../../content/browser.ts';
+import { checkpointById, scriptById, scriptAnswerCount, patternById } from '../../content/browser.ts';
 import { otherExamples, phraseFrame } from '../../content/phraseFrames.ts';
 import { todayHere } from '../../core/progress/days.ts';
 import { GOAL_LABELS, type DailyRunInput } from '../../core/progress/daily.ts';
@@ -17,7 +17,10 @@ import { ScenarioPlayer } from '../components/ScenarioPlayer.tsx';
 import { SpeakCheck } from '../components/Speaking.tsx';
 import { ShadowRecorder } from '../components/ShadowRecorder.tsx';
 import { DackelMark, DackelScene } from '../components/Dackel.tsx';
-import { DAILY_STAGES, fitsDailyPlan } from '../selectors.ts';
+import { Confetti } from '../components/Confetti.tsx';
+import { Rhythm } from '../components/Rhythm.tsx';
+import { reviewItemsForPath } from '../reviewBuilder.ts';
+import { DAILY_STAGES, fitsDailyPlan, todayStep, type TodayStep } from '../selectors.ts';
 
 // Shared with Today, which names the part a practice reached.
 const STAGES = DAILY_STAGES;
@@ -29,7 +32,7 @@ export function DailyPage() {
 }
 
 function DailyPractice() {
-  const { t, say, lang, profile, lessons, reviewItems, mistakes, scenarioRuns, dailyRuns, stats,
+  const { t, say, lang, profile, lessons, reviewItems, mistakes, scenarioRuns, dailyRuns, stats, studyDays,
     recordDailyRun, recordScenarioRun, tts, checkpointResults } = useApp();
   const day = todayHere();
   const goal = profile.learningGoal ?? 'everyday';
@@ -160,15 +163,55 @@ function DailyPractice() {
 
   const notice = problem ? <div className="task__warn" role="alert"><p>{t('dailySaveFailed')}</p>
     <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => { if (retryRef.current) void change(retryRef.current); }}>{t('retry')}</button></div> : null;
-  if (run?.stage === 5) return <div className="page daily-page">
-    <section className="daily-finished" aria-labelledby="daily-title"><DackelScene className="daily-finished__scene" /><span className="daily-finished__mark" aria-hidden="true"><Icon name="check" size={30} /></span>
-      <p className="section-eyebrow">{t('dailyFinishedEyebrow')}</p><h1 id="daily-title">{t('dailyFinished')}</h1>
-      <p>{t('exerciseScore', { correct: run.firstTryCorrect, total: run.total })}</p>
-      <p className="daily-finished__ability">{say(currentScript.goal)}</p>
-      <p className="muted">{t('dailyFinishedNote')}</p>
-      <div className="section-nav"><Link className="btn btn--primary" to="/">{t('navToday')}</Link>
-        <button type="button" className="btn btn--ghost" onClick={() => { setRun(null); setPaused(false); }}>{t(planScript.id === currentScript.id ? 'dailyAgain' : 'dailyAnother')}</button></div>
-    </section><PracticalProgress /></div>;
+  /*
+   * The finish celebrates what was really done, and only that: the phrases
+   * met on the cards, the answers right first time, the streak once there is
+   * one, and the day's goal and week as Today counts them, with today's dot
+   * filling in. Then the one next step Today would now offer, worked out the
+   * same way from the same rows, so the two never send the learner to
+   * different places. Doing it again is still offered, quietly.
+   */
+  if (run?.stage === 5) {
+    const minutesToday = Math.floor((studyDays.find(entry => entry.day === day)?.secondsActive ?? 0) / 60);
+    const next = todayStep({ lessons, reviewItems: reviewItemsForPath(reviewItems, lang), mistakes,
+      onboarded: profile.onboarded, checkpointResults, dailyRuns, minutesToday, targetMinutes: profile.dailyTargetMinutes,
+      fitsPlan });
+    const fresh = phrases.filter(card => !card.again).length;
+    const again = phrases.length - fresh;
+    const onward = nextOffer(next);
+    return <div className="page daily-page">
+      <section className="daily-finished" aria-labelledby="daily-title"><Confetti />
+        <DackelScene className="daily-finished__scene" bubble="Geschafft!" />
+        <span className="daily-finished__mark" aria-hidden="true"><Icon name="check" size={30} /></span>
+        <p className="section-eyebrow">{t('dailyFinishedEyebrow')}</p><h1 id="daily-title">{t('dailyFinished')}</h1>
+        <p className="daily-finished__ability">{say(currentScript.goal)}</p>
+        <ul className="daily-finished__wins" aria-label={t('dailyWinsTitle')}>
+          {fresh > 0 ? <li><Icon name="check" size={16} />{t('dailyWinNewPhrases', { n: fresh })}</li> : null}
+          {again > 0 ? <li><Icon name="check" size={16} />{t('dailyWinPhrasesAgain', { n: again })}</li> : null}
+          {run.total > 0 ? <li><Icon name="check" size={16} />{t('exerciseScore', { correct: run.firstTryCorrect, total: run.total })}</li> : null}
+          {/* A streak of one is only today, which everything here already says. */}
+          {stats.streak > 1 ? <li><Icon name="flame" size={16} />{t('todayStreak', { n: stats.streak })}</li> : null}
+        </ul>
+        <Rhythm celebrate />
+        <div className="daily-finished__next">
+          <p className="section-eyebrow">{t('dailyFinishedNext')}</p>
+          {/* A day that is done says so, as Today will, before the way back to it. */}
+          {next.kind === 'done' ? <p className="daily-finished__done">
+            {`${t(next.goalMet ? 'todayDoneGoal' : 'todayDoneAll')}${next.then ? '' : ` ${t('todayDoneRest')}`}`}</p> : null}
+          <Link className="btn btn--primary" to={onward.to}>{onward.label}<Icon name="arrow" size={20} /></Link>
+          <button type="button" className="linklike daily-finished__again" onClick={() => { setRun(null); setPaused(false); }}>
+            {t(planScript.id === currentScript.id ? 'dailyAgain' : 'dailyAnother')}</button>
+        </div>
+        {phrases.length > 0 ? <div className="daily-finished__phrases">
+          <h2 id="daily-phrases-title">{t('dailyPhrasesTitle')}</h2>
+          <ul aria-labelledby="daily-phrases-title">{phrases.map(card => <li key={card.step.id}>
+            <span><span className="daily-finished__german" lang="de">{card.german}</span>
+              <span className="daily-finished__purpose">{say(card.purpose)}</span></span>
+            <AudioButton text={card.german} compact /></li>)}</ul>
+        </div> : null}
+        <p className="muted">{t('dailyFinishedNote')}</p>
+      </section><PracticalProgress week={false} /></div>;
+  }
 
   if (!run || paused) return <div className="page daily-page">
     <header className="daily-intro"><p className="section-eyebrow">{t('dailyEyebrow')}</p>
@@ -247,4 +290,22 @@ function DailyPractice() {
     </Card> : null}
     <Meter value={run.stage / 5} label={t('dailyPlanProgress')} />
   </div>;
+
+  /**
+   * The step Today would lead with now, as a button. A day that is done
+   * goes back to Today, which says so and offers more without pressing it;
+   * so does the daily practice itself, since this page already holds it.
+   */
+  function nextOffer(next: TodayStep): { to: string; label: string } {
+    const title = say(next.course.title);
+    switch (next.kind) {
+      case 'continue-lesson': return { to: next.to, label: `${t('dashboardContinue')}: ${title}` };
+      case 'start-lesson': return { to: next.to, label: `${t('dashboardStartLesson')}: ${title}` };
+      case 'checkpoint': return { to: next.to, label: `${t(checkpointById(next.to.slice('/checkpoint/'.length))?.scope === 'level'
+        ? 'levelCheckpoint' : 'unitCheckpoint')}: ${title}` };
+      case 'review': return { to: next.to, label: t('todayReviewTitle', { n: next.due }) };
+      case 'mistakes': return { to: next.to, label: title };
+      default: return { to: '/', label: t('navToday') };
+    }
+  }
 }

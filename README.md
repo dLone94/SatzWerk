@@ -567,6 +567,17 @@ tick once the goal is met, and this week's practice days against the weekly
 goal, Monday to Sunday, as seven dots counted by the same rule as that goal
 (a day with an answer saved).
 
+**A finish that feels like a win.** Finishing the daily practice was a flat
+card with two buttons of equal weight. It now falls the lessons' confetti
+(none under reduced motion), has the dachshund cheer *Geschafft!*, and counts
+only what the rows say was done: the new phrases met, the answers right first
+time, the streak once it is longer than today, and the same rhythm widget as
+Today, with today's dot filling in. Its one button is the step `todayStep`
+would now lead Today with, so the two never disagree; doing it again stays a
+quiet link, and the day's phrases are listed below to hear once more. The
+practice's last minutes are saved the moment it is finished rather than up to
+a minute later, so the goal shown there and on Today is the goal as it stands.
+
 **The mixed round: one button, ten minutes.** A lesson here is twenty-five to
 thirty minutes, which is right for meeting something new and wrong for a
 Tuesday evening. Before this existed, a learner with ten minutes was handed a

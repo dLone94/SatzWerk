@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
-import { lessonsInOrder, SCENARIO_SCRIPTS, scriptAnswerCount } from '../../src/content/browser.ts';
+import { availableLessons, lessonsInOrder, SCENARIO_SCRIPTS, scriptAnswerCount } from '../../src/content/browser.ts';
 import type { ScenarioScript } from '../../src/content/types.ts';
 import { todayHere } from '../../src/core/progress/days.ts';
 import { mergeDailyRun, type DailyRunInput } from '../../src/core/progress/daily.ts';
@@ -518,4 +518,82 @@ it('opens each part and the finish at the top, before the conversation scrolls t
     scrollTo.mockRestore();
     delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   }
+});
+
+/*
+ * Finishing the daily practice was a flat card: a score, a sentence and two
+ * buttons of equal weight, one back to Today and one to do it again. Lessons
+ * had confetti; the practice a learner does every day had none, no day
+ * counted and nothing said what came next. Now it celebrates with what was
+ * really done, and offers the one next step Today would offer.
+ */
+describe.each(['en', 'bg'] as const)('the finish of the daily practice in %s', lang => {
+  const script = EVERYDAY[0]!;
+  onDayOf(script);
+  const first = lessonsInOrder().find(lesson => availableLessons().includes(lesson))!;
+  const profile = { teachingLanguage: lang, dailyTargetMinutes: 10, displayName: null, onboarded: true, createdAt: '',
+    learningGoal: 'everyday' as const, practiceLevel: 'pre-a1' as const, weeklyTargetDays: 4 };
+
+  async function finish(overrides: Partial<AppStateValue> = {}) {
+    function Harness() {
+      const [runs, setRuns] = useState<AppStateValue['dailyRuns']>([{ id: 'finishing', day: todayHere(), scriptId: script.id,
+        goal: 'everyday', stage: 4, total: 9, firstTryCorrect: 8, listeningCompleted: false, updatedAt: new Date().toISOString() }]);
+      const value = stubState({ profile, ...overrides, dailyRuns: runs, recordDailyRun: async payload => {
+        setRuns(runs => mergeDailyRun(runs, { ...payload, updatedAt: new Date().toISOString() }));
+      } }, lang);
+      return <AppStateContext.Provider value={value}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>;
+    }
+    const view = render(<Harness />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', lang) }));
+    await user.click(await screen.findByRole('button', { name: tr('dailyFinish', lang) }));
+    await screen.findByRole('heading', { level: 1, name: tr('dailyFinished', lang) });
+    return view;
+  }
+  const studied = (minutes: number) => ({ studyDays: [{ day: todayHere(), secondsActive: minutes * 60, answers: 9, correct: 8 }] });
+
+  it('celebrates with what was really done today', async () => {
+    const view = await finish({ ...studied(7), stats: { ...stubState().stats, streak: 3 } });
+    const finished = view.container.querySelector<HTMLElement>('.daily-finished')!;
+    expect(finished.querySelector('.confetti')).toHaveAttribute('aria-hidden', 'true');
+    expect(within(finished).getByText('Geschafft!')).toHaveAttribute('lang', 'de');
+    const wins = within(within(finished).getByRole('list', { name: tr('dailyWinsTitle', lang) }));
+    expect(wins.getByText(tr('dailyWinNewPhrases', lang, { n: 3 }))).toBeInTheDocument();
+    expect(wins.getByText(tr('exerciseScore', lang, { correct: 8, total: 9 }))).toBeInTheDocument();
+    expect(wins.getByText(tr('todayStreak', lang, { n: 3 }))).toBeInTheDocument();
+    // The phrases themselves, to hear again.
+    const said = within(within(finished).getByRole('list', { name: tr('dailyPhrasesTitle', lang) }));
+    for (const card of dailyPhrases(script, lang, [], todayHere())) {
+      expect(said.getByText(card.german)).toHaveAttribute('lang', 'de');
+    }
+    // The day's goal and the week, with today's dot filled in.
+    const rhythm = within(finished).getByRole('region', { name: tr('studioRhythm', lang) });
+    expect(within(rhythm).getByText(tr('todayGoalLeft', lang, { n: 3 }))).toBeInTheDocument();
+    expect(rhythm.querySelector('[aria-current="date"]')).toHaveClass('rhythm__day--practised');
+  });
+
+  it('counts no streak it does not have', async () => {
+    await finish({ ...studied(7), stats: { ...stubState().stats, streak: 1 } });
+    expect(screen.queryByText(tr('todayStreak', lang, { n: 1 }))).not.toBeInTheDocument();
+  });
+
+  it('offers the next step Today would offer as its one button', async () => {
+    const view = await finish(studied(7));
+    const [only, ...others] = [...view.container.querySelectorAll('.btn--primary')];
+    expect(others).toHaveLength(0);
+    expect(only).toHaveAccessibleName(`${tr('dashboardStartLesson', lang)}: ${first.title[lang]}`);
+    expect(only).toHaveAttribute('href', `/lesson/${first.id}`);
+    // Doing it again is still there, and quieter.
+    expect(screen.getByRole('button', { name: tr('dailyAgain', lang) })).not.toHaveClass('btn--primary');
+  });
+
+  it('sends the learner back to Today once the day’s goal is met', async () => {
+    const view = await finish(studied(11));
+    const [only, ...others] = [...view.container.querySelectorAll('.btn--primary')];
+    expect(others).toHaveLength(0);
+    expect(only).toHaveAccessibleName(tr('navToday', lang));
+    expect(only).toHaveAttribute('href', '/');
+    expect(screen.getByText(tr('todayDoneGoal', lang))).toBeInTheDocument();
+    expect(view.container.querySelector('.goal-ring')).toHaveClass('goal-ring--done');
+  });
 });

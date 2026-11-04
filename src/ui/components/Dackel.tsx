@@ -1,8 +1,12 @@
-/** Decorative brand artwork. Learning instructions remain real, localised text. */
-export function DackelScene({ className = '' }: { className?: string }) {
+/**
+ * Decorative brand artwork. Learning instructions remain real, localised text.
+ * The dog greets by default; a finished practice has it cheer instead, since
+ * "Hallo!" at the end of something read as the start of it.
+ */
+export function DackelScene({ className = '', bubble = 'Hallo!' }: { className?: string; bubble?: string }) {
   return <div className={`dackel-scene ${className}`} aria-hidden="true">
     <img src="/illustrations/dackel-day.webp" alt="" width="1536" height="1024" decoding="async" />
-    <span className="dackel-scene__hello" lang="de">Hallo!</span>
+    <span className="dackel-scene__hello" lang="de">{bubble}</span>
   </div>;
 }
 

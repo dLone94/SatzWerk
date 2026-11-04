@@ -1326,6 +1326,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       },
 
       recordDailyRun: async (payload) => {
+        // A finished practice takes its last minutes with it. They used to
+        // follow up to a minute later, so the finish and Today straight after
+        // it showed the daily goal short by the minute just studied.
+        if (payload.stage >= 5) keepStudyTime.current();
         // Queue before sending, like an answer. This keeps part transitions
         // immediate and makes learner handover wait for this write too.
         if (!outbox.enqueue({ kind: 'dailyRun', payload })) {
