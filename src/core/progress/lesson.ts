@@ -363,7 +363,19 @@ export function lessonStages(lesson: Lesson, progress: LessonProgress): LessonSt
   ];
 }
 
+/**
+ * Whether the lesson is finished.
+ *
+ * Once finished, always finished. The rules are worked out from the lesson as
+ * it is now, and lessons grow: lesson 1 gained a first-words exercise after
+ * people had finished it, and counting from the new content would have
+ * reopened every one of those lessons, locked its unit checkpoint again and
+ * sent Today back to a lesson the learner had done. The date is only written
+ * once the rules are met (`applyCompletion`), so it is the record that they
+ * were.
+ */
 export function isLessonComplete(lesson: Lesson, progress: LessonProgress): boolean {
+  if (progress.completedAt) return true;
   return lessonRequirements(lesson, progress).every((r) => r.satisfied);
 }
 

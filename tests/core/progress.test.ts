@@ -408,3 +408,22 @@ describe('the three steps a lesson is shown as', () => {
     expect(stageOf(progress, 'check').satisfied).toBe(true);
   });
 });
+
+/*
+ * Content grows. Lesson 1 gained its first-words exercise after learners had
+ * finished it, and completion is worked out from the lesson as it is now: a
+ * new step would have reopened every finished lesson 1, locked its unit
+ * checkpoint again and sent Today back to it.
+ */
+describe('a lesson already finished', () => {
+  it('stays finished when the lesson later gains a step', () => {
+    let progress = readAllSections(emptyLessonProgress(lesson.id));
+    progress = answerAll(progress, () => true);
+    progress = recordMasteryAttempt(progress, 1, lesson.mastery.passAccuracy);
+    progress = completeLesson(progress, '2026-10-01T10:00:00.000Z');
+    const first = lesson.exercises[0]!;
+    const grown = { ...lesson, exercises: [...lesson.exercises, { ...first, id: 'later-ex', steps: [{ ...first.steps[0]!, id: 'later-step' }] }] };
+    expect(lessonRequirements(grown, progress).every((requirement) => requirement.satisfied)).toBe(false);
+    expect(isLessonComplete(grown, progress)).toBe(true);
+  });
+});
