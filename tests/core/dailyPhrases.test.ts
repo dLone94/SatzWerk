@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LEXICON, SCENARIO_SCRIPTS, SENTENCE_PATTERNS, describeNoun } from '../../src/content/index.ts';
 import { dailyPatternId } from '../../src/content/dailyPatterns.ts';
+import { phraseFrame } from '../../src/content/phraseFrames.ts';
 import { buildFeedback } from '../../src/core/feedback/explain.ts';
 import { createReviewItem } from '../../src/core/srs/scheduler.ts';
 import { validateAnswer } from '../../src/core/validation/validate.ts';
@@ -86,4 +87,39 @@ describe('the transfer step of a phrase frame', () => {
     const lines = buildFeedback(r, { lexicon: LEXICON, describeNoun }).lines.map((line) => line.en);
     expect(lines).toContain('The form this lesson practises is "Ich hätte gern einen Kaffee.".');
   });
+});
+
+/*
+ * A frame fitted only a line that began with it, and lines rarely do: they
+ * open with a greeting, a yes or an excuse me. Of seven frames, three were
+ * ever shown, and "Guten Tag, ich brauche einen Termin für die Anmeldung."
+ * had no frame at all, only the cue "Guten ___." made from its first word.
+ */
+describe('a sentence frame', () => {
+  it('fits at the start of any clause, not only of the line', () => {
+    expect(phraseFrame('Guten Tag, ich brauche einen Termin für die Anmeldung.')?.template).toBe('Ich brauche ___.');
+    expect(phraseFrame('Entschuldigung, wo ist der Bahnhof?')?.template).toBe('Wo ist ___?');
+    expect(phraseFrame('Ja, ich möchte einen Kaffee.')?.template).toBe('Ich möchte ___.');
+    expect(phraseFrame('Guten Morgen!')?.template).toBe('Guten ___!');
+    expect(phraseFrame('Guten Abend!')?.template).toBe('Guten ___!');
+    expect(phraseFrame('Ich heiße Teo.')?.template).toBe('Ich heiße ___.');
+    // Not anywhere in a clause: a question reported inside a sentence is not that question.
+    expect(phraseFrame('Ich weiß nicht, wo der Bahnhof ist.')).toBeUndefined();
+  });
+});
+
+/*
+ * The Bulgarian gloss of the coffee examples became "Една вода, моля.": it
+ * no longer said "would like", and its "моля" made the natural answer with
+ * "bitte" wrong, while the café conversation the same day took "И една вода,
+ * моля." as "Und ein Wasser, bitte.".
+ */
+it('asks for an order in Bulgarian without a gendered verb, and credits the ways of saying it', () => {
+  const cafe = SCENARIO_SCRIPTS.find((script) => script.id === 'sc-restaurant-pre-a1')!;
+  const step = phraseRecall(cafe, 'bg').find((exercise) => exercise.id.startsWith('daily-transfer-'))!.steps[0]!;
+  expect(step.prompt?.bg).toBe('Искам една вода.');
+  expect(step.prompt?.bg).not.toMatch(/моля|Бих/);
+  for (const answer of ['Ich möchte ein Wasser.', 'Ich möchte ein Wasser, bitte.', 'Ein Wasser, bitte.', 'Ich hätte gern ein Wasser.']) {
+    expect(validateAnswer(answer, step.answer, { lexicon: LEXICON }).credit, answer).toBe(1);
+  }
 });

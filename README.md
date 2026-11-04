@@ -16,12 +16,12 @@ translations of each other — each explains German from where its own speakers
 actually stand, and a test fails if either one's prompts ever become a
 translation of the other's.
 
-Beside the course sit the **Real Life scenarios**: 13 rooms, 41 conversations,
+Beside the course sit the **Real Life scenarios**: 13 rooms, 47 conversations,
 and someone who answers back. A lesson tells you what to say; there, the other
 person's line decides it.
 
 **Daily practice** brings that material into one guided path. Choose **Start
-today** on the dashboard or open **Practice** in the navigation:
+today's practice** on Today or open **Daily practice** in the navigation:
 
 1. Meet three useful phrases, including reusable frames and noun/article/plural pairs.
 2. Review a short selection of due items and variations on recurring mistakes.
@@ -32,7 +32,12 @@ today** on the dashboard or open **Practice** in the navigation:
 
 Personalisation selects everyday life, travel, work or exam practice and a level
 from Pre-A1 to B2. Exam practice rehearses language skills rather than an official
-exam format. Beginners start with common greetings and polite requests. Estimates
+exam format. Beginners start with common greetings and polite requests. The
+conversation changes from day to day: it stays at the chosen level, keeps to the
+goal's own conversations wherever there are two or more, and is never the one
+practised today or yesterday while another fits. The three phrases come from that
+conversation, lines the learner has not met yet first, and a phrase met before
+says so. Estimates
 use the learner's recorded pace, with a provisional default until enough answers
 exist; they are not a timer or a promise of fluency.
 
@@ -498,13 +503,23 @@ sentence with a small letter, counts as right there — a noun's capital and
 
 **A real review queue.** A documented SM-2 derivative (see the header comment in
 `src/core/srs/scheduler.ts`): learning steps of 10 minutes and one day, then
-`interval × ease × gradeFactor` with ease clamped to [1.3, 2.8]. Recall quality
+`interval × ease × gradeFactor` with ease clamped to [1.3, 2.8]. A word counts
+as **known** only once its interval reaches five days, which takes recall on
+two separate days after the one it was taught; answers given on a single day,
+however many and however clean, never get it there. A learner who practises
+early every day gets there too: each day a word is remembered adds a day to its
+interval until it is known. A right answer graded hard can shorten the interval
+and take a word back to learning. A review answered late is
+credited with the days the word actually lasted, up to twice its interval, and
+a word forgotten goes back through the learning steps. Recall quality
 is derived from the verdict, hint usage and whether the answer was revealed — an
 answer produced only after revealing the solution can never grade better than
 `again`. Due items come back as **typing** tasks, not flashcards: a due noun is
 prompted in the teaching language and must be typed *with its article*, and every
-third item comes back as dictation. Grammar concepts, which cannot be typed, get
-explicit Again / Hard / Good / Easy buttons.
+third item comes back as dictation. A due grammar concept is asked as one of the
+course's own steps that practise it, a different one at each review, and its
+rule is shown only once the answer is graded; Again / Hard / Good / Easy remain only
+for a concept that no step on the learner's path asks for.
 
 **A mistake bank driven by real attempts.** Grouped by the 15+ error categories,
 showing what was written, what was correct, how many times it happened and how
@@ -512,7 +527,7 @@ many times it was retyped correctly — and it can be practised either as a roun
 of exactly those sentences, or as a round drilling the whole category. A
 practice card asks the original question again, with the earlier answer
 beside it; answered right with no hint, the mistake is put away, and it comes
-back if it is made again. The daily round asks a recurring mistake in another
+back if it is made again. The mixed round asks a recurring mistake in another
 sentence of the same kind, and a clean answer there puts it away too.
 Placement answers are never filed here: that check is looking for where the
 learner's German runs out (migration 9 put away the ones filed before).
@@ -521,7 +536,22 @@ learner's German runs out (migration 9 put away the ones filed before).
 profile shows `—` and "No data yet", not a zero dressed up as progress. The
 streak is counted backwards over days that actually contain answers.
 
-**The daily round: one button, ten minutes.** A lesson here is twenty-five to
+**Today: one step, then done.** Today used to open on four starts of equal
+weight (the daily practice, the next lesson, the round and early review), and
+its practice card said "Start today" after the practice was finished. Now one
+card holds the day's one step, chosen by `todayStep` in `src/ui/selectors.ts`
+from the learner's own rows: a practice begun today is finished first, then a
+lesson under way or a checkpoint just earned, then a review backlog of ten or
+more, then today's daily practice, then the course's next step. A new learner
+is sent straight into the first German phrases, with lesson 1 named as what
+follows. Once the daily goal in minutes is met, or the practice is done and the
+course has nothing waiting, the card says what was done and offers more with a
+quiet button; nothing asks for it. Each kind of practice has one name in both
+paths: **daily practice** (phrases and a conversation), **review** (what comes
+back before it is forgotten), the **mixed round** (below), and the **daily
+goal** (minutes).
+
+**The mixed round: one button, ten minutes.** A lesson here is twenty-five to
 thirty minutes, which is right for meeting something new and wrong for a
 Tuesday evening. Before this existed, a learner with ten minutes was handed a
 list of links to three different pages and left to decide which — and deciding
@@ -541,7 +571,7 @@ Each part is played as what it really is — review answers move review items,
 lesson answers move lesson progress — so the rows in the database are the same
 ones the individual pages would have written. Exercises are taken whole: being
 cut off three steps into a conjugation table is worse than running forty
-seconds over, so the daily target is a target rather than a ceiling.
+seconds over, so the daily goal is a target rather than a ceiling.
 
 **And the number of minutes on the button is measured, not invented.** A
 session advertised as "10 minutes" is a statistic, and this app does not
@@ -628,7 +658,7 @@ sentences that have not.
 
 **A reason to come back, without nagging.** Spaced repetition only works if
 somebody actually comes back on the day, so the app can send one push
-notification — *"3 words are due"* — which opens the daily round rather than
+notification — *"3 words are due"* — which opens the mixed round rather than
 the review queue, because what brings somebody back at nine in the evening is a
 round they can finish rather than a queue they have to decide how much of to
 do. It is governed by three rules:
@@ -953,7 +983,7 @@ about code:
 - **Your turn is an ordinary exercise, played by the ordinary player.** Same
   validator, same hint ladder, same mandatory retyping, and mistakes go to the
   same mistake bank, which means a slip in a scenario comes back in tomorrow's
-  daily round. A scenario cannot mark an answer more kindly than a lesson
+  mixed round. A scenario cannot mark an answer more kindly than a lesson
   would, because it is not the thing doing the marking.
 - **The other person's German arrives without a translation.** You get the
   line, a button that speaks it, and the meaning one press away. In the room
@@ -985,7 +1015,7 @@ that is openly planned:
 | AI mistake explanation | **Real, when a key is set.** `server/ai-claude.ts` implements `AiProvider` against the Claude API. With no `ANTHROPIC_API_KEY` the app behaves exactly as before and says so. The key is read server-side only and is not prefixed `VITE_`, so it cannot reach the client bundle. See below. |
 | Generated practice, conversation | **Decided against, not planned.** `generatePractice` and `converse` stay `available: false` with a reason, and the API says `not-generated` rather than `planned`. Every German sentence in this app has been read by a person; a generated one sitting beside an authored one with no way to tell them apart would end that quietly. |
 | Phoneme-level pronunciation scoring | **Not built, and not claimed.** Speaking *is* real (see below) — the app checks whether a recogniser understood your words. Scoring an accent is a different thing and needs a different engine; `AudioRecorder` / `SpeechToText` in `src/services/speech/index.ts` remain the interfaces a server-side recogniser would implement. |
-| Real Life scenarios | **Playable.** 13 scenarios, 41 conversations, 169 answer steps, both teaching paths. Your turn is an ordinary exercise handed to the ordinary player, so the validator, the hints and the mandatory retyping are the same ones the course uses — and a mistake made in a scenario lands in the mistake bank like any other. The status badge is derived from whether a script exists, so it cannot claim more than has been written. |
+| Real Life scenarios | **Playable.** 13 scenarios, 47 conversations, 195 answer steps, both teaching paths. Your turn is an ordinary exercise handed to the ordinary player, so the validator, the hints and the mandatory retyping are the same ones the course uses — and a mistake made in a scenario lands in the mistake bank like any other. The status badge is derived from whether a script exists, so it cannot claim more than has been written. |
 | Content beyond B2 | **Nothing is outstanding inside the curriculum.** All five levels are authored end to end, each with its units, unit checkpoints and a level checkpoint. What does not exist is anything above B2 — see the next row. |
 | C1 / C2 | Not implemented, but `CefrLevel` already includes them, so adding them is content, not a refactor. |
 
@@ -1177,7 +1207,7 @@ tiers themselves are not interleaved across: a word you have forgotten is
 worth seeing before one that is merely scheduled, whatever lesson each came
 from.
 
-The daily round takes the ordered queue too. It used to take `dueItems`
+The mixed round takes the ordered queue too. It used to take `dueItems`
 straight from the database, which meant the one screen used every day had
 neither the urgency ordering nor the interleaving that the review page has
 always had.
@@ -1216,7 +1246,7 @@ always had.
   (`.github/workflows/ci.yml`). The numbers quoted here were produced locally;
   the runner is what stops them going stale.
 - **The bundle is a single chunk** (2.4 MB, 638 kB gzipped — five levels of
-  curriculum and forty-one scenario scripts are typed data compiled into it,
+  curriculum and forty-seven scenario scripts are typed data compiled into it,
   and it grows with every lesson written). Fine over wifi for a personal app;
   route-level code splitting is the obvious first step if this ever ships
   publicly, and the first thing to do if it ever feels slow to open.

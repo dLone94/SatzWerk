@@ -320,6 +320,12 @@ export interface Exercise extends PathScoped {
    */
   mandatoryRetype?: boolean;
   grammarIds?: string[];
+  /**
+   * A rule shown under the feedback once a step has been answered, never
+   * before it. Grammar review asks for the grammar first and reminds the
+   * learner of the rule afterwards; no authored exercise sets it.
+   */
+  reminder?: { title: Bilingual; body: Bilingual };
 }
 
 /* ------------------------------------------------------------------ *

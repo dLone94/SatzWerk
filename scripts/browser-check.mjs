@@ -7,7 +7,8 @@ import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import { CURRICULUM, SCENARIO_SCRIPTS, VOCABULARY } from '../src/content/index.ts';
 import { tr } from '../src/i18n.ts';
-import { dailyListening, phraseRecall } from '../src/ui/dailyBuilder.ts';
+import { chooseDailyScript, dailyListening, phraseRecall } from '../src/ui/dailyBuilder.ts';
+import { todayHere } from '../src/core/progress/days.ts';
 
 // Always use an isolated, disposable database. No deployment or learner data
 // is involved. CI installs Chromium; local runs can point to system Chromium.
@@ -156,9 +157,17 @@ try {
   await context.request.patch(base + '/api/profile', { headers: { 'X-Requested-With': 'SatzWerk' }, data: { teachingLanguage: 'en' } });
   await page.emulateMedia({ colorScheme: 'light' });
   await page.setViewportSize({ width: 390, height: 844 });
+  // Today offers a new learner one start, and it is on the first screen of a
+  // phone: it used to be the third of four, below the fold.
+  await open('/');
+  assert.equal(await page.locator('#main .btn--primary').count(), 1, 'Today has one primary action');
+  const todayStart = page.locator('.today-plan__cta');
+  assert.equal((await todayStart.innerText()).trim(), tr('todayPracticeStart', 'en'));
+  const startBox = await todayStart.boundingBox();
+  assert.ok(startBox.y + startBox.height < 700, `Today's start is above the fold on a phone (bottom at ${startBox.y + startBox.height})`);
   // A daily session uses real API writes, survives a reload between parts,
   // and rehearses whole phrases without claiming course-lesson completion.
-  await open('/daily');
+  await todayStart.click();
   await page.getByRole('button', { name: tr('dailyStart', 'en'), exact: true }).click();
   await page.getByRole('button', { name: tr('dailyNextPhrase', 'en'), exact: true }).waitFor();
   await page.screenshot({ path: report + '/daily-phrase-mobile.png', fullPage: true });
@@ -171,8 +180,12 @@ try {
   await page.reload();
   await page.getByRole('button', { name: tr('dailyResume', 'en'), exact: true }).waitFor();
   await page.getByRole('button', { name: tr('dailyResume', 'en'), exact: true }).click();
-  const dailyExercises = [...phraseRecall(scenario, 'en'),
-    ...scenario.beats.filter(beat => beat.who === 'you').map(beat => beat.exercise), ...dailyListening(scenario, 'en')];
+  // The day's conversation changes from day to day; a new learner is at Pre-A1 with everyday goals.
+  // Chosen from the catalog, played from the full script, which has the answers.
+  const dailyId = chooseDailyScript('everyday', 'pre-a1', [], todayHere()).id;
+  const daily = SCENARIO_SCRIPTS.find(script => script.id === dailyId);
+  const dailyExercises = [...phraseRecall(daily, 'en'),
+    ...daily.beats.filter(beat => beat.who === 'you').map(beat => beat.exercise), ...dailyListening(daily, 'en')];
   const dailyResult = await play(dailyExercises, 'en', async () => await page.getByRole('button', { name: tr('dailyFinish', 'en'), exact: true }).count() > 0, true);
   const shadowAxe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   observations.push({ path: '/daily#shadow', violations: shadowAxe.violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => node.target) })) });
@@ -191,6 +204,33 @@ try {
   assert.equal(dailyState.lessons.length, 0, 'Daily rehearsal does not complete a lesson');
   assert.ok(dailyState.reviewItems.some(item => item.refId.startsWith('p-daily-')), 'Whole phrases enter spaced review');
   observations.push({ journey: 'Daily practice, reload and resume, wrong answer and correction, conversation, listening, local voice recording', result: dailyResult, passed: true });
+  // Back on Today the practice is done, and no longer offered as the day's start.
+  await open('/');
+  await page.locator('.today-plan').getByText(tr('todayPracticeDone', 'en'), { exact: false }).first().waitFor();
+  assert.equal(await page.getByRole('link', { name: tr('todayPracticeStart', 'en'), exact: true }).count(), 0, 'A finished practice is not offered as today\'s start');
+  assert.ok(await page.locator('#main .btn--primary').count() <= 1, 'Today still has at most one primary action');
+  await page.screenshot({ path: report + '/today-after-practice.png', fullPage: true });
+  observations.push({ journey: 'Today leads into daily practice and moves on once it is done', passed: true });
+  // The daily goal met: Today is done for the day, says what was done, and
+  // offers more only as a quiet button. That card was never scanned, so it is
+  // here, in both schemes, with the minutes a quick headless run cannot earn.
+  const tzOffsetMinutes = await page.evaluate(() => -new Date().getTimezoneOffset());
+  const studied = await context.request.post(base + '/api/study', {
+    headers: { 'X-Requested-With': 'SatzWerk' }, data: { seconds: 25 * 60, tzOffsetMinutes },
+  });
+  assert.equal(studied.status(), 200);
+  for (const colorScheme of ['light', 'dark']) {
+    await page.emulateMedia({ colorScheme });
+    await open('/');
+    await page.locator('.today-plan--done').waitFor();
+    assert.equal(await page.locator('#main .btn--primary').count(), 0, 'A finished day has no primary action');
+    assert.equal(await page.locator('.today-plan .btn--ghost').count(), 1, 'Keeping going is offered, quietly');
+    const doneAxe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    observations.push({ path: '/#done', colorScheme, violations: doneAxe.violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => node.target) })) });
+    await page.screenshot({ path: report + `/today-done-${colorScheme}.png`, fullPage: true });
+  }
+  await page.emulateMedia({ colorScheme: 'light' });
+  observations.push({ journey: 'Today is done for the day once the goal is met', passed: true });
 
   await open('/lesson/' + lesson.id);
   await page.locator('.section-nav .btn--primary').click();
@@ -297,7 +337,7 @@ try {
   await offlineContext.setOffline(true);
   await offlinePage.goto(base + '/course');
   await offlinePage.getByRole('heading', { name: tr('offlineTitle', 'en'), exact: true }).waitFor();
-  assert.equal(await offlinePage.locator('.today-hero').count(), 0, 'Offline reopening does not invent progress');
+  assert.equal(await offlinePage.locator('.today-plan').count(), 0, 'Offline reopening does not invent progress');
   await offlineContext.setOffline(false);
   await offlinePage.evaluate(() => window.dispatchEvent(new Event('online')));
   await offlinePage.locator('#main h1').waitFor();
@@ -326,7 +366,7 @@ try {
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   const started = Date.now();
   await coldPage.goto(base + '/');
-  await coldPage.locator('.today-hero__cta').waitFor();
+  await coldPage.locator('.today-plan').waitFor();
   const firstUsableMs = Date.now() - started;
   const resources = await coldPage.evaluate(() => performance.getEntriesByType('resource').filter(entry => entry.name.endsWith('.js')).map(entry => ({ name: entry.name.split('/').pop(), bytes: entry.decodedBodySize })));
   const javascriptBytes = resources.reduce((bytes, resource) => bytes + resource.bytes, 0);

@@ -14,6 +14,294 @@ import { narrator, registerTrap, script, them, you } from './authoring.ts';
  * is not the same sentence for both households.
  */
 
+const WORK_PRE_A1 = script({
+  id: 'sc-work-pre-a1',
+  scenarioId: 'sc-work',
+  level: 'pre-a1',
+  register: 'du',
+  partner: bi('Jana, a colleague in your new team', 'Яна, колежка от новия ти екип'),
+  goal: bi(
+    'First day at work: introduce yourself to a colleague at the coffee machine.',
+    'Първи работен ден: представи се на колежка до кафе машината.',
+  ),
+  lessonIds: ['pre-a1-u2-l3', 'pre-a1-u2-l4', 'pre-a1-u4-l2'],
+  outro: bi(
+    'Name, country, job: the three facts everybody asks for in your first week, and in the first part of a speaking exam. She chose du, so it was du all the way to Tschüss.',
+    'Име, държава, професия: трите неща, които всички питат през първата седмица, а и в първата част на устния изпит. Тя избра „du“, затова беше „du“ чак до „Tschüss“.',
+  ),
+  beats: [
+    narrator(
+      bi(
+        'Your first morning. At the coffee machine, a woman from your team smiles and says du straight away. In many German offices, colleagues do.',
+        'Първата ти сутрин. До кафе машината жена от екипа ти се усмихва и веднага минава на „du“. В много немски офиси колегите правят така.',
+      ),
+    ),
+    them('Hallo! Du bist neu hier, oder? Ich bin Jana.', bi('Hi! You are new here, aren’t you? I am Jana.', 'Здрасти! Днес ти е първият ден, нали? Аз съм Яна.'), {
+      note: bi(
+        'oder? at the end of a sentence turns it into "…, aren’t you?". It asks you to agree, not to choose.',
+        '„oder?“ в края на изречението е като нашето „нали?“. Не те пита да избираш, а да потвърдиш.',
+      ),
+    }),
+    you(
+      'sc-work-pre-a1-t1',
+      bi('Say hello and your name', 'Поздрави и кажи името си'),
+      [
+        {
+          id: 'sc-work-pre-a1-t1-s1',
+          instruction: bi('She said Hallo and du, so Hallo fits.', 'Тя каза „Hallo“ и „du“, затова „Hallo“ пасва.'),
+          prompt: bi('Say hi, and that you are Alex.', 'Поздрави я и кажи, че си Алекс.'),
+          answer: 'Hallo, ich bin Alex.',
+          alternatives: ['Hallo! Ich bin Alex.', 'Hallo, ich heiße Alex.', 'Hallo Jana, ich bin Alex.'],
+          shape: 'sentence',
+          reviewTargets: ['v-hallo', 'v-sein-verb'],
+          hints: [
+            bi('sein with ich is bin.', '„sein“ с „ich“ е „bin“.'),
+            bi('Hallo, ich b__ Alex.', 'Hallo, ich b__ Alex.'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Freut mich! Woher kommst du?', bi('Nice to meet you! Where are you from?', 'Приятно ми е! Откъде си?')),
+    you(
+      'sc-work-pre-a1-t2',
+      bi('Say where you come from', 'Кажи откъде си'),
+      [
+        {
+          id: 'sc-work-pre-a1-t2-s1',
+          prompt: bi('You come from England.', 'Ти си от Англия.'),
+          answer: 'Ich komme aus England.',
+          alternatives: ['Aus England.'],
+          shape: 'sentence',
+          reviewTargets: ['v-kommen', 'v-england'],
+          hints: [
+            bi('kommen aus: the country comes after aus.', '„kommen aus“: държавата идва след „aus“.'),
+            bi('Ich k____ aus England.', 'Ich k____ aus England.'),
+          ],
+          only: ['en'],
+        },
+      ],
+      'pre-a1',
+      ['en'],
+    ),
+    you(
+      'sc-work-pre-a1-t2-bg',
+      bi('Say where you come from', 'Кажи откъде си'),
+      [
+        {
+          id: 'sc-work-pre-a1-t2-bg-s1',
+          prompt: bi('You come from Bulgaria.', 'Ти си от България.'),
+          answer: 'Ich komme aus Bulgarien.',
+          alternatives: ['Aus Bulgarien.'],
+          shape: 'sentence',
+          reviewTargets: ['v-kommen', 'v-bulgarien'],
+          hints: [
+            bi('kommen aus: the country comes after aus.', 'На български „съм от“, на немски „идвам от“: „kommen aus“.'),
+            bi('Ich k____ aus Bulgarien.', 'Ich k____ aus Bulgarien.'),
+          ],
+          only: ['bg'],
+        },
+      ],
+      'pre-a1',
+      ['bg'],
+    ),
+    them('Cool! Und was machst du hier?', bi('Cool! And what do you do here?', 'Супер! А ти какво работиш тук?')),
+    you(
+      'sc-work-pre-a1-t3',
+      bi('Say what you do', 'Кажи какво работиш'),
+      [
+        {
+          id: 'sc-work-pre-a1-t3-s1',
+          instruction: bi(
+            'A job takes no article in German: Ich bin Ingenieur, or Ingenieurin for a woman.',
+            'Професията е без член, точно като в българския: Ich bin Ingenieur, а за жена — Ingenieurin.',
+          ),
+          prompt: bi('You are an engineer.', 'Ти си инженер.'),
+          answer: 'Ich bin Ingenieur.',
+          alternatives: ['Ich bin Ingenieurin.'],
+          shape: 'sentence',
+          reviewTargets: ['v-der-ingenieur'],
+          traps: [
+            {
+              answer: 'Ich bin ein Ingenieur.',
+              category: 'article',
+              feedback: bi(
+                'English needs the "an"; German leaves it out. Saying what you do for a living is Ich bin Ingenieur, with no ein.',
+                'Тук българският и немският са съгласни: „Аз съм инженер“, без член. „ein“ е излишно.',
+              ),
+            },
+          ],
+          hints: [
+            bi('Ich bin, then the job. Nothing in between.', '„Ich bin“, после професията. Нищо между тях.'),
+            bi('Ich bin I_________.', 'Ich bin I_________.'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+    them('Super. Bis später, und viel Glück heute!', bi('Great. See you later, and good luck today!', 'Супер. До после и успех днес!')),
+    you(
+      'sc-work-pre-a1-t4',
+      bi('Say bye', 'Сбогувай се'),
+      [
+        {
+          id: 'sc-work-pre-a1-t4-s1',
+          // Auf Wiedersehen is polite, not wrong: it is credited, and the
+          // instruction says why Tschüss is the one colleagues on du use.
+          instruction: bi(
+            'Auf Wiedersehen is never wrong, but between colleagues who say du it sounds stiff. Tschüss is their goodbye.',
+            '„Auf Wiedersehen“ никога не е грешно, но между колеги на „du“ звучи сковано. Те си казват „Tschüss“.',
+          ),
+          prompt: bi('Thank her and say bye, informally.', 'Благодари ѝ и се сбогувай неофициално.'),
+          answer: 'Danke, tschüss!',
+          alternatives: ['Danke! Tschüss!', 'Danke, bis bald!', 'Danke schön, tschüss!', 'Danke, auf Wiedersehen!', 'Danke! Auf Wiedersehen!'],
+          shape: 'phrase',
+          reviewTargets: ['v-danke', 'v-tschuess'],
+          hints: [
+            bi('Thanks, then the short goodbye between people who say du.', 'Благодаря, после краткото сбогуване между хора на „du“.'),
+            bi('Danke, t_____!', 'Danke, t_____!'),
+          ],
+        },
+      ],
+      'pre-a1',
+    ),
+  ],
+});
+
+const WORK_A1 = script({
+  id: 'sc-work-a1',
+  scenarioId: 'sc-work',
+  level: 'a1',
+  register: 'du',
+  partner: bi('Tom, at the desk next to yours', 'Том, на бюрото до твоето'),
+  goal: bi(
+    'Your second week: find out when the meeting is, find the printer, and arrange lunch.',
+    'Втората ти седмица: разбери кога е срещата, намери принтера и си уговори обяд.',
+  ),
+  lessonIds: ['a1-u2-l2', 'a1-u2-l3', 'a1-u4-l1'],
+  outro: bi(
+    'A verb that splits, a printer you had to ask for, and lunch moved by half an hour: the small talk a working week is made of, all of it in du because he started it.',
+    'Глагол, който се разделя, принтер, който трябваше да потърсиш, и обяд, преместен с половин час: от такива дребни разговори е направена работната седмица, и всичко е на „du“, защото той започна така.',
+  ),
+  beats: [
+    narrator(
+      bi(
+        'Monday of your second week. Tom, at the next desk, says du to everyone, you included.',
+        'Понеделник от втората ти седмица. Том, на съседното бюро, говори на „du“ с всички, включително с теб.',
+      ),
+    ),
+    them('Morgen! Alles gut?', bi('Morning! All good?', 'Добро утро! Всичко наред ли е?'), {
+      note: bi(
+        'Morgen! on its own is Guten Morgen with the first word dropped — what colleagues say to each other.',
+        '„Morgen!“ е „Guten Morgen“ без първата дума — така си казват колегите. Като нашето „’Утро!“.',
+      ),
+    }),
+    you(
+      'sc-work-a1-t1',
+      bi('Answer, and ask about the meeting', 'Отговори и попитай за срещата'),
+      [
+        {
+          id: 'sc-work-a1-t1-s1',
+          instruction: bi(
+            'anfangen splits: the fängt goes second, the an goes to the very end. In offices a meeting is often just das Meeting.',
+            '„anfangen“ се разделя: „fängt“ е на второ място, „an“ отива най-накрая. В офисите срещата често е просто „das Meeting“.',
+          ),
+          prompt: bi('Say all is good, and ask when the meeting starts.', 'Кажи, че всичко е наред, и попитай кога започва срещата.'),
+          answer: 'Ja, alles gut. Wann fängt das Meeting an?',
+          alternatives: ['Alles gut. Wann fängt das Meeting an?', 'Ja, danke. Wann fängt das Meeting an?', 'Ja, alles gut. Wann fängt das Meeting heute an?'],
+          shape: 'sentence',
+          reviewTargets: ['v-anfangen', 'v-wann'],
+          traps: [
+            {
+              answer: 'Ja, alles gut. Wann anfängt das Meeting?',
+              category: 'word-order',
+              feedback: bi(
+                'anfangen splits in a question too: Wann fängt das Meeting an? The an waits at the end.',
+                '„anfangen“ се разделя и във въпрос: Wann fängt das Meeting an? „an“ чака накрая.',
+              ),
+            },
+          ],
+          hints: [
+            bi('Wann, then fängt, then das Meeting, then an.', '„Wann“, после „fängt“, после „das Meeting“, после „an“.'),
+            bi('… Wann f____ das Meeting a_?', '… Wann f____ das Meeting a_?'),
+          ],
+        },
+      ],
+      'a1',
+    ),
+    them('Um zehn Uhr, in Raum drei.', bi('At ten o’clock, in room three.', 'В десет часа, в зала три.')),
+    narrator(
+      bi(
+        'You want to print the agenda, but you have no idea where the printer is.',
+        'Искаш да разпечаташ дневния ред, но нямаш представа къде е принтерът.',
+      ),
+    ),
+    you(
+      'sc-work-a1-t2',
+      bi('Ask where the printer is', 'Попитай къде е принтерът'),
+      [
+        {
+          id: 'sc-work-a1-t2-s1',
+          instruction: bi(
+            'The printer is der Drucker. After den Drucker, the pronoun is er: a masculine thing stays he.',
+            'Принтерът е „der Drucker“. След това местоимението е „er“ — също като „той“ за принтера на български.',
+          ),
+          prompt: bi('Say you cannot find the printer, and ask where it is.', 'Кажи, че не намираш принтера, и попитай къде е.'),
+          answer: 'Ich finde den Drucker nicht. Wo ist er?',
+          alternatives: ['Ich finde den Drucker nicht. Wo ist der Drucker?', 'Ich finde den Drucker nicht. Wo steht er?'],
+          shape: 'sentence',
+          reviewTargets: ['v-finden', 'v-nicht'],
+          hints: [
+            bi('finden takes the accusative: den Drucker. nicht goes at the end.', '„finden“ иска винителен падеж: „den Drucker“. „nicht“ отива накрая.'),
+            bi('Ich finde d__ Drucker nicht. Wo ist e_?', 'Ich finde d__ Drucker nicht. Wo ist e_?'),
+          ],
+        },
+      ],
+      'a1',
+    ),
+    them('Im Flur, neben der Küche. Gehen wir um zwölf in die Kantine?', bi('In the corridor, next to the kitchen. Shall we go to the canteen at twelve?', 'В коридора, до кухнята. Ще отидем ли в стола в дванайсет?')),
+    you(
+      'sc-work-a1-t3',
+      bi('Say yes, but later', 'Кажи да, но по-късно'),
+      [
+        {
+          id: 'sc-work-a1-t3-s1',
+          instruction: bi(
+            'müssen sends the second verb to the end: ich muss … arbeiten.',
+            '„müssen“ изпраща втория глагол накрая: „ich muss … arbeiten“. На български е „трябва да работя“, на немски — „трябва … работя“.',
+          ),
+          prompt: bi('Gladly, but you have to work until half past twelve.', 'С удоволствие, но трябва да работиш до дванайсет и половина.'),
+          answer: 'Gern, aber ich muss bis halb eins arbeiten.',
+          alternatives: ['Ja, gern, aber ich muss bis halb eins arbeiten.', 'Gern, aber ich arbeite bis halb eins.'],
+          shape: 'sentence',
+          reviewTargets: ['v-gern', 'v-muessen', 'v-halb'],
+          hints: [
+            bi('Half past twelve is halb eins: half on the way to one.', 'Дванайсет и половина е „halb eins“: половината път към един.'),
+            bi('Gern, aber ich muss bis halb eins a_______.', 'Gern, aber ich muss bis halb eins a_______.'),
+          ],
+        },
+      ],
+      'a1',
+    ),
+    them('Kein Problem. Dann um halb eins!', bi('No problem. Half past twelve, then!', 'Няма проблем. Тогава в дванайсет и половина!')),
+    you(
+      'sc-work-a1-t4',
+      bi('Agree', 'Съгласи се'),
+      [
+        {
+          id: 'sc-work-a1-t4-s1',
+          prompt: bi('Agree: see you then.', 'Съгласи се: до тогава.'),
+          answer: 'Super, bis dann!',
+          alternatives: ['Gut, bis dann!', 'Okay, bis dann!', 'Bis dann!'],
+          shape: 'phrase',
+          hints: [bi('Two words for "until then", after a word for great.', 'Две думи за „до тогава“, след дума за „супер“.')],
+        },
+      ],
+      'a1',
+    ),
+  ],
+});
+
 const WORK_A2 = script({
   id: 'sc-work-a2',
   scenarioId: 'sc-work',
@@ -904,6 +1192,8 @@ const KITA_B2 = script({
 });
 
 export const WORK_SCRIPTS: ScenarioScript[] = [
+  WORK_PRE_A1,
+  WORK_A1,
   WORK_A2,
   WORK_B1,
   WORK_B2,

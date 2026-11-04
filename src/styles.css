@@ -1695,6 +1695,23 @@ textarea.answer-field {
   margin-bottom: 0;
 }
 
+/* A grammar review's rule, shown once the answer is in. */
+.feedback__reminder {
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: var(--surface);
+  line-height: 1.45;
+}
+
+.feedback__reminder p {
+  margin: 0;
+}
+
+.feedback__reminder .feedback__reminder-title {
+  margin-bottom: 0.2rem;
+  font-weight: 700;
+}
+
 .diff {
   display: inline-flex;
   flex-wrap: wrap;
@@ -2138,6 +2155,11 @@ textarea.answer-field {
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.6rem;
+}
+
+.state-row__how {
+  margin: -0.2rem 0 0.75rem;
+  line-height: 1.45;
 }
 
 .collocations {
@@ -4404,12 +4426,19 @@ h4,
 
   /* A word may run half a rem into the room beside its tab before it is cut:
      five equal tabs on a 320–360px phone leave 50–58px for each, and
-     "Повторение" needs 59. Its neighbours' words are short. */
+     "Повторение" needs 59. A name of two words, "Дневна практика", takes
+     two lines rather than losing its second word to an ellipsis; the
+     ellipsis stays for a single word too long for its tab. The line height
+     and the sliver of padding keep the second line's descenders (р, y)
+     inside the clip, which cut them at 1.15. */
   .nav__label {
     max-width: calc(100% + 1rem);
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    text-align: center;
+    line-height: 1.2;
+    padding-bottom: 0.1em;
+    white-space: normal;
   }
 
   /* Room for the floating bar, plus the home indicator below it. */
@@ -4461,106 +4490,6 @@ h4,
   background: var(--warn-soft);
   color: var(--warn);
   font-weight: 700;
-}
-
-.today-hero {
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  padding: 1.4rem 1.4rem 1.25rem;
-  border-radius: 28px;
-  background: var(--hero);
-  color: var(--on-hero);
-  isolation: isolate;
-}
-
-/* Three quiet rings in the corner: the only decoration on the page. */
-.today-hero::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  right: -6rem;
-  top: -6.5rem;
-  opacity: 0.8;
-  width: 14rem;
-  height: 14rem;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle, color-mix(in srgb, var(--accent) 30%, transparent) 0 28%, transparent 29%),
-    radial-gradient(circle, transparent 0 48%, color-mix(in srgb, var(--accent) 40%, transparent) 49% 50%, transparent 51%),
-    radial-gradient(circle, transparent 0 69%, color-mix(in srgb, var(--accent) 55%, transparent) 70% 71%, transparent 72%);
-}
-
-.today-hero__eyebrow {
-  margin: 0;
-  color: var(--on-hero-soft);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.today-hero__title {
-  max-width: 18ch;
-  font-size: clamp(1.7rem, 1.4rem + 1.4vw, 2.2rem);
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-}
-
-.today-hero__detail {
-  margin: 0;
-  max-width: 40ch;
-  color: var(--on-hero-soft);
-}
-
-.today-hero__progress {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  color: var(--on-hero-soft);
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.today-hero__progress .meter {
-  flex: 1;
-  background: color-mix(in srgb, var(--on-hero) 16%, transparent);
-}
-
-.today-hero__cta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  min-height: 56px;
-  margin-top: 0.3rem;
-  padding: 0.6rem 1.2rem;
-  border-radius: 18px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 600;
-  font-size: 1.05rem;
-  text-decoration: none;
-  transition: transform var(--dur-1) var(--ease-out);
-}
-
-.today-hero__cta:hover {
-  background: color-mix(in srgb, var(--accent) 88%, black);
-}
-
-.today-hero__cta:active {
-  transform: scale(0.98);
-}
-
-.today-hero__time {
-  display: block;
-  margin-top: 0.2rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--on-hero);
 }
 
 .today-tiles {
@@ -4841,18 +4770,8 @@ h4,
     column-gap: 1.25rem;
   }
 
-  .today__head,
-  .today-hero {
+  .today__head {
     grid-column: 1 / -1;
-  }
-
-  .today-hero {
-    padding: 2rem 2.2rem 1.8rem;
-  }
-
-  .today-hero__cta {
-    align-self: flex-start;
-    min-width: 22rem;
   }
 
   .today-tiles,
@@ -6519,6 +6438,13 @@ a:hover {
   font-size: 0.85rem;
 }
 
+.vocab__rule {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .word-list {
   display: flex;
   flex-direction: column;
@@ -6701,7 +6627,6 @@ a:hover {
 
 /* On the dark cards the accent ring is too close to the card itself: the
    light ink of the card's own text shows instead. */
-.today-hero :focus-visible,
 .done-hero :focus-visible,
 .unit-path__banner :focus-visible {
   outline-color: var(--on-hero);

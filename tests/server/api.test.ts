@@ -372,7 +372,7 @@ describe('review queue', () => {
     };
     await store.recordAttempt(scopeOf(db), right, new Date('2026-03-02T08:00:00Z'));
     const morning = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
-    expect(morning).toMatchObject({ state: 'known', intervalDays: 4, successCount: 1 });
+    expect(morning).toMatchObject({ state: 'learning', learningStep: 1, successCount: 1 });
 
     // The evening lesson asks for it again: the morning's review stands.
     await store.recordAttempt(scopeOf(db), { ...right, stepId: 'other' }, new Date('2026-03-02T20:00:00Z'));
@@ -387,7 +387,7 @@ describe('review queue', () => {
       new Date('2026-03-02T21:00:00Z'),
     );
     const slipped = (await store.getReviewItem(scopeOf(db), 'vocab:v-die-tochter'))!;
-    expect(slipped.state).toBe('lapsed');
+    expect(slipped).toMatchObject({ state: 'learning', learningStep: 0, failureCount: 1 });
     expect(new Date(slipped.dueAt).getTime()).toBe(new Date('2026-03-02T21:05:00Z').getTime());
   });
 
@@ -440,9 +440,10 @@ describe('review queue', () => {
 
     const monday = new Date(Date.now() - 3 * day).toISOString();
     const graded = (await call('POST', '/api/reviews/vocab%3Av-hallo/grade', { grade: 'easy', gradedAt: monday }))
-      .body as { lastReviewAt: string; dueAt: string; intervalDays: number };
+      .body as { lastReviewAt: string; dueAt: string };
     expect(graded.lastReviewAt).toBe(monday);
-    expect(new Date(graded.dueAt).getTime()).toBe(new Date(monday).getTime() + graded.intervalDays * day);
+    // Its one-day learning step, counted from Monday.
+    expect(new Date(graded.dueAt).getTime()).toBe(new Date(monday).getTime() + day);
 
     // A phone clock years out is held to the last thirty days, and one in the
     // future to now.

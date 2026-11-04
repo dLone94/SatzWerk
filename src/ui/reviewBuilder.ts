@@ -3,11 +3,12 @@ import {
   VOCABULARY,
   allCheckpoints,
   allLessons,
+  grammarById,
   patternById,
   vocabById,
 } from '../content/browser.ts';
 import { bi, dictation, exercise, fillBlank, typeIt } from '../content/authoring.ts';
-import type { Exercise, ExerciseStep, TeachingLanguage, VocabEntry } from '../content/types.ts';
+import type { Exercise, ExerciseKind, ExerciseStep, TeachingLanguage, VocabEntry } from '../content/types.ts';
 import type { ReviewItem } from '../core/srs/scheduler.ts';
 
 /**
@@ -155,9 +156,67 @@ function patternExercise(patternId: string): Exercise | null {
   ]), level: pattern.level, only: pattern.only };
 }
 
+/**
+ * The kinds of authored step a grammar review may ask again on its own: each
+ * wants the German produced, and none needs the steps around it. Choices only
+ * ask for recognition, dictation tests the ear, and open writing is not
+ * marked right or wrong.
+ */
+const GRAMMAR_RETRIEVAL: ReadonlySet<ExerciseKind> = new Set([
+  'type',
+  'fillBlank',
+  'partialRecall',
+  'articleRecall',
+  'conjugation',
+]);
+
+const onPath = (scoped: { only?: TeachingLanguage[] }, lang?: TeachingLanguage) =>
+  !scoped.only || (lang !== undefined && scoped.only.includes(lang));
+
+/**
+ * A grammar concept asked for, not shown.
+ *
+ * Due grammar used to be a card with the rule written out beside Again,
+ * Hard, Good and Easy, so it was graded with the answer in view and nothing
+ * attempted. Now it is one of the course's own steps that practise that
+ * concept, typed and graded like any other answer, and the rule is shown only
+ * once it has been answered (`reminder`). The step changes from one review to
+ * the next, so it is the grammar that is remembered and not one sentence.
+ *
+ * The step keeps its id, so a slip here is filed against the question it
+ * came from and the mistake bank can ask it again; it schedules only the
+ * concept, since the words in it have reviews of their own. Null when the
+ * course has no such step on this path, loaded and not yet used in this
+ * round.
+ */
+function grammarExercise(item: ReviewItem, lang: TeachingLanguage | undefined, taken: Set<string>): Exercise | null {
+  const concept = grammarById(item.refId);
+  if (!concept) return null;
+  const candidates = (grammarSteps().get(item.refId) ?? []).filter(
+    ({ exercise, step }) =>
+      GRAMMAR_RETRIEVAL.has(exercise.kind) &&
+      onPath(exercise, lang) &&
+      onPath(step, lang) &&
+      step.answer.accepted.length > 0 &&
+      !taken.has(step.id),
+  );
+  if (candidates.length === 0) return null;
+  const { exercise, step } = candidates[(item.successCount + item.failureCount) % candidates.length]!;
+  taken.add(step.id);
+  return {
+    ...exercise,
+    id: `rv-${item.refId}`,
+    steps: [{ ...step, reviewTargets: [item.refId] }],
+    reminder: { title: concept.title, body: concept.summary },
+  };
+}
+
 export interface ReviewBuild {
   exercises: Exercise[];
-  /** Items that cannot be reviewed by typing; graded by self-assessment. */
+  /**
+   * Items that cannot be reviewed by typing; graded by self-assessment. Only
+   * a grammar concept with no authored step to ask on this path lands here.
+   */
   conceptItems: ReviewItem[];
 }
 
@@ -171,6 +230,7 @@ export function reviewItemsForPath(items: ReviewItem[], lang: TeachingLanguage):
 export function buildReviewExercises(items: ReviewItem[], lang?: TeachingLanguage): ReviewBuild {
   const exercises: Exercise[] = [];
   const conceptItems: ReviewItem[] = [];
+  const taken = new Set<string>();
   let typedIndex = 0;
 
   for (const item of lang ? reviewItemsForPath(items, lang) : items) {
@@ -188,6 +248,13 @@ export function buildReviewExercises(items: ReviewItem[], lang?: TeachingLanguag
         typedIndex += 1;
       }
       continue;
+    }
+    if (item.kind === 'grammar') {
+      const built = grammarExercise(item, lang, taken);
+      if (built) {
+        exercises.push(built);
+        continue;
+      }
     }
     conceptItems.push(item);
   }
@@ -208,15 +275,41 @@ let stepIndex: Map<string, { exercise: Exercise; step: ExerciseStep }> | null = 
 export function authoredStep(id: string): { exercise: Exercise; step: ExerciseStep } | undefined {
   if (!stepIndex) {
     stepIndex = new Map();
-    const exercises = [
-      ...allLessons().flatMap((lesson) => [...lesson.exercises, ...lesson.mastery.exercises]),
-      ...allCheckpoints()
-        .filter((checkpoint) => checkpoint.scope !== 'placement')
-        .flatMap((checkpoint) => checkpoint.exercises),
-    ];
-    for (const exercise of exercises) for (const step of exercise.steps) stepIndex.set(step.id, { exercise, step });
+    for (const exercise of authoredExercises()) for (const step of exercise.steps) stepIndex.set(step.id, { exercise, step });
   }
   return stepIndex.get(id);
+}
+
+function authoredExercises(): Exercise[] {
+  return [
+    ...allLessons().flatMap((lesson) => [...lesson.exercises, ...lesson.mastery.exercises]),
+    ...allCheckpoints()
+      .filter((checkpoint) => checkpoint.scope !== 'placement')
+      .flatMap((checkpoint) => checkpoint.exercises),
+  ];
+}
+
+/**
+ * The same steps, by the grammar concepts they practise, in course order.
+ * Built from the catalog, whose steps are filled in place when a level loads,
+ * so whether a step has its answers yet is checked where it is used.
+ */
+let grammarIndex: Map<string, Array<{ exercise: Exercise; step: ExerciseStep }>> | null = null;
+function grammarSteps(): Map<string, Array<{ exercise: Exercise; step: ExerciseStep }>> {
+  if (!grammarIndex) {
+    grammarIndex = new Map();
+    for (const exercise of authoredExercises()) {
+      for (const step of exercise.steps) {
+        for (const target of step.reviewTargets ?? []) {
+          if (!grammarById(target)) continue;
+          const list = grammarIndex.get(target);
+          if (list) list.push({ exercise, step });
+          else grammarIndex.set(target, [{ exercise, step }]);
+        }
+      }
+    }
+  }
+  return grammarIndex;
 }
 
 /** What practice needs to know about a row of the mistake bank. */
