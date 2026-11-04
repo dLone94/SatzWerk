@@ -8,7 +8,7 @@ import type { MistakeRecord, ScenarioRun } from '../services/api/client.ts';
 import { buildMistakePractice, buildReviewExercises, mistakePracticeId } from './reviewBuilder.ts';
 import { dailyPatternId } from '../content/dailyPatterns.ts';
 import { otherExamples, phraseFrame } from '../content/phraseFrames.ts';
-import { todayHere } from '../core/progress/days.ts';
+import { localDay, todayHere } from '../core/progress/days.ts';
 
 const TOPICS: Record<LearningGoal, string[]> = {
   everyday: ['sc-bakery', 'sc-supermarket', 'sc-neighbours', 'sc-doctor', 'sc-pharmacy', 'sc-apartment', 'sc-kita', 'sc-buergeramt'],
@@ -39,8 +39,14 @@ const dayNumber = (day: string) => Math.floor(Date.parse(`${day}T00:00:00Z`) / D
  * that, an unplayed conversation comes first, then one still needing
  * practice, then the one left longest; the date settles the remaining ties,
  * so two days in a row differ even for somebody who has played nothing yet.
+ *
+ * `offsetMinutes` is where the learner is, for the reminder job: it runs on a
+ * server in UTC, and without it a conversation played just after midnight in
+ * Sofia counted as played the day before, so the reminder could name a
+ * different conversation from the one the page then offered.
  */
-export function chooseDailyScript(goal: LearningGoal, level: CefrLevel, runs: ScenarioRun[], day: string): ScenarioScript {
+export function chooseDailyScript(goal: LearningGoal, level: CefrLevel, runs: ScenarioRun[], day: string,
+  offsetMinutes?: number): ScenarioScript {
   const atLevel = SCENARIO_SCRIPTS.filter(script => script.level === level);
   const available = atLevel.length > 0 ? atLevel : SCENARIO_SCRIPTS.filter(script => script.level === 'pre-a1');
   const own = available.filter(script => fitsGoal(script, goal));
@@ -50,7 +56,8 @@ export function chooseDailyScript(goal: LearningGoal, level: CefrLevel, runs: Sc
     const run = runs.find(run => run.scriptId === script.id);
     const at = run ? new Date(run.lastRunAt) : undefined;
     // The day it was played, on the same calendar as `day`: the learner's own.
-    const played = at && !Number.isNaN(at.getTime()) ? dayNumber(todayHere(at)) : -Infinity;
+    const played = at && !Number.isNaN(at.getTime())
+      ? dayNumber(offsetMinutes === undefined ? todayHere(at) : localDay(at, offsetMinutes)) : -Infinity;
     return {
       script,
       resting: today - played <= 1 ? 1 : 0,

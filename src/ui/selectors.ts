@@ -540,6 +540,22 @@ export function standingPlacement(
   return workedSince ? undefined : (latest.targetId as CefrLevel);
 }
 
+/**
+ * The level daily practice is at when the learner has not chosen one.
+ *
+ * A placement not yet acted on says where the learner is better than an empty
+ * lesson history, which said Pre-A1 to everybody who had just been placed.
+ * Here rather than beside the picker because the reminder job on the server
+ * names today's practice too, and has to arrive at the same level.
+ */
+export function inferredPracticeLevel(
+  lessons: Record<string, LessonProgress>,
+  checkpointResults: CheckpointResult[] = [],
+): CefrLevel {
+  return standingPlacement(lessons, checkpointResults) ??
+    buildLessonViews(lessons).filter((view) => view.started || view.complete).at(-1)?.lesson.level ?? 'pre-a1';
+}
+
 /** Where the learner's part of the course begins: the placed level's first lesson, or the first of all. */
 function placedIndex(views: LessonView[], placed?: CefrLevel): number {
   return placed ? Math.max(0, views.findIndex((view) => view.lesson.level === placed)) : 0;

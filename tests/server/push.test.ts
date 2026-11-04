@@ -31,7 +31,7 @@ describe('when a reminder may be sent', () => {
   });
 
   it('sends when something is due and nothing went out today', () => {
-    expect(decideReminder(5, { lastSentAt: null })).toEqual({ send: true, dueCount: 5 });
+    expect(decideReminder(5, { lastSentAt: null })).toEqual({ send: true, dueCount: 5, kind: 'due' });
   });
 
   it('sends at most once a day, so a re-run cannot double up', () => {

@@ -462,6 +462,16 @@ const MIGRATIONS: Migration[] = [
     // out because a migration records what was true when it ran.
     sql: `UPDATE review_items SET state = 'learning' WHERE state = 'known' AND interval_days < 5;`,
   },
+  {
+    version: 11,
+    name: 'where a reminder is going, so it knows the learner’s day',
+    // A reminder must not go out on a day the learner has already studied,
+    // and their study days are filed on their own calendar. The job runs on
+    // a server in UTC, so each device says how far from UTC it is when it
+    // subscribes. Empty for older subscriptions, which are read as UTC, the
+    // rule they were sent under until now.
+    sql: `ALTER TABLE push_subscriptions ADD COLUMN tz_offset_minutes INTEGER;`,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
