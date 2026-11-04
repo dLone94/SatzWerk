@@ -29,10 +29,11 @@ const lesson1: Lesson = {
   estimatedMinutes: 15,
   title: bi('Sounds and four extra letters', 'Звуковете и четирите допълнителни букви'),
   objective: bi(
-    'After this lesson you will be able to read German words aloud with the right sounds and type ä, ö, ü and ß correctly.',
-    'След този урок ще можеш да четеш немски думи на глас с правилните звукове и да пишеш правилно ä, ö, ü и ß.',
+    'After this lesson you will be able to say hello, thank you and your name, read German words aloud with the right sounds, and type ä, ö, ü and ß correctly.',
+    'След този урок ще можеш да поздравиш, да благодариш и да кажеш името си, да четеш немски думи на глас с правилните звукове и да пишеш правилно ä, ö, ü и ß.',
   ),
   outcomes: [
+    bi('I can say hello, thank you, bye and my name.', 'Мога да поздравя, да благодаря, да се сбогувам и да кажа името си.'),
     bi('I can pronounce ä, ö, ü and ß.', 'Мога да изговарям ä, ö, ü и ß.'),
     bi('I know that w sounds like v and s can sound like z.', 'Знам, че w се чете като в, а s може да звучи като з.'),
     bi('I can read ch, sch, st, sp, au, eu and j aloud.', 'Мога да чета на глас ch, sch, st, sp, au, eu и j.'),
@@ -40,17 +41,46 @@ const lesson1: Lesson = {
   ],
   vocabIds: ['v-das-alphabet', 'v-der-buchstabe'],
   grammarIds: ['g-special-letters'],
+  /*
+   * Something to say first, then the sounds in small pieces.
+   *
+   * This lesson was six reading screens about pronunciation before the first
+   * answer, and the first thing typed was "heisse" rewritten as "heiße". Now
+   * the first screen is four phrases with recordings and the second is typing
+   * them; after that each screen of sounds is followed by its own short try,
+   * so by the summary the practice is done and the final check is next.
+   * The section ids are the ones learners have already read.
+   */
   sections: [
     {
       id: 'u1l1-intro',
       kind: 'intro',
-      title: bi('Why start here', 'Защо започваме оттук'),
+      title: bi('Your first German', 'Първите ти думи на немски'),
       blocks: [
         {
           t: 'p',
           text: bi(
-            'German spelling is remarkably honest. Once you know the letters, you can read almost any word aloud correctly, even one you have never seen. That is a real advantage, and it is worth ten minutes up front.',
-            'Немският правопис е забележително честен. Щом научиш буквите, можеш да прочетеш на глас почти всяка дума правилно, дори непозната. Това е истинско предимство и си заслужава десет минути в началото.',
+            'Four things you can say today. Press Play on each one, listen, and say it aloud.',
+            'Четири неща, които можеш да кажеш още днес. Натисни „Пусни“ на всяко, слушай и го кажи на глас.',
+          ),
+        },
+        { t: 'de', de: 'Hallo!', gloss: bi('Hello!', 'Здравей!'), audio: true },
+        { t: 'de', de: 'Ich heiße Teo.', gloss: bi('My name is Teo.', 'Казвам се Тео.'), audio: true },
+        { t: 'de', de: 'Danke!', gloss: bi('Thank you!', 'Благодаря!'), audio: true },
+        { t: 'de', de: 'Tschüss!', gloss: bi('Bye!', 'Чао!'), audio: true },
+        {
+          t: 'callout',
+          tone: 'tip',
+          text: bi(
+            'Say your own name after "Ich heiße". The ß in heiße is one of four letters German has on top of the English alphabet; they come next.',
+            'След „Ich heiße“ кажи собственото си име. ß в heiße е една от четирите букви, които немският има в повече от латиницата; те са следващите.',
+          ),
+        },
+        {
+          t: 'p',
+          text: bi(
+            'Each of these is said just as it is written, and that holds for almost every German word: once you know the letters, you can read aloud a word you have never seen. The rest of this lesson is the letters.',
+            'Всяка от тези думи се чете точно както се пише — и това важи за почти всяка немска дума: щом знаеш буквите, можеш да прочетеш на глас и дума, която виждаш за пръв път. Останалата част от урока е за буквите.',
           ),
         },
         {
@@ -70,6 +100,7 @@ const lesson1: Lesson = {
           ),
         },
       ],
+      tryIt: ['u1l1-ex0'],
     },
     {
       id: 'u1l1-letters',
@@ -77,35 +108,7 @@ const lesson1: Lesson = {
       title: bi('The four extra letters', 'Четирите допълнителни букви'),
       blocks: [],
       grammarId: 'g-special-letters',
-    },
-    {
-      id: 'u1l1-traps',
-      kind: 'pronunciation',
-      title: bi('Letters that surprise everyone', 'Букви, които изненадват всички'),
-      blocks: [
-        {
-          t: 'table',
-          headers: [bi('Letter', 'Буква'), bi('Sounds like', 'Звучи като'), bi('Example', 'Пример')],
-          rows: [
-            ['w', bi('English v', 'българско в'), bi('wohnen — VOH-nen', 'wohnen — „ВО-нен“')],
-            ['v', bi('English f', 'българско ф'), bi('vier — FEER', 'vier — „ФИР“')],
-            ['z', bi('ts', 'ц'), bi('zwei — TSVY', 'zwei — „ЦВАЙ“')],
-            ['s', bi('z before a vowel', 'з пред гласна'), bi('lesen — LAY-zen, sieben — ZEE-ben', 'lesen — „ЛЕ-зен“, sieben — „ЗИ-бен“')],
-            ['ei', bi('like "eye"', 'ай'), bi('heißen — HY-sen', 'heißen — „ХАЙ-сен“')],
-            ['ie', bi('like "ee"', 'и'), bi('vier — FEER', 'vier — „ФИР“')],
-          ],
-        },
-        {
-          t: 'callout',
-          tone: 'warn',
-          text: bi(
-            'The last two rows catch everyone: "ei" is said "eye", and "ie" is said "ee". So "heißen" begins like the English word "nice", and "vier" sounds like "fear".',
-            'Последните два реда объркват всички: „ei“ се чете „ай“, а „ie“ се чете „и“. Значи „heißen“ е „хайсен“, а „vier“ е „фир“.',
-          ),
-        },
-        { t: 'de', de: 'Ich heiße Teo.', gloss: bi('My name is Teo.', 'Казвам се Тео.'), audio: true },
-        { t: 'de', de: 'Wir wohnen in Hamburg.', gloss: bi('We live in Hamburg.', 'Живеем в Хамбург.'), audio: true },
-      ],
+      tryIt: ['u1l1-ex1'],
     },
     {
       id: 'u1l1-typing',
@@ -142,6 +145,37 @@ const lesson1: Lesson = {
           ),
         },
       ],
+      tryIt: ['u1l1-ex2'],
+    },
+    {
+      id: 'u1l1-traps',
+      kind: 'pronunciation',
+      title: bi('Letters that surprise everyone', 'Букви, които изненадват всички'),
+      blocks: [
+        {
+          t: 'table',
+          headers: [bi('Letter', 'Буква'), bi('Sounds like', 'Звучи като'), bi('Example', 'Пример')],
+          rows: [
+            ['w', bi('English v', 'българско в'), bi('wohnen — VOH-nen', 'wohnen — „ВО-нен“')],
+            ['v', bi('English f', 'българско ф'), bi('vier — FEER', 'vier — „ФИР“')],
+            ['z', bi('ts', 'ц'), bi('zwei — TSVY', 'zwei — „ЦВАЙ“')],
+            ['s', bi('z before a vowel', 'з пред гласна'), bi('lesen — LAY-zen, sieben — ZEE-ben', 'lesen — „ЛЕ-зен“, sieben — „ЗИ-бен“')],
+            ['ei', bi('like "eye"', 'ай'), bi('heißen — HY-sen', 'heißen — „ХАЙ-сен“')],
+            ['ie', bi('like "ee"', 'и'), bi('vier — FEER', 'vier — „ФИР“')],
+          ],
+        },
+        {
+          t: 'callout',
+          tone: 'warn',
+          text: bi(
+            'The last two rows catch everyone: "ei" is said "eye", and "ie" is said "ee". So "heißen" begins like the English word "nice", and "vier" sounds like "fear".',
+            'Последните два реда объркват всички: „ei“ се чете „ай“, а „ie“ се чете „и“. Значи „heißen“ е „хайсен“, а „vier“ е „фир“.',
+          ),
+        },
+        { t: 'de', de: 'Ich heiße Teo.', gloss: bi('My name is Teo.', 'Казвам се Тео.'), audio: true },
+        { t: 'de', de: 'Wir wohnen in Hamburg.', gloss: bi('We live in Hamburg.', 'Живеем в Хамбург.'), audio: true },
+      ],
+      tryIt: ['u1l1-ex1b'],
     },
     {
       id: 'u1l1-more-sounds',
@@ -175,6 +209,7 @@ const lesson1: Lesson = {
         { t: 'de', de: 'Ja, die Stadt ist schön.', gloss: bi('Yes, the city is beautiful.', 'Да, градът е красив.'), audio: true },
         { t: 'de', de: 'Der Hund ist acht Jahre alt.', gloss: bi('The dog is eight years old.', 'Кучето е на осем години.'), audio: true },
       ],
+      tryIt: ['u1l1-ex3'],
     },
     {
       id: 'u1l1-summary',
@@ -184,6 +219,7 @@ const lesson1: Lesson = {
         {
           t: 'list',
           items: [
+            bi('Hallo! Danke! Ich heiße … Tschüss! You can say these already.', 'Hallo! Danke! Ich heiße … Tschüss! Вече можеш да ги кажеш.'),
             bi('ä ö ü ß are separate letters with their own sounds.', 'ä ö ü ß са отделни букви със свои звукове.'),
             bi('w = v, v = f, z = ts, s between vowels = z.', 'w = в, v = ф, z = ц, s между гласни = з.'),
             bi('ei = "eye", ie = "ee".', 'ei = „ай“, ie = „и“.'),
@@ -196,7 +232,44 @@ const lesson1: Lesson = {
       ],
     },
   ],
+  /*
+   * Listed in the order the sections ask for them, which is also the order
+   * the exercises play in if any are left after the reading. Step ids are
+   * fixed where learners already have answers stored against them.
+   */
   exercises: [
+    typeIt('u1l1-ex0', bi('Your first German', 'Първите ти думи на немски'), [
+      {
+        prompt: bi('Hello!', 'Здравей!'),
+        instruction: bi('Type it in German: the words you just heard.', 'Напиши го на немски — думите, които току-що чу.'),
+        answer: 'Hallo',
+        shape: 'word',
+        reviewTargets: ['v-hallo'],
+        hints: [
+          bi('It starts with H, like the English word.', 'Започва с H.'),
+          bi('Hallo — like "hello", with an a.', 'Hallo — като „ало“ по телефона, с H отпред.'),
+        ],
+      },
+      {
+        prompt: bi('Thank you!', 'Благодаря!'),
+        answer: 'Danke',
+        shape: 'word',
+        reviewTargets: ['v-danke'],
+        hints: [bi('Five letters, starting with D.', 'Пет букви, започва с D.'), bi('Danke', 'Danke')],
+      },
+      {
+        prompt: bi('My name is Teo.', 'Казвам се Тео.'),
+        answer: 'Ich heiße Teo.',
+        // What the same prompt takes in unit 2, where the other two are taught.
+        alternatives: ['Mein Name ist Teo.', 'Ich bin Teo.'],
+        reviewTargets: ['p-ich-heisse'],
+        hints: [
+          bi('Start with "Ich heiße", then the name.', 'Започни с „Ich heiße“, после името.'),
+          bi('ß has a button under the field. Without it, type ss for now.', 'За ß има бутон под полето. Без него засега напиши ss.'),
+        ],
+      },
+    ]),
+
     multipleChoice(
       'u1l1-ex1',
       bi('First listening: hear the difference', 'Първо слушане: чуй разликата'),
@@ -216,20 +289,6 @@ const lesson1: Lesson = {
           hints: [
             bi('Listen for the rounded lips on the first vowel.', 'Слушай за закръглените устни при първата гласна.'),
           ],
-        },
-        {
-          id: 'u1l1-ex1-s2',
-          prompt: bi('Listen. Which word did you hear?', 'Слушай. Коя дума чу?'),
-          instruction: LISTEN_AND_CHOOSE,
-          audio: { text: 'vier', hideText: true },
-          choices: [
-            { id: 'a', de: 'wir', gloss: bi('we', 'ние') },
-            { id: 'b', de: 'vier', gloss: bi('four', 'четири') },
-          ],
-          correct: 'b',
-          answer: 'vier',
-          shape: 'word',
-          hints: [bi('German v sounds like f.', 'Немското v звучи като ф.')],
         },
       ],
       'listenChoose',
@@ -277,6 +336,30 @@ const lesson1: Lesson = {
         },
       ],
       ['g-special-letters'],
+    ),
+
+    // The wir/vier step was the second half of the first listening exercise.
+    // It keeps its id, so answers already given to it still count.
+    multipleChoice(
+      'u1l1-ex1b',
+      bi('Listen: w or v?', 'Слушай: w или v?'),
+      [
+        {
+          id: 'u1l1-ex1-s2',
+          prompt: bi('Listen. Which word did you hear?', 'Слушай. Коя дума чу?'),
+          instruction: LISTEN_AND_CHOOSE,
+          audio: { text: 'vier', hideText: true },
+          choices: [
+            { id: 'a', de: 'wir', gloss: bi('we', 'ние') },
+            { id: 'b', de: 'vier', gloss: bi('four', 'четири') },
+          ],
+          correct: 'b',
+          answer: 'vier',
+          shape: 'word',
+          hints: [bi('German v sounds like f.', 'Немското v звучи като ф.')],
+        },
+      ],
+      'listenChoose',
     ),
 
     dictation('u1l1-ex3', bi('Listen and type', 'Слушай и напиши'), [
@@ -337,8 +420,8 @@ const lesson1: Lesson = {
     {
       t: 'p',
       text: bi(
-        'You can now read German letters correctly and type the four special ones. Next: why every German noun arrives with a small word in front of it.',
-        'Вече можеш да четеш немските букви правилно и да пишеш четирите специални. Следва: защо всяко немско съществително идва с малка дума пред себе си.',
+        'You can now say hello, thank you and your name, read German letters correctly and type the four special ones. Next: why every German noun arrives with a small word in front of it.',
+        'Вече можеш да поздравиш, да благодариш и да кажеш името си, да четеш немските букви правилно и да пишеш четирите специални. Следва: защо всяко немско съществително идва с малка дума пред себе си.',
       ),
     },
   ],

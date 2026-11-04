@@ -454,6 +454,9 @@ export const UI = {
   lessonStageRead: s('Read', 'Четене'),
   lessonStagePractise: s('Practise', 'Упражнения'),
   lessonStageCheck: s('Final check', 'Финална проверка'),
+  // A section's own short try, between the reading screens.
+  lessonTryIt: s('Try it', 'Опитай'),
+  lessonPhaseTry: s('Your turn', 'Твой ред'),
   lessonPhasePractice: s('Practice', 'Упражнения'),
   lessonPhaseMastery: s('Final check', 'Финална проверка'),
   lessonBackToLesson: s('Back to the lesson', 'Обратно към урока'),

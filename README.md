@@ -401,7 +401,7 @@ than about grammar.
 | 5. Natural spoken German | Did you get my message? · Got a second? · Didn’t see it | the unit that admits what the previous eighty lessons could not: a learner who has done all of them can read a rental contract and still lose the thread at a lunch table. Not because the grammar changes — it does not — but because speech swaps words (bekommen → *kriegen*, sehen → *gucken*, funktionieren → *klappen*), deletes sounds (*Haste mal kurz?* is four words said as two, *’ne Frage* is eine) and rearranges sentences (*Hab ich nicht gesehen* deletes the first slot; *Der ist echt gut, der Film* adds an afterthought; *ne?* asks for agreement without agreeing with anything). All three lessons are taught **for listening**, and every exercise asks for the full form from the spoken one rather than the other way round: nobody has ever been thought rude for saying *bekommen*, while failing to understand *Haste mal kurz?* stops a conversation dead. Here English transfers on one of the three — it drops subjects the same casual way — but builds its tag questions by rule where German has one invariant *ne?*; Bulgarian has the invariant tag already („нали?“) and moves constituents freely, so what it lacks is the verb-second frame the deletions happen inside |
 | | **B2 level checkpoint** | all five units with no hints, 80% to pass, and built around the question B2 is actually about: *can you tell which room you are in?* Every level below had one right answer per prompt; here the same fact has two correct forms and only one belongs where you are standing, so the checkpoint asks for the same content twice — *Hast du meine Nachricht gekriegt?* to a colleague and *Haben Sie meine Nachricht erhalten?* in an email — and marks the pair rather than the sentence |
 
-Across those 84 lessons that is 655 vocabulary entries, 83 grammar concepts, 683 exercises and **2013
+Across those 84 lessons that is 655 vocabulary entries, 83 grammar concepts, 685 exercises and **2016
 answer tasks** (including all thirty-three checkpoints and the placement check), across 427 teaching sections,
 all authored in both paths. Only 1.0% of those tasks are multiple choice; the
 rest require typing German. 165 of them carry an authored trap answer — a
@@ -495,7 +495,16 @@ sentences are some of the exercises, and passing the final check settles the
 accuracy rule; `lessonStages()` builds the steps from the requirements, so all
 three done is exactly every requirement met. Scrolling through completes nothing.
 If practice accuracy falls below 70%, a short redo of just the missed steps is
-inserted automatically before the final check.
+inserted automatically before the final check. A lesson once completed stays
+completed when its content later grows.
+
+A teaching section can name exercises to try straight after it (`tryIt`), so
+the practice comes in small pieces between explanations rather than all after
+them. Lesson 1 uses this throughout: its first screen is four useful phrases
+with recordings (*Hallo!*, *Ich heiße Teo.*, *Danke!*, *Tschüss!*), its second
+is typing them, and every screen of sounds after that is followed by a short
+listen-and-choose, a rewrite with ä/ö/ü/ß or a dictation. By the summary the
+practice is done and the final check is next.
 
 A first try cannot be taken again, so the accuracy condition is also met by
 passing the final check: otherwise a beginner whose first attempt went badly

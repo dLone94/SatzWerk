@@ -208,6 +208,17 @@ export interface TeachingSection extends PathScoped {
    * place while still letting a lesson add its own framing around it.
    */
   grammarId?: string;
+  /**
+   * Exercises of this lesson to answer straight after reading the section,
+   * before the next one opens.
+   *
+   * A run of reading screens is where a beginner gives up: lesson 1 was six
+   * of them about sounds before the first answer. A section that names an
+   * exercise here is followed by it, so the practice comes in small pieces
+   * between the explanations. The answers are ordinary practice answers;
+   * whatever is left unanswered is played in the exercises afterwards.
+   */
+  tryIt?: string[];
 }
 
 export interface GrammarConcept {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { lessonById, sectionBlocks, unitForLesson, vocabById } from '../../content/browser.ts';
-import type { Lesson, TeachingSection } from '../../content/types.ts';
+import { isVisible, type Lesson, type TeachingSection } from '../../content/types.ts';
 import {
   allStepIds,
   isLessonComplete,
@@ -16,7 +16,7 @@ import { nextAction } from '../selectors.ts';
 import { Blocks, Card, EmptyState, Meter, ScoreRing, VocabRow } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 
-type Stage = 'overview' | 'sections' | 'practice' | 'recovery' | 'mastery' | 'saving' | 'done';
+type Stage = 'overview' | 'sections' | 'try' | 'practice' | 'recovery' | 'mastery' | 'saving' | 'done';
 
 /*
  * One page per lesson.
@@ -67,6 +67,8 @@ function LessonView() {
   const [finished, setFinished] = useState(false);
   /** The Quick redo's questions, fixed when it starts. */
   const [recoverySteps, setRecoverySteps] = useState<string[]>([]);
+  /** A section's own try: its questions not yet answered, fixed when it starts. */
+  const [trySteps, setTrySteps] = useState<string[]>([]);
   /** A result is being saved; a second one must not be sent meanwhile. */
   const saving = useRef(false);
   /**
@@ -128,6 +130,27 @@ function LessonView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, section?.id, lesson?.id]);
 
+  /*
+   * The practice is done: on to the final check, by way of a Quick redo if
+   * the first tries went badly. Where the practice ended does not matter — the
+   * exercises, or the last of a lesson's tries between its sections.
+   */
+  const routeToCheck = useCallback(() => {
+    if (!lesson) return;
+    const latest = lessonProgress(lesson.id);
+    if (needsRecovery(lesson, latest)) {
+      void recordRecovery(lesson.id);
+      // Fixed here, not worked out on every render while the round runs.
+      const stepIds = recoveryStepIds(lesson, latest);
+      if (stepIds.length > 0) {
+        setRecoverySteps(stepIds);
+        setStage('recovery');
+        return;
+      }
+    }
+    setStage('mastery');
+  }, [lesson, lessonProgress, recordRecovery]);
+
   const onPracticeFinish = useCallback(
     async (summary: PlayerSummary) => {
       setLastSummary(summary);
@@ -149,19 +172,9 @@ function LessonView() {
         setStage('done');
         return;
       }
-      if (needsRecovery(lesson, latest)) {
-        void recordRecovery(lesson.id);
-        // Fixed here, not worked out on every render while the round runs.
-        const stepIds = recoveryStepIds(lesson, latest);
-        if (stepIds.length > 0) {
-          setRecoverySteps(stepIds);
-          setStage('recovery');
-          return;
-        }
-      }
-      setStage('mastery');
+      routeToCheck();
     },
-    [lesson, lessonProgress, recordRecovery, completeLesson],
+    [lesson, lessonProgress, routeToCheck, completeLesson],
   );
 
   const onMasteryFinish = useCallback(
@@ -236,10 +249,13 @@ function LessonView() {
    * the list does not shrink under the learner as they answer.
    */
   const startPractice = () => {
+    // The latest, not this render's: a try between sections may just have
+    // answered some of these.
+    const latest = lessonProgress(lesson.id);
     const all = allStepIds(lesson);
-    const open = all.filter((id) => !progress.practice[id]?.resolved);
+    const open = all.filter((id) => !latest.practice[id]?.resolved);
     setResumeSteps(open.length > 0 && open.length < all.length ? open : undefined);
-    finishingOpen.current = progress.mastery.passed && !complete;
+    finishingOpen.current = latest.mastery.passed && !isLessonComplete(lesson, latest);
     setReadingToFinish(false);
     setStage('practice');
   };
@@ -254,14 +270,67 @@ function LessonView() {
     : practiceUnderway
       ? t('lessonContinueExercises')
       : t('lessonToExercises');
-  const mainGoesToPractice = allSectionsSeen && practiceUnderway && !complete;
+  /*
+   * Every exercise answered and the check still to pass. A lesson whose
+   * practice sits between its sections gets here at the end of the reading,
+   * and "Replay the exercises" there would have sent the learner through all
+   * of them again to reach the check.
+   */
+  const readyForCheck = allResolved && !progress.mastery.passed && !complete;
+  const mainGoesToCheck = allSectionsSeen && readyForCheck;
+  const mainGoesToPractice = !mainGoesToCheck && allSectionsSeen && practiceUnderway && !complete;
   const mainLabel = complete
     ? t('lessonReadAgain')
     : !started
       ? t('lessonStart')
-      : mainGoesToPractice
-        ? exercisesLabel
-        : t('lessonContinueReading');
+      : mainGoesToCheck
+        ? t('lessonMastery')
+        : mainGoesToPractice
+          ? exercisesLabel
+          : t('lessonContinueReading');
+
+  /*
+   * A lesson whose practice sits between its sections is not offered "the
+   * exercises" while the reading is unfinished: they are the reading's own
+   * tries, and played on their own they would come without the sections that
+   * set them up. One way on, not two.
+   */
+  const readingHoldsPractice = !allSectionsSeen && !complete && lesson.sections.some((item) => item.tryIt?.length);
+
+  /** A section's try, less what has already been answered. */
+  const openTrySteps = (item: TeachingSection): string[] => {
+    if (!item.tryIt?.length) return [];
+    const latest = lessonProgress(lesson.id);
+    return lesson.exercises
+      .filter((exercise) => item.tryIt!.includes(exercise.id) && isVisible(exercise, lang))
+      .flatMap((exercise) => exercise.steps.filter((step) => isVisible(step, lang)))
+      .map((step) => step.id)
+      .filter((id) => !latest.practice[id]?.resolved);
+  };
+
+  /*
+   * Past the section on screen: to the next one, or from the last one to
+   * whatever comes after the reading. Read from the latest progress, since a
+   * try that has just finished has changed it.
+   */
+  const leaveSection = () => {
+    if (sectionIndex + 1 < sections.length) {
+      setSectionIndex((index) => index + 1);
+      setStage('sections');
+      return;
+    }
+    if (readingToFinish) {
+      void onReadingFinish();
+      return;
+    }
+    const latest = lessonProgress(lesson.id);
+    const everyAnswered = allStepIds(lesson).every((id) => latest.practice[id]?.resolved);
+    if (everyAnswered && !latest.mastery.passed && !isLessonComplete(lesson, latest)) {
+      routeToCheck();
+      return;
+    }
+    startPractice();
+  };
 
   if (stage === 'practice') {
     return (
@@ -333,6 +402,7 @@ function LessonView() {
   }
 
   if (stage === 'sections' && section) {
+    const sectionTry = openTrySteps(section);
     return (
       <div className="page" data-study-active="true">
         <PlayerHeader lesson={lesson} phase={t('lessonSections')} />
@@ -366,20 +436,49 @@ function LessonView() {
           >
             {t('lessonPrevSection')}
           </button>
-          {sectionIndex + 1 < sections.length ? (
-            <button type="button" className="btn btn--primary" onClick={() => setSectionIndex((index) => index + 1)}>
-              {t('lessonNextSection')}
-            </button>
-          ) : readingToFinish ? (
-            <button type="button" className="btn btn--primary" onClick={() => void onReadingFinish()}>
-              {t('lessonFinishLesson')}
+          {sectionTry.length > 0 ? (
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => {
+                setTrySteps(sectionTry);
+                setStage('try');
+              }}
+            >
+              {t('lessonTryIt')}
             </button>
           ) : (
-            <button type="button" className="btn btn--primary" onClick={startPractice}>
-              {exercisesLabel}
+            <button type="button" className="btn btn--primary" onClick={leaveSection}>
+              {sectionIndex + 1 < sections.length
+                ? t('lessonNextSection')
+                : readingToFinish
+                  ? t('lessonFinishLesson')
+                  : readyForCheck
+                    ? t('lessonMastery')
+                    : exercisesLabel}
             </button>
           )}
         </div>
+      </div>
+    );
+  }
+
+  if (stage === 'try' && section) {
+    return (
+      <div className="page page--player">
+        <PlayerHeader lesson={lesson} phase={t('lessonPhaseTry')} />
+        {/* Ordinary practice answers, recorded as the lesson's own; leaving
+            goes back to the section rather than out of the reading. */}
+        <ExercisePlayer
+          key={`try-${section.id}`}
+          exercises={lesson.exercises}
+          onlyStepIds={trySteps}
+          context="lesson"
+          level={lesson.level}
+          lessonId={lesson.id}
+          onFinish={leaveSection}
+          onExit={() => setStage('sections')}
+        />
       </div>
     );
   }
@@ -592,6 +691,10 @@ function LessonView() {
             onClick={() => {
               // Back where the learner stopped: in the exercises if the reading
               // is done, otherwise at the first section not yet read.
+              if (mainGoesToCheck) {
+                routeToCheck();
+                return;
+              }
               if (mainGoesToPractice) {
                 startPractice();
                 return;
@@ -607,12 +710,12 @@ function LessonView() {
           >
             {mainLabel}
           </button>
-          {practiceUnderway && !mainGoesToPractice ? (
+          {practiceUnderway && !mainGoesToPractice && !readingHoldsPractice ? (
             <button type="button" className="btn btn--ghost" onClick={startPractice}>
               {exercisesLabel}
             </button>
           ) : null}
-          {progress.mastery.attempts > 0 || complete ? (
+          {(progress.mastery.attempts > 0 || complete) && !mainGoesToCheck ? (
             <button type="button" className="btn btn--ghost" onClick={() => setStage('mastery')}>
               {t('lessonMastery')}
             </button>

@@ -173,19 +173,19 @@ describe('a final check after a Quick redo', () => {
   it('starts at its first question, with a score of its own', async () => {
     const user = userEvent.setup();
     const calls = newCalls();
-    render(<Harness lessonId={L1.id} initial={readOnly(L1)} calls={calls} />);
+    render(<Harness lessonId={L2.id} initial={readOnly(L2)} calls={calls} />);
 
     await readIntoPractice(user);
-    await play(user, L1.exercises, { right: () => false, done: () => phase() === tr('lessonRecovery', 'en') });
+    await play(user, L2.exercises, { right: () => false, done: () => phase() === tr('lessonRecovery', 'en') });
     expect(phase()).toBe(tr('lessonRecovery', 'en'));
-    await play(user, L1.exercises, { right: () => true, done: () => phase() === tr('lessonMastery', 'en') });
+    await play(user, L2.exercises, { right: () => true, done: () => phase() === tr('lessonMastery', 'en') });
     expect(phase()).toBe(tr('lessonMastery', 'en'));
 
-    const checkSteps = masterySteps(L1);
+    const checkSteps = masterySteps(L2);
     expect(count()).toBe(tr('exerciseProgress', 'en', { done: 1, total: checkSteps.length }));
     expect(checkSteps.map((step) => step.id)).toContain(stepIdOnScreen());
 
-    const asked = await play(user, L1.mastery.exercises, { right: () => true, done: () => calls.mastery.length > 0 });
+    const asked = await play(user, L2.mastery.exercises, { right: () => true, done: () => calls.mastery.length > 0 });
     expect(asked).toEqual(checkSteps.map((step) => step.id));
     await waitFor(() => expect(document.querySelector('.done-hero')).not.toBeNull());
     expect(calls.mastery).toEqual([1]);
@@ -429,11 +429,11 @@ describe('where focus goes as a lesson moves on', () => {
    */
   it('takes focus to each new section by its title', async () => {
     const user = userEvent.setup();
-    render(<Harness lessonId={L1.id} initial={emptyLessonProgress(L1.id)} calls={newCalls()} />);
+    render(<Harness lessonId={L2.id} initial={emptyLessonProgress(L2.id)} calls={newCalls()} />);
     await user.click(screen.getByRole('button', { name: tr('lessonStart', 'en') }));
-    expect(screen.getByRole('heading', { level: 2, name: L1.sections[0]!.title.en })).toHaveFocus();
+    expect(screen.getByRole('heading', { level: 2, name: L2.sections[0]!.title.en })).toHaveFocus();
     await user.click(screen.getByRole('button', { name: tr('lessonNextSection', 'en') }));
-    expect(screen.getByRole('heading', { level: 2, name: L1.sections[1]!.title.en })).toHaveFocus();
+    expect(screen.getByRole('heading', { level: 2, name: L2.sections[1]!.title.en })).toHaveFocus();
 
     // Back from the exercises, the overview is announced by its title too.
     for (let i = 0; i < 20; i++) {
@@ -443,7 +443,7 @@ describe('where focus goes as a lesson moves on', () => {
     }
     await user.click(screen.getByRole('button', { name: tr('lessonToExercises', 'en') }));
     await user.click(screen.getByRole('button', { name: tr('lessonBackToLesson', 'en') }));
-    expect(screen.getByRole('heading', { level: 1, name: L1.title.en })).toHaveFocus();
+    expect(screen.getByRole('heading', { level: 1, name: L2.title.en })).toHaveFocus();
   });
 
   /*
@@ -513,6 +513,87 @@ describe('where focus goes as a lesson moves on', () => {
   });
 });
 
+/*
+ * Lesson 1 was six reading screens about sounds before the first answer.
+ * Now its first screen is four phrases to hear and say, the second is typing
+ * them, and every screen after that is followed by its own short try.
+ */
+describe('the first lesson anyone opens', () => {
+  const tryButton = () => screen.queryByRole('button', { name: tr('lessonTryIt', 'en') });
+
+  it('has the learner type German on its second screen', async () => {
+    const user = userEvent.setup();
+    render(<Harness lessonId={L1.id} initial={emptyLessonProgress(L1.id)} calls={newCalls()} />);
+    await user.click(screen.getByRole('button', { name: tr('lessonStart', 'en') }));
+    expect(screen.getByText('Hallo!')).toBeInTheDocument();
+    // The button says where it goes.
+    expect(screen.queryByRole('button', { name: tr('lessonNextSection', 'en') })).toBeNull();
+    await user.click(tryButton()!);
+    expect(phase()).toBe(tr('lessonPhaseTry', 'en'));
+    expect(stepIdOnScreen()).toBe('u1l1-ex0-s1');
+    expect(screen.getByRole('textbox')).toHaveFocus();
+  });
+
+  it('goes back to the section it came from when the try is left', async () => {
+    const user = userEvent.setup();
+    render(<Harness lessonId={L1.id} initial={emptyLessonProgress(L1.id)} calls={newCalls()} />);
+    await user.click(screen.getByRole('button', { name: tr('lessonStart', 'en') }));
+    await user.click(tryButton()!);
+    await user.click(screen.getByRole('button', { name: tr('lessonBackToLesson', 'en') }));
+    expect(screen.getByRole('heading', { level: 2, name: L1.sections[0]!.title.en })).toHaveFocus();
+  });
+
+  it('reads and practises in turns, then leads to the final check and the finish', async () => {
+    const user = userEvent.setup();
+    const calls = newCalls();
+    render(<Harness lessonId={L1.id} initial={emptyLessonProgress(L1.id)} calls={calls} />);
+    await user.click(screen.getByRole('button', { name: tr('lessonStart', 'en') }));
+
+    const seen: string[] = [];
+    for (let i = 0; i < 30; i++) {
+      const title = document.querySelector('.card h2')?.textContent;
+      if (title && !seen.includes(title)) seen.push(title);
+      const tryIt = tryButton();
+      if (tryIt) {
+        await user.click(tryIt);
+        await play(user, L1.exercises, { right: () => true, done: () => phase() !== tr('lessonPhaseTry', 'en') });
+        continue;
+      }
+      const next = screen.queryByRole('button', { name: tr('lessonNextSection', 'en') });
+      if (!next) break;
+      await user.click(next);
+    }
+    expect(seen).toEqual(L1.sections.map((section) => section.title.en));
+    // Every exercise was answered on the way, once each, so the reading ends
+    // at the final check instead of replaying them.
+    const answered = [...new Set(calls.attempts.map((attempt) => attempt.stepId))];
+    expect(answered).toEqual(practiceSteps(L1).map((step) => step.id));
+    expect(screen.queryByRole('button', { name: tr('lessonReplay', 'en') })).toBeNull();
+    await user.click(screen.getByRole('button', { name: tr('lessonMastery', 'en') }));
+    expect(phase()).toBe(tr('lessonMastery', 'en'));
+
+    await play(user, L1.mastery.exercises, { right: () => true, done: () => Boolean(document.querySelector('.done-hero')) });
+    await waitFor(() => expect(document.querySelector('.done-hero')).not.toBeNull());
+    expect(calls.completed).toEqual([L1.id]);
+  });
+
+  it('skips a try already answered when the section is read again', async () => {
+    const user = userEvent.setup();
+    const first = L1.exercises[0]!;
+    const initial = {
+      ...emptyLessonProgress(L1.id),
+      practice: Object.fromEntries(first.steps.map((step) => [step.id, outcome(step.id)])),
+    };
+    render(<Harness lessonId={L1.id} initial={initial} calls={newCalls()} />);
+    // The exercises are the reading's own tries: no side door to them.
+    expect(screen.queryByRole('button', { name: tr('lessonContinueExercises', 'en') })).toBeNull();
+    await user.click(screen.getByRole('button', { name: tr('lessonContinueReading', 'en') }));
+    expect(tryButton()).toBeNull();
+    await user.click(screen.getByRole('button', { name: tr('lessonNextSection', 'en') }));
+    expect(screen.getByRole('heading', { level: 2, name: L1.sections[1]!.title.en })).toHaveFocus();
+  });
+});
+
 describe('what a lesson asks for, on its overview', () => {
   it('is three steps with their progress, not five conditions', () => {
     for (const lang of ['en', 'bg'] as const) {
@@ -537,5 +618,14 @@ describe('what a lesson asks for, on its overview', () => {
       expect(screen.queryByText(/60%/)).toBeNull();
       view.unmount();
     }
+  });
+
+  it('marks a finished lesson finished, even after the lesson gained a step', () => {
+    const finished = applyCompletion(
+      { ...allButCheck(L1, ['u1l1-ex0-s1']), mastery: { attempts: 1, bestAccuracy: 1, passed: true } },
+      NOW,
+    );
+    render(<Harness lessonId={L1.id} initial={finished} calls={newCalls()} />);
+    expect(screen.getByRole('button', { name: tr('lessonReadAgain', 'en') })).toBeInTheDocument();
   });
 });
