@@ -60,8 +60,8 @@ const lesson1: Lesson = {
         {
           t: 'p',
           text: bi(
-            'Four things you can say today. Press Play on each one, listen, and say it aloud.',
-            'Четири неща, които можеш да кажеш още днес. Натисни „Пусни“ на всяко, слушай и го кажи на глас.',
+            'Four things you can say today. Press the speaker button by each one, listen, and say it aloud.',
+            'Четири неща, които можеш да кажеш още днес. Натисни бутона с високоговорителя до всяко, слушай и го кажи на глас.',
           ),
         },
         { t: 'de', de: 'Hallo!', gloss: bi('Hello!', 'Здравей!'), audio: true },
@@ -73,7 +73,7 @@ const lesson1: Lesson = {
           tone: 'tip',
           text: bi(
             'Say your own name after "Ich heiße". The ß in heiße is one of four letters German has on top of the English alphabet; they come next.',
-            'След „Ich heiße“ кажи собственото си име. ß в heiße е една от четирите букви, които немският има в повече от латиницата; те са следващите.',
+            'След „Ich heiße“ кажи собственото си име. ß в heiße е една от четирите букви, които немският има в повече от латиницата; за тях е следващият раздел.',
           ),
         },
         {
@@ -236,12 +236,22 @@ const lesson1: Lesson = {
    * Listed in the order the sections ask for them, which is also the order
    * the exercises play in if any are left after the reading. Step ids are
    * fixed where learners already have answers stored against them.
+   *
+   * The first-words exercise schedules Hallo, Danke and "Ich heiße" for review
+   * from here, before unit 2 teaches them properly, as the dictation already
+   * did for Tschüss and Tochter: they are said and typed in this lesson, and a
+   * phrase typed once and never seen again is gone by next week. They are not
+   * added to `vocabIds`, which is the words this lesson teaches and counts as
+   * new; unit 2 still introduces them.
    */
   exercises: [
     typeIt('u1l1-ex0', bi('Your first German', 'Първите ти думи на немски'), [
       {
         prompt: bi('Hello!', 'Здравей!'),
-        instruction: bi('Type it in German: the words you just heard.', 'Напиши го на немски — думите, които току-що чу.'),
+        // Said without "what you just heard": a learner who began the lesson
+        // before this screen existed meets these first here, and so does every
+        // later practice and Quick redo.
+        instruction: bi('Type it in German.', 'Напиши го на немски.'),
         answer: 'Hallo',
         shape: 'word',
         reviewTargets: ['v-hallo'],

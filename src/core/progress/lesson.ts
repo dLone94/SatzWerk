@@ -341,7 +341,10 @@ export function lessonRequirements(lesson: Lesson, progress: LessonProgress): Re
  * final check satisfies the first-try rule, so that rule is part of the check
  * and only ever matters to someone who has not passed it. The stages are made
  * from the requirements, never worked out beside them, so all three done is
- * exactly every requirement met.
+ * exactly every requirement met — or the lesson finished before it grew (see
+ * `isLessonComplete`). Then every step is shown done, with its real count: a
+ * finished lesson whose page said "Practise 9 / 12, not yet" contradicted the
+ * Course and Today, which call it finished.
  */
 export interface LessonStage {
   id: 'read' | 'practise' | 'check';
@@ -356,10 +359,11 @@ export function lessonStages(lesson: Lesson, progress: LessonProgress): LessonSt
     requirements.filter((requirement) => ids.includes(requirement.id)).every((requirement) => requirement.satisfied);
   const sections = requirements.find((requirement) => requirement.id === 'sections')!;
   const exercises = requirements.find((requirement) => requirement.id === 'exercises')!;
+  const finished = Boolean(progress.completedAt);
   return [
-    { id: 'read', satisfied: met('sections'), done: sections.done, total: sections.total },
-    { id: 'practise', satisfied: met('exercises', 'words', 'sentences'), done: exercises.done, total: exercises.total },
-    { id: 'check', satisfied: met('accuracy', 'mastery') },
+    { id: 'read', satisfied: finished || met('sections'), done: sections.done, total: sections.total },
+    { id: 'practise', satisfied: finished || met('exercises', 'words', 'sentences'), done: exercises.done, total: exercises.total },
+    { id: 'check', satisfied: finished || met('accuracy', 'mastery') },
   ];
 }
 

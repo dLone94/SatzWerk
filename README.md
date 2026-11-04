@@ -496,7 +496,8 @@ accuracy rule; `lessonStages()` builds the steps from the requirements, so all
 three done is exactly every requirement met. Scrolling through completes nothing.
 If practice accuracy falls below 70%, a short redo of just the missed steps is
 inserted automatically before the final check. A lesson once completed stays
-completed when its content later grows.
+completed when its content later grows, and its three steps stay ticked, with
+the real counts showing what was added.
 
 A teaching section can name exercises to try straight after it (`tryIt`), so
 the practice comes in small pieces between explanations rather than all after
@@ -504,7 +505,10 @@ them. Lesson 1 uses this throughout: its first screen is four useful phrases
 with recordings (*Hallo!*, *Ich heiße Teo.*, *Danke!*, *Tschüss!*), its second
 is typing them, and every screen of sounds after that is followed by a short
 listen-and-choose, a rewrite with ä/ö/ü/ß or a dictation. By the summary the
-practice is done and the final check is next.
+practice is done and the final check is next. A section counts as read for
+"Continue reading" only once its try is answered, so a learner who left in the
+middle of one comes back to it, and after it moves on to the next section still
+open rather than through screens already read.
 
 A first try cannot be taken again, so the accuracy condition is also met by
 passing the final check: otherwise a beginner whose first attempt went badly

@@ -594,6 +594,118 @@ describe('the first lesson anyone opens', () => {
   });
 });
 
+/*
+ * Coming back to lesson 1. A section is marked read as soon as it is on
+ * screen, before its try, so "Continue reading" used to open the section after
+ * a try left half-done, and the rest of the try came after the Summary as
+ * plain practice. The same rule hid the new first screen from everyone who had
+ * read the intro under its old title.
+ */
+describe('coming back to the first lesson', () => {
+  const tryButton = () => screen.queryByRole('button', { name: tr('lessonTryIt', 'en') });
+  const sectionHeading = (index: number) => screen.getByRole('heading', { level: 2, name: L1.sections[index]!.title.en });
+  const ex0 = L1.exercises.find((exercise) => exercise.id === 'u1l1-ex0')!;
+
+  it('goes back to a try left half-done, then on to the next section', async () => {
+    const user = userEvent.setup();
+    const initial: LessonProgress = {
+      ...emptyLessonProgress(L1.id),
+      sectionsSeen: [L1.sections[0]!.id],
+      practice: { [ex0.steps[0]!.id]: outcome(ex0.steps[0]!.id) },
+    };
+    render(<Harness lessonId={L1.id} initial={initial} calls={newCalls()} />);
+    await user.click(screen.getByRole('button', { name: tr('lessonContinueReading', 'en') }));
+    expect(sectionHeading(0)).toHaveFocus();
+    await user.click(tryButton()!);
+    // Only what was left: Hallo is answered.
+    expect(stepIdOnScreen()).toBe(ex0.steps[1]!.id);
+    const asked = await play(user, L1.exercises, { right: () => true, done: () => phase() !== tr('lessonPhaseTry', 'en') });
+    expect(asked).toEqual(ex0.steps.slice(1).map((step) => step.id));
+    expect(sectionHeading(1)).toHaveFocus();
+  });
+
+  it('shows the first words to a learner who read the old intro, without walking them through the rest again', async () => {
+    const user = userEvent.setup();
+    // Everything read and answered under the old layout; the first words are new.
+    const initial: LessonProgress = {
+      ...readOnly(L1),
+      practice: Object.fromEntries(
+        practiceSteps(L1)
+          .filter((step) => !ex0.steps.includes(step))
+          .map((step) => [step.id, outcome(step.id)]),
+      ),
+    };
+    render(<Harness lessonId={L1.id} initial={initial} calls={newCalls()} />);
+    expect(screen.queryByRole('button', { name: tr('lessonContinueExercises', 'en') })).toBeNull();
+    await user.click(screen.getByRole('button', { name: tr('lessonContinueReading', 'en') }));
+    expect(sectionHeading(0)).toHaveFocus();
+    expect(screen.getByText('Hallo!')).toBeInTheDocument();
+    await user.click(tryButton()!);
+    await play(user, L1.exercises, { right: () => true, done: () => phase() !== tr('lessonPhaseTry', 'en') });
+    // Nothing else is open, so straight to the final check.
+    expect(phase()).toBe(tr('lessonMastery', 'en'));
+  });
+
+  it('asks the first words in a way that stands on its own in the practice', () => {
+    const instruction = ex0.steps[0]!.instruction;
+    expect(instruction?.en).not.toMatch(/heard/);
+    expect(instruction?.bg).not.toMatch(/чу/);
+  });
+});
+
+/*
+ * Tries that go badly end the reading in a Quick redo, not the check: the
+ * Summary's button is the way into it, and says so.
+ */
+describe('the first lesson, when the tries go badly', () => {
+  it('leads from the Summary to a Quick redo, then the final check', async () => {
+    const user = userEvent.setup();
+    render(<Harness lessonId={L1.id} initial={emptyLessonProgress(L1.id)} calls={newCalls()} />);
+    await user.click(screen.getByRole('button', { name: tr('lessonStart', 'en') }));
+    for (let i = 0; i < 30; i++) {
+      const tryIt = screen.queryByRole('button', { name: tr('lessonTryIt', 'en') });
+      if (tryIt) {
+        await user.click(tryIt);
+        await play(user, L1.exercises, { right: () => false, done: () => phase() !== tr('lessonPhaseTry', 'en') });
+        continue;
+      }
+      const next = screen.queryByRole('button', { name: tr('lessonNextSection', 'en') });
+      if (!next) break;
+      await user.click(next);
+    }
+    expect(screen.getByRole('heading', { level: 2, name: L1.sections.at(-1)!.title.en })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: tr('lessonMastery', 'en') })).toBeNull();
+    await user.click(screen.getByRole('button', { name: tr('lessonRecovery', 'en') }));
+    expect(phase()).toBe(tr('lessonRecovery', 'en'));
+    await play(user, L1.exercises, { right: () => true, done: () => phase() === tr('lessonMastery', 'en') });
+    expect(phase()).toBe(tr('lessonMastery', 'en'));
+  });
+
+  it('names the Quick redo on the overview too', () => {
+    const progress = allButCheck(L2);
+    const badly: LessonProgress = {
+      ...progress,
+      mastery: { attempts: 0, bestAccuracy: 0, passed: false },
+      practice: Object.fromEntries(
+        Object.entries(progress.practice).map(([id, item]) => [id, { ...item, firstTryCorrect: false }]),
+      ),
+    };
+    render(<Harness lessonId={L2.id} initial={badly} calls={newCalls()} />);
+    expect(screen.getByRole('button', { name: tr('lessonRecovery', 'en') })).toBeInTheDocument();
+  });
+});
+
+/** Every one of the three steps ticked, none marked as the one to do. */
+function expectAllStagesDone() {
+  const steps = [...document.querySelectorAll('.lesson-stages > li')];
+  expect(steps).toHaveLength(3);
+  for (const step of steps) {
+    expect(step).toHaveClass('is-done');
+    expect(step).not.toHaveAttribute('aria-current');
+    expect(step).toHaveTextContent(tr('requirementMet', 'en'));
+  }
+}
+
 describe('what a lesson asks for, on its overview', () => {
   it('is three steps with their progress, not five conditions', () => {
     for (const lang of ['en', 'bg'] as const) {
@@ -627,5 +739,22 @@ describe('what a lesson asks for, on its overview', () => {
     );
     render(<Harness lessonId={L1.id} initial={finished} calls={newCalls()} />);
     expect(screen.getByRole('button', { name: tr('lessonReadAgain', 'en') })).toBeInTheDocument();
+    expectAllStagesDone();
+    // A replay, not "continue": there is nothing left to finish.
+    expect(screen.queryByRole('button', { name: tr('lessonContinueExercises', 'en') })).toBeNull();
+    expect(screen.getByRole('button', { name: tr('lessonReplay', 'en') })).toBeInTheDocument();
+  });
+
+  it('keeps all three steps done after a finished lesson that grew is checked again', async () => {
+    const user = userEvent.setup();
+    const finished = applyCompletion(
+      { ...allButCheck(L1, ['u1l1-ex0-s1']), mastery: { attempts: 1, bestAccuracy: 1, passed: true } },
+      NOW,
+    );
+    render(<Harness lessonId={L1.id} initial={finished} calls={newCalls()} />);
+    await user.click(screen.getByRole('button', { name: tr('lessonMastery', 'en') }));
+    await play(user, L1.mastery.exercises, { right: () => true, done: () => Boolean(document.querySelector('.done-hero')) });
+    await waitFor(() => expect(document.querySelector('.done-hero')).not.toBeNull());
+    expectAllStagesDone();
   });
 });

@@ -426,4 +426,18 @@ describe('a lesson already finished', () => {
     expect(lessonRequirements(grown, progress).every((requirement) => requirement.satisfied)).toBe(false);
     expect(isLessonComplete(grown, progress)).toBe(true);
   });
+
+  it('shows all three steps done, with the real counts', () => {
+    let progress = readAllSections(emptyLessonProgress(lesson.id));
+    progress = answerAll(progress, () => true);
+    progress = recordMasteryAttempt(progress, 1, lesson.mastery.passAccuracy);
+    progress = completeLesson(progress, '2026-10-01T10:00:00.000Z');
+    const first = lesson.exercises[0]!;
+    const grown = { ...lesson, exercises: [...lesson.exercises, { ...first, id: 'later-ex', steps: [{ ...first.steps[0]!, id: 'later-step' }] }] };
+    const stages = lessonStages(grown, progress);
+    expect(stages.every((stage) => stage.satisfied)).toBe(true);
+    // The page agrees with the Course and Today, and still says what is new.
+    expect(stages.every((stage) => stage.satisfied)).toBe(isLessonComplete(grown, progress));
+    expect(stages[1]).toMatchObject({ done: allStepIds(lesson).length, total: allStepIds(lesson).length + 1 });
+  });
 });
