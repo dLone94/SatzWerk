@@ -11,6 +11,8 @@ import { inferredPracticeLevel } from '../components/LearningPreferences.tsx';
 import { PracticalProgress } from '../components/PracticalProgress.tsx';
 import { Rhythm } from '../components/Rhythm.tsx';
 import { DackelScene } from '../components/Dackel.tsx';
+import { WoodScene } from '../three/WoodScene.tsx';
+import { todayTown } from '../three/sceneData.ts';
 import { chooseDailyScript } from '../dailyBuilder.ts';
 import { reviewItemsForPath } from '../reviewBuilder.ts';
 import {
@@ -283,7 +285,21 @@ export function DashboardPage() {
             </p>
           ) : null}
         </div>
-        <DackelScene className="today-plan__scene hw-scene hw-scene--today" />
+        {/* The wooden town, its lit building today's step, named in its label
+            from the same title as the card; the chip only repeats it for the
+            eye. The dachshund stays wherever the town is not drawn. */}
+        <WoodScene
+          spec={todayTown({ step: step.kind, scenarioId: practising ? scenario?.id : undefined })}
+          className="today-plan__scene hw-scene hw-scene--today"
+          label={t(step.kind === 'done' ? 'sceneTodayDoneLabel' : 'sceneTodayLabel', { place: title })}
+          fallback={<DackelScene className="today-plan__scene hw-scene hw-scene--today" />}
+        >
+          {step.kind === 'done' ? null : (
+            <span className="wood-scene__chip" aria-hidden="true">
+              {t('sceneNextStop')} · {title}
+            </span>
+          )}
+        </WoodScene>
       </section>
 
       {/*

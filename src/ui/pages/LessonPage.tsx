@@ -15,7 +15,8 @@ import { useApp } from '../../state/AppState.tsx';
 import { nextAction } from '../selectors.ts';
 import { Blocks, Card, EmptyState, Meter, ScoreRing, VocabRow } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
-import { Confetti } from '../components/Confetti.tsx';
+import { FinishTower } from '../components/FinishTower.tsx';
+import { nounArticle } from '../components/Gender.tsx';
 import { ReminderInvite } from '../components/ReminderInvite.tsx';
 
 type Stage = 'overview' | 'sections' | 'try' | 'practice' | 'recovery' | 'mastery' | 'saving' | 'done';
@@ -534,13 +535,20 @@ function LessonView() {
       return (
         <div className="page">
           <section className="done-hero" aria-labelledby="done-hero-title">
-            <Confetti />
-            <ScoreRing
-              value={lastSummary.accuracy}
-              passed
-              caption={t('exerciseScore', { correct: lastSummary.firstTryCorrect, total: lastSummary.total })}
-              captionId="lesson-score"
-            />
+            {/* The lesson's own new words, as it teaches them, stacked beside
+                the score. Where no tower is drawn the score stands alone. */}
+            <div className="done-hero__top">
+              <FinishTower className="done-hero__tower" words={lesson.vocabIds.flatMap((id) => {
+                const entry = vocabById(id);
+                return entry ? [{ display: entry.display, article: nounArticle(entry) }] : [];
+              })} />
+              <ScoreRing
+                value={lastSummary.accuracy}
+                passed
+                caption={t('exerciseScore', { correct: lastSummary.firstTryCorrect, total: lastSummary.total })}
+                captionId="lesson-score"
+              />
+            </div>
             <p className="done-hero__de" lang="de">
               {lastSummary.accuracy >= 0.8 ? 'Gut gemacht!' : 'Geschafft!'}
             </p>

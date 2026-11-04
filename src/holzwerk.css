@@ -270,10 +270,40 @@ body { background: var(--paper); }
 /* The streak is a yellow block; ink on yellow, in both schemes. */
 .today__streak { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 0; border-radius: 14px; background: var(--yellow); color: var(--on-hero); box-shadow: 0 4px 0 var(--yellow-drop); font-family: var(--font-display); font-size: 17px; font-weight: 900; transform: none; }
 
-/* The scene's slot. Phase B draws the wooden town here; until then the
-   dachshund stands on the same ground colour. */
+/* A scene's slot: the wooden town, the board, or the dachshund where no
+   scene is drawn, on the same ground colour either way. */
 .hw-scene { border-radius: 24px; background: var(--sand); overflow: hidden; }
 .hw-scene--today { background: #23304b; }
+
+/*
+ * The wooden scenes (src/ui/three). The canvas lies over the picture it
+ * replaces, which keeps the slot its size until the first frame is drawn
+ * and is hidden, not removed, after. Scenes with nothing before them have
+ * a height of their own, on the sand ground of the slot they share.
+ */
+.wood-scene { position: relative; min-width: 0; isolation: isolate; }
+.wood-scene__stage { position: absolute; inset: 0; }
+.wood-scene__canvas { display: block; width: 100%; height: 100%; }
+.wood-scene.is-live > .wood-scene__fallback { visibility: hidden; }
+.wood-scene--question, .wood-scene--feedback, .wood-scene--complete { border-radius: 24px; background: var(--sand); overflow: hidden; }
+.wood-scene--question { height: clamp(140px, 21vh, 200px); margin: 4px 0 12px; }
+.wood-scene--feedback { height: clamp(140px, 20vh, 190px); margin: 4px 0 12px; }
+.wood-scene--complete { width: 100%; height: clamp(190px, 26vh, 300px); }
+/* A lesson's finish: the tower beside the score, so the way on stays on the first screen. */
+.done-hero__top { display: flex; align-items: center; justify-content: center; gap: 4px; align-self: stretch; }
+.done-hero__top .done-hero__tower { flex: 1 1 0; max-width: 380px; }
+.done-hero:has(.done-hero__tower) { padding-top: 1rem; }
+.done-hero__top:has(.done-hero__tower) .score-ring__dial { width: 7rem; height: 7rem; }
+.done-hero__top:has(.done-hero__tower) .score-ring__num { font-size: 1.7rem; }
+/* The day's finish: the tower takes the dachshund's place at its size. */
+.daily-finished__tower.wood-scene--complete { width: 260px; max-width: 100%; height: auto; margin: 0 auto 12px; border-radius: 20px; }
+.daily-finished__tower .daily-finished__scene { margin: 0; }
+/* On a short phone the answer field comes first; the rail is only decoration. */
+@media (max-height: 640px) { .wood-scene--question { display: none; } }
+.wood-scene__chip { position: absolute; left: 12px; top: 12px; display: flex; align-items: center; gap: 6px; max-width: calc(100% - 24px); padding: 6px 10px; border-radius: 10px; background: #fbf6ec; color: #1e1b17; font-size: 13px; font-weight: 700; line-height: 1.25; box-shadow: 0 3px 0 rgb(30 27 23 / 12%); }
+.wood-scene__chip::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 4px; background: #f2b630; }
+.wood-scene__replay { position: absolute; right: 10px; top: 10px; display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border: 0; border-radius: 11px; background: #fbf6ec; color: #1e1b17; font: inherit; font-size: 13px; font-weight: 700; box-shadow: 0 3px 0 rgb(30 27 23 / 14%); cursor: pointer; }
+.wood-scene__replay:focus-visible { outline: 3px solid var(--focus, #2f6fdb); outline-offset: 2px; }
 
 /* The illustrated scene carries the personality; its text stays in the DOM. */
 .dackel-scene { position: relative; min-width: 0; }
@@ -390,7 +420,7 @@ body { background: var(--paper); }
 .daily-finished__phrases li { border: 0; background: var(--surface-alt); }
 .micro-tip { border-left: 0; border-radius: 14px; background: var(--warn-soft); color: var(--ink); }
 /* On a phone the picture gives up a little height, so the one next step is on the first screen in both languages. */
-@media (max-width: 480px) { .daily-finished__scene { width: 210px; margin-bottom: 6px; } .daily-finished__mark { margin-bottom: 12px; } }
+@media (max-width: 480px) { .daily-finished__scene, .daily-finished__tower.wood-scene--complete { width: 210px; margin-bottom: 6px; } .daily-finished__mark { margin-bottom: 12px; } }
 
 /* ---------------- The course ---------------- */
 

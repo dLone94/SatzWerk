@@ -1169,6 +1169,22 @@ export const UI = {
   relInDaysOne: s('in {n} day', 'след {n} ден'),
   relDaysAgo: s('{n} days ago', 'преди {n} дни'),
   relDaysAgoOne: s('{n} day ago', 'преди {n} ден'),
+  /*
+   * The wooden scenes. Each is a picture with a name that says what it
+   * shows, built from the same data as the page: the step Today lights up,
+   * the words of the tower, the lessons on the board. German words in them
+   * are the course's own.
+   */
+  sceneNextStop: s('Next stop', 'Следваща спирка'),
+  sceneTodayLabel: s('A small wooden town at dusk. {place}, your next step today, is lit up.', 'Малко дървено градче привечер. {place} – следващата ти стъпка за днес – свети.'),
+  sceneTodayDoneLabel: s('A small wooden town at dusk with every window lit. {place}', 'Малко дървено градче привечер, всички прозорци светят. {place}'),
+  sceneShowAgain: s('Show again', 'Покажи отново'),
+  sceneFeedbackLabel: s('Wooden blocks on a rail: the block {wrong} tips off, and the block {right} drops into its place.', 'Дървени блокчета върху релса: блокчето {wrong} пада, а блокчето {right} заема мястото му.'),
+  sceneCompleteLabel: s('{n} new words stack into a wooden tower with a star on top: {words}.', '{n} нови думи се подреждат в дървена кула със звезда на върха: {words}.'),
+  sceneCompleteLabelOne: s('{n} new word sits on a wooden plinth with a star on top: {words}.', '{n} нова дума стои на дървена поставка със звезда отгоре: {words}.'),
+  sceneCompleteSomeLabel: s('{shown} of the {n} new words stack into a wooden tower with a star on top: {words}.', '{shown} от {n}-те нови думи се подреждат в дървена кула със звезда на върха: {words}.'),
+  scenePathLabel: s('This unit as a wooden board game: {unit}. {done} of {total} lessons done; your pawn stands on lesson {place}, {lesson}. The unit checkpoint is the little tower at the end.', 'Разделът като дървена настолна игра: {unit}. Завършени {done} от {total} урока; пионката ти стои на урок {place}, {lesson}. Контролната проверка е малката кула в края.'),
+  scenePathDoneLabel: s('This unit as a wooden board game: {unit}. All {total} lessons are done, and your pawn stands at the unit checkpoint, the little tower at the end.', 'Разделът като дървена настолна игра: {unit}. Всички {total} урока са завършени и пионката ти стои при контролната проверка – малката кула в края.'),
 } as const;
 
 export type UiKey = keyof typeof UI;

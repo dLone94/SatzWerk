@@ -18,8 +18,8 @@ import { ScenarioPlayer } from '../components/ScenarioPlayer.tsx';
 import { SpeakCheck } from '../components/Speaking.tsx';
 import { ShadowRecorder } from '../components/ShadowRecorder.tsx';
 import { DackelMark, DackelScene } from '../components/Dackel.tsx';
-import { GenderedGerman, NounDisplay } from '../components/Gender.tsx';
-import { Confetti } from '../components/Confetti.tsx';
+import { GenderedGerman, NounDisplay, nounArticle } from '../components/Gender.tsx';
+import { FinishTower } from '../components/FinishTower.tsx';
 import { Rhythm } from '../components/Rhythm.tsx';
 import { reviewItemsForPath } from '../reviewBuilder.ts';
 import { DAILY_STAGES, fitsDailyPlan, todayStep, type TodayStep } from '../selectors.ts';
@@ -200,8 +200,11 @@ function DailyPractice() {
     const earlierToday = new Set(dailyRuns.filter(round => round.day === day && round.stage >= 5 && round.id !== run.id)
       .flatMap(round => { const played = scriptById(round.scriptId); return played ? dailyPhrases(played, lang, metBefore, day) : []; })
       .map(card => card.german));
-    const fresh = phrases.filter(card => !card.again && !earlierToday.has(card.german)).length;
+    const freshCards = phrases.filter(card => !card.again && !earlierToday.has(card.german));
+    const fresh = freshCards.length;
     const again = phrases.length - fresh;
+    // The words of the phrases met for the first time today: the tower's blocks.
+    const newWords = freshCards.flatMap(card => card.words).map(entry => ({ display: entry.display, article: nounArticle(entry) }));
     const onward = nextOffer(next);
     // Once the day is done, the course's next step is still offered, quietly,
     // as Today offers it: the finish used to hide it behind a tap on Today.
@@ -209,8 +212,9 @@ function DailyPractice() {
       ? nextOffer({ ...next, kind: next.course.kind as TodayStep['kind'], to: next.course.to })
       : undefined;
     return <div className="page daily-page">
-      <section className="daily-finished" aria-labelledby="daily-title"><Confetti />
-        <DackelScene className="daily-finished__scene" bubble="Geschafft!" />
+      <section className="daily-finished" aria-labelledby="daily-title">
+        <FinishTower words={newWords} className="daily-finished__tower"
+          fallback={<DackelScene className="daily-finished__scene" bubble="Geschafft!" />} />
         <span className="daily-finished__mark" aria-hidden="true"><Icon name="check" size={30} /></span>
         <p className="section-eyebrow">{t('dailyFinishedEyebrow')}</p><h1 id="daily-title">{t('dailyFinished')}</h1>
         <p className="daily-finished__ability">{say(currentScript.goal)}</p>
