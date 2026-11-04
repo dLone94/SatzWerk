@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { lessonById, sectionBlocks, unitForLesson, vocabById } from '../../content/browser.ts';
 import type { Lesson, TeachingSection } from '../../content/types.ts';
@@ -14,6 +14,7 @@ import { useApp } from '../../state/AppState.tsx';
 import { nextAction } from '../selectors.ts';
 import { Blocks, Card, EmptyState, Meter, ScoreRing, VocabRow } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
+import { Confetti } from '../components/Confetti.tsx';
 
 type Stage = 'overview' | 'sections' | 'practice' | 'recovery' | 'mastery' | 'saving' | 'done';
 
@@ -662,20 +663,5 @@ function Requirements({ lesson }: { lesson: Lesson }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-/**
- * A handful of paper scraps that fall once when a lesson is finished. Pure
- * CSS, over in about a second, and gone entirely under reduced motion: the
- * score and the words already say it, this only makes it land.
- */
-function Confetti() {
-  return (
-    <div className="confetti" aria-hidden="true">
-      {Array.from({ length: 18 }, (_, index) => (
-        <span key={index} style={{ '--i': index } as CSSProperties} />
-      ))}
-    </div>
   );
 }

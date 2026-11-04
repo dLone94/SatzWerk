@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
-import { lessonsInOrder, SCENARIO_SCRIPTS, scriptAnswerCount } from '../../src/content/browser.ts';
+import { availableLessons, lessonsInOrder, SCENARIO_SCRIPTS, scriptAnswerCount, VOCABULARY } from '../../src/content/browser.ts';
 import type { ScenarioScript } from '../../src/content/types.ts';
 import { todayHere } from '../../src/core/progress/days.ts';
 import { mergeDailyRun, type DailyRunInput } from '../../src/core/progress/daily.ts';
@@ -484,6 +484,28 @@ it('says the review is clear rather than ticking a review that never happened', 
 });
 
 /*
+ * The review part was a third of the daily goal in items. Moving the default
+ * goal from 20 minutes to 10 would have halved it for every new learner, and
+ * the practice meant to bring them nearer the goal would have shrunk with it.
+ */
+it('reviews as much on a 10-minute goal as on a 20-minute one', async () => {
+  const yesterday = new Date(Date.now() - 2 * 86_400_000);
+  const due = VOCABULARY.filter(word => word.level === 'pre-a1').slice(0, 10).map(word =>
+    createReviewItem({ id: `vocab:${word.id}`, kind: 'vocab', refId: word.id, level: 'pre-a1', now: yesterday }));
+  for (const minutes of [10, 20]) {
+    const base = stubState();
+    const view = render(<AppStateContext.Provider value={stubState({ reviewItems: due,
+      profile: { ...base.profile, dailyTargetMinutes: minutes } })}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyStart', 'en') }));
+    for (let index = 0; index < 2; index++) await user.click(await screen.findByRole('button', { name: tr('dailyNextPhrase', 'en') }));
+    await user.click(screen.getByRole('button', { name: tr('dailyPutToUse', 'en') }));
+    expect(await screen.findByText(tr('exerciseProgress', 'en', { done: 1, total: 6 }))).toBeInTheDocument();
+    view.unmount();
+  }
+});
+
+/*
  * The parts swap in place under the same address, and the page kept the
  * scroll of the one before: on a phone Finish sits under a long card, and the
  * celebration opened with its picture and tick above the screen.
@@ -518,4 +540,118 @@ it('opens each part and the finish at the top, before the conversation scrolls t
     scrollTo.mockRestore();
     delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   }
+});
+
+/*
+ * Finishing the daily practice was a flat card: a score, a sentence and two
+ * buttons of equal weight, one back to Today and one to do it again. Lessons
+ * had confetti; the practice a learner does every day had none, no day
+ * counted and nothing said what came next. Now it celebrates with what was
+ * really done, and offers the one next step Today would offer.
+ */
+describe.each(['en', 'bg'] as const)('the finish of the daily practice in %s', lang => {
+  const script = EVERYDAY[0]!;
+  onDayOf(script);
+  const first = lessonsInOrder().find(lesson => availableLessons().includes(lesson))!;
+  const profile = { teachingLanguage: lang, dailyTargetMinutes: 10, displayName: null, onboarded: true, createdAt: '',
+    learningGoal: 'everyday' as const, practiceLevel: 'pre-a1' as const, weeklyTargetDays: 4 };
+
+  // Minutes that reach the page while the finish is open, as a server answer would bring them.
+  let study: (minutes: number) => void = () => {};
+  async function finish(overrides: Partial<AppStateValue> = {}, earlier: AppStateValue['dailyRuns'] = []) {
+    function Harness() {
+      const [runs, setRuns] = useState<AppStateValue['dailyRuns']>([...earlier, { id: 'finishing', day: todayHere(), scriptId: script.id,
+        goal: 'everyday', stage: 4, total: 9, firstTryCorrect: 8, listeningCompleted: false, updatedAt: new Date().toISOString() }]);
+      const [studyDays, setStudyDays] = useState(overrides.studyDays ?? []);
+      study = minutes => setStudyDays([{ day: todayHere(), secondsActive: minutes * 60, answers: 9, correct: 8 }]);
+      const value = stubState({ profile, ...overrides, studyDays, dailyRuns: runs, recordDailyRun: async payload => {
+        setRuns(runs => mergeDailyRun(runs, { ...payload, updatedAt: new Date().toISOString() }));
+      } }, lang);
+      return <AppStateContext.Provider value={value}><MemoryRouter><DailyPage /></MemoryRouter></AppStateContext.Provider>;
+    }
+    const view = render(<Harness />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: tr('dailyResume', lang) }));
+    await user.click(await screen.findByRole('button', { name: tr('dailyFinish', lang) }));
+    await screen.findByRole('heading', { level: 1, name: tr('dailyFinished', lang) });
+    return view;
+  }
+  const studied = (minutes: number) => ({ studyDays: [{ day: todayHere(), secondsActive: minutes * 60, answers: 9, correct: 8 }] });
+
+  it('celebrates with what was really done today', async () => {
+    const view = await finish({ ...studied(7), stats: { ...stubState().stats, streak: 3 } });
+    const finished = view.container.querySelector<HTMLElement>('.daily-finished')!;
+    expect(finished.querySelector('.confetti')).toHaveAttribute('aria-hidden', 'true');
+    expect(within(finished).getByText('Geschafft!')).toHaveAttribute('lang', 'de');
+    const wins = within(within(finished).getByRole('list', { name: tr('dailyWinsTitle', lang) }));
+    expect(wins.getByText(tr('dailyWinNewPhrases', lang, { n: 3 }))).toBeInTheDocument();
+    expect(wins.getByText(tr('exerciseScore', lang, { correct: 8, total: 9 }))).toBeInTheDocument();
+    // The phrases themselves, to hear again.
+    const said = within(within(finished).getByRole('list', { name: tr('dailyPhrasesTitle', lang) }));
+    for (const card of dailyPhrases(script, lang, [], todayHere())) {
+      expect(said.getByText(card.german)).toHaveAttribute('lang', 'de');
+    }
+    // The day's goal and the week, with today's dot filled in.
+    const rhythm = within(finished).getByRole('region', { name: tr('studioRhythm', lang) });
+    expect(within(rhythm).getByText(tr('todayGoalLeft', lang, { n: 3 }))).toBeInTheDocument();
+    expect(rhythm.querySelector('[aria-current="date"]')).toHaveClass('rhythm__day--practised');
+  });
+
+  it('counts a streak once there is one, and none it does not have', async () => {
+    const longer = await finish({ ...studied(7), stats: { ...stubState().stats, streak: 3 } });
+    expect(within(screen.getByRole('list', { name: tr('dailyWinsTitle', lang) }))
+      .getByText(tr('todayStreak', lang, { n: 3 }))).toBeInTheDocument();
+    longer.unmount();
+    await finish({ ...studied(7), stats: { ...stubState().stats, streak: 1 } });
+    expect(screen.getByRole('list', { name: tr('dailyWinsTitle', lang) })).toBeInTheDocument();
+    expect(screen.queryByText(tr('todayStreak', lang, { n: 1 }))).not.toBeInTheDocument();
+  });
+
+  it('does not count the same phrases as new twice in one day', async () => {
+    await finish(studied(7), [{ id: 'earlier', day: todayHere(), scriptId: script.id, goal: 'everyday', stage: 5,
+      total: 9, firstTryCorrect: 9, listeningCompleted: true, updatedAt: new Date().toISOString() }]);
+    const wins = within(screen.getByRole('list', { name: tr('dailyWinsTitle', lang) }));
+    expect(wins.getByText(tr('dailyWinPhrasesAgain', lang, { n: 3 }))).toBeInTheDocument();
+    expect(wins.queryByText(tr('dailyWinNewPhrases', lang, { n: 3 }))).not.toBeInTheDocument();
+  });
+
+  it('offers the next step Today would offer as its one button', async () => {
+    const view = await finish(studied(7));
+    const [only, ...others] = [...view.container.querySelectorAll('.btn--primary')];
+    expect(others).toHaveLength(0);
+    expect(only).toHaveAccessibleName(`${tr('dashboardStartLesson', lang)}: ${first.title[lang]}`);
+    expect(only).toHaveAttribute('href', `/lesson/${first.id}`);
+    expect(view.container.querySelector('.daily-finished__time'))
+      .toHaveTextContent(tr('dashboardEstimate', lang, { n: first.estimatedMinutes }));
+    // Doing it again is still there, and quieter.
+    expect(screen.getByRole('button', { name: tr('dailyAgain', lang) })).not.toHaveClass('btn--primary');
+    // On a phone it sat under the rhythm card, below the fold; it comes first now.
+    const rhythm = screen.getByRole('region', { name: tr('studioRhythm', lang) });
+    expect(only!.compareDocumentPosition(rhythm) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('keeps its button while the minutes catch up with it', async () => {
+    const view = await finish(studied(7));
+    const label = `${tr('dashboardStartLesson', lang)}: ${first.title[lang]}`;
+    expect(view.container.querySelector('.btn--primary')).toHaveAccessibleName(label);
+    act(() => study(11));
+    // The ring says the goal is met; the step offered as it opened stays put.
+    expect(view.container.querySelector('.goal-ring')).toHaveClass('goal-ring--done');
+    expect(view.container.querySelector('.btn--primary')).toHaveAccessibleName(label);
+  });
+
+  it('sends the learner back to Today once the day’s goal is met', async () => {
+    const view = await finish(studied(11));
+    const [only, ...others] = [...view.container.querySelectorAll('.btn--primary')];
+    expect(others).toHaveLength(0);
+    expect(only).toHaveAccessibleName(tr('navToday', lang));
+    expect(only).toHaveAttribute('href', '/');
+    expect(screen.getByText(tr('todayDoneGoal', lang))).toBeInTheDocument();
+    expect(view.container.querySelector('.goal-ring')).toHaveClass('goal-ring--done');
+    // The course's next step is still offered, quietly, as Today offers it.
+    expect(screen.getByText(tr('todayKeepGoing', lang))).toBeInTheDocument();
+    const more = screen.getByRole('link', { name: `${tr('dashboardStartLesson', lang)}: ${first.title[lang]}` });
+    expect(more).toHaveAttribute('href', `/lesson/${first.id}`);
+    expect(more).not.toHaveClass('btn');
+  });
 });

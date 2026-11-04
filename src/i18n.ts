@@ -64,6 +64,14 @@ export const UI = {
   dailyFinish: s('Finish today’s practice', 'Завърши днешната практика'),
   dailyFinishedEyebrow: s('ONE MORE STEP INTO THE WORLD', 'ОЩЕ ЕДНА СТЪПКА КЪМ СВЕТА'),
   dailyFinished: s('That’s German you can use.', 'Това е немски, който можеш да използваш.'),
+  /* What the finished practice counts: only what the rows say was done. */
+  dailyWinsTitle: s('What you did today', 'Какво направи днес'),
+  dailyWinNewPhrases: s('{n} new phrases', '{n} нови фрази'),
+  dailyWinNewPhrasesOne: s('{n} new phrase', '{n} нова фраза'),
+  dailyWinPhrasesAgain: s('{n} familiar phrases practised again', '{n} познати фрази, упражнени отново'),
+  dailyWinPhrasesAgainOne: s('{n} familiar phrase practised again', '{n} позната фраза, упражнена отново'),
+  dailyPhrasesTitle: s('Today’s phrases', 'Днешните фрази'),
+  dailyFinishedNext: s('What comes next', 'Какво следва'),
   dailyFinishedNote: s('You rehearsed a real situation. Your answers feed your reviews, so difficult words will come back when they need practice.', 'Упражни реална ситуация. Отговорите ти определят повторенията, за да се върнат трудните думи, когато имат нужда от практика.'),
   dailyAnother: s('Try another practice', 'Опитай друга практика'),
   dailyAgain: s('Practise it again', 'Повтори същата практика'),
@@ -75,6 +83,7 @@ export const UI = {
   dailyAbilitiesTitle: s('Conversations you have practised', 'Упражнени разговори'),
   dailyWeekProgress: s('{done} / {target} practice days this week', '{done} / {target} учебни дни тази седмица'),
   dailyWeekLeft: s('{n} more practice days towards your weekly goal. Pick the days that suit you.', 'Още {n} учебни дни до седмичната цел. Избери удобните за теб дни.'),
+  dailyWeekLeftOne: s('{n} more practice day towards your weekly goal. Pick the day that suits you.', 'Още {n} учебен ден до седмичната цел. Избери удобния за теб ден.'),
   dailyWeekDone: s('Your weekly goal is complete. Keep going if you feel like it.', 'Седмичната цел е изпълнена. Продължи, ако ти се учи.'),
   dailyAbilitiesEmpty: s('Your first completed conversation will appear here. You will see what you have practised, not just a points total.', 'Първият завършен разговор ще се появи тук. Ще виждаш какво е упражнено, а не само сбор от точки.'),
   dailyAbilityConfident: s('Best practice: {n}% right without hints', 'Най-добра практика: {n}% верни без подсказки'),
@@ -101,8 +110,19 @@ export const UI = {
   studioHeroNote: s('Small steps. Real conversations.', 'Малки стъпки. Истински разговори.'),
   studioPath: s('Your learning path', 'Твоят учебен път'),
   studioRhythm: s('Your rhythm', 'Твоят ритъм'),
-  studioWeek: s('The last seven days', 'Последните седем дни'),
-  studioWeekMinutes: s('{n} active minutes', '{n} активни минути'),
+  /*
+   * The week as the weekly goal counts it: a day with an answer saved is a
+   * practice day. Each dot is named for a screen reader; today is marked as
+   * the current date rather than in words.
+   */
+  rhythmWeek: s('This week', 'Тази седмица'),
+  rhythmWeekDays: s('{done} of {target} practice days', '{done} от {target} учебни дни'),
+  rhythmDayPractised: s('{day}: practised', '{day}: с практика'),
+  rhythmDayRest: s('{day}: no practice', '{day}: без практика'),
+  rhythmDayAhead: s('{day}: still to come', '{day}: предстои'),
+  rhythmDayOpen: s('{day}: today, no practice yet', '{day}: днес, още без практика'),
+  /* The weekly goal is out of reach this week: no days to pick, and no blame. */
+  rhythmWeekShort: s('Every day you practise still counts. A new week starts on Monday.', 'Всеки ден с практика се брои. Новата седмица започва в понеделник.'),
   studioWeekEmpty: s('Every day is a fresh start. Your first step counts.', 'Всеки ден е ново начало. Първата стъпка е важна.'),
   studioExploreTitle: s('Take your German into the world', 'Изведи немския си в света'),
   studioRealLife: s('From the bakery to your next appointment. Practise the conversations that matter.', 'От пекарната до следващия ти час. Упражнявай важните разговори.'),
@@ -217,7 +237,6 @@ export const UI = {
   dashboardGreeting: s('Today’s study', 'Днешно учене'),
   todayUpNext: s('Up next', 'Следва'),
   todayGoal: s('of {target} min today', 'от {target} мин днес'),
-  todayGoalNote: s('Your daily goal in minutes. Meeting it finishes the day.', 'Дневната ти цел в минути. Щом я постигнеш, денят е завършен.'),
   todayGoalLeft: s('{n} more to your goal', 'още {n} до целта'),
   todayGoalDone: s('Goal reached', 'Целта е постигната'),
   todayDue: s('{n} due for review', '{n} за повторение'),

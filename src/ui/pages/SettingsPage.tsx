@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { contentStats, partialLevels, unauthoredLevels } from '../../content/browser.ts';
 import type { TeachingLanguage } from '../../content/types.ts';
+import { DAILY_GOAL_CHOICES } from '../../core/progress/goal.ts';
 import { tr } from '../../i18n.ts';
 import {
   disablePush,
@@ -13,12 +14,15 @@ import { useApp } from '../../state/AppState.tsx';
 import { LearningPreferences } from '../components/LearningPreferences.tsx';
 import { Card, learnerName } from '../components/bits.tsx';
 
-const TARGETS = [10, 20, 30];
-
 export function SettingsPage() {
   const { t, lang, profile, updateProfile, setTeachingLanguage, resetAll, session, signOut, changePassword } =
     useApp();
-  const [custom, setCustom] = useState('');
+  // A goal typed in once is shown in the field it was typed into. The chips
+  // offered changed (30 is no longer one), and a learner on 30 saw no chip
+  // pressed and an empty field, with their goal only in the small print.
+  const [custom, setCustom] = useState(() =>
+    (DAILY_GOAL_CHOICES as readonly number[]).includes(profile.dailyTargetMinutes) ? '' : String(profile.dailyTargetMinutes),
+  );
   const [confirm, setConfirm] = useState('');
   const [resetDone, setResetDone] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -72,13 +76,16 @@ export function SettingsPage() {
 
       <Card title={t('settingsDailyTarget')}>
         <div className="chips">
-          {TARGETS.map((minutes) => (
+          {DAILY_GOAL_CHOICES.map((minutes) => (
             <button
               key={minutes}
               type="button"
               className={`chip chip--choice${profile.dailyTargetMinutes === minutes ? ' is-active' : ''}`}
               aria-pressed={profile.dailyTargetMinutes === minutes}
-              onClick={() => void updateProfile({ dailyTargetMinutes: minutes })}
+              onClick={() => {
+                setCustom('');
+                void updateProfile({ dailyTargetMinutes: minutes });
+              }}
             >
               {tr('settingsMinutes', lang, { n: minutes })}
             </button>

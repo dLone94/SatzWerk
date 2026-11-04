@@ -207,3 +207,81 @@ describe.each(LANGS)('Today in %s', (lang) => {
     expect(primaries(view.container)).toHaveLength(1);
   });
 });
+
+/*
+ * Today measured the same effort three ways in three places: a ring of
+ * minutes against the daily goal, bars of minutes for the last seven days,
+ * and "0 / 4 practice days this week" at the foot of the page. Now one
+ * widget holds the day's goal and the week's practice days, counted as the
+ * weekly goal counts them, Monday to Sunday.
+ */
+describe.each(LANGS)('the rhythm on Today in %s', (lang) => {
+  // A Wednesday: Monday and Tuesday are behind it, and four days are still ahead.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 4, 10));
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  const profile = { teachingLanguage: lang, dailyTargetMinutes: 10, displayName: null, onboarded: true, createdAt: '',
+    weeklyTargetDays: 4 };
+  const weekday = (day: number) =>
+    new Intl.DateTimeFormat(lang === 'bg' ? 'bg-BG' : 'en-GB', { weekday: 'long' }).format(new Date(2026, 10, day, 12));
+  const rhythm = () => screen.getByRole('region', { name: tr('studioRhythm', lang) });
+
+  it('shows the day\'s goal and the week\'s practice days in one place', () => {
+    const view = today({ profile, studyDays: [
+      { day: '2026-11-02', secondsActive: 9 * 60, answers: 12, correct: 10 },
+      // Last week does not count towards this one.
+      { day: '2026-11-01', secondsActive: 600, answers: 8, correct: 8 },
+      { day: '2026-11-04', secondsActive: 4 * 60 + 50, answers: 5, correct: 5 },
+    ] }, lang);
+    const widget = within(rhythm());
+    expect(widget.getByText(tr('todayGoal', lang, { target: 10 }))).toBeInTheDocument();
+    expect(widget.getByText(tr('todayGoalLeft', lang, { n: 6 }))).toBeInTheDocument();
+    expect(widget.getByText(tr('rhythmWeekDays', lang, { done: 2, target: 4 }))).toBeInTheDocument();
+    expect(widget.getByText(tr('dailyWeekLeft', lang, { n: 2 }))).toBeInTheDocument();
+    const days = widget.getAllByRole('listitem');
+    const said = [
+      tr('rhythmDayPractised', lang, { day: weekday(2) }),
+      tr('rhythmDayRest', lang, { day: weekday(3) }),
+      tr('rhythmDayPractised', lang, { day: weekday(4) }),
+      ...[5, 6, 7, 8].map((day) => tr('rhythmDayAhead', lang, { day: weekday(day) })),
+    ];
+    expect(days).toHaveLength(7);
+    days.forEach((day, index) => expect(day).toHaveTextContent(said[index]!));
+    expect(days[2]).toHaveAttribute('aria-current', 'date');
+    // Nothing else on the page counts the week again.
+    expect(view.container).not.toHaveTextContent(tr('dailyWeekProgress', lang, { done: 2, target: 4 }));
+    expect(view.container.querySelectorAll('.goal-ring')).toHaveLength(1);
+  });
+
+  it('completes the ring where it can be seen once the goal is met', () => {
+    const view = today({ profile, studyDays: [{ day: '2026-11-04', secondsActive: 12 * 60, answers: 30, correct: 28 }] }, lang);
+    expect(within(rhythm()).getByText(tr('todayGoalDone', lang))).toBeInTheDocument();
+    expect(view.container.querySelector('.goal-ring')).toHaveClass('goal-ring--done');
+  });
+
+  it('names today as still open before any practice, not as a day missed', () => {
+    today({ profile, studyDays: [{ day: '2026-11-02', secondsActive: 9 * 60, answers: 12, correct: 10 }] }, lang);
+    const days = within(rhythm()).getAllByRole('listitem');
+    expect(days[2]).toHaveTextContent(tr('rhythmDayOpen', lang, { day: weekday(4) }));
+    expect(days[2]).not.toHaveTextContent(tr('rhythmDayRest', lang, { day: weekday(4) }));
+    expect(days[1]).toHaveTextContent(tr('rhythmDayRest', lang, { day: weekday(3) }));
+    expect(within(rhythm()).getByText(tr('dailyWeekLeft', lang, { n: 3 }))).toBeInTheDocument();
+  });
+
+  it('asks for no more days than the week has left', () => {
+    // Sunday, with only Saturday practised: three more days would be needed, and one is left.
+    vi.setSystemTime(new Date(2026, 10, 8, 10));
+    today({ profile, studyDays: [{ day: '2026-11-07', secondsActive: 9 * 60, answers: 12, correct: 10 }] }, lang);
+    expect(within(rhythm()).getByText(tr('rhythmWeekShort', lang))).toBeInTheDocument();
+    expect(rhythm()).not.toHaveTextContent(tr('dailyWeekLeft', lang, { n: 3 }));
+  });
+
+  it('greets a week with nothing in it without counting what is missing', () => {
+    today({ profile }, lang);
+    expect(within(rhythm()).getByText(tr('studioWeekEmpty', lang))).toBeInTheDocument();
+    expect(within(rhythm()).getByText(tr('todayGoalLeft', lang, { n: 10 }))).toBeInTheDocument();
+  });
+});

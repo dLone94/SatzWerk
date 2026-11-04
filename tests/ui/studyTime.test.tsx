@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { todayHere } from '../../src/core/progress/days.ts';
 import * as outbox from '../../src/services/api/outbox.ts';
 import { AppStateProvider, useApp } from '../../src/state/AppState.tsx';
 
@@ -54,6 +55,7 @@ beforeEach(() => {
     if (url.endsWith('/api/learners')) return json({ learners: [{ id: 1, name: 'me', createdAt: '' }], studyingAs: 1 });
     // The server is unreachable for time, so whatever was kept stays visible.
     if (url.endsWith('/api/study')) throw new TypeError('Failed to fetch');
+    if (url.endsWith('/api/daily-runs')) return json({ dailyRuns: [] });
     throw new Error(`unexpected request: ${url}`);
   }) as typeof fetch;
 });
@@ -135,6 +137,42 @@ describe('time studied survives putting the phone away', () => {
     clock += 10 * 60_000;
     window.dispatchEvent(new Event('pagehide'));
     expect(keptSeconds()).toBe(30);
+  });
+});
+
+/*
+ * The minutes of a daily practice reached the server up to a minute after it
+ * was finished, so its finish screen and Today right after it showed the
+ * goal short by the last minute studied.
+ */
+describe('the minutes of a finished daily practice', () => {
+  const run = (stage: number) => ({ id: 'run', day: '2026-11-04', scriptId: 'sc-bakery-pre-a1', goal: 'everyday' as const,
+    stage, total: 4, firstTryCorrect: 4, listeningCompleted: false });
+
+  it('are kept the moment it is finished', async () => {
+    await mount();
+    clock += 40_000;
+    await act(async () => { await state.recordDailyRun(run(5)); });
+    expect(keptSeconds()).toBe(40);
+  });
+
+  // The server is away here, so the time is still only on this device. It
+  // counts on screen at once, and a fresh read of the state does not take it back.
+  it('count towards today on screen before the server has them', async () => {
+    await mount();
+    clock += 40_000;
+    await act(async () => { await state.recordDailyRun(run(5)); });
+    const today = () => state.studyDays.find((entry) => entry.day === todayHere())?.secondsActive;
+    expect(today()).toBe(40);
+    await act(async () => { await state.reload(); });
+    expect(today()).toBe(40);
+  });
+
+  it('wait for the minute as before while the practice goes on', async () => {
+    await mount();
+    clock += 40_000;
+    await act(async () => { await state.recordDailyRun(run(3)); });
+    expect(keptSeconds()).toBe(0);
   });
 });
 

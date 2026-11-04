@@ -44,6 +44,7 @@ import { createSpeechRecogniser, type SpeechRecogniser } from '../services/speec
 import { trackStudy } from '../services/studyTracker.ts';
 import type { StudyStatus } from '../core/progress/studyClock.ts';
 import { mergeDailyRun, type DailyRun, type DailyRunInput } from '../core/progress/daily.ts';
+import { DEFAULT_DAILY_GOAL_MINUTES } from '../core/progress/goal.ts';
 import { deviceLanguage, markPageLanguage, rememberLanguage } from '../ui/deviceLanguage.ts';
 
 /**
@@ -183,7 +184,7 @@ const EMPTY_STATS: Stats = {
 
 const DEFAULT_PROFILE: Profile = {
   teachingLanguage: 'en',
-  dailyTargetMinutes: 20,
+  dailyTargetMinutes: DEFAULT_DAILY_GOAL_MINUTES,
   displayName: null,
   onboarded: false,
   createdAt: new Date().toISOString(),
@@ -228,6 +229,26 @@ function withAnswerCounted(
 /** One answer, the same wherever it is seen: queued, laid over a fetch, or sent. */
 function answerKey(attempt: AttemptPayload): string {
   return `${attempt.at ?? ''}|${attempt.stepId}`;
+}
+
+/**
+ * Study time queued but not yet answered for, added to the day it was
+ * studied on. Minutes reached the screen only when the server answered, so
+ * the finish of the daily practice could open a minute short of the goal and
+ * then change its button under the learner's thumb when the answer came.
+ */
+function withStudyTime(
+  studyDays: AppStateSnapshot['studyDays'],
+  write: { seconds: number; at: string; tzOffsetMinutes?: number },
+): AppStateSnapshot['studyDays'] {
+  const day = localDay(new Date(write.at), plausibleOffset(write.tzOffsetMinutes));
+  const prior = studyDays.find((row) => row.day === day);
+  if (prior) {
+    return studyDays.map((row) => (row === prior ? { ...row, secondsActive: row.secondsActive + write.seconds } : row));
+  }
+  return [...studyDays, { day, secondsActive: write.seconds, answers: 0, correct: 0 }].sort((a, b) => b.day.localeCompare(a.day));
+}
+
 }
 
 function indexLessons(lessons: LessonProgress[]): Record<string, LessonProgress> {
@@ -347,19 +368,23 @@ function withHeld(state: AppStateSnapshot, counted?: Set<string>): AppStateSnaps
       dailyRuns = mergeDailyRun(dailyRuns, { ...write.payload, updatedAt: new Date().toISOString() });
     }
   }
-  return { ...state, lessons: Object.values(lessons), reviewItems, dailyRuns, studyDays: withHeldAnswers(state.studyDays, queued) };
+  return { ...state, lessons: Object.values(lessons), reviewItems, dailyRuns, studyDays: withHeldStudy(state.studyDays, queued) };
 }
 
 /**
- * The server's study days with every answer still held counted in. A held
- * answer is a day studied, as it is once sent; see submitAttempt.
+ * The server's study days with everything still held counted in: each held
+ * answer is a day studied, as it is once sent (see submitAttempt), and held
+ * study time adds its minutes to the day it was studied on.
  */
-function withHeldAnswers(
+function withHeldStudy(
   studyDays: AppStateSnapshot['studyDays'],
   queued: outbox.QueuedWrite[] = heldHere(),
 ): AppStateSnapshot['studyDays'] {
   let next = studyDays;
-  for (const { write } of queued) if (write.kind === 'attempt') next = withAnswerCounted(next, write.payload);
+  for (const { write } of queued) {
+    if (write.kind === 'attempt') next = withAnswerCounted(next, write.payload);
+    else if (write.kind === 'studyTime') next = withStudyTime(next, write);
+  }
   return next;
 }
 
@@ -516,9 +541,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       tracker.sample();
       const seconds = Math.floor(pendingSeconds.current);
       if (seconds < 1) return;
-      if (outbox.enqueue({ kind: 'studyTime', seconds, at: new Date().toISOString(),
-        tzOffsetMinutes: -new Date().getTimezoneOffset() })) {
+      const write = { kind: 'studyTime' as const, seconds, at: new Date().toISOString(),
+        tzOffsetMinutes: -new Date().getTimezoneOffset() };
+      if (outbox.enqueue(write)) {
         pendingSeconds.current -= seconds;
+        setSnapshot((current) => (current ? { ...current, studyDays: withStudyTime(current.studyDays, write) } : current));
       }
     };
     const hide = () => { if (document.visibilityState !== 'visible') keep(); };
@@ -679,9 +706,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return false;
         case 'studyTime': {
           const response = result as { stats: Stats; studyDays: AppStateSnapshot['studyDays'] };
-          // The answers queued behind the minute are already counted on
-          // screen, and the server has not had them yet.
-          patchSnapshot({ stats: response.stats, studyDays: withHeldAnswers(response.studyDays) });
+          // The answers and minutes queued behind this one are already
+          // counted on screen, and the server has not had them yet.
+          patchSnapshot({ stats: response.stats, studyDays: withHeldStudy(response.studyDays) });
           return false;
         }
         case 'sectionSeen':
@@ -1362,6 +1389,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       },
 
       recordDailyRun: async (payload) => {
+        // A finished practice takes its last minutes with it. They used to
+        // follow up to a minute later, so the finish and Today straight after
+        // it showed the daily goal short by the minute just studied.
+        if (payload.stage >= 5) keepStudyTime.current();
         // Queue before sending, like an answer. This keeps part transitions
         // immediate and makes learner handover wait for this write too.
         if (!outbox.enqueue({ kind: 'dailyRun', payload })) {
