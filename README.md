@@ -558,6 +558,15 @@ minutes and is offered 5, 10, 15 or 20, or any number typed in
 (`src/core/progress/goal.ts`). A goal already stored is the learner's own and
 is never moved: only profiles created from now on start at 10.
 
+**One rhythm, not three scores.** Today measured the same effort three ways
+in three places: a ring of minutes, bars of minutes for the last seven days,
+and "0 / 4 practice days this week" at the foot of the page. One widget
+(`src/ui/components/Rhythm.tsx`) now holds both measures, named: today's
+active minutes against the daily goal, as a ring that turns green and takes a
+tick once the goal is met, and this week's practice days against the weekly
+goal, Monday to Sunday, as seven dots counted by the same rule as that goal
+(a day with an answer saved).
+
 **The mixed round: one button, ten minutes.** A lesson here is twenty-five to
 thirty minutes, which is right for meeting something new and wrong for a
 Tuesday evening. Before this existed, a learner with ten minutes was handed a

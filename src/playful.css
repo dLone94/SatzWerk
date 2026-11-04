@@ -88,15 +88,10 @@ html { scroll-padding-top: calc(var(--topbar-height) + 8px); }
 .today-plan__scene { width: calc(100% + 28px); margin: 0 -18px -5px 0; }
 .today-tiles { gap: 14px; }
 .today-tile { border-width: 2px; border-radius: 22px; padding: 20px; }
-.today-tile:first-child { grid-template-columns: 65px minmax(0, 1fr); }
-.today-tile:first-child .goal-ring { width: 65px; height: 65px; }
 .today-tile--review { border-color: var(--line); background: var(--accent-soft); }
-.today-workbench { gap: 24px; }
-.today-round { border-width: 2px; min-height: 180px; border-radius: 8px 24px 24px 24px; background: var(--surface); box-shadow: 0 4px 0 var(--line); }
+.today-round { border-width: 2px; border-radius: 8px 24px 24px 24px; background: var(--surface); box-shadow: 0 4px 0 var(--line); }
 .today-round__icon { background: var(--play-coral); color: var(--play-ink); transform: rotate(-9deg); border-radius: 13px; }
-.weekly-rhythm { border-width: 2px; border-radius: 24px; background: var(--surface); box-shadow: 0 4px 0 var(--line); }
-.weekly-rhythm__bar { border-radius: 10px 10px 5px 5px; }
-.weekly-rhythm__bar > span { background: var(--accent); }
+.rhythm { border-width: 2px; border-radius: 24px; background: var(--surface); box-shadow: 0 4px 0 var(--line); }
 .today-unit { border: 0; border-top: 2px dashed var(--line); border-bottom: 2px dashed var(--line); border-radius: 0; background: transparent; padding: 24px 4px; }
 .stops__stop--now .stops__dot { border: 2px solid var(--play-blue-dark); background: var(--play-blue); color: white; box-shadow: 0 4px 0 var(--play-blue-dark); }
 .studio-explore__grid { gap: 24px; }
@@ -223,12 +218,10 @@ html { scroll-padding-top: calc(var(--topbar-height) + 8px); }
   .today-plan__scene { width: 100%; max-width: 250px; margin: 4px auto 0; }
   .dackel-scene__hello { font-size: 18px; padding: 7px 13px; }
   .today-tile { padding: 15px; border-radius: 20px; }
-  .today-tile:first-child .goal-ring { width: 53px; height: 53px; }
   .today-tile__main { font-size: 12px; }
   .today-tile__note { font-size: 11px; }
-  .today-workbench { gap: 18px; }
-  .today-round { min-height: 0; border-radius: 20px; }
-  .weekly-rhythm { padding: 18px; }
+  .today-round { border-radius: 20px; }
+  .rhythm { padding: 18px; border-radius: 22px; }
   .studio-explore__grid { gap: 18px; }
   .studio-explore__card { padding: 20px; }
   .daily-intro .page__title { font-size: 34px; letter-spacing: -1.2px; }
@@ -260,7 +253,6 @@ html { scroll-padding-top: calc(var(--topbar-height) + 8px); }
 }
 @media (prefers-color-scheme: dark) {
   .studio-explore__card--conversation { background: #fff0df; }
-  .weekly-rhythm__bar > span { background: var(--accent); }
   .daily-plan__steps li > span { border-color: transparent; }
   .btn--primary { box-shadow: 0 4px 0 #5c77ad; }
   .btn--primary:hover { box-shadow: 0 5px 0 #5c77ad; }

@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { SCENARIOS, checkpointById, contentStats, scriptById, unitForLesson } from '../../content/browser.ts';
 import { todayHere } from '../../core/progress/days.ts';
@@ -10,6 +9,7 @@ import { Card, Meter, Stat, formatDuration } from '../components/bits.tsx';
 import { Icon } from '../components/icons.tsx';
 import { inferredPracticeLevel } from '../components/LearningPreferences.tsx';
 import { PracticalProgress } from '../components/PracticalProgress.tsx';
+import { Rhythm } from '../components/Rhythm.tsx';
 import { DackelScene } from '../components/Dackel.tsx';
 import { chooseDailyScript } from '../dailyBuilder.ts';
 import { reviewItemsForPath } from '../reviewBuilder.ts';
@@ -44,7 +44,6 @@ export function DashboardPage() {
   const today = studyDays.find((entry) => entry.day === day);
   const minutesToday = Math.floor((today?.secondsActive ?? 0) / 60);
   const target = Math.max(1, profile.dailyTargetMinutes);
-  const minutesLeft = Math.max(0, target - minutesToday);
 
   const onPath = reviewItemsForPath(reviewItems, lang);
   // The conversation the practice page would offer, chosen the way that page
@@ -252,19 +251,16 @@ export function DashboardPage() {
         <DackelScene className="today-plan__scene" />
       </section>
 
+      {/*
+        * The day's goal and the week, in one widget, beside what is waiting
+        * to be reviewed. There were three measures here, counted three ways:
+        * the goal ring, bars of minutes for the last seven days, and the
+        * week's practice days at the foot of the page.
+        */}
       <div className="today-tiles">
-        <div className="today-tile">
-          <span className="today-tile__eyebrow">{t('settingsDailyTarget')}</span>
-          <GoalRing done={minutesToday} target={target} />
-          <p className="today-tile__main">{t('todayGoal', { target })}</p>
-          <p className="today-tile__note">
-            {minutesLeft > 0 ? t('todayGoalLeft', { n: minutesLeft }) : t('todayGoalDone')}
-          </p>
-          <span className="today-tile__active-note">{t('todayGoalNote')}</span>
-        </div>
+        <Rhythm />
         <Link className="today-tile today-tile--review" to="/review">
           <Icon name="arrow" size={18} className="today-tile__arrow" />
-          {/* Named first, as the goal tile beside it is, so the two line up. */}
           <span className="today-tile__eyebrow">{t('navReview')}</span>
           <span className="today-tile__icon">
             <Icon name="review" />
@@ -289,24 +285,21 @@ export function DashboardPage() {
         * there is something to put in it. With nothing waiting it was a card
         * that said so: one more start that went nowhere.
         */}
-      <div className={`today-workbench${round.steps > 0 ? '' : ' today-workbench--solo'}`}>
-        {round.steps > 0 ? (
-          <Link className="today-round" to="/session">
-            <span className="today-round__icon">
-              <Icon name="round" />
+      {round.steps > 0 ? (
+        <Link className="today-round" to="/session">
+          <span className="today-round__icon">
+            <Icon name="round" />
+          </span>
+          <span className="today-round__text">
+            <span className="today-round__title">{t('sessionTitle')}</span>
+            <span className="today-round__note">{t('todayRoundWhat')}</span>
+            <span className="today-round__note">
+              {`${t('sessionAnswers', { n: round.steps })} · ${t('dashboardEstimate', { n: estimatedMinutes(round) })}`}
             </span>
-            <span className="today-round__text">
-              <span className="today-round__title">{t('sessionTitle')}</span>
-              <span className="today-round__note">{t('todayRoundWhat')}</span>
-              <span className="today-round__note">
-                {`${t('sessionAnswers', { n: round.steps })} · ${t('dashboardEstimate', { n: estimatedMinutes(round) })}`}
-              </span>
-            </span>
-            <Icon name="arrow" size={20} />
-          </Link>
-        ) : null}
-        <WeeklyRhythm />
-      </div>
+          </span>
+          <Icon name="arrow" size={20} />
+        </Link>
+      ) : null}
 
       {unit && unitViews.length > 0 ? (
         <section className="today-unit" aria-labelledby="today-unit-title">
@@ -377,7 +370,8 @@ export function DashboardPage() {
         </Card>
       ) : null}
 
-      <PracticalProgress />
+      {/* The week is counted in the rhythm above, not a second time here. */}
+      <PracticalProgress week={false} />
       {hasActivity ? progress() : null}
     </div>
   );
@@ -432,49 +426,6 @@ export function DashboardPage() {
       </details>
     );
   }
-}
-
-function WeeklyRhythm() {
-  const { t, lang, studyDays, profile } = useApp();
-  const now = new Date();
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6 + index, 12);
-    const day = studyDays.find(day => day.day === todayHere(date));
-    return { date, minutes: Math.floor((day?.secondsActive ?? 0) / 60) };
-  });
-  const total = days.reduce((sum, day) => sum + day.minutes, 0);
-  const maximum = Math.max(profile.dailyTargetMinutes, ...days.map(day => day.minutes));
-  const weekday = new Intl.DateTimeFormat(lang === 'bg' ? 'bg-BG' : 'en-GB', { weekday: 'short' });
-  return <section className="weekly-rhythm" aria-labelledby="weekly-rhythm-title">
-    <div className="weekly-rhythm__head"><div><h2 id="weekly-rhythm-title">{t('studioRhythm')}</h2><p>{t('studioWeek')}</p></div>
-      <strong>{t('studioWeekMinutes', { n: total })}</strong></div>
-    <ol className="weekly-rhythm__days">
-      {days.map((day, index) => <li key={todayHere(day.date)} aria-current={index === 6 ? 'date' : undefined}>
-        <span className={`weekly-rhythm__bar${day.minutes >= profile.dailyTargetMinutes ? ' is-complete' : ''}`}
-          style={{ '--day-fill': `${Math.min(100, day.minutes / maximum * 100)}%` } as CSSProperties} aria-hidden="true"><span /></span>
-        <span aria-hidden="true">{weekday.format(day.date)}</span>
-        <span className="visually-hidden">{weekday.format(day.date)}: {t('studioWeekMinutes', { n: day.minutes })}</span>
-      </li>)}
-    </ol>
-    {total === 0 ? <p className="weekly-rhythm__empty">{t('studioWeekEmpty')}</p> : null}
-  </section>;
-}
-
-/** Minutes studied today against the daily target, as a ring. */
-function GoalRing({ done, target }: { done: number; target: number }) {
-  const r = 26;
-  const circumference = 2 * Math.PI * r;
-  const share = Math.min(1, done / target);
-  const style = { '--ring-c': circumference, '--ring-target': circumference * (1 - share) } as CSSProperties;
-  return (
-    <div className="goal-ring" style={style}>
-      <svg viewBox="0 0 64 64" aria-hidden="true">
-        <circle className="goal-ring__track" cx="32" cy="32" r={r} />
-        <circle className="goal-ring__value" cx="32" cy="32" r={r} />
-      </svg>
-      <span className="goal-ring__num">{done}</span>
-    </div>
-  );
 }
 
 /** Greeted in German, by the hour where the learner is. */

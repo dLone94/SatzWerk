@@ -4,15 +4,16 @@ import { useApp } from '../../state/AppState.tsx';
 import { practicalAbilities } from '../dailyBuilder.ts';
 import { Icon } from './icons.tsx';
 
-export function PracticalProgress() {
+/** The conversations practised; with `week`, the week's practice days beside them, where nothing else counts those. */
+export function PracticalProgress({ week: showWeek = true }: { week?: boolean }) {
   const { t, say, scenarioRuns, profile, studyDays } = useApp();
   const week = weeklyPractice(studyDays, profile.weeklyTargetDays ?? 4);
   const abilities = practicalAbilities(scenarioRuns);
   return <section className="practical-progress" aria-labelledby="practical-progress-title">
     <div className="practical-progress__head"><div><p className="section-eyebrow">{t('dailyRealProgress')}</p>
       <h2 id="practical-progress-title">{t('dailyAbilitiesTitle')}</h2></div>
-      <span className="weekly-goal">{t('dailyWeekProgress', { done: week.done, target: week.goal })}</span></div>
-    <p className="muted">{week.left > 0 ? t('dailyWeekLeft', { n: week.left }) : t('dailyWeekDone')}</p>
+      {showWeek ? <span className="weekly-goal">{t('dailyWeekProgress', { done: week.done, target: week.goal })}</span> : null}</div>
+    {showWeek ? <p className="muted">{week.left > 0 ? t('dailyWeekLeft', { n: week.left }) : t('dailyWeekDone')}</p> : null}
     {abilities.length > 0 ? <ul className="ability-list">{abilities.slice(0, 4).map(({ script, scenario, run }) =>
       <li key={script.id}><span className="ability-list__icon"><Icon name={run.bestAccuracy >= 0.8 ? 'check' : 'chat'} size={20} /></span>
         <span><Link to={`/scenario/${script.id}`}>{say(scenario.title)}</Link>

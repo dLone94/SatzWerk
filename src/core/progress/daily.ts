@@ -43,6 +43,24 @@ export function weeklyPractice(days: Array<{ day: string; answers: number }>, ta
   return { done, goal, left: Math.max(0, goal - done), start };
 }
 
+/**
+ * The week the weekly goal counts, Monday to Sunday, one entry a day: whether
+ * it was a practice day by the same rule (an answer saved that day), and
+ * whether it is today or still to come. Today's rhythm draws exactly this, so
+ * the dots and the count beside them cannot disagree.
+ */
+export function practiceWeek(days: Array<{ day: string; answers: number }>, now = new Date()) {
+  const today = todayHere(now);
+  const practised = new Set(days.filter(day => day.answers > 0).map(day => day.day));
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+  monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index, 12);
+    const day = todayHere(date);
+    return { day, date, practised: practised.has(day), today: day === today, ahead: day > today };
+  });
+}
+
 export function isCalendarDay(value: unknown): value is string {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(value + 'T12:00:00Z');
