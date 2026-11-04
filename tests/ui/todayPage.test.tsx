@@ -180,6 +180,23 @@ describe.each(LANGS)('the rhythm on Today in %s', (lang) => {
     expect(view.container.querySelector('.goal-ring')).toHaveClass('goal-ring--done');
   });
 
+  it('names today as still open before any practice, not as a day missed', () => {
+    today({ profile, studyDays: [{ day: '2026-11-02', secondsActive: 9 * 60, answers: 12, correct: 10 }] }, lang);
+    const days = within(rhythm()).getAllByRole('listitem');
+    expect(days[2]).toHaveTextContent(tr('rhythmDayOpen', lang, { day: weekday(4) }));
+    expect(days[2]).not.toHaveTextContent(tr('rhythmDayRest', lang, { day: weekday(4) }));
+    expect(days[1]).toHaveTextContent(tr('rhythmDayRest', lang, { day: weekday(3) }));
+    expect(within(rhythm()).getByText(tr('dailyWeekLeft', lang, { n: 3 }))).toBeInTheDocument();
+  });
+
+  it('asks for no more days than the week has left', () => {
+    // Sunday, with only Saturday practised: three more days would be needed, and one is left.
+    vi.setSystemTime(new Date(2026, 10, 8, 10));
+    today({ profile, studyDays: [{ day: '2026-11-07', secondsActive: 9 * 60, answers: 12, correct: 10 }] }, lang);
+    expect(within(rhythm()).getByText(tr('rhythmWeekShort', lang))).toBeInTheDocument();
+    expect(rhythm()).not.toHaveTextContent(tr('dailyWeekLeft', lang, { n: 3 }));
+  });
+
   it('greets a week with nothing in it without counting what is missing', () => {
     today({ profile }, lang);
     expect(within(rhythm()).getByText(tr('studioWeekEmpty', lang))).toBeInTheDocument();

@@ -25,6 +25,11 @@ export function Rhythm({ celebrate = false }: { celebrate?: boolean }) {
   const left = Math.max(0, target - minutes);
   const week = weeklyPractice(studyDays, profile.weeklyTargetDays ?? 4, now);
   const days = practiceWeek(studyDays, now);
+  // Days this week that can still become practice days: today, until it is
+  // one, and the days after it. On a Sunday with one day done, "3 more
+  // practice days. Pick the days that suit you" asked for days the week no
+  // longer has.
+  const open = days.filter((day) => !day.practised && (day.today || day.ahead)).length;
   const locale = lang === 'bg' ? 'bg-BG' : 'en-GB';
   const short = new Intl.DateTimeFormat(locale, { weekday: 'short' });
   const long = new Intl.DateTimeFormat(locale, { weekday: 'long' });
@@ -53,7 +58,9 @@ export function Rhythm({ celebrate = false }: { celebrate?: boolean }) {
           <ol className="rhythm__days">
             {days.map((day) => {
               const name = long.format(day.date);
-              const state = day.practised ? 'practised' : day.ahead ? 'ahead' : 'rest';
+              // Today without practice yet is still open, not a day missed:
+              // "Wednesday: no practice" at ten in the morning read as a verdict.
+              const state = day.practised ? 'practised' : day.today ? 'open' : day.ahead ? 'ahead' : 'rest';
               return (
                 <li key={day.day} className={`rhythm__day rhythm__day--${state}`} aria-current={day.today ? 'date' : undefined}>
                   <span className="rhythm__dot" aria-hidden="true">
@@ -61,15 +68,21 @@ export function Rhythm({ celebrate = false }: { celebrate?: boolean }) {
                   </span>
                   <span aria-hidden="true">{short.format(day.date)}</span>
                   <span className="visually-hidden">
-                    {t(state === 'practised' ? 'rhythmDayPractised' : state === 'ahead' ? 'rhythmDayAhead' : 'rhythmDayRest',
-                      { day: name })}
+                    {t(state === 'practised' ? 'rhythmDayPractised' : state === 'open' ? 'rhythmDayOpen'
+                      : state === 'ahead' ? 'rhythmDayAhead' : 'rhythmDayRest', { day: name })}
                   </span>
                 </li>
               );
             })}
           </ol>
           <p className="rhythm__note">
-            {week.done === 0 ? t('studioWeekEmpty') : week.left > 0 ? t('dailyWeekLeft', { n: week.left }) : t('dailyWeekDone')}
+            {week.done === 0
+              ? t('studioWeekEmpty')
+              : week.left === 0
+                ? t('dailyWeekDone')
+                : week.left > open
+                  ? t('rhythmWeekShort')
+                  : t('dailyWeekLeft', { n: week.left })}
           </p>
         </div>
       </div>

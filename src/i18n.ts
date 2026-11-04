@@ -120,6 +120,9 @@ export const UI = {
   rhythmDayPractised: s('{day}: practised', '{day}: с практика'),
   rhythmDayRest: s('{day}: no practice', '{day}: без практика'),
   rhythmDayAhead: s('{day}: still to come', '{day}: предстои'),
+  rhythmDayOpen: s('{day}: today, no practice yet', '{day}: днес, още без практика'),
+  /* The weekly goal is out of reach this week: no days to pick, and no blame. */
+  rhythmWeekShort: s('Every day you practise still counts. A new week starts on Monday.', 'Всеки ден с практика се брои. Новата седмица започва в понеделник.'),
   studioWeekEmpty: s('Every day is a fresh start. Your first step counts.', 'Всеки ден е ново начало. Първата стъпка е важна.'),
   studioExploreTitle: s('Take your German into the world', 'Изведи немския си в света'),
   studioRealLife: s('From the bakery to your next appointment. Practise the conversations that matter.', 'От пекарната до следващия ти час. Упражнявай важните разговори.'),
