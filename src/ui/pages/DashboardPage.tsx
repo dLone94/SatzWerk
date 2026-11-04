@@ -283,7 +283,7 @@ export function DashboardPage() {
             </p>
           ) : null}
         </div>
-        <DackelScene className="today-plan__scene" />
+        <DackelScene className="today-plan__scene hw-scene hw-scene--today" />
       </section>
 
       {/*

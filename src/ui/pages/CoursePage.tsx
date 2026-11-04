@@ -62,7 +62,7 @@ export function CoursePage() {
         <Link to="/placement" className="course__placement">
           {t('placementNav')}
         </Link>
-      </p></div><DackelScene className="course-welcome__scene" /></div>
+      </p></div><DackelScene className="course-welcome__scene hw-scene" /></div>
 
       <nav className="levels" aria-label={t('courseTitle')}>
         {CURRICULUM.map((entry) => (

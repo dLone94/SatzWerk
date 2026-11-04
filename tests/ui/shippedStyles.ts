@@ -21,7 +21,7 @@ import { transform } from 'lightningcss';
  */
 
 /** In the order src/main.tsx imports them, which is the order they ship in. */
-const LAYERS = ['src/styles.css', 'src/studio.css', 'src/playful.css'];
+const LAYERS = ['src/styles.css', 'src/studio.css', 'src/holzwerk.css'];
 
 /**
  * The browsers the build writes its CSS for, in Vite's own terms: Vite's

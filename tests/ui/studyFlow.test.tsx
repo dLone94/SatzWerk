@@ -635,7 +635,7 @@ describe('the redesign', () => {
     // the whole interface can be Bulgarian.
     const css = readFileSync('src/fonts.css', 'utf8');
     expect(css).not.toMatch(/https?:/);
-    for (const family of ['Onest', 'Geologica']) {
+    for (const family of ['Onest', 'Nunito']) {
       const faces = [...css.matchAll(/@font-face \{[^}]*\}/g)].map((m) => m[0]).filter((f) => f.includes(`'${family}'`));
       expect(faces.some((face) => face.includes('U+0400-045F')), family).toBe(true);
     }
