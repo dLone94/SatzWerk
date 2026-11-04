@@ -556,7 +556,14 @@ day while the daily practice takes about six, so a beginner who did it was
 told "17 more to your goal" every evening. A new learner now starts at 10
 minutes and is offered 5, 10, 15 or 20, or any number typed in
 (`src/core/progress/goal.ts`). A goal already stored is the learner's own and
-is never moved: only profiles created from now on start at 10.
+is never moved: only profiles created from now on start at 10, and a profile
+that has not been through the welcome screen yet is offered 10 there, because
+its 20 was never chosen. Settings offers the same four, and a goal outside
+them (30, say) stays in its "Custom" field. The daily practice is the same
+size whatever the goal: its review part used to be a third of the goal in
+items, which would have cut a new learner's practice in half along with the
+default. The mixed round is still planned to fill the goal, so on the default
+it is a ten-minute round.
 
 **One rhythm, not three scores.** Today measured the same effort three ways
 in three places: a ring of minutes, bars of minutes for the last seven days,
@@ -565,18 +572,28 @@ and "0 / 4 practice days this week" at the foot of the page. One widget
 active minutes against the daily goal, as a ring that turns green and takes a
 tick once the goal is met, and this week's practice days against the weekly
 goal, Monday to Sunday, as seven dots counted by the same rule as that goal
-(a day with an answer saved).
+(a day with an answer saved). Today, before any practice, is a day still
+open, not a day missed, and once the week cannot reach its goal any more the
+widget says a new week starts on Monday instead of asking for days it no
+longer has.
 
 **A finish that feels like a win.** Finishing the daily practice was a flat
 card with two buttons of equal weight. It now falls the lessons' confetti
 (none under reduced motion), has the dachshund cheer *Geschafft!*, and counts
 only what the rows say was done: the new phrases met, the answers right first
 time, the streak once it is longer than today, and the same rhythm widget as
-Today, with today's dot filling in. Its one button is the step `todayStep`
-would now lead Today with, so the two never disagree; doing it again stays a
-quiet link, and the day's phrases are listed below to hear once more. The
-practice's last minutes are saved the moment it is finished rather than up to
-a minute later, so the goal shown there and on Today is the goal as it stands.
+Today, with today's dot filling in. A phrase already met in a practice
+finished earlier the same day counts as familiar, not new. Straight under the
+wins, where a phone shows it without scrolling, its one button is the step
+`todayStep` would now lead Today with, with how long it takes, so the two
+never disagree; once the goal is met that button goes back to Today and the
+course's next step is offered quietly beside it, as Today offers it. The step
+is settled as the finish opens and does not change under the learner's
+thumb. Doing it again stays a quiet link, and the day's phrases are listed
+below to hear once more. The practice's last minutes are saved the moment it
+is finished rather than up to a minute later, and minutes count on screen as
+soon as they are queued rather than when the server answers, so the goal
+shown there and on Today is the goal as it stands.
 
 **The mixed round: one button, ten minutes.** A lesson here is twenty-five to
 thirty minutes, which is right for meeting something new and wrong for a

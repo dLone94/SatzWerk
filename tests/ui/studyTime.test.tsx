@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { todayHere } from '../../src/core/progress/days.ts';
 import * as outbox from '../../src/services/api/outbox.ts';
 import { AppStateProvider, useApp } from '../../src/state/AppState.tsx';
 
@@ -153,6 +154,18 @@ describe('the minutes of a finished daily practice', () => {
     clock += 40_000;
     await act(async () => { await state.recordDailyRun(run(5)); });
     expect(keptSeconds()).toBe(40);
+  });
+
+  // The server is away here, so the time is still only on this device. It
+  // counts on screen at once, and a fresh read of the state does not take it back.
+  it('count towards today on screen before the server has them', async () => {
+    await mount();
+    clock += 40_000;
+    await act(async () => { await state.recordDailyRun(run(5)); });
+    const today = () => state.studyDays.find((entry) => entry.day === todayHere())?.secondsActive;
+    expect(today()).toBe(40);
+    await act(async () => { await state.reload(); });
+    expect(today()).toBe(40);
   });
 
   it('wait for the minute as before while the practice goes on', async () => {

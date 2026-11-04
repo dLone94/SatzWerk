@@ -226,6 +226,31 @@ function withAnswerCounted(
   return [...studyDays, { day, secondsActive: 0, answers: 1, correct: right }].sort((a, b) => b.day.localeCompare(a.day));
 }
 
+/**
+ * Study time queued but not yet answered for, added to the day it was
+ * studied on. Minutes reached the screen only when the server answered, so
+ * the finish of the daily practice could open a minute short of the goal and
+ * then change its button under the learner's thumb when the answer came.
+ */
+function withStudyTime(
+  studyDays: AppStateSnapshot['studyDays'],
+  write: { seconds: number; at: string; tzOffsetMinutes?: number },
+): AppStateSnapshot['studyDays'] {
+  const day = localDay(new Date(write.at), plausibleOffset(write.tzOffsetMinutes));
+  const prior = studyDays.find((row) => row.day === day);
+  if (prior) {
+    return studyDays.map((row) => (row === prior ? { ...row, secondsActive: row.secondsActive + write.seconds } : row));
+  }
+  return [...studyDays, { day, secondsActive: write.seconds, answers: 0, correct: 0 }].sort((a, b) => b.day.localeCompare(a.day));
+}
+
+/** The server's study days, with the time still waiting on this device on top. */
+function withHeldStudyTime(studyDays: AppStateSnapshot['studyDays']): AppStateSnapshot['studyDays'] {
+  let next = studyDays;
+  for (const { write } of heldHere()) if (write.kind === 'studyTime') next = withStudyTime(next, write);
+  return next;
+}
+
 function indexLessons(lessons: LessonProgress[]): Record<string, LessonProgress> {
   const out: Record<string, LessonProgress> = {};
   for (const lesson of lessons) out[lesson.lessonId] = lesson;
@@ -342,7 +367,7 @@ function withHeld(state: AppStateSnapshot): AppStateSnapshot {
       dailyRuns = mergeDailyRun(dailyRuns, { ...write.payload, updatedAt: new Date().toISOString() });
     }
   }
-  return { ...state, lessons: Object.values(lessons), reviewItems, dailyRuns };
+  return { ...state, lessons: Object.values(lessons), reviewItems, dailyRuns, studyDays: withHeldStudyTime(state.studyDays) };
 }
 
 /**
@@ -496,9 +521,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       tracker.sample();
       const seconds = Math.floor(pendingSeconds.current);
       if (seconds < 1) return;
-      if (outbox.enqueue({ kind: 'studyTime', seconds, at: new Date().toISOString(),
-        tzOffsetMinutes: -new Date().getTimezoneOffset() })) {
+      const write = { kind: 'studyTime' as const, seconds, at: new Date().toISOString(),
+        tzOffsetMinutes: -new Date().getTimezoneOffset() };
+      if (outbox.enqueue(write)) {
         pendingSeconds.current -= seconds;
+        setSnapshot((current) => (current ? { ...current, studyDays: withStudyTime(current.studyDays, write) } : current));
       }
     };
     const hide = () => { if (document.visibilityState !== 'visible') keep(); };
@@ -655,7 +682,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return false;
         case 'studyTime': {
           const response = result as { stats: Stats; studyDays: AppStateSnapshot['studyDays'] };
-          patchSnapshot({ stats: response.stats, studyDays: response.studyDays });
+          // Time queued after this one is still only on this device.
+          patchSnapshot({ stats: response.stats, studyDays: withHeldStudyTime(response.studyDays) });
           return false;
         }
         case 'sectionSeen':

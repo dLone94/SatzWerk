@@ -90,6 +90,13 @@
 .daily-finished__next .section-eyebrow { margin: 0; }
 .daily-finished__done { margin: 0; font-size: 15px; font-weight: 650; }
 .daily-finished__next .btn--primary { max-width: 100%; white-space: normal; text-align: left; }
+.daily-finished__time { margin: -4px 0 0; font-size: 13px; color: var(--ink-soft); }
+/* "about 15 min" is a phrase inside Today's detail line; alone under the button it is a sentence. */
+.daily-finished__time::first-letter { text-transform: uppercase; }
+.daily-finished__more { display: grid; justify-items: center; gap: 4px; margin: 0; font-size: 14px; color: var(--ink-soft); }
+.daily-finished__more a { font-weight: 700; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+/* Inline, so a title that wraps on a phone keeps its arrow at the end of the words. */
+.daily-finished__more a svg { display: inline; vertical-align: -3px; margin-left: 4px; }
 .micro-tip { border-left: 3px solid var(--accent); padding: 10px 14px; margin: 14px 0; color: var(--ink); background: var(--surface); font-size: 13px; line-height: 1.65; border-radius: 0 10px 10px 0; }
 @media (max-width: 700px) {
   .daily-plan { grid-template-columns: 1fr; }
@@ -227,7 +234,7 @@ body { background: var(--paper); }
 .rhythm__day[aria-current] { color: var(--ink); font-weight: 750; }
 .rhythm__dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--surface-alt); }
 .rhythm__day--practised .rhythm__dot { background: var(--good); color: var(--surface); }
-.rhythm__day--ahead .rhythm__dot { background: transparent; border: 1.5px dashed var(--line); }
+.rhythm__day--ahead .rhythm__dot, .rhythm__day--open .rhythm__dot { background: transparent; border: 1.5px dashed var(--line); }
 .rhythm__day[aria-current] .rhythm__dot { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 @container (min-width: 500px) {
   .rhythm__body { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.4fr); gap: 24px; }

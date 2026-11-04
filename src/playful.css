@@ -154,6 +154,8 @@ html { scroll-padding-top: calc(var(--topbar-height) + 8px); }
 .daily-finished { border-width: 2px; background: var(--surface); border-radius: 32px; padding-top: 25px; }
 .daily-finished__scene { width: 260px; max-width: 100%; margin: 0 auto 12px; }
 .daily-finished__mark { height: 45px; width: 45px; margin-bottom: 20px; background: var(--good-soft); color: var(--good); box-shadow: 0 3px 0 var(--line); }
+/* On a phone the picture gives up a little height, so the one next step is on the first screen in both languages. */
+@media (max-width: 480px) { .daily-finished__scene { width: 210px; margin-bottom: 6px; } .daily-finished__mark { margin-bottom: 12px; } }
 
 /* A small winding trail retains authored lesson labels and completion states. */
 .course-welcome { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; align-items: center; padding: 22px 26px; border-radius: 28px 28px 8px 28px; background: var(--accent-soft); border: 2px solid var(--line); }
