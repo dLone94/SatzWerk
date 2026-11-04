@@ -458,10 +458,10 @@ try {
     await glPage.locator('.route-loading').waitFor({ state: 'hidden' });
   };
   /** How much of a scene's canvas is drawn: distinct colours, and the share unlike its first pixel. */
-  const drawn = async selector => {
+  const drawn = async (selector, settle = 1500) => {
     const canvas = glPage.locator(`${selector}.is-live .wood-scene__canvas`);
     await canvas.waitFor({ timeout: 20_000 });
-    await glPage.waitForTimeout(1500);
+    await glPage.waitForTimeout(settle);
     const png = (await canvas.screenshot()).toString('base64');
     return glPage.evaluate(async data => {
       const image = new Image();
@@ -483,8 +483,8 @@ try {
     }, png);
   };
   const scenes = {};
-  const expectDrawn = async (name, selector) => {
-    scenes[name] = await drawn(selector);
+  const expectDrawn = async (name, selector, settle) => {
+    scenes[name] = await drawn(selector, settle);
     assert.ok(scenes[name].colours > 150 && scenes[name].covered > 0.1, `${name}: the scene drew a real frame (${JSON.stringify(scenes[name])})`);
   };
   await glOpen('/');
@@ -534,6 +534,38 @@ try {
   await expectDrawn('feedback', '.wood-scene--feedback');
   await glPage.getByRole('button', { name: tr('sceneShowAgainLabel', 'en'), exact: true }).click();
   await glPage.screenshot({ path: report + '/scene-feedback.png', fullPage: true });
+  // The lesson to its finish: its new words stacked into the tower, drawn
+  // for real, with a description beside it and no paper confetti on top.
+  await play([...gapLesson.exercises, ...gapLesson.mastery.exercises], 'en',
+    async () => await glPage.locator('.done-hero').count() > 0, false, true, glPage);
+  // Measured once the blocks have landed: the tower is built in about four seconds.
+  await expectDrawn('lesson-complete', '.done-hero .wood-scene--complete', 6000);
+  assert.ok(await glPage.locator('.done-hero .wood-scene__label [lang="de"]').count() > 0, 'The tower says which German words it stacks');
+  assert.equal(await glPage.locator('.done-hero .wood-scene--complete .wood-scene__stage').getAttribute('aria-hidden'), 'true');
+  assert.equal(await glPage.locator('.done-hero .confetti').count(), 0, 'A drawn tower has its own chips, not the paper confetti as well');
+  await glPage.screenshot({ path: report + '/scene-lesson-complete.png' });
+  // The day's finish, for a learner of its own: the first one has had
+  // today's phrases already, and a phrase met before stacks no block.
+  assert.equal((await glContext.request.post(base + '/api/learners', { headers: { 'X-Requested-With': 'SatzWerk' }, data: { name: 'Tower' } })).status(), 200);
+  await glPage.goto(base + '/');
+  await glPage.locator('#main h1').waitFor();
+  const glOnboard = glPage.getByRole('button', { name: tr('onboardingStart', 'en'), exact: true });
+  if (await glOnboard.count()) await glOnboard.click();
+  await glOpen('/daily');
+  await glPage.getByRole('button', { name: tr('dailyStart', 'en'), exact: true }).click();
+  await glPage.getByRole('button', { name: tr('dailyNextPhrase', 'en'), exact: true }).waitFor();
+  for (let phrase = 0; phrase < 2; phrase++) await glPage.getByRole('button', { name: tr('dailyNextPhrase', 'en'), exact: true }).click();
+  await glPage.getByRole('button', { name: tr('dailyPutToUse', 'en'), exact: true }).click();
+  await glPage.locator('[data-step-id]').or(glPage.getByText(tr('dailyReviewClearNote', 'en'), { exact: true })).waitFor();
+  await glPage.reload();
+  await glPage.getByRole('button', { name: tr('dailyResume', 'en'), exact: true }).click();
+  await play(dailyExercises, 'en', async () => await glPage.getByRole('button', { name: tr('dailyFinish', 'en'), exact: true }).count() > 0, false, false, glPage);
+  await glPage.getByRole('button', { name: tr('dailyFinish', 'en'), exact: true }).click();
+  await glPage.getByRole('heading', { name: tr('dailyFinished', 'en'), exact: true }).waitFor();
+  await expectDrawn('daily-finish', '.daily-finished .wood-scene--complete', 6000);
+  assert.ok(await glPage.locator('.daily-finished .wood-scene__label [lang="de"]').count() > 0, 'The day\'s tower says which German words it stacks');
+  assert.equal(await glPage.locator('.daily-finished .confetti').count(), 0, 'The day\'s drawn tower has no paper confetti on top');
+  await glPage.screenshot({ path: report + '/scene-daily-finish.png' });
   // Within the app, as a learner taps between tabs: the engine is in hand
   // after the first scene, so each visit makes a context and gives it back.
   await glOpen('/');
