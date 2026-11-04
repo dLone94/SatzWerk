@@ -6,6 +6,7 @@ import { useApp } from '../../state/AppState.tsx';
 import { AudioButton, Card, EmptyState, Meter, formatRelativeDate } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 import { buildMistakePractice } from '../reviewBuilder.ts';
+import { GenderedGerman } from '../components/Gender.tsx';
 import { taughtLessons } from '../selectors.ts';
 
 /**
@@ -159,8 +160,12 @@ export function MistakesPage() {
                         {mistake.lastGiven}
                       </span>
                       <span className="mistake-list__label">{t('mistakesCorrectIs')}</span>
+                      {/* The correct form, already on screen as text: its noun's
+                          article in colour. What was written stays plain — a
+                          wrong article is not a gender. Practice opens in
+                          place of this list, so it never shows a question. */}
                       <span className="mistake-list__right" lang="de">
-                        {mistake.expected}
+                        <GenderedGerman text={mistake.expected} />
                       </span>
                       <AudioButton text={mistake.expected} compact />
                     </div>

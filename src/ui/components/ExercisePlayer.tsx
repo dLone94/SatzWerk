@@ -1114,8 +1114,10 @@ export function ExercisePlayer({
             ))}
             {revealed ? (
               <li className="hints__revealed">
+                {/* Shown because the learner asked for it: the answer is out,
+                    and its noun's article may as well be in colour. */}
                 <span className="hints__answer" lang="de">
-                  {step.answer.accepted[0]}
+                  <GenderedGerman text={step.answer.accepted[0] ?? ''} />
                 </span>
                 <span>{t('exerciseRevealType')}</span>
                 <span className="hints__warning">{t('exerciseRevealWarning')}</span>

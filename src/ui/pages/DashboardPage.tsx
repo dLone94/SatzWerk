@@ -11,6 +11,7 @@ import { inferredPracticeLevel } from '../components/LearningPreferences.tsx';
 import { PracticalProgress } from '../components/PracticalProgress.tsx';
 import { Rhythm } from '../components/Rhythm.tsx';
 import { DackelScene } from '../components/Dackel.tsx';
+import { GenderedGerman } from '../components/Gender.tsx';
 import { WoodScene } from '../three/WoodScene.tsx';
 import { todayTown } from '../three/sceneData.ts';
 import { chooseDailyScript } from '../dailyBuilder.ts';
@@ -417,7 +418,7 @@ export function DashboardPage() {
                 </span>
                 <span aria-hidden="true">{'→'}</span>
                 <span className="mistake-mini__right" lang="de">
-                  {mistake.expected}
+                  <GenderedGerman text={mistake.expected} />
                 </span>
                 <span className="mistake-mini__count">{t('mistakesOccurrences', { n: mistake.occurrences })}</span>
               </li>

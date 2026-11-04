@@ -57,12 +57,16 @@ const ARTICLE_THEN_NOUN = /(^|[^\p{L}])(der|die|das|Der|Die|Das)(\s+)([A-ZÄÖÜ
 /**
  * A German sentence split so that each "der/die/das + Noun" whose article is
  * that noun's own (nominative singular) gender can be coloured.
+ *
+ * `withhold` names nouns (lower case) to leave plain: ones the learner is
+ * about to be asked for, whose colour would tell them the gender first.
  */
-export function genderParts(text: string, describeNoun: DescribeNoun): GenderPart[] {
+export function genderParts(text: string, describeNoun: DescribeNoun, withhold?: ReadonlySet<string>): GenderPart[] {
   const parts: GenderPart[] = [];
   let last = 0;
   for (const match of text.matchAll(ARTICLE_THEN_NOUN)) {
     const [, before, written, , noun] = match;
+    if (withhold?.has(noun!.toLowerCase())) continue;
     const info = describeNoun(noun!);
     if (!info) continue;
     if (info.plural !== undefined && info.plural.toLowerCase() === info.display.toLowerCase()) continue;
@@ -77,10 +81,19 @@ export function genderParts(text: string, describeNoun: DescribeNoun): GenderPar
   return parts;
 }
 
-/** German text with the article of each noun on its gender's block. */
-export function GenderedGerman({ text }: { text: string }): ReactNode {
+/**
+ * German text with the article of each noun on its gender's block.
+ *
+ * Only for German the learner may already know the answer to: teaching,
+ * an answer once given or shown, a line of a conversation. Never for a
+ * prompt, a choice or a gap, where the colour would answer a question about
+ * the gender before it is asked; `withhold` keeps the nouns of the question
+ * still to come plain. The colour adds nothing a screen reader needs: the
+ * article's word is there either way, in the same element.
+ */
+export function GenderedGerman({ text, withhold }: { text: string; withhold?: ReadonlySet<string> }): ReactNode {
   const { describeNoun } = useApp();
-  const parts = genderParts(text, describeNoun);
+  const parts = genderParts(text, describeNoun, withhold);
   if (parts.every((part) => typeof part === 'string')) return text;
   return parts.map((part, index) =>
     typeof part === 'string' ? (
@@ -91,6 +104,20 @@ export function GenderedGerman({ text }: { text: string }): ReactNode {
       </span>
     ),
   );
+}
+
+/**
+ * The words of a question's answers and choices, lower case: what a line
+ * shown before the question must not colour (see `GenderedGerman`).
+ */
+export function answerWords(steps: ReadonlyArray<{ answer: { accepted: string[] }; choices?: ReadonlyArray<{ de: string }>; scaffold?: string }>): Set<string> {
+  const words = new Set<string>();
+  for (const step of steps) {
+    for (const text of [...step.answer.accepted, ...(step.choices ?? []).map((choice) => choice.de), step.scaffold ?? '']) {
+      for (const word of text.split(/[^\p{L}-]+/u)) if (word) words.add(word.toLowerCase());
+    }
+  }
+  return words;
 }
 
 /** What the three colours mean: each article beside the name of its gender. */

@@ -5,7 +5,7 @@ import { examplesIn, speakable, splitExamples } from '../../services/tts/speakab
 import { useApp } from '../../state/AppState.tsx';
 import { WORD_TYPE_LABELS, tr } from '../../i18n.ts';
 import { Icon, type IconName } from './icons.tsx';
-import { NounDisplay } from './Gender.tsx';
+import { GenderedGerman, NounDisplay } from './Gender.tsx';
 
 /** Small shared building blocks: buttons, badges, meters, block rendering. */
 
@@ -26,11 +26,15 @@ import { NounDisplay } from './Gender.tsx';
  * So rather than editing the intent out of the content, the renderer now
  * honours it. Anything else is still plain text and is displayed as written.
  */
-function emphasise(text: string, keyPrefix: string): ReactNode[] {
+function emphasise(text: string, keyPrefix: string, german = false): ReactNode[] {
   // Split on the pairs, keeping them: odd indices are what was inside.
-  return text.split(/\*\*(.+?)\*\*/g).map((piece, index) =>
-    index % 2 === 1 ? <strong key={`${keyPrefix}-b${index}`}>{piece}</strong> : piece,
-  );
+  return text.split(/\*\*(.+?)\*\*/g).map((piece, index) => {
+    // German teaching text has its nouns' articles in colour, each piece on
+    // its own: the content never puts an article and its noun either side
+    // of a pair of asterisks.
+    const shown = german ? <GenderedGerman key={`${keyPrefix}-g${index}`} text={piece} /> : piece;
+    return index % 2 === 1 ? <strong key={`${keyPrefix}-b${index}`}>{shown}</strong> : shown;
+  });
 }
 
 /**
@@ -42,12 +46,12 @@ function emphasise(text: string, keyPrefix: string): ReactNode[] {
  * almost unreadable, which is the opposite of what a list of comparisons is
  * for.
  */
-function withLineBreaks(text: string, keyPrefix: string): ReactNode[] {
+function withLineBreaks(text: string, keyPrefix: string, german = false): ReactNode[] {
   const lines = text.split('\n');
   return lines.flatMap((line, index) =>
     index === 0
-      ? emphasise(line, `${keyPrefix}-l0`)
-      : [<br key={`${keyPrefix}-br${index}`} />, ...emphasise(line, `${keyPrefix}-l${index}`)],
+      ? emphasise(line, `${keyPrefix}-l0`, german)
+      : [<br key={`${keyPrefix}-br${index}`} />, ...emphasise(line, `${keyPrefix}-l${index}`, german)],
   );
 }
 
@@ -63,14 +67,15 @@ export function learnerName(name: string, t: (key: 'learnerMe') => string): stri
   return name === 'me' ? t('learnerMe') : name;
 }
 
-export function RichText({ text }: { text: string }) {
+/** `german`: the text is German teaching, its nouns' articles in colour. */
+export function RichText({ text, german = false }: { text: string; german?: boolean }) {
   const paragraphs = text.split(/\n{2,}/).filter((paragraph) => paragraph.trim().length > 0);
-  if (paragraphs.length <= 1) return <>{withLineBreaks(text, 'rt')}</>;
+  if (paragraphs.length <= 1) return <>{withLineBreaks(text, 'rt', german)}</>;
   return (
     <>
       {paragraphs.map((paragraph, index) => (
         <span key={index} className="rich__para">
-          {withLineBreaks(paragraph, `rt${index}`)}
+          {withLineBreaks(paragraph, `rt${index}`, german)}
         </span>
       ))}
     </>
@@ -296,7 +301,14 @@ export function AudioButton({
   );
 }
 
-/** Renders the authored teaching blocks for the active teaching path. */
+/**
+ * Renders the authored teaching blocks for the active teaching path.
+ *
+ * The German in them — examples, contrasts, table cells, a sentence taken
+ * apart — has each noun's own article in its gender's colour. This is
+ * teaching, read before any question about it: it shows the gender in
+ * words already, and the colour is the same thing seen a second way.
+ */
 export function Blocks({ blocks }: { blocks: Block[] }) {
   const { lang, say } = useApp();
   const visible = blocks.filter((block) => !block.only || block.only.includes(lang));
@@ -326,7 +338,7 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
             return (
               <div key={key} className="example">
                 <p className="example__de" lang="de">
-                  {block.de}
+                  <GenderedGerman text={block.de} />
                 </p>
                 {block.gloss ? <p className="example__gloss">{say(block.gloss)}</p> : null}
                 <AudioButton text={block.de} compact />
@@ -336,7 +348,7 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
             return (
               <div key={key} className="contrast">
                 <p className="contrast__de" lang="de">
-                  {block.de}
+                  <GenderedGerman text={block.de} />
                 </p>
                 <p className="contrast__other">{say(block.other)}</p>
                 {block.note ? <p className="contrast__note">{say(block.note)}</p> : null}
@@ -366,7 +378,7 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
                         {row.map((cell, c) =>
                           typeof cell === 'string' ? (
                             <td key={c} lang="de" className="data-table__de">
-                              <RichText text={cell} />
+                              <RichText text={cell} german />
                               {speakable(cell) ? <AudioButton compact text={speakable(cell)!} /> : null}
                             </td>
                           ) : (
@@ -400,7 +412,7 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
               <div key={key} className="breakdown">
                 <div className="breakdown__head">
                   <p lang="de" className="breakdown__sentence">
-                    {block.de}
+                    <GenderedGerman text={block.de} />
                   </p>
                   <AudioButton text={block.de} compact />
                 </div>
@@ -408,7 +420,7 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
                   {block.parts.map((part, i) => (
                     <li key={i}>
                       <span lang="de" className="breakdown__de">
-                        {part.de}
+                        <GenderedGerman text={part.de} />
                       </span>
                       <span className="breakdown__arrow" aria-hidden="true">
                         {'→'}
@@ -438,7 +450,7 @@ function Examples({ text }: { text: string }) {
         <Fragment key={index}>
           {index > 0 ? ', ' : null}
           <span lang="de" className="data-table__de">
-            {example.de}
+            <GenderedGerman text={example.de} />
           </span>
           {' — '}
           <RichText text={example.rest} />
