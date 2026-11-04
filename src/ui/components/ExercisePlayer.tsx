@@ -340,10 +340,14 @@ export function ExercisePlayer({
    * Anything else that appears without focus moving to it (a hint, the
    * reminder that a retype is still wrong) is read out the same way.
    */
+  const speakTimer = useRef<number | undefined>(undefined);
   const speak = useCallback((text: string) => {
     setAnnouncement('');
-    window.setTimeout(() => setAnnouncement(text), 50);
+    window.clearTimeout(speakTimer.current);
+    speakTimer.current = window.setTimeout(() => setAnnouncement(text), 50);
   }, []);
+  // A verdict still on its way when the player closes has no one to tell.
+  useEffect(() => () => window.clearTimeout(speakTimer.current), []);
 
   const announce = useCallback(
     (message: FeedbackMessage, wrong: boolean) => {

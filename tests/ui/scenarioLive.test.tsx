@@ -1,14 +1,17 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { SCENARIO_SCRIPTS, scriptAnswerCount } from '../../src/content/index.ts';
 import { tr } from '../../src/i18n.ts';
 import { AppStateContext } from '../../src/state/AppState.tsx';
 import { ScenarioPlayer, segmentsOf } from '../../src/ui/components/ScenarioPlayer.tsx';
 import { ScenarioPage } from '../../src/ui/pages/ScenarioPage.tsx';
 import { play, stepIdOnScreen, stubState } from './playerStub.tsx';
+
+// Unmounted after each test, so a player's pending timers end with it.
+afterEach(cleanup);
 
 /** A conversation, heard as well as seen. */
 
