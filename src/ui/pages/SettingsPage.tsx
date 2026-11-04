@@ -1,24 +1,30 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { contentStats, partialLevels, unauthoredLevels } from '../../content/browser.ts';
 import type { TeachingLanguage } from '../../content/types.ts';
+import { DAILY_GOAL_CHOICES } from '../../core/progress/goal.ts';
 import { tr } from '../../i18n.ts';
 import {
   disablePush,
   enablePush,
   readPushStatus,
+  reminderClockWindow,
   type PushStatus,
 } from '../../services/push/index.ts';
 import { SAMPLE_PHRASE } from '../../services/tts/phraseKey.ts';
+import { useLocation } from 'react-router-dom';
 import { useApp } from '../../state/AppState.tsx';
 import { LearningPreferences } from '../components/LearningPreferences.tsx';
 import { Card, learnerName } from '../components/bits.tsx';
 
-const TARGETS = [10, 20, 30];
-
 export function SettingsPage() {
   const { t, lang, profile, updateProfile, setTeachingLanguage, resetAll, session, signOut, changePassword } =
     useApp();
-  const [custom, setCustom] = useState('');
+  // A goal typed in once is shown in the field it was typed into. The chips
+  // offered changed (30 is no longer one), and a learner on 30 saw no chip
+  // pressed and an empty field, with their goal only in the small print.
+  const [custom, setCustom] = useState(() =>
+    (DAILY_GOAL_CHOICES as readonly number[]).includes(profile.dailyTargetMinutes) ? '' : String(profile.dailyTargetMinutes),
+  );
   const [confirm, setConfirm] = useState('');
   const [resetDone, setResetDone] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -72,13 +78,16 @@ export function SettingsPage() {
 
       <Card title={t('settingsDailyTarget')}>
         <div className="chips">
-          {TARGETS.map((minutes) => (
+          {DAILY_GOAL_CHOICES.map((minutes) => (
             <button
               key={minutes}
               type="button"
               className={`chip chip--choice${profile.dailyTargetMinutes === minutes ? ' is-active' : ''}`}
               aria-pressed={profile.dailyTargetMinutes === minutes}
-              onClick={() => void updateProfile({ dailyTargetMinutes: minutes })}
+              onClick={() => {
+                setCustom('');
+                void updateProfile({ dailyTargetMinutes: minutes });
+              }}
             >
               {tr('settingsMinutes', lang, { n: minutes })}
             </button>
@@ -474,6 +483,9 @@ function RemindersCard() {
         <p className="muted">{t('remindersNotConfigured')}</p>
       ) : null}
       {status.state === 'denied' ? <p className="muted">{t('remindersDenied')}</p> : null}
+      {canToggle && status.sendHourUtc !== undefined ? (
+        <p className="muted">{t('remindersAt', reminderClockWindow(status.sendHourUtc, lang))}</p>
+      ) : null}
 
       {canToggle ? (
         <button
@@ -512,6 +524,15 @@ function RemindersCard() {
  */
 function Learners() {
   const { t, learners, studyingAs, studyAs, addLearner, renameLearner } = useApp();
+  const { hash } = useLocation();
+  const title = useRef<HTMLHeadingElement>(null);
+  // The name in the header opens Settings here, where somebody else in the
+  // household can be added or switched to without hunting down the page.
+  useEffect(() => {
+    if (hash !== '#learners' || !title.current) return;
+    title.current.scrollIntoView?.({ block: 'start' });
+    title.current.focus({ preventScroll: true });
+  }, [hash]);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(0);
@@ -528,7 +549,7 @@ function Learners() {
   };
 
   return (
-    <Card title={t('learnersTitle')} subtitle={t('learnersNote')}>
+    <Card title={t('learnersTitle')} subtitle={t('learnersNote')} titleRef={title}>
       <ul className="learners">
         {learners.map((learner) => (
           <li key={learner.id} className={`learners__row${learner.id === studyingAs ? ' is-active' : ''}`}>

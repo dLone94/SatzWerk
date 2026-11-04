@@ -849,7 +849,7 @@ describe('reading a lesson', () => {
    */
   it('says whether each requirement is met, in words', () => {
     lessonRoute('bg');
-    const items = [...document.querySelectorAll('.requirements li')];
+    const items = [...document.querySelectorAll('.lesson-stages li')];
     expect(items.length).toBeGreaterThan(0);
     for (const item of items) expect(item).toHaveTextContent(tr('requirementNotMet', 'bg'));
   });

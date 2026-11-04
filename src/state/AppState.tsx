@@ -44,6 +44,7 @@ import { createSpeechRecogniser, type SpeechRecogniser } from '../services/speec
 import { trackStudy } from '../services/studyTracker.ts';
 import type { StudyStatus } from '../core/progress/studyClock.ts';
 import { mergeDailyRun, type DailyRun, type DailyRunInput } from '../core/progress/daily.ts';
+import { DEFAULT_DAILY_GOAL_MINUTES } from '../core/progress/goal.ts';
 import { deviceLanguage, markPageLanguage, rememberLanguage } from '../ui/deviceLanguage.ts';
 
 /**
@@ -183,7 +184,7 @@ const EMPTY_STATS: Stats = {
 
 const DEFAULT_PROFILE: Profile = {
   teachingLanguage: 'en',
-  dailyTargetMinutes: 20,
+  dailyTargetMinutes: DEFAULT_DAILY_GOAL_MINUTES,
   displayName: null,
   onboarded: false,
   createdAt: new Date().toISOString(),
@@ -223,6 +224,29 @@ function withAnswerCounted(
     return studyDays.map((row) => (row === prior ? { ...row, answers: row.answers + 1, correct: row.correct + right } : row));
   }
   return [...studyDays, { day, secondsActive: 0, answers: 1, correct: right }].sort((a, b) => b.day.localeCompare(a.day));
+}
+
+/** One answer, the same wherever it is seen: queued, laid over a fetch, or sent. */
+function answerKey(attempt: AttemptPayload): string {
+  return `${attempt.at ?? ''}|${attempt.stepId}`;
+}
+
+/**
+ * Study time queued but not yet answered for, added to the day it was
+ * studied on. Minutes reached the screen only when the server answered, so
+ * the finish of the daily practice could open a minute short of the goal and
+ * then change its button under the learner's thumb when the answer came.
+ */
+function withStudyTime(
+  studyDays: AppStateSnapshot['studyDays'],
+  write: { seconds: number; at: string; tzOffsetMinutes?: number },
+): AppStateSnapshot['studyDays'] {
+  const day = localDay(new Date(write.at), plausibleOffset(write.tzOffsetMinutes));
+  const prior = studyDays.find((row) => row.day === day);
+  if (prior) {
+    return studyDays.map((row) => (row === prior ? { ...row, secondsActive: row.secondsActive + write.seconds } : row));
+  }
+  return [...studyDays, { day, secondsActive: write.seconds, answers: 0, correct: 0 }].sort((a, b) => b.day.localeCompare(a.day));
 }
 
 function indexLessons(lessons: LessonProgress[]): Record<string, LessonProgress> {
@@ -324,13 +348,14 @@ function withHeldLesson(progress: LessonProgress): LessonProgress {
  * the final check" unticked, because the flush that fetched the state had
  * started before the result was queued.
  */
-function withHeld(state: AppStateSnapshot): AppStateSnapshot {
+function withHeld(state: AppStateSnapshot, counted?: Set<string>): AppStateSnapshot {
   const queued = heldHere();
   if (queued.length === 0) return state;
   const lessons = indexLessons(state.lessons);
   let reviewItems = state.reviewItems;
   let dailyRuns = state.dailyRuns ?? [];
   for (const { write } of queued) {
+    if (write.kind === 'attempt') counted?.add(answerKey(write.payload));
     const rule = heldLessonRule(write);
     if (rule) {
       lessons[rule.lessonId] = rule.apply(lessons[rule.lessonId] ?? emptyProgress(rule.lessonId));
@@ -341,7 +366,24 @@ function withHeld(state: AppStateSnapshot): AppStateSnapshot {
       dailyRuns = mergeDailyRun(dailyRuns, { ...write.payload, updatedAt: new Date().toISOString() });
     }
   }
-  return { ...state, lessons: Object.values(lessons), reviewItems, dailyRuns };
+  return { ...state, lessons: Object.values(lessons), reviewItems, dailyRuns, studyDays: withHeldStudy(state.studyDays, queued) };
+}
+
+/**
+ * The server's study days with everything still held counted in: each held
+ * answer is a day studied, as it is once sent (see submitAttempt), and held
+ * study time adds its minutes to the day it was studied on.
+ */
+function withHeldStudy(
+  studyDays: AppStateSnapshot['studyDays'],
+  queued: outbox.QueuedWrite[] = heldHere(),
+): AppStateSnapshot['studyDays'] {
+  let next = studyDays;
+  for (const { write } of queued) {
+    if (write.kind === 'attempt') next = withAnswerCounted(next, write.payload);
+    else if (write.kind === 'studyTime') next = withStudyTime(next, write);
+  }
+  return next;
 }
 
 /**
@@ -429,6 +471,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
    * applied as it arrives.
    */
   const replaying = useRef(false);
+  /** Answers already in the study days on screen, so a sent one is not counted twice. */
+  const countedAnswers = useRef(new Set<string>());
   /** Set by a 401. Nothing is sent until the learner signs in again. */
   const signedOut = useRef(false);
   /** Something was queued while a flush was already running. */
@@ -454,7 +498,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         api.coachStatus(),
         api.learners(),
       ]);
-      setSnapshot(withHeld({ ...state, profile: await inDeviceLanguage(state.profile) }));
+      setSnapshot(withHeld({ ...state, profile: await inDeviceLanguage(state.profile) }, countedAnswers.current));
       setCoach(coachStatus);
       setLearners(household.learners);
       setStudyingAs(household.studyingAs);
@@ -495,9 +539,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       tracker.sample();
       const seconds = Math.floor(pendingSeconds.current);
       if (seconds < 1) return;
-      if (outbox.enqueue({ kind: 'studyTime', seconds, at: new Date().toISOString(),
-        tzOffsetMinutes: -new Date().getTimezoneOffset() })) {
+      const write = { kind: 'studyTime' as const, seconds, at: new Date().toISOString(),
+        tzOffsetMinutes: -new Date().getTimezoneOffset() };
+      if (outbox.enqueue(write)) {
         pendingSeconds.current -= seconds;
+        setSnapshot((current) => (current ? { ...current, studyDays: withStudyTime(current.studyDays, write) } : current));
       }
     };
     const hide = () => { if (document.visibilityState !== 'visible') keep(); };
@@ -634,6 +680,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       switch (write.kind) {
         case 'attempt': {
           const response = result as AttemptResponse;
+          // Counted already when this tab queued it; one another tab queued is counted now.
+          const key = answerKey(write.payload);
+          const fresh = !countedAnswers.current.has(key);
+          countedAnswers.current.delete(key);
           setSnapshot((current) => {
             if (!current) return current;
             const byId = new Map(current.reviewItems.map((item) => [item.id, item]));
@@ -642,7 +692,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
               ...current,
               stats: response.stats,
               reviewItems: [...byId.values()],
-              studyDays: withAnswerCounted(current.studyDays, write.payload),
+              studyDays: fresh ? withAnswerCounted(current.studyDays, write.payload) : current.studyDays,
             };
           });
           if (response.lessonProgress) mergeLesson(withHeldLesson(response.lessonProgress));
@@ -654,7 +704,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return false;
         case 'studyTime': {
           const response = result as { stats: Stats; studyDays: AppStateSnapshot['studyDays'] };
-          patchSnapshot({ stats: response.stats, studyDays: response.studyDays });
+          // The answers and minutes queued behind this one are already
+          // counted on screen, and the server has not had them yet.
+          patchSnapshot({ stats: response.stats, studyDays: withHeldStudy(response.studyDays) });
           return false;
         }
         case 'sectionSeen':
@@ -769,7 +821,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
       if (sent > 0 && (wasHeld || refresh)) {
         try {
-          setSnapshot(withHeld(await api.state()));
+          setSnapshot(withHeld(await api.state(), countedAnswers.current));
           if (outbox.queuedCount() === 0) replaying.current = false;
         } catch {
           // The connection went again between the last answer and this fetch.
@@ -1065,6 +1117,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        /*
+         * The day counts as studied now, not when the server has the answer.
+         * Offline, the warm-up after a break was answered in full and Today
+         * still saw a day with nothing answered: it offered the same
+         * "Welcome back" and the same twelve words until the connection came
+         * back.
+         */
+        countedAnswers.current.add(answerKey(stamped));
+        setSnapshot((current) => (current ? { ...current, studyDays: withAnswerCounted(current.studyDays, stamped) } : current));
+
         // The lesson's own record moves now, by the rule the server applies
         // when the answer arrives, so the end of the lesson sees every step
         // whether or not the answer has been sent yet.
@@ -1325,6 +1387,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       },
 
       recordDailyRun: async (payload) => {
+        // A finished practice takes its last minutes with it. They used to
+        // follow up to a minute later, so the finish and Today straight after
+        // it showed the daily goal short by the minute just studied.
+        if (payload.stage >= 5) keepStudyTime.current();
         // Queue before sending, like an answer. This keeps part transitions
         // immediate and makes learner handover wait for this write too.
         if (!outbox.enqueue({ kind: 'dailyRun', payload })) {

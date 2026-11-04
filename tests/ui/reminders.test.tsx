@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { MemoryRouter } from 'react-router-dom';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -25,7 +26,8 @@ const { enablePush, disablePush, readPushStatus } = vi.hoisted(() => ({
   readPushStatus: vi.fn(),
 }));
 
-vi.mock('../../src/services/push/index.ts', () => ({
+vi.mock('../../src/services/push/index.ts', async (original) => ({
+  ...(await original<typeof import('../../src/services/push/index.ts')>()),
   enablePush,
   disablePush,
   readPushStatus,
@@ -121,7 +123,7 @@ function stubState(): AppStateValue {
 }
 
 const mount = () =>
-  render(<AppStateContext.Provider value={stubState()}>{<SettingsPage />}</AppStateContext.Provider>);
+  render(<MemoryRouter><AppStateContext.Provider value={stubState()}>{<SettingsPage />}</AppStateContext.Provider></MemoryRouter>);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -170,6 +172,32 @@ describe('the reminders card', () => {
     await userEvent.click(screen.getByRole('button', { name: tr('remindersDisable', 'en') }));
     expect(await screen.findByText(tr('remindersOff', 'en'))).toBeInTheDocument();
     expect(disablePush).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('when reminders arrive', () => {
+  /*
+   * One daily job sends them all, at an hour nobody can choose, so the card
+   * says when that is in the learner's own time instead of offering a
+   * morning-or-evening choice it could not keep.
+   */
+  it('says the hour in the learner’s own time when the server knows it', async () => {
+    const { reminderClockWindow } = await vi.importActual<typeof import('../../src/services/push/index.ts')>(
+      '../../src/services/push/index.ts',
+    );
+    readPushStatus.mockResolvedValue({ state: 'off', sendHourUtc: 18 });
+    mount();
+    expect(
+      await screen.findByText(tr('remindersAt', 'en', reminderClockWindow(18, 'en'))),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+  });
+
+  it('claims no hour when it does not know one', async () => {
+    readPushStatus.mockResolvedValue({ state: 'off' });
+    mount();
+    await screen.findByRole('button', { name: tr('remindersEnable', 'en') });
+    expect(screen.queryByText(/your time/)).not.toBeInTheDocument();
   });
 });
 

@@ -28,6 +28,7 @@ import {
   deleteSubscription,
   moveSubscription,
   pushConfig,
+  reminderHourUtc,
   saveSubscription,
   sendDueReminder,
   subscriptionProblem,
@@ -902,9 +903,13 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
     // of a switch that would silently do nothing.
     if (route.length === 2 && route[1] === 'status' && method === 'GET') {
       const config = pushConfig();
+      // The hour the job runs, when it is known, so the app can say when a
+      // reminder arrives in the learner's own time rather than promise one.
+      const hour = reminderHourUtc();
       return ok({
         configured: config !== null,
         ...(config ? { publicKey: config.publicKey } : {}),
+        ...(config && hour !== null ? { sendHourUtc: hour } : {}),
       });
     }
     if (route.length === 2 && route[1] === 'subscribe' && method === 'POST') {
@@ -917,7 +922,13 @@ export async function handleRequest(ctx: ApiContext, request: ApiRequest): Promi
       // Only a real push service, or the evening job would send wherever it was told.
       const problem = subscriptionProblem({ endpoint, p256dh, auth: auth256 });
       if (problem) return badRequest(problem);
-      await saveSubscription(scope, { endpoint, p256dh, auth: auth256 });
+      // Where the device is, so the job knows which day it is for its learner.
+      await saveSubscription(scope, {
+        endpoint,
+        p256dh,
+        auth: auth256,
+        tzOffsetMinutes: plausibleOffset(body.tzOffsetMinutes),
+      });
       return ok({ subscribed: true });
     }
     if (route.length === 2 && route[1] === 'unsubscribe' && method === 'POST') {

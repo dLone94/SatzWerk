@@ -185,7 +185,7 @@ export function App() {
         <div className="topbar__context"><p>{t('studioLabel')}</p><span>{t('tagline')}</span></div>
         <div className="topbar__right">
           <StudyIndicator />
-          <NavLink to="/settings" className="topbar__who" title={t('learnersTitle')}>
+          <NavLink to="/settings#learners" className="topbar__who" title={t('learnersTitle')}>
             <span className="topbar__avatar" aria-hidden="true">{name.slice(0, 2).toUpperCase()}</span>
             <span className="topbar__learner">{name}</span>
           </NavLink>
@@ -325,9 +325,12 @@ if (typeof window !== 'undefined') {
  * there the browser's own position is the one the learner expects.
  */
 export function ScrollToTop() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   const navigation = useNavigationType();
   useEffect(() => {
+    // A link to a part of a page (the header's name opens Settings at "Who is
+    // studying?") is taken there by that page, not to the top.
+    if (hash) return;
     if (navigation !== 'POP') {
       window.scrollTo(0, 0);
       // A first visit to / is sent on to /welcome before the learner has

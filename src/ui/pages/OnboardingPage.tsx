@@ -6,8 +6,7 @@ import { UI, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { Icon } from '../components/icons.tsx';
 import { DackelScene } from '../components/Dackel.tsx';
-
-const TARGETS = [10, 20, 30];
+import { DAILY_GOAL_CHOICES, DEFAULT_DAILY_GOAL_MINUTES } from '../../core/progress/goal.ts';
 
 /**
  * First run.
@@ -19,8 +18,17 @@ const TARGETS = [10, 20, 30];
 export function OnboardingPage() {
   const { profile, updateProfile, setTeachingLanguage } = useApp();
   const navigate = useNavigate();
-  const [target, setTarget] = useState(profile.dailyTargetMinutes);
-  const [custom, setCustom] = useState('');
+  /*
+   * A learner not yet set up has never chosen a goal: the minutes on their
+   * profile are whatever it was created with, which was 20 for a long time.
+   * So they are offered the habit-sized goal. Somebody already set up who
+   * opens this screen again keeps their own, even one typed in.
+   */
+  const chosen = profile.onboarded ? profile.dailyTargetMinutes : DEFAULT_DAILY_GOAL_MINUTES;
+  const [target, setTarget] = useState(chosen);
+  const [custom, setCustom] = useState(
+    (DAILY_GOAL_CHOICES as readonly number[]).includes(chosen) ? '' : String(chosen),
+  );
   const [busy, setBusy] = useState(false);
 
   const lang = profile.teachingLanguage;
@@ -102,7 +110,7 @@ export function OnboardingPage() {
       <fieldset className="onboarding__target">
         <legend>{say('onboardingTarget')}</legend>
         <div className="chips">
-          {TARGETS.map((minutes) => (
+          {DAILY_GOAL_CHOICES.map((minutes) => (
             <button
               key={minutes}
               type="button"

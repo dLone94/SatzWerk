@@ -17,7 +17,7 @@ import { App } from '../../src/ui/App.tsx';
  * its own.
  */
 
-let profile = { teachingLanguage: 'en' as 'en' | 'bg', onboarded: false };
+let profile: { teachingLanguage: 'en' | 'bg'; onboarded: boolean; dailyTargetMinutes?: number } = { teachingLanguage: 'en', onboarded: false };
 const profileWrites: Record<string, unknown>[] = [];
 /** When set, a profile write waits for this before it is answered; 'fail' answers 500. */
 let profileWriteGate: Promise<void> | 'fail' | null = null;
@@ -26,7 +26,9 @@ const originalFetch = globalThis.fetch;
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-const fullProfile = () => ({ ...profile, dailyTargetMinutes: 20, displayName: null, createdAt: new Date().toISOString() });
+// 20 minutes was the default every profile was created with, so most profiles
+// not yet set up still hold it, though nobody chose it.
+const fullProfile = () => ({ dailyTargetMinutes: 20, ...profile, displayName: null, createdAt: new Date().toISOString() });
 
 beforeEach(() => {
   outbox.reset();
@@ -210,5 +212,45 @@ describe('the language of a first visit', () => {
     await screen.findByRole('navigation');
     await waitFor(() => expect(localStorage.getItem('satzwerk.lang')).toBe('en'));
     expect(profileWrites).toEqual([]);
+  });
+});
+
+/*
+ * The welcome screen preselected 20 minutes a day, while the daily practice
+ * takes about six: a beginner who did it was told every evening how far short
+ * of the goal they were. A habit-sized goal is offered first now, with small
+ * steps either side of it.
+ */
+describe('the daily goal chosen on the welcome screen', () => {
+  const chips = () => within(screen.getByRole('group', { name: tr('onboardingTarget', 'en') }));
+  const minutes = (n: number) => tr('settingsMinutes', 'en', { n });
+
+  it('offers 5, 10, 15 and 20 minutes and starts a new learner at 10', async () => {
+    visit('/');
+    await screen.findByRole('heading', { level: 1, name: tr('onboardingTitle', 'en') });
+    const offered = chips().getAllByRole('button').map((button) => button.textContent);
+    expect(offered).toEqual([5, 10, 15, 20].map(minutes));
+    // The 20 the profile was created with was never chosen, so it is not offered as a choice made.
+    expect(chips().getByRole('button', { name: minutes(10) })).toHaveAttribute('aria-pressed', 'true');
+    expect(chips().getByRole('button', { name: minutes(20) })).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(screen.getByRole('button', { name: tr('onboardingStart', 'en') }));
+    await waitFor(() => expect(profileWrites).toContainEqual({ onboarded: true, dailyTargetMinutes: 10 }));
+  });
+
+  it('takes the goal the learner picks', async () => {
+    visit('/');
+    await screen.findByRole('heading', { level: 1, name: tr('onboardingTitle', 'en') });
+    await userEvent.click(chips().getByRole('button', { name: minutes(5) }));
+    await userEvent.click(screen.getByRole('button', { name: tr('onboardingStart', 'en') }));
+    await waitFor(() => expect(profileWrites).toContainEqual({ onboarded: true, dailyTargetMinutes: 5 }));
+  });
+
+  it('keeps the goal of a learner who already chose one and opens the welcome again', async () => {
+    profile = { teachingLanguage: 'en', onboarded: true, dailyTargetMinutes: 30 };
+    visit('/welcome');
+    await screen.findByRole('heading', { level: 1, name: tr('onboardingTitle', 'en') });
+    expect(screen.getByRole('spinbutton', { name: tr('settingsCustom', 'en') })).toHaveValue(30);
+    await userEvent.click(screen.getByRole('button', { name: tr('onboardingStart', 'en') }));
+    await waitFor(() => expect(profileWrites).toContainEqual({ onboarded: true, dailyTargetMinutes: 30 }));
   });
 });

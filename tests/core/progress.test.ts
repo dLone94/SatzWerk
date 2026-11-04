@@ -8,6 +8,7 @@ import {
   isLessonComplete,
   masteryPassMark,
   lessonRequirements,
+  lessonStages,
   markSectionSeen,
   masteryStepIds,
   needsRecovery,
@@ -348,3 +349,95 @@ describe('the pass mark of a final check', () => {
   });
 });
 
+/*
+ * The overview listed five conditions before a beginner had typed a word, two
+ * of them implied by the others: the key words are some of the exercises, and
+ * passing the final check satisfies the 60% rule. The same rules are shown as
+ * three steps, and the steps must never disagree with the rules.
+ */
+describe('the three steps a lesson is shown as', () => {
+  const stageOf = (progress: LessonProgress, id: string) => lessonStages(lesson, progress).find((stage) => stage.id === id)!;
+
+  it('are read, practise and the final check, counted', () => {
+    const stages = lessonStages(lesson, emptyLessonProgress(lesson.id));
+    expect(stages.map((stage) => stage.id)).toEqual(['read', 'practise', 'check']);
+    expect(stages[0]).toMatchObject({ done: 0, total: lesson.sections.length, satisfied: false });
+    expect(stages[1]).toMatchObject({ done: 0, total: allStepIds(lesson).length, satisfied: false });
+    expect(stages[2]!.satisfied).toBe(false);
+  });
+
+  it('move as the learner reads and answers', () => {
+    let progress = markSectionSeen(emptyLessonProgress(lesson.id), lesson.sections[0]!.id);
+    expect(stageOf(progress, 'read').done).toBe(1);
+    progress = readAllSections(progress);
+    expect(stageOf(progress, 'read').satisfied).toBe(true);
+    progress = answerAll(progress, () => true);
+    expect(stageOf(progress, 'practise')).toMatchObject({ done: allStepIds(lesson).length, satisfied: true });
+    expect(stageOf(progress, 'check').satisfied).toBe(false);
+  });
+
+  it('agree with the completion rules in every state', () => {
+    const read = readAllSections(emptyLessonProgress(lesson.id));
+    const badly = answerAll(read, (index) => index % 3 === 0);
+    const well = answerAll(read, () => true);
+    const passed = recordMasteryAttempt(well, 1, lesson.mastery.passAccuracy);
+    const states: LessonProgress[] = [
+      emptyLessonProgress(lesson.id),
+      read,
+      badly,
+      recordMasteryAttempt(badly, 0.2, lesson.mastery.passAccuracy),
+      recordMasteryAttempt(badly, 1, lesson.mastery.passAccuracy),
+      well,
+      passed,
+      { ...passed, sectionsSeen: [] },
+      answerAll(emptyLessonProgress(lesson.id), () => true),
+    ];
+    for (const state of states) {
+      const stagesDone = lessonStages(lesson, state).every((stage) => stage.satisfied);
+      expect(stagesDone).toBe(lessonRequirements(lesson, state).every((requirement) => requirement.satisfied));
+    }
+  });
+
+  it('leave the 60% rule to the final check, which settles it', () => {
+    let progress = readAllSections(emptyLessonProgress(lesson.id));
+    progress = answerAll(progress, (index) => index % 3 === 0);
+    // Every exercise is done, so practising is done, however it went.
+    expect(stageOf(progress, 'practise').satisfied).toBe(true);
+    expect(stageOf(progress, 'check').satisfied).toBe(false);
+    progress = recordMasteryAttempt(progress, 1, lesson.mastery.passAccuracy);
+    expect(stageOf(progress, 'check').satisfied).toBe(true);
+  });
+});
+
+/*
+ * Content grows. Lesson 1 gained its first-words exercise after learners had
+ * finished it, and completion is worked out from the lesson as it is now: a
+ * new step would have reopened every finished lesson 1, locked its unit
+ * checkpoint again and sent Today back to it.
+ */
+describe('a lesson already finished', () => {
+  it('stays finished when the lesson later gains a step', () => {
+    let progress = readAllSections(emptyLessonProgress(lesson.id));
+    progress = answerAll(progress, () => true);
+    progress = recordMasteryAttempt(progress, 1, lesson.mastery.passAccuracy);
+    progress = completeLesson(progress, '2026-10-01T10:00:00.000Z');
+    const first = lesson.exercises[0]!;
+    const grown = { ...lesson, exercises: [...lesson.exercises, { ...first, id: 'later-ex', steps: [{ ...first.steps[0]!, id: 'later-step' }] }] };
+    expect(lessonRequirements(grown, progress).every((requirement) => requirement.satisfied)).toBe(false);
+    expect(isLessonComplete(grown, progress)).toBe(true);
+  });
+
+  it('shows all three steps done, with the real counts', () => {
+    let progress = readAllSections(emptyLessonProgress(lesson.id));
+    progress = answerAll(progress, () => true);
+    progress = recordMasteryAttempt(progress, 1, lesson.mastery.passAccuracy);
+    progress = completeLesson(progress, '2026-10-01T10:00:00.000Z');
+    const first = lesson.exercises[0]!;
+    const grown = { ...lesson, exercises: [...lesson.exercises, { ...first, id: 'later-ex', steps: [{ ...first.steps[0]!, id: 'later-step' }] }] };
+    const stages = lessonStages(grown, progress);
+    expect(stages.every((stage) => stage.satisfied)).toBe(true);
+    // The page agrees with the Course and Today, and still says what is new.
+    expect(stages.every((stage) => stage.satisfied)).toBe(isLessonComplete(grown, progress));
+    expect(stages[1]).toMatchObject({ done: allStepIds(lesson).length, total: allStepIds(lesson).length + 1 });
+  });
+});

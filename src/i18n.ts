@@ -64,6 +64,14 @@ export const UI = {
   dailyFinish: s('Finish today’s practice', 'Завърши днешната практика'),
   dailyFinishedEyebrow: s('ONE MORE STEP INTO THE WORLD', 'ОЩЕ ЕДНА СТЪПКА КЪМ СВЕТА'),
   dailyFinished: s('That’s German you can use.', 'Това е немски, който можеш да използваш.'),
+  /* What the finished practice counts: only what the rows say was done. */
+  dailyWinsTitle: s('What you did today', 'Какво направи днес'),
+  dailyWinNewPhrases: s('{n} new phrases', '{n} нови фрази'),
+  dailyWinNewPhrasesOne: s('{n} new phrase', '{n} нова фраза'),
+  dailyWinPhrasesAgain: s('{n} familiar phrases practised again', '{n} познати фрази, упражнени отново'),
+  dailyWinPhrasesAgainOne: s('{n} familiar phrase practised again', '{n} позната фраза, упражнена отново'),
+  dailyPhrasesTitle: s('Today’s phrases', 'Днешните фрази'),
+  dailyFinishedNext: s('What comes next', 'Какво следва'),
   dailyFinishedNote: s('You rehearsed a real situation. Your answers feed your reviews, so difficult words will come back when they need practice.', 'Упражни реална ситуация. Отговорите ти определят повторенията, за да се върнат трудните думи, когато имат нужда от практика.'),
   dailyAnother: s('Try another practice', 'Опитай друга практика'),
   dailyAgain: s('Practise it again', 'Повтори същата практика'),
@@ -75,6 +83,7 @@ export const UI = {
   dailyAbilitiesTitle: s('Conversations you have practised', 'Упражнени разговори'),
   dailyWeekProgress: s('{done} / {target} practice days this week', '{done} / {target} учебни дни тази седмица'),
   dailyWeekLeft: s('{n} more practice days towards your weekly goal. Pick the days that suit you.', 'Още {n} учебни дни до седмичната цел. Избери удобните за теб дни.'),
+  dailyWeekLeftOne: s('{n} more practice day towards your weekly goal. Pick the day that suits you.', 'Още {n} учебен ден до седмичната цел. Избери удобния за теб ден.'),
   dailyWeekDone: s('Your weekly goal is complete. Keep going if you feel like it.', 'Седмичната цел е изпълнена. Продължи, ако ти се учи.'),
   dailyAbilitiesEmpty: s('Your first completed conversation will appear here. You will see what you have practised, not just a points total.', 'Първият завършен разговор ще се появи тук. Ще виждаш какво е упражнено, а не само сбор от точки.'),
   dailyAbilityConfident: s('Best practice: {n}% right without hints', 'Най-добра практика: {n}% верни без подсказки'),
@@ -101,8 +110,19 @@ export const UI = {
   studioHeroNote: s('Small steps. Real conversations.', 'Малки стъпки. Истински разговори.'),
   studioPath: s('Your learning path', 'Твоят учебен път'),
   studioRhythm: s('Your rhythm', 'Твоят ритъм'),
-  studioWeek: s('The last seven days', 'Последните седем дни'),
-  studioWeekMinutes: s('{n} active minutes', '{n} активни минути'),
+  /*
+   * The week as the weekly goal counts it: a day with an answer saved is a
+   * practice day. Each dot is named for a screen reader; today is marked as
+   * the current date rather than in words.
+   */
+  rhythmWeek: s('This week', 'Тази седмица'),
+  rhythmWeekDays: s('{done} of {target} practice days', '{done} от {target} учебни дни'),
+  rhythmDayPractised: s('{day}: practised', '{day}: с практика'),
+  rhythmDayRest: s('{day}: no practice', '{day}: без практика'),
+  rhythmDayAhead: s('{day}: still to come', '{day}: предстои'),
+  rhythmDayOpen: s('{day}: today, no practice yet', '{day}: днес, още без практика'),
+  /* The weekly goal is out of reach this week: no days to pick, and no blame. */
+  rhythmWeekShort: s('Every day you practise still counts. A new week starts on Monday.', 'Всеки ден с практика се брои. Новата седмица започва в понеделник.'),
   studioWeekEmpty: s('Every day is a fresh start. Your first step counts.', 'Всеки ден е ново начало. Първата стъпка е важна.'),
   studioExploreTitle: s('Take your German into the world', 'Изведи немския си в света'),
   studioRealLife: s('From the bakery to your next appointment. Practise the conversations that matter.', 'От пекарната до следващия ти час. Упражнявай важните разговори.'),
@@ -217,7 +237,6 @@ export const UI = {
   dashboardGreeting: s('Today’s study', 'Днешно учене'),
   todayUpNext: s('Up next', 'Следва'),
   todayGoal: s('of {target} min today', 'от {target} мин днес'),
-  todayGoalNote: s('Your daily goal in minutes. Meeting it finishes the day.', 'Дневната ти цел в минути. Щом я постигнеш, денят е завършен.'),
   todayGoalLeft: s('{n} more to your goal', 'още {n} до целта'),
   todayGoalDone: s('Goal reached', 'Целта е постигната'),
   todayDue: s('{n} due for review', '{n} за повторение'),
@@ -257,6 +276,35 @@ export const UI = {
   todayDoneRest: s('Come back tomorrow for a new practice.', 'Ела утре за нова практика.'),
   todayKeepGoing: s('Keep going if you like', 'Продължи, ако ти се иска'),
   todayRoundWhat: s('Due reviews, repeated mistakes and your open lesson in one round', 'Повторения, повтарящи се грешки и започнатият урок в един кръг'),
+  /*
+   * Back after a break. What happened is said plainly (how long, how much is
+   * waiting) and nothing is said about what was missed or lost: the learner
+   * came back, and that is the part worth answering.
+   */
+  welcomeBackEyebrow: s('Welcome back', 'Добре дошли отново'),
+  welcomeBackTitle: s('A short warm-up to start', 'Кратка загрявка за начало'),
+  welcomeBackAway: s('Your last study day was {n} days ago.', 'Последният ти учебен ден беше преди {n} дни.'),
+  welcomeBackWaiting: s(
+    '{n} things are ready to review. This warm-up brings back the {k} most at risk; the rest come back over the next few days.',
+    '{n} неща чакат за повторение. Загрявката връща {k}-те, които най-лесно се забравят, а останалите идват постепенно през следващите дни.',
+  ),
+  welcomeBackAll: s('{n} things are ready to review, and one short warm-up brings them all back.', '{n} неща чакат за повторение и една кратка загрявка ги връща всичките.'),
+  welcomeBackAllOne: s('{n} thing is ready to review, and one short warm-up brings it back.', '{n} нещо чака за повторение и една кратка загрявка го връща.'),
+  welcomeBackRun: s('Before the break you studied {n} days in a row. Today starts a new run.', 'Преди почивката имаше {n} поредни дни учене. Днес започва нова поредица.'),
+  welcomeBackStart: s('Start the warm-up', 'Започни загрявката'),
+  catchUpRound: s('Warm-up · {n} to refresh', 'Загрявка · {n} за опресняване'),
+  catchUpDone: s('Warm-up done', 'Загрявката е готова'),
+  catchUpRest: s('{n} more are waiting. They come back a few at a time over the next days, so carry on with today’s plan.', 'Още {n} чакат. Те се връщат постепенно през следващите дни, така че продължи с плана за днес.'),
+  catchUpRestOne: s('{n} more is waiting. It comes back over the next days, so carry on with today’s plan.', 'Още {n} чака. Връща се през следващите дни, така че продължи с плана за днес.'),
+  catchUpClear: s('Nothing else is waiting today.', 'Днес нищо друго не чака.'),
+  catchUpOnward: s('On to today’s plan', 'Към плана за днес'),
+  catchUpRoundTitle: s('A round of {k} · {n} waiting', 'Кръг от {k} · {n} чакат'),
+  catchUpRoundWhat: s(
+    'What waited over the break comes back one round a day, so new material is not held up behind it.',
+    'Натрупаното през почивката се връща по един кръг на ден, така че новият материал не чака заради него.',
+  ),
+  catchUpTileWaiting: s('{n} waiting', '{n} чакат'),
+  catchUpTileSpread: s('Coming back over the next days', 'Връщат се през следващите дни'),
   dashboardNextAction: s('Your next useful step', 'Следващата ти полезна стъпка'),
   dashboardContinue: s('Continue the lesson', 'Продължи урока'),
   dashboardStartLesson: s('Start the lesson', 'Започни урока'),
@@ -447,6 +495,16 @@ export const UI = {
     'These were tricky the first time. One more go at just these, then the final check.',
     'Тези бяха трудни от първия път. Още веднъж само тях, после финалната проверка.',
   ),
+  /*
+   * The three steps a lesson is shown as. One word each, because a beginner
+   * reads them before having tried anything; what counts is in the numbers.
+   */
+  lessonStageRead: s('Read', 'Четене'),
+  lessonStagePractise: s('Practise', 'Упражнения'),
+  lessonStageCheck: s('Final check', 'Финална проверка'),
+  // A section's own short try, between the reading screens.
+  lessonTryIt: s('Try it', 'Опитай'),
+  lessonPhaseTry: s('Your turn', 'Твой ред'),
   lessonPhasePractice: s('Practice', 'Упражнения'),
   lessonPhaseMastery: s('Final check', 'Финална проверка'),
   lessonBackToLesson: s('Back to the lesson', 'Обратно към урока'),
@@ -553,8 +611,15 @@ export const UI = {
   // configure the server. "Couldn't turn on notifications" would help nobody.
   remindersTitle: s('Reminders', 'Напомняния'),
   remindersWhat: s(
-    'A notification when review is actually due — and nothing on the days when it is not.',
-    'Известие, когато наистина има какво да повториш — и нищо в дните, когато няма.',
+    'In your first two weeks, a note on a day you have not practised yet. After that, a notification when review is actually due — and nothing on the days when it is not.',
+    'През първите две седмици: напомняне в ден без упражнение. След това: известие, когато наистина има какво да повториш — и нищо в дните, когато няма.',
+  ),
+  // One daily job sends every reminder, so the hour is a fact to state in the
+  // learner's own time, not a setting to offer. A window, not a minute: a
+  // daily job may run at any point in its hour.
+  remindersAt: s(
+    'They arrive between {from} and {to} your time. The hour is the same for everyone and cannot be changed here.',
+    'Пристигат между {from} и {to} по твоето време. Часът е един и същ за всички и не може да се промени тук.',
   ),
   remindersOn: s('Reminders are on', 'Напомнянията са включени'),
   remindersOff: s('Reminders are off', 'Напомнянията са изключени'),
@@ -577,8 +642,8 @@ export const UI = {
     'Известията са блокирани за това приложение. Разреши ги в настройките на устройството и се върни.',
   ),
   remindersHonest: s(
-    'One a day at most, only when something is due. No streaks, no nagging.',
-    'Най-много едно на ден и само когато има какво да се повтаря. Без серии, без досаждане.',
+    'One a day at most, and never on a day you have already practised. No streaks, no nagging.',
+    'Най-много едно на ден и никога в ден, в който вече е имало упражнение. Без серии, без досаждане.',
   ),
   // Shown when the browser refuses the subscription outright. Without it a tap
   // on "Turn on reminders" left the card exactly as it was, which reads as the
@@ -588,6 +653,49 @@ export const UI = {
     'Your browser would not set this up: {reason}',
     'Браузърът ти отказа да го настрои: {reason}',
   ),
+  // Asked once, at the end of a finished lesson or daily practice. The
+  // Bulgarian avoids "you have practised" because the past participle would
+  // have to choose a gender for the learner. "At most": many days bring
+  // nothing, and the invitation must not promise one every day.
+  inviteTitle: s('Shall we remind you?', 'Да ти напомняме ли?'),
+  inviteWhen: s(
+    'At most one notification a day, between {from} and {to} your time, and only on a day you have not practised yet.',
+    'Най-много едно известие на ден, между {from} и {to} по твоето време, и само в ден без упражнение.',
+  ),
+  inviteWhenever: s(
+    'At most one notification a day, and only on a day you have not practised yet.',
+    'Най-много едно известие на ден и само в ден без упражнение.',
+  ),
+  inviteHonest: s(
+    'No streaks, no nagging. You can change this in Settings at any time.',
+    'Без серии, без досаждане. Можеш да го промениш в Настройки по всяко време.',
+  ),
+  inviteNotNow: s('Not now', 'Не сега'),
+  // After an answer that is not "on", the one invitation is used up, so the
+  // card says where the switch still is rather than ending in a shrug.
+  inviteRetry: s('You can try again in Settings.', 'Можеш да опиташ отново от Настройки.'),
+  inviteClose: s('Close', 'Затвори'),
+  inviteDone: s(
+    'Reminders are on. You can turn them off in Settings.',
+    'Напомнянията са включени. Можеш да ги изключиш от Настройки.',
+  ),
+  // iOS has no web push in a Safari tab, only in an app added to the Home
+  // Screen, so on an iPhone this is the only useful thing to say.
+  installTitle: s('Add SatzWerk to your Home Screen', 'Добави SatzWerk към началния екран'),
+  installWhy: s(
+    'On iPhone, reminders only work in the installed app.',
+    'На iPhone напомнянията работят само в инсталираното приложение.',
+  ),
+  installStepShare: s('Tap the Share button.', 'Натисни бутона „Сподели“.'),
+  installStepAdd: s(
+    'Choose “Add to Home Screen”.',
+    'Избери „Добави към началния екран“ (Add to Home Screen).',
+  ),
+  installStepOpen: s(
+    'Open SatzWerk from the new icon and turn on reminders there.',
+    'Отвори SatzWerk от новата икона и включи напомнянията там.',
+  ),
+  installGotIt: s('Got it', 'Разбрах'),
 
   // Asking why an answer was wrong. The label is not decoration: a generated
   // explanation sitting unlabelled beside an authored one would make the

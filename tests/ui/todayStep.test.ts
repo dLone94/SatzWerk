@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { allCheckpoints, allUnits, availableLessons, lessonsInOrder } from '../../src/content/index.ts';
+import { VOCABULARY, allCheckpoints, allUnits, availableLessons, lessonsInOrder } from '../../src/content/index.ts';
 import { todayHere } from '../../src/core/progress/days.ts';
 import type { DailyRun } from '../../src/core/progress/daily.ts';
 import type { LessonProgress, StepOutcome } from '../../src/core/progress/lesson.ts';
 import { createReviewItem, type ReviewItem } from '../../src/core/srs/scheduler.ts';
 import type { CheckpointResult } from '../../src/services/api/client.ts';
-import { REVIEW_BACKLOG, todayStep, type TodayInput } from '../../src/ui/selectors.ts';
+import { CATCH_UP_DAYS, CATCH_UP_SIZE, REVIEW_BACKLOG, REVIEW_ROUND_SIZE, catchUpExercises, todayStep, type TodayInput } from '../../src/ui/selectors.ts';
 
 /**
  * The one thing Today puts first. It used to be four starts of equal weight —
@@ -142,5 +142,170 @@ describe('the one step Today puts first', () => {
     expect(step.then).toBeUndefined();
     // Before the practice, the practice is the day's one step.
     expect(todayStep(state({ lessons: everything, checkpointResults: passed })).kind).toBe('daily');
+  });
+});
+
+/*
+ * Coming back after a break. A learner five days away met the same Today as
+ * on any other day: the lesson left six days ago first, thirty-seven reviews
+ * below the fold, and the run of days they had built simply gone. Now the
+ * first thing is a short warm-up of the items most at risk, and then the day
+ * goes on as usual: the rest of the backlog waits for the days after, and new
+ * material is not held back behind it.
+ */
+describe('coming back after a break', () => {
+  const DAY = 86_400_000;
+  const ago = (days: number) => todayHere(new Date(now.getTime() - days * DAY));
+  /** Days of study, each `days` ago: a dozen answers today, thirty on the others. */
+  const studied = (...days: number[]) => days.map((back) => ({ day: ago(back), answers: back === 0 ? 12 : 30 }));
+  /** Words that are due and can be asked: the warm-up is made of these. */
+  const waiting = (count: number): ReviewItem[] =>
+    VOCABULARY.slice(0, count).map((entry) =>
+      createReviewItem({ id: `vocab:${entry.id}`, kind: 'vocab', refId: entry.id, level: entry.level, now: new Date('2026-11-01T09:00:00') }));
+
+  it('opens on a warm-up after three days or more away, says how long, and how long the run before was', () => {
+    const step = todayStep(state({ studyDays: studied(5, 6, 7, 8), reviewItems: waiting(37), lessons: { [first.id]: opened(first.id) } }));
+    expect(step).toMatchObject({ kind: 'welcome-back', to: '/review?catch-up', due: 37, welcome: { days: 5, run: 4, warmUp: CATCH_UP_SIZE } });
+    // Then the lesson left part-done, by name, not the review pile.
+    expect(step.then).toBe('course');
+    expect(step.course).toMatchObject({ kind: 'continue-lesson', to: `/lesson/${first.id}` });
+    expect(todayStep(state({ studyDays: studied(3), reviewItems: waiting(4) }))).toMatchObject({ kind: 'welcome-back', welcome: { days: 3, run: 1 } });
+  });
+
+  it('warms up with everything when little is waiting, and hands over to today\'s practice when no lesson is open', () => {
+    const step = todayStep(state({ studyDays: studied(6), reviewItems: waiting(3) }));
+    expect(step).toMatchObject({ kind: 'welcome-back', welcome: { warmUp: 3 }, then: 'daily' });
+  });
+
+  it('is an ordinary day after one or two days off', () => {
+    expect(todayStep(state({ studyDays: studied(2, 3), reviewItems: waiting(37) })).kind).toBe('review');
+    expect(todayStep(state({ studyDays: studied(2), lessons: { [first.id]: opened(first.id) }, reviewItems: waiting(37) })).kind)
+      .toBe('continue-lesson');
+  });
+
+  it('does not welcome back a learner who has not studied before, or one with nothing to refresh', () => {
+    expect(todayStep(state({ reviewItems: waiting(12) })).kind).toBe('review');
+    expect(todayStep(state({ studyDays: studied(9) })).kind).toBe('daily');
+    // Nothing due that can be asked: no warm-up to offer, so the day as usual.
+    expect(todayStep(state({ studyDays: studied(9), reviewItems: due(12) })).kind).toBe('review');
+    // A day with minutes on the clock and no answers is not a study day.
+    expect(todayStep(state({ studyDays: [{ day: ago(1), answers: 0 }, ...studied(6)], reviewItems: waiting(12) })).kind)
+      .toBe('welcome-back');
+  });
+
+  it('lets the rest of the backlog wait once the warm-up is done: today\'s practice, then new material', () => {
+    // Answered today after five days away, twenty-five still due, nothing part-done.
+    const after = state({ studyDays: studied(0, 5, 6), reviewItems: waiting(25) });
+    const step = todayStep(after);
+    expect(step).toMatchObject({ kind: 'daily', due: 25, then: 'course' });
+    expect(step.welcome).toBeUndefined();
+    expect(step.course).toMatchObject({ kind: 'start-lesson', to: `/lesson/${first.id}` });
+    // Practice done: the next lesson, not the review pile.
+    expect(todayStep({ ...after, dailyRuns: [run(5)] })).toMatchObject({ kind: 'start-lesson', to: `/lesson/${first.id}` });
+    // A lesson left part-done is finished first.
+    expect(todayStep({ ...after, lessons: { [first.id]: opened(first.id) } }).kind).toBe('continue-lesson');
+  });
+
+  it('names the checkpoint the learner earned as what follows the warm-up, and leads with it after', () => {
+    // The end of a unit reached before the break, and a backlog: the course
+    // used to be "review", so the card said "Then: today's practice" and the
+    // checkpoint led only once the warm-up was done.
+    const unit = allUnits().find((candidate) => candidate.checkpoint?.status === 'available')!;
+    const lessons = Object.fromEntries(unit.lessons.map((lesson) => [lesson.id, completed(lesson.id)]));
+    const checkpoint = `/checkpoint/${unit.checkpoint!.id}`;
+    const step = todayStep(state({ studyDays: studied(40, 41), reviewItems: waiting(37), lessons }));
+    expect(step).toMatchObject({ kind: 'welcome-back', then: 'course', course: { kind: 'checkpoint', to: checkpoint } });
+    expect(todayStep(state({ studyDays: studied(0, 40, 41), reviewItems: waiting(25), lessons })))
+      .toMatchObject({ kind: 'checkpoint', to: checkpoint });
+  });
+
+  /*
+   * A month away left a hundred and fifty due. Only the day back held the
+   * pile back, so the day after opened on "150 things to review · about 60
+   * min", and again after every round of twenty until fewer than ten were
+   * left: the pile the warm-up was meant to spare them, a day later.
+   */
+  describe('in the days after a long break', () => {
+    it('offers one round of the pile a day, before anything else is answered, with the pile\'s size', () => {
+      // Back yesterday after forty days; nothing answered yet today.
+      const step = todayStep(state({ studyDays: studied(1, 41, 42), reviewItems: waiting(150) }));
+      expect(step).toMatchObject({ kind: 'review', to: '/review', due: 150, round: REVIEW_ROUND_SIZE, spread: true, then: 'daily' });
+      expect(step.course).toMatchObject({ kind: 'start-lesson', to: `/lesson/${first.id}` });
+      // Two days after, the same: one round, not the whole pile.
+      expect(todayStep(state({ studyDays: studied(1, 2, 42, 43), reviewItems: waiting(130) })))
+        .toMatchObject({ kind: 'review', round: REVIEW_ROUND_SIZE, due: 130 });
+    });
+
+    it('lets the pile wait once anything is answered that day: today\'s practice, then new material', () => {
+      const after = state({ studyDays: studied(0, 1, 41, 42), reviewItems: waiting(130) });
+      expect(todayStep(after)).toMatchObject({ kind: 'daily', due: 130, spread: true, then: 'course' });
+      expect(todayStep({ ...after, dailyRuns: [run(5)] })).toMatchObject({ kind: 'start-lesson', to: `/lesson/${first.id}` });
+    });
+
+    it('keeps the earned checkpoint in view instead of the pile', () => {
+      const unit = allUnits().find((candidate) => candidate.checkpoint?.status === 'available')!;
+      const lessons = Object.fromEntries(unit.lessons.map((lesson) => [lesson.id, completed(lesson.id)]));
+      expect(todayStep(state({ studyDays: studied(1, 41), reviewItems: waiting(150), lessons })))
+        .toMatchObject({ kind: 'checkpoint', to: `/checkpoint/${unit.checkpoint!.id}`, spread: true });
+    });
+
+    it('offers a round smaller than twenty as it is, and a handful as an ordinary day does', () => {
+      const step = todayStep(state({ studyDays: studied(1, 9), reviewItems: waiting(15) }));
+      expect(step).toMatchObject({ kind: 'review', due: 15 });
+      expect(step.round).toBeUndefined();
+      expect(todayStep(state({ studyDays: studied(1, 9), reviewItems: waiting(REVIEW_BACKLOG - 1) }))).toMatchObject({ kind: 'daily', spread: false });
+    });
+
+    it('is an ordinary day again a week after the day back', () => {
+      /** Back `days` ago after ten days away, and studied every day since. */
+      const backFor = (days: number, ...extra: number[]) =>
+        studied(...extra, ...Array.from({ length: days }, (_, index) => index + 1), days + 10);
+      // The last day of the week from the day back: still one round.
+      expect(todayStep(state({ studyDays: backFor(CATCH_UP_DAYS - 1), reviewItems: waiting(60) })))
+        .toMatchObject({ kind: 'review', round: REVIEW_ROUND_SIZE, spread: true });
+      // The day after it: the backlog leads as on any day, answered today or not.
+      const ordinary = todayStep(state({ studyDays: backFor(CATCH_UP_DAYS, 0), reviewItems: waiting(60) }));
+      expect(ordinary).toMatchObject({ kind: 'review', spread: false });
+      expect(ordinary.round).toBeUndefined();
+    });
+
+    it('tells an ordinary week apart from a break', () => {
+      // Studied every other day: no day was a return from a break.
+      const step = todayStep(state({ studyDays: studied(0, 2, 4, 6, 8), reviewItems: waiting(30) }));
+      expect(step).toMatchObject({ kind: 'review', spread: false });
+    });
+  });
+
+  it('says the pile is spread over the days only when there is more than the warm-up takes', () => {
+    expect(todayStep(state({ studyDays: studied(5), reviewItems: waiting(37) })).spread).toBe(true);
+    expect(todayStep(state({ studyDays: studied(5), reviewItems: waiting(CATCH_UP_SIZE) })).spread).toBe(false);
+    expect(todayStep(state({ reviewItems: waiting(37) })).spread).toBe(false);
+  });
+
+  it('continues a practice begun today, and is done once the goal is met, break or not', () => {
+    expect(todayStep(state({ studyDays: studied(0, 5), reviewItems: waiting(30), dailyRuns: [run(2)] })).kind).toBe('continue-daily');
+    expect(todayStep(state({ studyDays: studied(0, 5), reviewItems: waiting(30), minutesToday: 20 })).kind).toBe('done');
+    expect(todayStep(state({ studyDays: studied(5), reviewItems: waiting(30), minutesToday: 20 })).kind).toBe('done');
+  });
+});
+
+describe('the warm-up', () => {
+  const item = (id: string, state: ReviewItem['state'], dueDaysAgo: number): ReviewItem => ({
+    ...createReviewItem({ id: `vocab:${id}`, kind: 'vocab', refId: id, level: 'pre-a1', now: new Date(now.getTime() - 9 * 86_400_000) }),
+    state, intervalDays: state === 'known' ? 5 : 2, successCount: 2,
+    dueAt: new Date(now.getTime() - dueDaysAgo * 86_400_000).toISOString(),
+  });
+
+  it('takes the forgotten first, then what is still being learnt, and a warm-up\'s worth at most', () => {
+    const words = VOCABULARY.filter((entry) => entry.level === 'pre-a1').slice(0, 20);
+    const items = words.map((entry, index) =>
+      item(entry.id, index < 2 ? 'known' : index < 4 ? 'lapsed' : index < 8 ? 'learning' : 'known', 1 + (index % 4)));
+    const warmUp = catchUpExercises(items, 'en', now);
+    expect(warmUp).toHaveLength(CATCH_UP_SIZE);
+    const asked = warmUp.map((exercise) => exercise.steps[0]!.reviewTargets![0]);
+    expect(asked.slice(0, 2).sort()).toEqual([words[2]!.id, words[3]!.id].sort());
+    expect(asked.slice(2, 6).sort()).toEqual(words.slice(4, 8).map((entry) => entry.id).sort());
+    expect(catchUpExercises(items.slice(0, 5), 'en', now)).toHaveLength(5);
+    expect(catchUpExercises([], 'en', now)).toEqual([]);
   });
 });

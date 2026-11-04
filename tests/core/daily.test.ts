@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SCENARIO_SCRIPTS, VOCABULARY, LEXICON } from '../../src/content/browser.ts';
-import { LEARNING_GOALS, PRACTICE_LEVELS, isCalendarDay, mergeDailyRun, weeklyPractice, type DailyRun } from '../../src/core/progress/daily.ts';
+import { LEARNING_GOALS, PRACTICE_LEVELS, isCalendarDay, mergeDailyRun, practiceWeek, weeklyPractice, type DailyRun } from '../../src/core/progress/daily.ts';
 import { validateAnswer } from '../../src/core/validation/validate.ts';
 import { createReviewItem } from '../../src/core/srs/scheduler.ts';
 import { chooseDailyScript, dailyListening, dailyPhrases, dailyReview, phraseRecall } from '../../src/ui/dailyBuilder.ts';
@@ -86,6 +86,47 @@ describe('durable progress and a forgiving rhythm', () => {
       { day: '2026-10-05', answers: 2 }, { day: '2026-10-06', answers: 0 }, { day: '2026-10-07', answers: 3 },
       { day: '2026-10-08', answers: 4 }], 4, new Date(2026, 9, 7, 12));
     expect(result).toEqual({ done: 2, goal: 4, left: 2, start: '2026-10-05' });
+  });
+
+  /*
+   * The seven dots on Today are this week as the weekly goal counts it. A
+   * week that started a day early or late, or a day counted twice across a
+   * clock change, would put the dots and the "N of 4" beside them at odds.
+   */
+  describe('the week the dots show', () => {
+    const answered = (...days: string[]) => days.map(day => ({ day, answers: 3 }));
+    const shape = (now: Date, days = answered()) => practiceWeek(days, now)
+      .map(entry => `${entry.day}${entry.practised ? '+' : ''}${entry.today ? '<' : ''}${entry.ahead ? '>' : ''}`);
+
+    it('ends on a Sunday that is today', () => {
+      const now = new Date(2026, 10, 8, 21);
+      expect(shape(now, answered('2026-11-02', '2026-11-08', '2026-11-09')))
+        .toEqual(['2026-11-02+', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08+<']);
+      expect(practiceWeek(answered('2026-11-02', '2026-11-08'), now).filter(day => day.practised).length)
+        .toBe(weeklyPractice(answered('2026-11-02', '2026-11-08'), 4, now).done);
+    });
+
+    it('starts again on the Monday, with last Sunday behind it', () => {
+      expect(shape(new Date(2026, 10, 9, 0, 30), answered('2026-11-08', '2026-11-09')))
+        .toEqual(['2026-11-09+<', '2026-11-10>', '2026-11-11>', '2026-11-12>', '2026-11-13>', '2026-11-14>', '2026-11-15>']);
+    });
+
+    it('keeps seven distinct days across a change of the clocks', () => {
+      const zone = process.env.TZ;
+      process.env.TZ = 'Europe/Berlin';
+      try {
+        // Summer time ends in the small hours of Sunday 25 October 2026, and
+        // begins on Sunday 29 March: late on those Sundays, and the Mondays after.
+        expect(shape(new Date(2026, 9, 25, 23, 30)))
+          .toEqual(['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25<']);
+        expect(shape(new Date(2026, 9, 26, 0, 30))[0]).toBe('2026-10-26<');
+        expect(shape(new Date(2026, 2, 29, 23, 30))[6]).toBe('2026-03-29<');
+        expect(shape(new Date(2026, 2, 30, 0, 30))[0]).toBe('2026-03-30<');
+      } finally {
+        if (zone === undefined) delete process.env.TZ;
+        else process.env.TZ = zone;
+      }
+    });
   });
 
   it('does not rewind an optimistic finished run on a late acknowledgement', () => {

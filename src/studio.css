@@ -70,12 +70,33 @@
 .shadow-recorder { margin: 22px 0; padding: 20px; border: 1px solid var(--line); border-radius: 14px; }
 .shadow-recorder p { font-size: 13px; }
 .shadow-recorder audio { width: 100%; max-width: 420px; }
-.daily-finished { text-align: center; padding: 42px 24px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); }
+.daily-finished { position: relative; overflow: hidden; isolation: isolate; text-align: center; padding: 42px 24px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); }
 .daily-finished h1 { font-family: var(--font-display); font-size: clamp(30px, 4vw, 44px); font-weight: 550; line-height: 1.25; margin: 16px 0; }
 .daily-finished__mark { display: grid; place-items: center; width: 64px; height: 64px; background: var(--highlight); color: #173e31; border-radius: 50%; margin: 0 auto 24px; }
 .daily-finished__ability { max-width: 570px; margin: 24px auto; font-size: 18px; line-height: 1.6; }
-.daily-finished .section-nav { justify-content: center; }
 .daily-finished .muted { font-size: 13px; line-height: 1.7; max-width: 560px; margin: 0 auto; }
+/* What was done, as a row of ticks under the title. */
+.daily-finished__wins { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 600px; margin: 0 auto 28px; padding: 0; }
+.daily-finished__wins li { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; background: var(--good-soft); color: var(--ink); font-size: 13px; font-weight: 650; }
+.daily-finished__wins svg { color: var(--good); flex: none; }
+.daily-finished__phrases, .daily-finished .rhythm, .daily-finished__next { max-width: 600px; margin: 0 auto 24px; text-align: left; }
+.daily-finished__phrases h2 { margin: 0 0 10px; font-size: 16px; font-weight: 650; }
+.daily-finished__phrases ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.daily-finished__phrases li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; }
+.daily-finished__phrases li > span { display: grid; gap: 3px; min-width: 0; }
+.daily-finished__german { font-family: var(--font-de); font-size: 18px; font-weight: 600; }
+.daily-finished__purpose { font-size: 12px; color: var(--ink-soft); }
+.daily-finished__next { display: grid; justify-items: center; gap: 12px; text-align: center; }
+.daily-finished__next .section-eyebrow { margin: 0; }
+.daily-finished__done { margin: 0; font-size: 15px; font-weight: 650; }
+.daily-finished__next .btn--primary { max-width: 100%; white-space: normal; text-align: left; }
+.daily-finished__time { margin: -4px 0 0; font-size: 13px; color: var(--ink-soft); }
+/* "about 15 min" is a phrase inside Today's detail line; alone under the button it is a sentence. */
+.daily-finished__time::first-letter { text-transform: uppercase; }
+.daily-finished__more { display: grid; justify-items: center; gap: 4px; margin: 0; font-size: 14px; color: var(--ink-soft); }
+.daily-finished__more a { font-weight: 700; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+/* Inline, so a title that wraps on a phone keeps its arrow at the end of the words. */
+.daily-finished__more a svg { display: inline; vertical-align: -3px; margin-left: 4px; }
 .micro-tip { border-left: 3px solid var(--accent); padding: 10px 14px; margin: 14px 0; color: var(--ink); background: var(--surface); font-size: 13px; line-height: 1.65; border-radius: 0 10px 10px 0; }
 @media (max-width: 700px) {
   .daily-plan { grid-template-columns: 1fr; }
@@ -174,39 +195,60 @@ body { background: var(--paper); }
 .studio-postcard__rule { display: block; height: 2px; width: 32px; background: #abc57c; margin: 12px 0; }
 .studio-postcard__phrase { display: block; font-family: var(--font-de); font-size: 17px; font-style: italic; line-height: 1.3; }
 .studio-postcard__spark { position: absolute; font-size: 47px; right: -20px; bottom: -23px; color: var(--highlight); }
-.today-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.today-tiles { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 16px; align-items: start; }
 .today-tile { padding: 19px; border: 1px solid var(--line); border-radius: 18px; box-shadow: none; }
-.today-tile:first-child { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; column-gap: 13px; }
-.today-tile__eyebrow { grid-column: 1 / -1; text-transform: uppercase; font-size: 10px; font-weight: 650; letter-spacing: 0.8px; color: var(--ink-faint); margin-bottom: 17px; }
-.today-tile:first-child .goal-ring { grid-row: 2 / span 3; margin: 0; width: 72px; height: 72px; }
+.today-tile__eyebrow { text-transform: uppercase; font-size: 10px; font-weight: 650; letter-spacing: 0.8px; color: var(--ink-faint); margin-bottom: 17px; }
 .goal-ring circle { stroke-width: 4; }
 .goal-ring__num { font-size: 24px; font-weight: 550; }
 .today-tile__main { font-size: 14px; font-weight: 650; }
 .today-tile__note { font-size: 11px; line-height: 1.5; margin-top: 6px; color: var(--ink-faint); }
-.today-tile__active-note { grid-column: 2; font-size: 10px; color: var(--ink-faint); margin-top: 7px; }
 .today-tile--review { flex: 1; position: relative; border-color: transparent; background: var(--accent-soft); }
 .today-tile__arrow { position: absolute; right: 17px; top: 17px; color: var(--accent-ink); }
 .today-tile__icon { width: 31px; height: 31px; background: transparent; color: var(--accent-ink); border-radius: 0; margin-bottom: 12px; }
-.today-workbench { display: grid; grid-template-columns: minmax(0, 1fr) 1.25fr; gap: 20px; }
-.today-workbench--solo { grid-template-columns: minmax(0, 1fr); }
-.today-round { position: relative; min-height: 210px; align-items: flex-start; flex-direction: column; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 23px; box-shadow: none; }
+.today-round { position: relative; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 19px 23px; box-shadow: none; }
 .today-round:hover { border-color: var(--accent); transform: none; }
-.today-round > svg { position: absolute; right: 23px; bottom: 25px; }
+.today-round > svg { flex: none; }
 .today-round__icon { width: 39px; height: 39px; border-radius: 12px; background: var(--warn-soft); color: var(--warn); }
-.today-round__title { font-size: 19px; font-weight: 650; }
-.today-round__note { font-size: 12px; margin-top: 8px; color: var(--ink-faint); }
-.weekly-rhythm { min-width: 0; padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
-.weekly-rhythm__head { display: flex; gap: 14px; justify-content: space-between; align-items: flex-start; }
-.weekly-rhythm h2 { font-size: 16px; font-weight: 650; letter-spacing: -0.3px; }
-.weekly-rhythm__head p { font-size: 11px; margin: 5px 0 0; color: var(--ink-faint); }
-.weekly-rhythm__head > strong { font-size: 10px; font-weight: 550; color: var(--accent-ink); padding: 5px 8px; border-radius: 7px; background: var(--accent-soft); }
-.weekly-rhythm__days { list-style: none; padding: 0; margin: 18px 0 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 9px; }
-.weekly-rhythm__days li { text-align: center; font-size: 10px; color: var(--ink-faint); }
-.weekly-rhythm__days li[aria-current] { color: var(--ink); font-weight: 750; }
-.weekly-rhythm__bar { position: relative; display: block; height: 57px; border-radius: 5px; background: var(--surface-alt); margin: 0 auto 8px; max-width: 27px; overflow: hidden; }
-.weekly-rhythm__bar > span { position: absolute; inset: auto 0 0; height: var(--day-fill); background: var(--accent); border-radius: 5px; }
-.weekly-rhythm__bar.is-complete > span { background: var(--good); }
-.weekly-rhythm__empty { font-size: 10px; color: var(--ink-faint); margin: 12px 0 0; }
+.today-round__title { font-size: 17px; font-weight: 650; }
+.today-round__note { font-size: 12px; margin-top: 6px; color: var(--ink-faint); }
+
+/*
+ * The day's goal and the week, one widget. Side by side where there is room
+ * for both, the day above the week where there is not: measured on the
+ * widget, which is narrower beside the review tile than the page is.
+ */
+.rhythm { container-type: inline-size; min-width: 0; padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.rhythm__title { margin: 0 0 16px; font-size: 16px; font-weight: 650; letter-spacing: -0.3px; }
+.rhythm__body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.rhythm__today { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 14px; }
+.rhythm__today .goal-ring { width: 64px; height: 64px; margin: 0; }
+.rhythm__label { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin: 0; text-transform: uppercase; font-size: 10px; font-weight: 650; letter-spacing: 0.8px; color: var(--ink-faint); }
+.rhythm__label strong { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 650; color: var(--accent-ink); padding: 4px 8px; border-radius: 7px; background: var(--accent-soft); }
+.rhythm__label strong.is-done { color: var(--good); background: var(--good-soft); }
+.rhythm__main { margin: 6px 0 0; font-size: 14px; font-weight: 650; }
+.rhythm__note { margin: 6px 0 0; font-size: 11px; line-height: 1.5; color: var(--ink-faint); }
+.rhythm__note--done { display: flex; align-items: center; gap: 5px; color: var(--good); font-weight: 650; }
+.rhythm__week { min-width: 0; padding-top: 16px; border-top: 1px solid var(--line); }
+.rhythm__days { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.rhythm__day { display: grid; justify-items: center; gap: 6px; font-size: 10px; color: var(--ink-faint); }
+.rhythm__day[aria-current] { color: var(--ink); font-weight: 750; }
+.rhythm__dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--surface-alt); }
+.rhythm__day--practised .rhythm__dot { background: var(--good); color: var(--surface); }
+.rhythm__day--ahead .rhythm__dot, .rhythm__day--open .rhythm__dot { background: transparent; border: 1.5px dashed var(--line); }
+.rhythm__day[aria-current] .rhythm__dot { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+@container (min-width: 500px) {
+  .rhythm__body { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.4fr); gap: 24px; }
+  .rhythm__week { padding: 0 0 0 24px; border-top: 0; border-left: 1px solid var(--line); }
+}
+/* A met goal is drawn as met: the ring and its number turn green, and a tick lands once on it. */
+.goal-ring { position: relative; }
+.goal-ring--done .goal-ring__track { stroke: var(--good-soft); }
+.goal-ring--done .goal-ring__num { color: var(--good); }
+.goal-ring__badge { position: absolute; right: -2px; top: -2px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--good); color: var(--surface); box-shadow: 0 0 0 2px var(--surface); animation: sw-badge-in var(--dur-3) var(--ease-out) var(--dur-4) both; }
+/* The ring's own drawing is turned to start at the top; the tick on it is not. */
+.goal-ring__badge svg { transform: none; }
+/* On the finished practice, today's dot fills in as the page arrives. */
+.rhythm--celebrate .rhythm__day--practised[aria-current] .rhythm__dot { animation: sw-badge-in var(--dur-4) var(--ease-out) var(--dur-4) both; }
 .today-unit { margin: 0; padding: 23px 25px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
 .section-eyebrow { font-size: 10px; color: var(--ink-faint); letter-spacing: 1px; text-transform: uppercase; margin: 0 0 7px; }
 .today-unit__head { align-items: center; }
@@ -322,8 +364,6 @@ body { background: var(--paper); }
   .studio-postcard { width: 132px; min-height: 205px; padding: 15px; }
   .studio-postcard__hello { font-size: 37px; }
   .studio-postcard__phrase { font-size: 16px; }
-  .today-tile:first-child { grid-template-columns: 61px minmax(0, 1fr); }
-  .today-tile:first-child .goal-ring { width: 61px; height: 61px; }
   .study-indicator { display: none; }
 }
 
@@ -369,27 +409,20 @@ body { background: var(--paper); }
   .today__greeting { font-size: 39px; letter-spacing: -1.1px; }
   .today__welcome { font-size: 12px; margin-top: 8px; }
   .today__streak { padding: 7px 9px; font-size: 12px; }
-  .today-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .today-tile { min-height: 165px; padding: 16px; border-radius: 16px; }
-  .today-tile:first-child { display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
+  .today-tiles { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .today-tile { padding: 16px; border-radius: 16px; }
   .today-tile__eyebrow { font-size: 9px; margin-bottom: 12px; }
-  .today-tile:first-child .goal-ring { width: 53px; height: 53px; margin: 0 0 10px; }
   .goal-ring__num { font-size: 20px; }
   .today-tile__main { font-size: 13px; }
-  .today-tile__note { font-size: 10px; line-height: 1.6; }
-  .today-tile__active-note { display: none; }
-  .today-tile__icon { margin: 0 0 19px; }
-  .today-workbench { display: flex; flex-direction: column; gap: 14px; }
-  .today-round { min-height: 0; flex-direction: row; align-items: center; padding: 17px; gap: 13px; border-radius: 16px; }
-  .today-round > svg { position: static; flex: none; width: 18px; }
+  .today-tile__note { font-size: 11px; line-height: 1.6; }
+  .today-tile__icon { margin: 0 0 12px; }
+  .today-round { padding: 17px; gap: 13px; border-radius: 16px; }
+  .today-round > svg { width: 18px; }
   .today-round__title { font-size: 15px; }
   .today-round__note { font-size: 11px; margin-top: 4px; }
   .today-round__icon { width: 35px; height: 35px; border-radius: 10px; }
-  .weekly-rhythm { padding: 18px; border-radius: 16px; }
-  .weekly-rhythm h2 { font-size: 15px; }
-  .weekly-rhythm__head > strong { max-width: 130px; text-align: right; }
-  .weekly-rhythm__days { gap: 8px; }
-  .weekly-rhythm__bar { height: 48px; }
+  .rhythm { padding: 18px; border-radius: 16px; }
+  .rhythm__title { font-size: 15px; margin-bottom: 14px; }
   .today-unit { padding: 19px; border-radius: 16px; }
   .today-unit__title { font-size: 15px; }
   .section-eyebrow { font-size: 9px; }
@@ -421,7 +454,6 @@ body { background: var(--paper); }
 
 @media (prefers-color-scheme: dark) {
   .studio-explore__card--conversation { background: #2c3021; }
-  .weekly-rhythm__bar > span { background: #94bb7b; }
   .shell::before { border-right-color: var(--line); }
 }
 

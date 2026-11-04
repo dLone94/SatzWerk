@@ -289,3 +289,21 @@ describe('where a new page starts', () => {
     expect(screen.getByRole('heading', { name: 'Course' })).toHaveFocus();
   });
 });
+
+describe('the name in the header', () => {
+  /*
+   * A household shares one copy of the app, and the name in the header is the
+   * way to somebody else's progress: it opens Settings at "Who is studying?",
+   * where another person is added or switched to, not at the top of the page.
+   */
+  it('opens Settings at who is studying', async () => {
+    mode = 'fine';
+    mount();
+    await screen.findByRole('navigation');
+    const badge = await screen.findByTitle(tr('learnersTitle', 'en'));
+    expect(badge).toHaveAttribute('href', '/settings#learners');
+    await userEvent.click(badge);
+    const heading = await screen.findByRole('heading', { name: tr('learnersTitle', 'en') });
+    await waitFor(() => expect(heading).toHaveFocus());
+  });
+});

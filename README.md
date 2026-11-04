@@ -206,6 +206,14 @@ that as a **GET** with `Authorization: Bearer $CRON_SECRET`, which is what the
 endpoint expects; it also accepts POST, so the same job can be triggered by
 anything else that can hold the secret.
 
+That one daily job is the only schedule, because it is all the hosting plan
+allows, so the reminder time is the same for everybody and cannot be chosen in
+the app; Settings says when it is in the learner's own time, as the hour it
+falls in, because a daily job may start at any minute of its hour (*between
+20:00 and 21:00* in Sofia in winter, *21:00 and 22:00* in summer).
+Self-hosted, the app cannot see when your scheduler calls the job, so it names
+no time unless you set `REMINDER_HOUR_UTC` to the hour you scheduled.
+
 **On an iPhone the app has to be installed.** iOS exposes no `PushManager` in a
 Safari tab at all, so: open the URL in Safari → *Share* → *Add to Home Screen* →
 open it from the Home Screen icon → *Settings* → *Turn on reminders*. Until
@@ -301,14 +309,16 @@ database, so sessions survive a redeploy. Sessions are signed with it bound to
 the current password, so changing the password signs out every other device,
 whichever secret is in use.
 
-### One learner, by design
+### Several learners, one password
 
-`profile` and `users` each hold one row. Migration 2 adds a `user_id` column to
-every progress table so that supporting a second person later is a query change
-rather than a migration over live data — but **the queries do not filter by it
-yet**, so a second row in `users` would share one set of progress. Nothing
-creates one. Until that query pass happens, two people means two deployments
-with two databases.
+The password protects the copy of the app, not a person. Everybody in a
+household signs in with the same one, once per device, and then each person
+studies as themselves: every progress table carries a `user_id`, every query
+filters by it, and each learner has their own progress, reviews, mistakes and
+teaching path. Adding somebody takes a name and nothing else — no second
+password, no account. The name in the header opens Settings at *Who is
+studying?*, where somebody is added or switched to; see *Who is studying*
+below for how a device and a tab decide who they are.
 
 ---
 
@@ -401,7 +411,7 @@ than about grammar.
 | 5. Natural spoken German | Did you get my message? · Got a second? · Didn’t see it | the unit that admits what the previous eighty lessons could not: a learner who has done all of them can read a rental contract and still lose the thread at a lunch table. Not because the grammar changes — it does not — but because speech swaps words (bekommen → *kriegen*, sehen → *gucken*, funktionieren → *klappen*), deletes sounds (*Haste mal kurz?* is four words said as two, *’ne Frage* is eine) and rearranges sentences (*Hab ich nicht gesehen* deletes the first slot; *Der ist echt gut, der Film* adds an afterthought; *ne?* asks for agreement without agreeing with anything). All three lessons are taught **for listening**, and every exercise asks for the full form from the spoken one rather than the other way round: nobody has ever been thought rude for saying *bekommen*, while failing to understand *Haste mal kurz?* stops a conversation dead. Here English transfers on one of the three — it drops subjects the same casual way — but builds its tag questions by rule where German has one invariant *ne?*; Bulgarian has the invariant tag already („нали?“) and moves constituents freely, so what it lacks is the verb-second frame the deletions happen inside |
 | | **B2 level checkpoint** | all five units with no hints, 80% to pass, and built around the question B2 is actually about: *can you tell which room you are in?* Every level below had one right answer per prompt; here the same fact has two correct forms and only one belongs where you are standing, so the checkpoint asks for the same content twice — *Hast du meine Nachricht gekriegt?* to a colleague and *Haben Sie meine Nachricht erhalten?* in an email — and marks the pair rather than the sentence |
 
-Across those 84 lessons that is 655 vocabulary entries, 83 grammar concepts, 683 exercises and **2013
+Across those 84 lessons that is 655 vocabulary entries, 83 grammar concepts, 685 exercises and **2016
 answer tasks** (including all thirty-three checkpoints and the placement check), across 427 teaching sections,
 all authored in both paths. Only 1.0% of those tasks are multiple choice; the
 rest require typing German. 165 of them carry an authored trap answer — a
@@ -487,11 +497,28 @@ rung of support (first word → first letters → word bank → fill in the blan
 two clean answers take it away again, so the learner returns to full recall.
 
 **Lesson completion is earned.** `lessonRequirements()` returns the live state of
-every condition, and the UI shows it as a checklist: read all sections, resolve
-every exercise, recall the key words, type the key sentences, reach 60% first-try
-accuracy or pass the final check, and pass the final check. Scrolling through
-completes nothing. If practice accuracy falls below 70%, a short redo of just the
-missed steps is inserted automatically before the final check.
+every condition: read all sections, resolve every exercise, recall the key words,
+type the key sentences, reach 60% first-try accuracy or pass the final check, and
+pass the final check. The lesson page shows them as three steps with their
+progress — **Read 2/6 · Practise 4/12 · Final check** — because the key words and
+sentences are some of the exercises, and passing the final check settles the
+accuracy rule; `lessonStages()` builds the steps from the requirements, so all
+three done is exactly every requirement met. Scrolling through completes nothing.
+If practice accuracy falls below 70%, a short redo of just the missed steps is
+inserted automatically before the final check. A lesson once completed stays
+completed when its content later grows, and its three steps stay ticked, with
+the real counts showing what was added.
+
+A teaching section can name exercises to try straight after it (`tryIt`), so
+the practice comes in small pieces between explanations rather than all after
+them. Lesson 1 uses this throughout: its first screen is four useful phrases
+with recordings (*Hallo!*, *Ich heiße Teo.*, *Danke!*, *Tschüss!*), its second
+is typing them, and every screen of sounds after that is followed by a short
+listen-and-choose, a rewrite with ä/ö/ü/ß or a dictation. By the summary the
+practice is done and the final check is next. A section counts as read for
+"Continue reading" only once its try is answered, so a learner who left in the
+middle of one comes back to it, and after it moves on to the next section still
+open rather than through screens already read.
 
 A first try cannot be taken again, so the accuracy condition is also met by
 passing the final check: otherwise a beginner whose first attempt went badly
@@ -550,6 +577,65 @@ quiet button; nothing asks for it. Each kind of practice has one name in both
 paths: **daily practice** (phrases and a conversation), **review** (what comes
 back before it is forgotten), the **mixed round** (below), and the **daily
 goal** (minutes).
+
+**Welcome back after a break.** A learner back after three or more days
+without answers used to meet the same Today as any other day, with the lesson
+left days ago first, a pile of reviews below it and the run of days before the
+break gone without a word. On the day back, before anything is answered, the
+card says how long it has been and how much is waiting, names the run before
+the break, and offers one short warm-up (`/review?catch-up`): the twelve due
+items the review queue ranks first, the forgotten and those still being learnt
+ahead of the rest. Once something is answered that day, the day goes on as
+usual, except that the rest of the backlog no longer leads it or holds back the
+next lesson. For the week from the day back, the pile leads a day at most once,
+as one round of twenty ("A round of 20 · 130 waiting"), and only before anything
+else is answered that day; it never decides the course's next step, so the
+lesson or checkpoint the learner earned stays in view, and the review tile says
+the rest comes back over the next days instead of timing it as one sitting.
+
+**A goal the size of a habit.** The welcome screen preselected 20 minutes a
+day while the daily practice takes about six, so a beginner who did it was
+told "17 more to your goal" every evening. A new learner now starts at 10
+minutes and is offered 5, 10, 15 or 20, or any number typed in
+(`src/core/progress/goal.ts`). A goal already stored is the learner's own and
+is never moved: only profiles created from now on start at 10, and a profile
+that has not been through the welcome screen yet is offered 10 there, because
+its 20 was never chosen. Settings offers the same four, and a goal outside
+them (30, say) stays in its "Custom" field. The daily practice is the same
+size whatever the goal: its review part used to be a third of the goal in
+items, which would have cut a new learner's practice in half along with the
+default. The mixed round is still planned to fill the goal, so on the default
+it is a ten-minute round.
+
+**One rhythm, not three scores.** Today measured the same effort three ways
+in three places: a ring of minutes, bars of minutes for the last seven days,
+and "0 / 4 practice days this week" at the foot of the page. One widget
+(`src/ui/components/Rhythm.tsx`) now holds both measures, named: today's
+active minutes against the daily goal, as a ring that turns green and takes a
+tick once the goal is met, and this week's practice days against the weekly
+goal, Monday to Sunday, as seven dots counted by the same rule as that goal
+(a day with an answer saved). Today, before any practice, is a day still
+open, not a day missed, and once the week cannot reach its goal any more the
+widget says a new week starts on Monday instead of asking for days it no
+longer has.
+
+**A finish that feels like a win.** Finishing the daily practice was a flat
+card with two buttons of equal weight. It now falls the lessons' confetti
+(none under reduced motion), has the dachshund cheer *Geschafft!*, and counts
+only what the rows say was done: the new phrases met, the answers right first
+time, the streak once it is longer than today, and the same rhythm widget as
+Today, with today's dot filling in. A phrase already met in a practice
+finished earlier the same day counts as familiar, not new. Straight under the
+wins, where a phone shows it without scrolling, its one button is the step
+`todayStep` would now lead Today with, with how long it takes, so the two
+never disagree; once the goal is met that button goes back to Today and the
+course's next step is offered quietly beside it, as Today offers it. The step
+is settled as the finish opens and does not change under the learner's
+thumb. Doing it again stays a quiet link, and the day's phrases are listed
+below to hear once more. The practice's last minutes are saved the moment it
+is finished rather than up to a minute later, and minutes count on screen as
+soon as they are queued rather than when the server answers, so the goal
+shown there and on Today is the goal as it stands.
 
 **The mixed round: one button, ten minutes.** A lesson here is twenty-five to
 thirty minutes, which is right for meeting something new and wrong for a
@@ -661,19 +747,43 @@ somebody actually comes back on the day, so the app can send one push
 notification — *"3 words are due"* — which opens the mixed round rather than
 the review queue, because what brings somebody back at nine in the evening is a
 round they can finish rather than a queue they have to decide how much of to
-do. It is governed by three rules:
+do. It is governed by these rules:
 
 - **Only when something is really due.** The job reads `review_items` and sends
   nothing when the count is zero. There is no "keep your streak" notification,
   because a streak is not a reason to study and a reminder about nothing is how
   people turn reminders off.
-- **At most one a day.** `last_sent_at` is stamped per subscription and a second
-  run on the same UTC day is a no-op, so a cron misfire cannot produce two.
+- **Except in the first two weeks.** A word answered right first time comes
+  back after four days, so a learner who did well on day one had nothing due
+  on days two to four, which is exactly when beginners drift away, and heard
+  nothing. Until they have studied on five days (and for at most two weeks
+  from their first), a day without study gets *"Today's practice is ready: Meet
+  a neighbour on the stairs and introduce yourself."*, quoting the heading the practice page will open on:
+  the goal of the conversation it really offers, chosen by the same code from
+  the same rows. It opens that page. After three days away in a row it stops,
+  because three unanswered reminders say that reminders are not what is
+  missing. The due count below has no such stop: once there is a queue, it is
+  the learner's own work waiting, the count says exactly how much, and the
+  switch in Settings is theirs to use; whether it should still ease off after
+  a long absence is an open question rather than a decision taken here.
+- **Not at night, for that note.** The job runs at 18:00 UTC for everybody,
+  which is the small hours in East Asia and Australia, so the practice note is
+  only sent when the device's clock says between 08:00 and 22:00. The due
+  count keeps its old rule and goes whatever the hour.
+- **Never on a day already studied**, by the learner's own calendar: each
+  device says how far from UTC it is when it subscribes, and the job reads the
+  study log for that day.
+- **At most one a day.** `last_sent_at` is claimed per subscription before the
+  send, so a second run on the same UTC day, even one at the same moment, is a
+  no-op and a cron misfire cannot produce two.
 - **It says the real number.** The text comes from the same query the Review
   page counts, in the learner's own teaching language.
 
-It is off until it is switched on from Settings, from a real tap — a permission
-prompt on page load is both bad manners and ignored by Safari. The card names
+It is off until it is switched on from a real tap — a permission prompt on page
+load is both bad manners and ignored by Safari. The app asks once, on the
+screen that ends the learner's first finished lesson or daily practice, and
+otherwise leaves it to Settings; on an iPhone in Safari it shows the *Add to
+Home Screen* steps there instead, since nothing else would work. The card names
 the actual obstacle rather than failing generically: *add the app to your Home
 Screen* on an iPhone (iOS exposes no `PushManager` in a Safari tab, so nothing
 else will work), *notifications are blocked for this site*, or *not configured
@@ -1126,15 +1236,15 @@ clock-telling being backwards.
 Run `npm run dev`, open <http://localhost:5173>, and:
 
 1. **Onboarding.** Pick *Обяснявай ми немския на български*. The screen switches
-   to Bulgarian immediately. Choose 20 minutes and start.
+   to Bulgarian immediately. Ten minutes is already chosen; start.
 2. **Dashboard.** "Следващата ти полезна стъпка" suggests the first lesson.
    Accuracy shows `—` with "Още няма данни", not 0%. Speaking reads
    "Планирано — още не е направено".
 3. **Course.** All five levels are listed. Pre-A1, A1 and B1 each show six
    linked units and a level checkpoint, A2 five, B2 five. Nothing is labelled
    "Планирано" any more, because nothing is.
-4. **Lesson.** Open *Откъде си и къде живееш*. The requirement checklist shows
-   0/6 sections, 0/24 exercises and so on. Work through the six teaching
+4. **Lesson.** Open *Откъде си и къде живееш*. The three steps show
+   Четене 0/6, Упражнения 0/24 and the final check. Work through the six teaching
    sections — note the Bulgarian-only comparison of free Bulgarian word order
    with German verb-second.
 5. **Type German.** Answer the `wohnen` conjugation table, then the guided gap

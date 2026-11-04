@@ -64,7 +64,9 @@ describe('schema and profile', () => {
   it('starts with an English profile that has not been onboarded', async () => {
     const response = await call('GET', '/api/profile');
     expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({ teachingLanguage: 'en', onboarded: false, dailyTargetMinutes: 20 });
+    // A habit-sized goal: the daily practice takes about six minutes, and a
+    // 20-minute default left every beginner who did it short of their goal.
+    expect(response.body).toMatchObject({ teachingLanguage: 'en', onboarded: false, dailyTargetMinutes: 10 });
   });
 
   it('persists a switch to the Bulgarian teaching path', async () => {
@@ -744,6 +746,25 @@ describe('durability across a restart', () => {
 
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  /*
+   * The default goal fell from 20 minutes to 10. A goal already stored is the
+   * learner's, chosen at onboarding or in Settings, and opening the database
+   * after the change must not lower it.
+   */
+  it('keeps the daily goal a learner already has when the default changes', async () => {
+    const path = join(dir, 'satzwerk.db');
+    const first = await openDatabase({ path });
+    await first.run('UPDATE profile SET daily_target_minutes = 20, onboarded = 1 WHERE user_id = 1');
+    await first.close();
+
+    const second = await openDatabase({ path });
+    expect(await store.getProfile(scopeOf(second))).toMatchObject({ dailyTargetMinutes: 20, onboarded: true });
+    // Somebody new in the same household starts small.
+    const added = await store.createLearner(second, 'Papa');
+    expect(await store.getProfile({ db: second, userId: added.id })).toMatchObject({ dailyTargetMinutes: 10 });
+    await second.close();
   });
 
   it('keeps progress when the process is restarted', async () => {
