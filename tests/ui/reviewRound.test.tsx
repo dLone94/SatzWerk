@@ -12,8 +12,8 @@ import { AppStateContext, type AppStateValue } from '../../src/state/AppState.ts
 import { DashboardPage } from '../../src/ui/pages/DashboardPage.tsx';
 import { ReviewPage } from '../../src/ui/pages/ReviewPage.tsx';
 import { buildReviewExercises } from '../../src/ui/reviewBuilder.ts';
-import { earlyReviewExercises } from '../../src/ui/selectors.ts';
-import { stubState } from './playerStub.tsx';
+import { CATCH_UP_SIZE, catchUpExercises, earlyReviewExercises } from '../../src/ui/selectors.ts';
+import { play, stepIdOnScreen, stubState } from './playerStub.tsx';
 
 /**
  * What review asks and what it promises, each case a thing a learner met.
@@ -235,5 +235,58 @@ describe('grammar in review', () => {
     expect(attempts[0]).toMatchObject({ context: 'review', stepId: step.id });
     expect((attempts[0] as { reviewTargets: Array<{ refId: string; kind: string }> }).reviewTargets)
       .toEqual([expect.objectContaining({ refId: 'g-accusative', kind: 'grammar' })]);
+  });
+});
+
+/*
+ * The warm-up Today offers after a break: the items most at risk, a dozen at
+ * most, started as the page opens, and then back to the day, with the rest of
+ * the pile left for the days after rather than pressed as the next thing.
+ */
+describe.each(['en', 'bg'] as const)('the warm-up after a break, in %s', (lang) => {
+  const back = (index: number, state: ReviewItem['state']): ReviewItem => ({
+    ...createReviewItem({ id: `vocab:${VOCABULARY[index]!.id}`, kind: 'vocab', refId: VOCABULARY[index]!.id, level: 'pre-a1',
+      now: new Date(Date.now() - 9 * 86_400_000) }),
+    state, intervalDays: state === 'known' ? 5 : 2, successCount: 2, lapses: state === 'lapsed' ? 1 : 0,
+    dueAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+  });
+  const pile = Array.from({ length: 30 }, (_, index) => back(index, index % 10 === 9 ? 'lapsed' : 'known'));
+
+  function open(items: ReviewItem[], path = '/review?catch-up') {
+    return render(
+      <AppStateContext.Provider value={stubState({ reviewItems: items }, lang)}>
+        <MemoryRouter initialEntries={[path]}>
+          <ReviewPage />
+        </MemoryRouter>
+      </AppStateContext.Provider>,
+    );
+  }
+
+  it('starts at once with a dozen, the forgotten first', () => {
+    open(pile);
+    expect(screen.getByText(tr('catchUpRound', lang, { n: CATCH_UP_SIZE }))).toBeInTheDocument();
+    expect(document.querySelector('.player__count')!.textContent)
+      .toBe(tr('exerciseProgress', lang, { done: 1, total: CATCH_UP_SIZE }));
+    const first = catchUpExercises(pile, lang)[0]!.steps[0]!;
+    expect(stepIdOnScreen()).toBe(first.id);
+    expect(pile.find((item) => item.refId === first.reviewTargets![0])!.state).toBe('lapsed');
+  });
+
+  it('is the ordinary review page without the warm-up asked for', () => {
+    open(pile, '/review');
+    expect(screen.queryByText(tr('catchUpRound', lang, { n: CATCH_UP_SIZE }))).toBeNull();
+    expect(screen.getByRole('button', { name: tr('reviewStart', lang) })).toHaveClass('btn--primary');
+  });
+
+  // Played through in English: the helper that plays knows the English buttons.
+  it.runIf(lang === 'en')('hands back to the day once done, and leaves the rest of the pile unpressed', async () => {
+    const few = pile.slice(7, 10);
+    const user = userEvent.setup();
+    open(few);
+    await play(user, catchUpExercises(few, lang), { right: () => true });
+    expect(screen.getByText(tr('catchUpDone', lang))).toBeInTheDocument();
+    const onward = screen.getByRole('link', { name: tr('catchUpOnward', lang) });
+    expect(onward).toHaveAttribute('href', '/');
+    expect([...document.querySelectorAll('.btn--primary')]).toEqual([onward]);
   });
 });

@@ -257,6 +257,28 @@ export const UI = {
   todayDoneRest: s('Come back tomorrow for a new practice.', 'Ела утре за нова практика.'),
   todayKeepGoing: s('Keep going if you like', 'Продължи, ако ти се иска'),
   todayRoundWhat: s('Due reviews, repeated mistakes and your open lesson in one round', 'Повторения, повтарящи се грешки и започнатият урок в един кръг'),
+  /*
+   * Back after a break. What happened is said plainly (how long, how much is
+   * waiting) and nothing is said about what was missed or lost: the learner
+   * came back, and that is the part worth answering.
+   */
+  welcomeBackEyebrow: s('Welcome back', 'Добре дошли отново'),
+  welcomeBackTitle: s('A short warm-up to start', 'Кратка загрявка за начало'),
+  welcomeBackAway: s('Your last study day was {n} days ago.', 'Последният ти учебен ден беше преди {n} дни.'),
+  welcomeBackWaiting: s(
+    '{n} things are ready to review. This warm-up brings back the {k} most at risk; the rest come back over the next few days.',
+    '{n} неща чакат за повторение. Загрявката връща {k}-те, които най-лесно се забравят, а останалите идват постепенно през следващите дни.',
+  ),
+  welcomeBackAll: s('{n} things are ready to review, and one short warm-up brings them all back.', '{n} неща чакат за повторение и една кратка загрявка ги връща всичките.'),
+  welcomeBackAllOne: s('{n} thing is ready to review, and one short warm-up brings it back.', '{n} нещо чака за повторение и една кратка загрявка го връща.'),
+  welcomeBackRun: s('Before the break you studied {n} days in a row. Today starts a new run.', 'Преди почивката имаше {n} поредни дни учене. Днес започва нова поредица.'),
+  welcomeBackStart: s('Start the warm-up', 'Започни загрявката'),
+  catchUpRound: s('Warm-up · {n} to refresh', 'Загрявка · {n} за опресняване'),
+  catchUpDone: s('Warm-up done', 'Загрявката е готова'),
+  catchUpRest: s('{n} more are waiting. They come back a few at a time over the next days, so carry on with today’s plan.', 'Още {n} чакат. Те се връщат постепенно през следващите дни, така че продължи с плана за днес.'),
+  catchUpRestOne: s('{n} more is waiting. It comes back over the next days, so carry on with today’s plan.', 'Още {n} чака. Връща се през следващите дни, така че продължи с плана за днес.'),
+  catchUpClear: s('Everything that was waiting is fresh again.', 'Всичко, което чакаше, е опреснено.'),
+  catchUpOnward: s('On to today’s plan', 'Към плана за днес'),
   dashboardNextAction: s('Your next useful step', 'Следващата ти полезна стъпка'),
   dashboardContinue: s('Continue the lesson', 'Продължи урока'),
   dashboardStartLesson: s('Start the lesson', 'Започни урока'),

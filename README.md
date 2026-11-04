@@ -551,6 +551,17 @@ paths: **daily practice** (phrases and a conversation), **review** (what comes
 back before it is forgotten), the **mixed round** (below), and the **daily
 goal** (minutes).
 
+**Welcome back after a break.** A learner back after three or more days
+without answers used to meet the same Today as any other day, with the lesson
+left days ago first, a pile of reviews below it and the run of days before the
+break gone without a word. On the day back, before anything is answered, the
+card says how long it has been and how much is waiting, names the run before
+the break, and offers one short warm-up (`/review?catch-up`): the twelve due
+items the review queue ranks first, the forgotten and those still being learnt
+ahead of the rest. Once something is answered that day, the day goes on as
+usual, except that the rest of the backlog no longer leads it or holds back the
+next lesson; it comes back over the following days, a round at a time.
+
 **The mixed round: one button, ten minutes.** A lesson here is twenty-five to
 thirty minutes, which is right for meeting something new and wrong for a
 Tuesday evening. Before this existed, a learner with ten minutes was handed a

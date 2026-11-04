@@ -2,13 +2,15 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
-import { availableLessons, lessonsInOrder } from '../../src/content/browser.ts';
+import { VOCABULARY, availableLessons, lessonsInOrder } from '../../src/content/browser.ts';
 import { todayHere } from '../../src/core/progress/days.ts';
 import type { DailyRun } from '../../src/core/progress/daily.ts';
+import { emptyLessonProgress } from '../../src/core/progress/lesson.ts';
 import { createReviewItem } from '../../src/core/srs/scheduler.ts';
 import { tr } from '../../src/i18n.ts';
 import { AppStateContext, type AppStateValue } from '../../src/state/AppState.tsx';
 import { DashboardPage } from '../../src/ui/pages/DashboardPage.tsx';
+import { CATCH_UP_SIZE } from '../../src/ui/selectors.ts';
 import { stubState } from './playerStub.tsx';
 
 /**
@@ -113,6 +115,54 @@ describe.each(LANGS)('Today in %s', (lang) => {
     expect(keepGoing).toHaveAttribute('href', '/review');
     expect(keepGoing).toHaveClass('btn--ghost');
     expect(card).not.toHaveTextContent(tr('dashboardReviewDue', lang));
+  });
+
+  /*
+   * Five days away, a lesson left part-done and twenty words waiting: Today
+   * looked as it did on any other day, and the four-day run before the break
+   * had gone without a word.
+   */
+  describe('back after a break', () => {
+    const DAY = 86_400_000;
+    const ago = (days: number) => todayHere(new Date(Date.now() - days * DAY));
+    const before = [5, 6, 7, 8].map((days) => ({ day: ago(days), secondsActive: 900, answers: 30, correct: 26 }));
+    const waiting = VOCABULARY.filter((entry) => entry.level === 'pre-a1').slice(0, 20).map((entry) =>
+      createReviewItem({ id: `vocab:${entry.id}`, kind: 'vocab', refId: entry.id, level: 'pre-a1', now: new Date(Date.now() - 6 * DAY) }));
+    const plan = (container: HTMLElement) => container.querySelector<HTMLElement>('.today-plan')!;
+
+    it('welcomes the learner back with one warm-up, says plainly what happened, then names the lesson', () => {
+      const view = today({ studyDays: before, reviewItems: waiting, lessons: { [first.id]: { ...emptyLessonProgress(first.id), sectionsSeen: [first.sections[0]!.id] } } }, lang);
+      const [only, ...others] = primaries(view.container);
+      expect(others).toHaveLength(0);
+      expect(only).toHaveAccessibleName(tr('welcomeBackStart', lang));
+      expect(only).toHaveAttribute('href', '/review?catch-up');
+      const card = plan(view.container);
+      expect(within(card).getByRole('heading', { name: tr('welcomeBackTitle', lang) })).toBeInTheDocument();
+      expect(card).toHaveTextContent(tr('welcomeBackEyebrow', lang));
+      expect(card).toHaveTextContent(tr('welcomeBackAway', lang, { n: 5 }));
+      expect(card).toHaveTextContent(tr('welcomeBackWaiting', lang, { n: 20, k: CATCH_UP_SIZE }));
+      // Twelve answers at the default twenty seconds: four minutes.
+      expect(card).toHaveTextContent(tr('dashboardEstimate', lang, { n: 4 }));
+      expect(card).toHaveTextContent(tr('welcomeBackRun', lang, { n: 4 }));
+      expect(card).not.toHaveTextContent(lang === 'en' ? /missed|lost|broke|behind|again\?/i : /пропусн|загуб|изгуб|изостан/i);
+      expect(within(card).getByRole('link', { name: first.title[lang] })).toHaveAttribute('href', `/lesson/${first.id}`);
+    });
+
+    it('says nothing of a run of one day, and warms up with all of it when little is waiting', () => {
+      const view = today({ studyDays: before.slice(0, 1), reviewItems: waiting.slice(0, 5) }, lang);
+      const card = plan(view.container);
+      expect(card).toHaveTextContent(tr('welcomeBackAll', lang, { n: 5 }));
+      expect(card.querySelector('.today-plan__what')).toBeNull();
+    });
+
+    it('goes on as usual once something is answered today, with new material ahead of the pile', () => {
+      const back = [{ day: todayHere(), secondsActive: 300, answers: 12, correct: 10 }, ...before];
+      const view = today({ studyDays: back, reviewItems: waiting.slice(0, 15) }, lang);
+      const card = plan(view.container);
+      expect(card).not.toHaveTextContent(tr('welcomeBackEyebrow', lang));
+      expect(primaries(view.container)[0]).toHaveAccessibleName(tr('todayPracticeStart', lang));
+      expect(within(card).getByRole('link', { name: first.title[lang] })).toHaveAttribute('href', `/lesson/${first.id}`);
+    });
   });
 
   it('offers the mixed round below the one step once there is something to put in it, and says what it is', () => {
