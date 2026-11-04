@@ -55,24 +55,63 @@ export type GenderPart = string | { article: DefiniteArticle; text: string };
 const ARTICLE_THEN_NOUN = /(^|[^\p{L}])(der|die|das|Der|Die|Das)(\s+)([A-ZÄÖÜ][\p{L}-]*)/gu;
 
 /**
+ * Words that put the article after them in the dative or the genitive, where
+ * "der" in front of a plural is not a gender ("wegen der Lehrer").
+ */
+const DATIVE_OR_GENITIVE = new Set([
+  'mit', 'von', 'zu', 'aus', 'bei', 'nach', 'seit', 'wegen', 'trotz', 'während', 'aufgrund',
+  'hinsichtlich', 'innerhalb', 'außerhalb', 'statt', 'anstatt',
+]);
+
+/** Whether a noun's plural is spelt like the noun as written (Lehrer, Lehrer). */
+function sameInPlural(info: { plural?: string }, noun: string): boolean {
+  return info.plural?.replace(/^(der|die|das)\s+/iu, '').toLowerCase() === noun.toLowerCase();
+}
+
+/**
+ * Whether "der" before a masculine noun whose plural is spelt like its
+ * singular (der Lehrer, die Lehrer) may be the genitive or dative plural
+ * instead: after a noun ("die Rechte der Arbeitnehmer") or after a
+ * preposition that takes those cases. Then it is not shown as a gender.
+ */
+function mayBePluralDer(before: string): boolean {
+  const match = /([\p{L}-]+)[^\p{L}]*$/u.exec(before);
+  if (!match) return false;
+  const word = match[1]!;
+  if (DATIVE_OR_GENITIVE.has(word.toLowerCase())) return true;
+  if (!/^\p{Lu}/u.test(word)) return false;
+  // A capital at the start of a sentence says nothing about the word.
+  const ahead = before.slice(0, match.index).trimEnd();
+  return ahead !== '' && !/[.!?:;"„“»«(]$/u.test(ahead);
+}
+
+/**
  * A German sentence split so that each "der/die/das + Noun" whose article is
  * that noun's own (nominative singular) gender can be coloured.
  *
  * `withhold` names nouns (lower case) to leave plain: ones the learner is
  * about to be asked for, whose colour would tell them the gender first.
+ * `before` is the text that runs into this one, when it is a piece of a
+ * longer line (a bold run): what precedes an article can decide its case.
  */
-export function genderParts(text: string, describeNoun: DescribeNoun, withhold?: ReadonlySet<string>): GenderPart[] {
+export function genderParts(
+  text: string,
+  describeNoun: DescribeNoun,
+  withhold?: ReadonlySet<string>,
+  before = '',
+): GenderPart[] {
   const parts: GenderPart[] = [];
   let last = 0;
   for (const match of text.matchAll(ARTICLE_THEN_NOUN)) {
-    const [, before, written, , noun] = match;
+    const [, lead, written, , noun] = match;
     if (withhold?.has(noun!.toLowerCase())) continue;
     const info = describeNoun(noun!);
     if (!info) continue;
     if (info.plural !== undefined && info.plural.toLowerCase() === info.display.toLowerCase()) continue;
     const article = written!.toLowerCase() as DefiniteArticle;
     if (ARTICLE_OF[info.gender] !== article) continue;
-    const start = match.index! + before!.length;
+    const start = match.index! + lead!.length;
+    if (article === 'der' && sameInPlural(info, noun!) && mayBePluralDer(before + text.slice(0, start))) continue;
     if (start > last) parts.push(text.slice(last, start));
     parts.push({ article, text: written! });
     last = start + written!.length;
@@ -91,9 +130,9 @@ export function genderParts(text: string, describeNoun: DescribeNoun, withhold?:
  * still to come plain. The colour adds nothing a screen reader needs: the
  * article's word is there either way, in the same element.
  */
-export function GenderedGerman({ text, withhold }: { text: string; withhold?: ReadonlySet<string> }): ReactNode {
+export function GenderedGerman({ text, withhold, before }: { text: string; withhold?: ReadonlySet<string>; before?: string }): ReactNode {
   const { describeNoun } = useApp();
-  const parts = genderParts(text, describeNoun, withhold);
+  const parts = genderParts(text, describeNoun, withhold, before);
   if (parts.every((part) => typeof part === 'string')) return text;
   return parts.map((part, index) =>
     typeof part === 'string' ? (

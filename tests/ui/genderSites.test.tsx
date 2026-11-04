@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
-import { CURRICULUM, SCENARIO_SCRIPTS, describeNoun } from '../../src/content/index.ts';
+import { CURRICULUM, SCENARIO_SCRIPTS, describeNoun, grammarById } from '../../src/content/index.ts';
 import type { Block, Exercise, ExerciseKind, ScenarioScript } from '../../src/content/types.ts';
 import type { MistakeRecord } from '../../src/services/api/client.ts';
 import { tr } from '../../src/i18n.ts';
@@ -76,6 +76,17 @@ describe('a lesson\'s teaching', () => {
     const parts = [...container.querySelectorAll('.breakdown__de')];
     expect(coloured(parts[0]!)).toEqual([['die', 'Die']]);
     expect(coloured(parts[1]!)).toEqual([]);
+  });
+
+  it('leaves the genitive plural "der" plain in the genitive table', () => {
+    const { container } = mount(<Blocks blocks={grammarById('g-genitiv')!.blocks} />);
+    const rows = [...container.querySelectorAll('tbody tr')];
+    const plural = rows.find((row) => row.textContent!.includes('Arbeitnehmer'))!;
+    expect(plural.querySelector('strong')).toHaveTextContent('der Arbeitnehmer');
+    expect(coloured(plural)).toEqual([]);
+    // The nominative "der Lebenslauf" before the masculine genitive keeps its colour.
+    const masculine = rows.find((row) => row.textContent!.includes('Lebenslauf'))!;
+    expect(coloured(masculine)).toEqual([['der', 'der']]);
   });
 
   it('keeps the German text and its language exactly as they were', () => {

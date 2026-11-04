@@ -78,6 +78,19 @@ describe('a German sentence', () => {
     expect(show('Ich gebe der Tochter das Buch.').querySelectorAll('.gender')).toHaveLength(1);
   });
 
+  it('leaves "der" alone before a plural spelt like its singular, where it is a genitive or after a preposition', () => {
+    // der Arbeitnehmer, die Arbeitnehmer: after a noun, "der" is the genitive plural.
+    expect(genderParts('die Rechte der Arbeitnehmer', describeNoun)).toEqual(['die Rechte der Arbeitnehmer']);
+    expect(genderParts('Wegen der Lehrer bleiben wir.', describeNoun)).toEqual(['Wegen der Lehrer bleiben wir.']);
+    // The words before a bold run count, though they are not in it.
+    expect(genderParts('der Arbeitnehmer', describeNoun, undefined, 'die Rechte ')).toEqual(['der Arbeitnehmer']);
+    // In the nominative it is still the noun's own gender.
+    expect(genderParts('Der Lehrer kommt.', describeNoun)).toEqual([{ article: 'der', text: 'Der' }, ' Lehrer kommt.']);
+    expect(genderParts('Hier ist der Lehrer.', describeNoun)).toEqual(['Hier ist ', { article: 'der', text: 'der' }, ' Lehrer.']);
+    expect(genderParts('Ja. Der Lehrer kommt.', describeNoun)).toEqual(['Ja. ', { article: 'der', text: 'Der' }, ' Lehrer kommt.']);
+    expect(genderParts('der Arbeitnehmer', describeNoun)).toEqual([{ article: 'der', text: 'der' }, ' Arbeitnehmer']);
+  });
+
   it('leaves a sentence without nouns as plain text', () => {
     const container = show('Hallo! Wie geht es?');
     expect(container.querySelector('.gender')).toBeNull();

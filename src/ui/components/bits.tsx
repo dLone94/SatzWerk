@@ -28,11 +28,16 @@ import { GenderedGerman, NounDisplay } from './Gender.tsx';
  */
 function emphasise(text: string, keyPrefix: string, german = false): ReactNode[] {
   // Split on the pairs, keeping them: odd indices are what was inside.
-  return text.split(/\*\*(.+?)\*\*/g).map((piece, index) => {
+  const pieces = text.split(/\*\*(.+?)\*\*/g);
+  return pieces.map((piece, index) => {
     // German teaching text has its nouns' articles in colour, each piece on
-    // its own: the content never puts an article and its noun either side
-    // of a pair of asterisks.
-    const shown = german ? <GenderedGerman key={`${keyPrefix}-g${index}`} text={piece} /> : piece;
+    // its own but knowing the words before it, which can make an article a
+    // genitive plural rather than a gender ("die Rechte **der Arbeitnehmer**").
+    const shown = german ? (
+      <GenderedGerman key={`${keyPrefix}-g${index}`} text={piece} before={pieces.slice(0, index).join('')} />
+    ) : (
+      piece
+    );
     return index % 2 === 1 ? <strong key={`${keyPrefix}-b${index}`}>{shown}</strong> : shown;
   });
 }
