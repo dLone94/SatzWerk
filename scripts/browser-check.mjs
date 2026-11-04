@@ -79,7 +79,10 @@ async function eventually(check) {
   }
   throw new Error('Expected browser state did not arrive');
 }
-async function play(exercises, lang, finished, wrongOnce = false) {
+// `reading`: a lesson's teaching sections come between its questions, each
+// with its own short try, so between questions the way on is the section's
+// primary button (Next, Try it, Final check).
+async function play(exercises, lang, finished, wrongOnce = false, reading = false) {
   const steps = new Map(exercises.flatMap(exercise => exercise.steps.map(step => [step.id, { step, kind: exercise.kind }])));
   let slipped = false;
   let answered = 0;
@@ -91,6 +94,11 @@ async function play(exercises, lang, finished, wrongOnce = false) {
       continue;
     }
     const task = page.locator('[data-step-id]');
+    const onward = page.locator('.section-nav .btn--primary');
+    if (reading && !await task.count() && await onward.count()) {
+      await onward.click();
+      continue;
+    }
     if (!await task.count()) {
       await eventually(async () => await finished() || await task.count() > 0 || await continuation.count() > 0);
       continue;
@@ -241,12 +249,13 @@ try {
   observations.push({ journey: 'Today is done for the day once the goal is met', passed: true });
 
   await open('/lesson/' + lesson.id);
+  // Lesson 1 has the learner type German on its second screen.
   await page.locator('.section-nav .btn--primary').click();
-  for (let section = 0; section < lesson.sections.length; section++) {
-    await page.locator('.section-nav .btn--primary').click();
-  }
+  await page.locator('.example__de', { hasText: 'Hallo!' }).waitFor();
+  await page.getByRole('button', { name: tr('lessonTryIt', 'en'), exact: true }).click();
+  await page.locator('[data-step-id="u1l1-ex0-s1"]').waitFor();
   loseAcknowledgement = true;
-  const result = await play([...lesson.exercises, ...lesson.mastery.exercises], 'en', async () => await page.locator('.done-hero').count() > 0, true);
+  const result = await play([...lesson.exercises, ...lesson.mastery.exercises], 'en', async () => await page.locator('.done-hero').count() > 0, true, true);
   assert.equal(result.slipped, true);
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
   await eventually(async () => copies >= 2);
@@ -254,7 +263,7 @@ try {
   assert.equal(state.stats.totalAnswers, writes.size);
   assert.ok(state.lessons.find(item => item.lessonId === lesson.id).completedAt);
   await page.screenshot({ path: report + '/lesson-complete.png', fullPage: true });
-  observations.push({ journey: 'English lesson, wrong answer and retype, mastery, lost acknowledgement retry', result, receiptCopies: copies, uniqueAttempts: writes.size });
+  observations.push({ journey: 'English lesson 1: German typed on its second screen, tries between sections, wrong answer and retype, mastery, lost acknowledgement retry', result, receiptCopies: copies, uniqueAttempts: writes.size });
   await open('/checkpoint/' + checkpoint.id);
   await page.locator('.btn--primary').last().click();
   const checkpointResult = await play(checkpoint.exercises, 'en', async () => await page.locator('.score-ring').count() > 0);
@@ -317,8 +326,11 @@ try {
   await offlinePage.getByLabel(tr('learnersAdd', 'en')).waitFor();
   await offlinePage.goto(base + '/lesson/' + lesson.id);
   await offlinePage.locator('.route-loading').waitFor({ state: 'hidden' });
-  await offlinePage.locator('.section-nav .btn--primary').click();
-  for (let section = 0; section < lesson.sections.length; section++) await offlinePage.locator('.section-nav .btn--primary').click();
+  // Read on until a question is on screen: a try between sections, or the
+  // exercises after them.
+  for (let screen = 0; screen < 20 && !await offlinePage.locator('[data-step-id]').count(); screen++) {
+    await offlinePage.locator('.section-nav .btn--primary').click();
+  }
   const stepId = await offlinePage.locator('[data-step-id]').getAttribute('data-step-id');
   const firstStep = lesson.exercises.flatMap(exercise => exercise.steps).find(step => step.id === stepId);
   await offlineContext.setOffline(true);

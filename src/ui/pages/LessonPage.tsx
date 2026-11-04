@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { lessonById, sectionBlocks, unitForLesson, vocabById } from '../../content/browser.ts';
-import type { Lesson, TeachingSection } from '../../content/types.ts';
+import { isVisible, type Lesson, type TeachingSection } from '../../content/types.ts';
 import {
   allStepIds,
   isLessonComplete,
   masteryPassMark,
-  lessonRequirements,
+  lessonStages,
   needsRecovery,
   recoveryStepIds,
+  type LessonStage,
 } from '../../core/progress/lesson.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { nextAction } from '../selectors.ts';
@@ -17,7 +18,7 @@ import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer
 import { Confetti } from '../components/Confetti.tsx';
 import { ReminderInvite } from '../components/ReminderInvite.tsx';
 
-type Stage = 'overview' | 'sections' | 'practice' | 'recovery' | 'mastery' | 'saving' | 'done';
+type Stage = 'overview' | 'sections' | 'try' | 'practice' | 'recovery' | 'mastery' | 'saving' | 'done';
 
 /*
  * One page per lesson.
@@ -68,6 +69,8 @@ function LessonView() {
   const [finished, setFinished] = useState(false);
   /** The Quick redo's questions, fixed when it starts. */
   const [recoverySteps, setRecoverySteps] = useState<string[]>([]);
+  /** A section's own try: its questions not yet answered, fixed when it starts. */
+  const [trySteps, setTrySteps] = useState<string[]>([]);
   /** A result is being saved; a second one must not be sent meanwhile. */
   const saving = useRef(false);
   /**
@@ -129,6 +132,27 @@ function LessonView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, section?.id, lesson?.id]);
 
+  /*
+   * The practice is done: on to the final check, by way of a Quick redo if
+   * the first tries went badly. Where the practice ended does not matter — the
+   * exercises, or the last of a lesson's tries between its sections.
+   */
+  const routeToCheck = useCallback(() => {
+    if (!lesson) return;
+    const latest = lessonProgress(lesson.id);
+    if (needsRecovery(lesson, latest)) {
+      void recordRecovery(lesson.id);
+      // Fixed here, not worked out on every render while the round runs.
+      const stepIds = recoveryStepIds(lesson, latest);
+      if (stepIds.length > 0) {
+        setRecoverySteps(stepIds);
+        setStage('recovery');
+        return;
+      }
+    }
+    setStage('mastery');
+  }, [lesson, lessonProgress, recordRecovery]);
+
   const onPracticeFinish = useCallback(
     async (summary: PlayerSummary) => {
       setLastSummary(summary);
@@ -150,19 +174,9 @@ function LessonView() {
         setStage('done');
         return;
       }
-      if (needsRecovery(lesson, latest)) {
-        void recordRecovery(lesson.id);
-        // Fixed here, not worked out on every render while the round runs.
-        const stepIds = recoveryStepIds(lesson, latest);
-        if (stepIds.length > 0) {
-          setRecoverySteps(stepIds);
-          setStage('recovery');
-          return;
-        }
-      }
-      setStage('mastery');
+      routeToCheck();
     },
-    [lesson, lessonProgress, recordRecovery, completeLesson],
+    [lesson, lessonProgress, routeToCheck, completeLesson],
   );
 
   const onMasteryFinish = useCallback(
@@ -233,36 +247,126 @@ function LessonView() {
   /*
    * A lesson on a phone is done in pieces. Coming back to one half-finished
    * picks up at the first unfinished question instead of question one; a
-   * finished or untouched practice runs whole. Fixed when the run starts, so
+   * finished or untouched practice runs whole, and so does a finished lesson's
+   * that has since gained a question: it is a replay, not a resumption. Fixed when the run starts, so
    * the list does not shrink under the learner as they answer.
    */
   const startPractice = () => {
+    // The latest, not this render's: a try between sections may just have
+    // answered some of these.
+    const latest = lessonProgress(lesson.id);
     const all = allStepIds(lesson);
-    const open = all.filter((id) => !progress.practice[id]?.resolved);
-    setResumeSteps(open.length > 0 && open.length < all.length ? open : undefined);
-    finishingOpen.current = progress.mastery.passed && !complete;
+    const open = all.filter((id) => !latest.practice[id]?.resolved);
+    const resuming = open.length > 0 && open.length < all.length && !isLessonComplete(lesson, latest);
+    setResumeSteps(resuming ? open : undefined);
+    finishingOpen.current = latest.mastery.passed && !isLessonComplete(lesson, latest);
     setReadingToFinish(false);
     setStage('practice');
   };
   const allSectionsSeen = lesson.sections.every((item) => progress.sectionsSeen.includes(item.id));
+
+  /** A section's try, less what has already been answered. */
+  const openTrySteps = (item: TeachingSection): string[] => {
+    if (!item.tryIt?.length) return [];
+    const latest = lessonProgress(lesson.id);
+    return lesson.exercises
+      .filter((exercise) => item.tryIt!.includes(exercise.id) && isVisible(exercise, lang))
+      .flatMap((exercise) => exercise.steps.filter((step) => isVisible(step, lang)))
+      .map((step) => step.id)
+      .filter((id) => !latest.practice[id]?.resolved);
+  };
+  /*
+   * A section is still to be read until its own try is answered too. It is
+   * marked read the moment it is on screen, before its try: counting that
+   * alone, a learner who left in the middle of a try came back to the next
+   * section and met the rest of the try after the Summary, as plain practice
+   * with nothing before it. And a learner part-way through the lesson before
+   * it opened on its first words had read the intro under its old title, so
+   * would never have seen them.
+   */
+  const sectionOpen = (item: TeachingSection) =>
+    !progress.sectionsSeen.includes(item.id) || openTrySteps(item).length > 0;
+  const readingDone = allSectionsSeen && !sections.some(sectionOpen);
   const practiceUnderway = Object.keys(progress.practice).length > 0;
   const started = progress.sectionsSeen.length > 0 || practiceUnderway;
   const allResolved = allStepIds(lesson).every((id) => progress.practice[id]?.resolved);
   // Each button says where it goes: "Start" and "Start the exercises" side by
-  // side, halfway through a lesson, told the learner neither.
-  const exercisesLabel = allResolved
-    ? t('lessonReplay')
-    : practiceUnderway
-      ? t('lessonContinueExercises')
-      : t('lessonToExercises');
-  const mainGoesToPractice = allSectionsSeen && practiceUnderway && !complete;
+  // side, halfway through a lesson, told the learner neither. A finished
+  // lesson's practice is a replay, even one that has since gained a question:
+  // "Continue the exercises" under three ticks contradicted them.
+  const exercisesLabel =
+    allResolved || complete
+      ? t('lessonReplay')
+      : practiceUnderway
+        ? t('lessonContinueExercises')
+        : t('lessonToExercises');
+  /*
+   * Every exercise answered and the check still to pass. A lesson whose
+   * practice sits between its sections gets here at the end of the reading,
+   * and "Replay the exercises" there would have sent the learner through all
+   * of them again to reach the check.
+   */
+  const readyForCheck = allResolved && !progress.mastery.passed && !complete;
+  const mainGoesToCheck = readingDone && readyForCheck;
+  const mainGoesToPractice = !mainGoesToCheck && readingDone && practiceUnderway && !complete;
+  // The way to the check passes through a Quick redo when the practice went
+  // badly (`routeToCheck`); the button says which of the two it opens.
+  const checkLabel =
+    needsRecovery(lesson, progress) && recoveryStepIds(lesson, progress).length > 0
+      ? t('lessonRecovery')
+      : t('lessonMastery');
   const mainLabel = complete
     ? t('lessonReadAgain')
     : !started
       ? t('lessonStart')
-      : mainGoesToPractice
-        ? exercisesLabel
-        : t('lessonContinueReading');
+      : mainGoesToCheck
+        ? checkLabel
+        : mainGoesToPractice
+          ? exercisesLabel
+          : t('lessonContinueReading');
+
+  /*
+   * A lesson whose practice sits between its sections is not offered "the
+   * exercises" while the reading is unfinished: they are the reading's own
+   * tries, and played on their own they would come without the sections that
+   * set them up. One way on, not two.
+   */
+  const readingHoldsPractice = !readingDone && !complete && lesson.sections.some((item) => item.tryIt?.length);
+
+  /*
+   * Past the section on screen: to the next one, or from the last one to
+   * whatever comes after the reading. Read from the latest progress, since a
+   * try that has just finished has changed it.
+   *
+   * After a try, on to the next section still open rather than simply the
+   * next: a learner who came back to an early try (above) has usually read
+   * what follows it, and walking them through those screens again is the
+   * long run of reading this lesson was cut up to avoid. On a first reading
+   * the next section is unread, so it is the next one. Reading a finished
+   * lesson again goes in order.
+   */
+  const leaveSection = (afterTry = false) => {
+    let next = sectionIndex + 1;
+    if (afterTry && !complete) {
+      while (next < sections.length && !sectionOpen(sections[next]!)) next++;
+    }
+    if (next < sections.length) {
+      setSectionIndex(next);
+      setStage('sections');
+      return;
+    }
+    if (readingToFinish) {
+      void onReadingFinish();
+      return;
+    }
+    const latest = lessonProgress(lesson.id);
+    const everyAnswered = allStepIds(lesson).every((id) => latest.practice[id]?.resolved);
+    if (everyAnswered && !latest.mastery.passed && !isLessonComplete(lesson, latest)) {
+      routeToCheck();
+      return;
+    }
+    startPractice();
+  };
 
   if (stage === 'practice') {
     return (
@@ -334,6 +438,7 @@ function LessonView() {
   }
 
   if (stage === 'sections' && section) {
+    const sectionTry = openTrySteps(section);
     return (
       <div className="page" data-study-active="true">
         <PlayerHeader lesson={lesson} phase={t('lessonSections')} />
@@ -367,20 +472,52 @@ function LessonView() {
           >
             {t('lessonPrevSection')}
           </button>
-          {sectionIndex + 1 < sections.length ? (
-            <button type="button" className="btn btn--primary" onClick={() => setSectionIndex((index) => index + 1)}>
-              {t('lessonNextSection')}
-            </button>
-          ) : readingToFinish ? (
-            <button type="button" className="btn btn--primary" onClick={() => void onReadingFinish()}>
-              {t('lessonFinishLesson')}
+          {/* No "skip" beside it: the try is the point of cutting the reading
+              up, and it is never a wall, since every question has hints and
+              in the end shows its answer. */}
+          {sectionTry.length > 0 ? (
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => {
+                setTrySteps(sectionTry);
+                setStage('try');
+              }}
+            >
+              {t('lessonTryIt')}
             </button>
           ) : (
-            <button type="button" className="btn btn--primary" onClick={startPractice}>
-              {exercisesLabel}
+            <button type="button" className="btn btn--primary" onClick={() => leaveSection()}>
+              {sectionIndex + 1 < sections.length
+                ? t('lessonNextSection')
+                : readingToFinish
+                  ? t('lessonFinishLesson')
+                  : readyForCheck
+                    ? checkLabel
+                    : exercisesLabel}
             </button>
           )}
         </div>
+      </div>
+    );
+  }
+
+  if (stage === 'try' && section) {
+    return (
+      <div className="page page--player">
+        <PlayerHeader lesson={lesson} phase={t('lessonPhaseTry')} />
+        {/* Ordinary practice answers, recorded as the lesson's own; leaving
+            goes back to the section rather than out of the reading. */}
+        <ExercisePlayer
+          key={`try-${section.id}`}
+          exercises={lesson.exercises}
+          onlyStepIds={trySteps}
+          context="lesson"
+          level={lesson.level}
+          lessonId={lesson.id}
+          onFinish={() => leaveSection(true)}
+          onExit={() => setStage('sections')}
+        />
       </div>
     );
   }
@@ -447,7 +584,7 @@ function LessonView() {
             </Card>
           ) : null}
           <Card>
-            <Requirements lesson={lesson} />
+            <LessonStages lesson={lesson} />
           </Card>
         </div>
       );
@@ -502,7 +639,7 @@ function LessonView() {
             </p>
           )}
 
-          <Requirements lesson={lesson} />
+          <LessonStages lesson={lesson} />
 
           <div className="section-nav">
             <Link className="btn btn--ghost" to="/course">
@@ -588,7 +725,7 @@ function LessonView() {
       </Card>
 
       <Card title={t('lessonRequirements')}>
-        <Requirements lesson={lesson} />
+        <LessonStages lesson={lesson} />
         <div className="section-nav">
           <button
             type="button"
@@ -596,12 +733,16 @@ function LessonView() {
             onClick={() => {
               // Back where the learner stopped: in the exercises if the reading
               // is done, otherwise at the first section not yet read.
+              if (mainGoesToCheck) {
+                routeToCheck();
+                return;
+              }
               if (mainGoesToPractice) {
                 startPractice();
                 return;
               }
-              const unread = lesson.sections.findIndex((item) => !progress.sectionsSeen.includes(item.id));
-              setSectionIndex(unread > 0 && !complete ? unread : 0);
+              const resumeAt = sections.findIndex(sectionOpen);
+              setSectionIndex(resumeAt > 0 && !complete ? resumeAt : 0);
               setReadingToFinish(false);
               setStage('sections');
             }}
@@ -611,12 +752,12 @@ function LessonView() {
           >
             {mainLabel}
           </button>
-          {practiceUnderway && !mainGoesToPractice ? (
+          {practiceUnderway && !mainGoesToPractice && !readingHoldsPractice ? (
             <button type="button" className="btn btn--ghost" onClick={startPractice}>
               {exercisesLabel}
             </button>
           ) : null}
-          {progress.mastery.attempts > 0 || complete ? (
+          {(progress.mastery.attempts > 0 || complete) && !mainGoesToCheck ? (
             <button type="button" className="btn btn--ghost" onClick={() => setStage('mastery')}>
               {t('lessonMastery')}
             </button>
@@ -639,33 +780,46 @@ function PlayerHeader({ lesson, phase }: { lesson: Lesson; phase: string }) {
   );
 }
 
-function Requirements({ lesson }: { lesson: Lesson }) {
-  const { say, t, lessonProgress } = useApp();
-  const requirements = lessonRequirements(lesson, lessonProgress(lesson.id));
+/*
+ * What finishing the lesson takes, as three steps: read, practise, final
+ * check. Each with its count, the one the learner is on marked as current.
+ * The detailed rules are still what decides (`lessonStages` is built from
+ * them); the 60% first-try rule is part of the final check, which settles it,
+ * and is only spoken of when a check is not passed.
+ */
+const STAGE_LABEL = {
+  read: 'lessonStageRead',
+  practise: 'lessonStagePractise',
+  check: 'lessonStageCheck',
+} as const satisfies Record<LessonStage['id'], string>;
+
+function LessonStages({ lesson }: { lesson: Lesson }) {
+  const { t, lessonProgress } = useApp();
+  const stages = lessonStages(lesson, lessonProgress(lesson.id));
+  const current = stages.findIndex((stage) => !stage.satisfied);
   return (
-    <ul className="requirements">
-      {requirements.map((requirement) => (
-        <li key={requirement.id} className={requirement.satisfied ? 'is-done' : ''}>
-          <span className="requirements__mark" aria-hidden="true">
-            {requirement.satisfied ? '✓' : '○'}
+    <ol className="lesson-stages">
+      {stages.map((stage, index) => (
+        <li
+          key={stage.id}
+          className={stage.satisfied ? 'is-done' : index === current ? 'is-current' : undefined}
+          aria-current={index === current ? 'step' : undefined}
+        >
+          <span className="lesson-stages__mark" aria-hidden="true">
+            {stage.satisfied ? '✓' : index + 1}
           </span>
-          <span className="requirements__label">{say(requirement.label)}</span>
-          {/* The mark is drawn, not read; "Pass the final check" has no
-              count, so without this it sounded the same passed or not. */}
-          <span className="visually-hidden">
-            {requirement.satisfied ? t('requirementMet') : t('requirementNotMet')}
-          </span>
-          {/* A share reads as a share ("40%", not "40 / 100"), and not at all
-              before there is anything to measure. */}
-          {requirement.id === 'accuracy' ? (
-            requirement.done ? <span className="requirements__count">{requirement.done}%</span> : null
-          ) : requirement.total !== undefined ? (
-            <span className="requirements__count">
-              {requirement.done} / {requirement.total}
+          <span className="lesson-stages__label">{t(STAGE_LABEL[stage.id])}</span>
+          {/* The mark is drawn, not read; the final check has no count, so
+              without this it sounded the same passed or not. */}
+          <span className="visually-hidden">{stage.satisfied ? t('requirementMet') : t('requirementNotMet')}</span>
+          {stage.total !== undefined ? (
+            <span className="lesson-stages__count">
+              {stage.done} / {stage.total}
             </span>
           ) : null}
+          {stage.total ? <Meter value={stage.done ?? 0} max={stage.total} tone={stage.satisfied ? 'good' : 'accent'} decorative /> : null}
         </li>
       ))}
-    </ul>
+    </ol>
   );
 }

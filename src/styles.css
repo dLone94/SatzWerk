@@ -1054,6 +1054,92 @@ a {
   color: inherit;
 }
 
+/*
+ * A lesson's three steps: read, practise, final check. Numbered rows rather
+ * than a checklist, the step the learner is on lifted in the accent, and a
+ * bar under each count so "4 / 12" is seen as well as read.
+ */
+.lesson-stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.lesson-stages li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.4rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 16px;
+  background: var(--paper);
+  font-size: 0.95rem;
+}
+
+.lesson-stages li .meter {
+  grid-column: 2 / -1;
+  height: 6px;
+}
+
+.lesson-stages li.is-current {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.lesson-stages li.is-done {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.lesson-stages__mark {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--ink-soft);
+  font-weight: 800;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.lesson-stages li.is-current .lesson-stages__mark {
+  background: var(--accent);
+  box-shadow: none;
+  color: var(--on-accent);
+}
+
+.lesson-stages li.is-done .lesson-stages__mark {
+  background: var(--good);
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.lesson-stages__label {
+  font-weight: 700;
+}
+
+.lesson-stages__count {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.lesson-stages li.is-done .lesson-stages__count {
+  color: inherit;
+}
+
+/* --good turns pastel in the dark, and a white tick on it reads 1.8:1. */
+@media (prefers-color-scheme: dark) {
+  .lesson-stages li.is-done .lesson-stages__mark {
+    color: #0d1f16;
+  }
+}
+
 .done-note {
   padding: 0.65rem 0.8rem;
   border-radius: var(--radius);

@@ -332,7 +332,54 @@ export function lessonRequirements(lesson: Lesson, progress: LessonProgress): Re
   return requirements;
 }
 
+/**
+ * The requirements as a beginner is shown them: read, practise, final check.
+ *
+ * Five conditions read as admin before anything had been tried, and two were
+ * implied by the others. The key words and key sentences are some of the
+ * exercises, so practising is done when every exercise is; and passing the
+ * final check satisfies the first-try rule, so that rule is part of the check
+ * and only ever matters to someone who has not passed it. The stages are made
+ * from the requirements, never worked out beside them, so all three done is
+ * exactly every requirement met — or the lesson finished before it grew (see
+ * `isLessonComplete`). Then every step is shown done, with its real count: a
+ * finished lesson whose page said "Practise 9 / 12, not yet" contradicted the
+ * Course and Today, which call it finished.
+ */
+export interface LessonStage {
+  id: 'read' | 'practise' | 'check';
+  satisfied: boolean;
+  done?: number;
+  total?: number;
+}
+
+export function lessonStages(lesson: Lesson, progress: LessonProgress): LessonStage[] {
+  const requirements = lessonRequirements(lesson, progress);
+  const met = (...ids: string[]) =>
+    requirements.filter((requirement) => ids.includes(requirement.id)).every((requirement) => requirement.satisfied);
+  const sections = requirements.find((requirement) => requirement.id === 'sections')!;
+  const exercises = requirements.find((requirement) => requirement.id === 'exercises')!;
+  const finished = Boolean(progress.completedAt);
+  return [
+    { id: 'read', satisfied: finished || met('sections'), done: sections.done, total: sections.total },
+    { id: 'practise', satisfied: finished || met('exercises', 'words', 'sentences'), done: exercises.done, total: exercises.total },
+    { id: 'check', satisfied: finished || met('accuracy', 'mastery') },
+  ];
+}
+
+/**
+ * Whether the lesson is finished.
+ *
+ * Once finished, always finished. The rules are worked out from the lesson as
+ * it is now, and lessons grow: lesson 1 gained a first-words exercise after
+ * people had finished it, and counting from the new content would have
+ * reopened every one of those lessons, locked its unit checkpoint again and
+ * sent Today back to a lesson the learner had done. The date is only written
+ * once the rules are met (`applyCompletion`), so it is the record that they
+ * were.
+ */
 export function isLessonComplete(lesson: Lesson, progress: LessonProgress): boolean {
+  if (progress.completedAt) return true;
   return lessonRequirements(lesson, progress).every((r) => r.satisfied);
 }
 
