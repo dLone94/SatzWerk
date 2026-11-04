@@ -7,7 +7,7 @@ import { registerServiceWorker } from './services/offline/register.ts';
 import './fonts.css';
 import './styles.css';
 import './studio.css';
-import './playful.css';
+import './holzwerk.css';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Missing #root element');

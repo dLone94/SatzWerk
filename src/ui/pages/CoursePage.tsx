@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CURRICULUM, LEVEL_OUTLINES, checkpointById } from '../../content/browser.ts';
+import { CURRICULUM, LEVEL_OUTLINES, checkpointById, unitById, unitForLesson } from '../../content/browser.ts';
 import type { CefrLevel, Level, Unit } from '../../content/types.ts';
 import { isLessonComplete } from '../../core/progress/lesson.ts';
 import { useApp } from '../../state/AppState.tsx';
@@ -17,6 +17,8 @@ import {
   standingPlacement,
 } from '../selectors.ts';
 import { DackelScene } from '../components/Dackel.tsx';
+import { WoodScene } from '../three/WoodScene.tsx';
+import { pathBoard } from '../three/board.ts';
 
 /**
  * The course, as a path.
@@ -52,6 +54,21 @@ export function CoursePage() {
   const checkpointHere = checkpointFirst && checkpointLevel(checkpointFirst) === level.id ? checkpointFirst : undefined;
   const nextCheckpoint = checkpointHere ?? checkpointToTake(level, lessons, checkpointResults);
   const lessonFirst = Boolean(current && current.level === level.id && !checkpointHere);
+  // Where you are, as a board game: the unit of the lesson in hand, its
+  // lessons as they really stand. Decoration with a name; the trail below
+  // is the way into each lesson. When the course's next step is the
+  // checkpoint closing a unit, that unit is the board, with the pawn at its
+  // gate, as Today and the card below say. A level's checkpoint has no
+  // board of its own: the dachshund stays.
+  const gateUnit = checkpointHere?.scope === 'unit' ? unitById(checkpointHere.targetId) : undefined;
+  const boardUnit = checkpointHere ? gateUnit : current ? unitForLesson(current.id) : undefined;
+  const board = boardUnit ? pathBoard(boardUnit.lessons.map((lesson) => ({
+    available: lesson.status === 'available',
+    complete: isLessonComplete(lesson, lessons[lesson.id] ?? empty(lesson.id)),
+    current: !gateUnit && lesson.id === current?.id,
+  }))) : null;
+  const pawnLesson = board && boardUnit ? boardUnit.lessons[board.current] : undefined;
+  const dackel = <DackelScene className="course-welcome__scene hw-scene" />;
 
   return (
     <div className="page course">
@@ -62,7 +79,16 @@ export function CoursePage() {
         <Link to="/placement" className="course__placement">
           {t('placementNav')}
         </Link>
-      </p></div><DackelScene className="course-welcome__scene" /></div>
+      </p></div>{board && boardUnit ? (
+        <WoodScene
+          spec={board.spec}
+          className="course-welcome__scene hw-scene"
+          fallback={dackel}
+          label={pawnLesson
+            ? t('scenePathLabel', { unit: say(boardUnit.title), done: board.done, total: board.count, place: board.current + 1, lesson: say(pawnLesson.title) })
+            : t('scenePathDoneLabel', { unit: say(boardUnit.title), total: board.count })}
+        />
+      ) : dackel}</div>
 
       <nav className="levels" aria-label={t('courseTitle')}>
         {CURRICULUM.map((entry) => (

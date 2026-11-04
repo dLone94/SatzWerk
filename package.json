@@ -28,14 +28,14 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
-    "@fontsource-variable/fraunces": "^5.3.0",
-    "@fontsource-variable/geologica": "^5.3.0",
+    "@fontsource-variable/nunito": "^5.3.0",
     "@fontsource-variable/onest": "^5.3.1",
     "@neondatabase/serverless": "^1.1.0",
     "pg": "^8.23.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4",
+    "three": "^0.187.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
@@ -47,6 +47,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.187.0",
     "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^6.1.1",
     "concurrently": "^10.0.5",

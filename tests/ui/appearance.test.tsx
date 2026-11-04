@@ -83,7 +83,7 @@ describe('buttons that are drawn with an outline', () => {
 
 describe('the navigation\u2019s backdrop filter', () => {
   /*
-   * playful.css switches the navigation's backdrop filter off, but it wrote
+   * holzwerk.css switches the navigation's backdrop filter off, but it wrote
    * the plain property and then the -webkit- one, and the minifier kept only
    * the prefixed copy, which Chromium ignores. The older saturate-and-blur
    * filter stayed on, and in dark mode the desktop sidebar showed a bluer
@@ -92,7 +92,7 @@ describe('the navigation\u2019s backdrop filter', () => {
    * The same rule covers the phone's tab bar, which had kept studio.css's
    * blur in Chromium (Safari already drew it without one). The bar is 96%
    * opaque, so the blur was all but invisible there; it is off by design, as
-   * playful.css always meant.
+   * holzwerk.css always meant.
    */
   it.each(EVERY)('is off in the shipped CSS, on the desktop sidebar and the phone tab bar (%s)', (_, viewer) => {
     const page = styledPage(viewer, SHELL);
@@ -132,6 +132,22 @@ describe('the finished-lesson card', () => {
     const next = page.value('.done-hero__next', 'background');
     expect(contrast(next, card), `${name(viewer)}: next button`).toBeGreaterThanOrEqual(3);
     expect(contrast(page.value('.done-hero__next', 'color'), next), `${name(viewer)}: next label`).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('the learner\'s own lines in a conversation', () => {
+  /*
+   * The bubble went sand-coloured but kept the accent bubble's light text:
+   * 1.2:1 in both themes, with only a coloured article readable in it.
+   */
+  it.each(EVERY)('are dark ink on the sand bubble (%s)', (_, viewer) => {
+    const page = styledPage(viewer, `<div class="chat"><div class="chat__past"><div class="chat__turn chat__turn--you">
+      <div class="chat__bubble chat__bubble--you"><p class="chat__de" lang="de">Wo ist der Bahnhof?</p></div>
+    </div></div></div>`);
+    const fill = page.value('.chat__bubble--you', 'background');
+    expect(contrast(page.value('.chat__de', 'color'), fill), `${name(viewer)}: text`).toBeGreaterThanOrEqual(4.5);
+    // Said earlier, the turn steps back, but not below what can be read.
+    expect(Number(page.value('.chat__past', 'opacity'))).toBeGreaterThanOrEqual(0.8);
   });
 });
 

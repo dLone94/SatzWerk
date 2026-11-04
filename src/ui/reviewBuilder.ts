@@ -29,7 +29,7 @@ const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&
  * says a noun was found without its article: "Ich habe eine ___." wants
  * "Tochter", because the sentence has its own article.
  */
-function exampleGap(entry: VocabEntry): { scaffold: string; answer: string; bare: boolean } | null {
+export function exampleGap(entry: VocabEntry): { scaffold: string; answer: string; bare: boolean } | null {
   const sentence = entry.example?.de;
   if (!sentence || !entry.example.gloss?.en) return null;
   for (const form of [entry.display, entry.german]) {

@@ -21,7 +21,7 @@ import { transform } from 'lightningcss';
  */
 
 /** In the order src/main.tsx imports them, which is the order they ship in. */
-const LAYERS = ['src/styles.css', 'src/studio.css', 'src/playful.css'];
+const LAYERS = ['src/styles.css', 'src/studio.css', 'src/holzwerk.css'];
 
 /**
  * The browsers the build writes its CSS for, in Vite's own terms: Vite's
@@ -59,6 +59,8 @@ export function shippedCss(): string {
 export interface Viewer {
   /** CSS pixels. */
   width: number;
+  /** CSS pixels; a phone's 844 unless a test says otherwise. */
+  height?: number;
   dark?: boolean;
 }
 
@@ -81,6 +83,13 @@ function matches(media: string, viewer: Viewer): boolean {
       if ((found = feature.match(/^(max|min)-width:([\d.]+(?:px|rem))$/))) {
         const limit = length(found[2]!);
         return found[1] === 'max' ? viewer.width <= limit : viewer.width >= limit;
+      }
+      if ((found = feature.match(/^height(<=|>=|<|>)([\d.]+(?:px|rem))$/))) {
+        const limit = length(found[2]!);
+        const height = viewer.height ?? 844;
+        return { '<=': height <= limit, '>=': height >= limit, '<': height < limit, '>': height > limit }[
+          found[1] as '<=' | '>=' | '<' | '>'
+        ];
       }
       if (feature === 'prefers-color-scheme:dark') return Boolean(viewer.dark);
       if (feature === 'prefers-color-scheme:light') return !viewer.dark;

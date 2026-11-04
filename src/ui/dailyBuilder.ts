@@ -115,6 +115,21 @@ export function dailyPhrases(script: ScenarioScript, lang: TeachingLanguage, ite
   }));
 }
 
+/**
+ * The words of the day's new phrases that are new to the learner: a phrase
+ * met for the first time can still be made of words met long ago ("Guten
+ * Tag", "der Tisch"). `known` holds what they already have — words in
+ * review, and words a finished lesson taught. Each word once.
+ */
+export function phraseNewWords(cards: readonly PhraseCard[], known: ReadonlySet<string>): VocabEntry[] {
+  const seen = new Set<string>();
+  return cards.flatMap(card => card.words).filter(word => {
+    if (known.has(word.id) || seen.has(word.id)) return false;
+    seen.add(word.id);
+    return true;
+  });
+}
+
 /** Practice has distinct IDs: rehearsing a line never completes a course lesson. */
 export function phraseRecall(script: ScenarioScript, lang: TeachingLanguage, cards = dailyPhrases(script, lang)): Exercise[] {
   const recall: Exercise[] = cards.map(card => ({

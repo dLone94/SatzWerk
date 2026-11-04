@@ -6,6 +6,7 @@ import { useApp } from '../../state/AppState.tsx';
 import { Icon } from '../components/icons.tsx';
 import { AudioButton, Card, EmptyState, formatRelativeDate } from '../components/bits.tsx';
 import { SpeakCheck } from '../components/Speaking.tsx';
+import { Article, GenderedGerman, NounDisplay, nounArticle } from '../components/Gender.tsx';
 import { buildVocabViews, mistakeMatchesVocab, type VocabView } from '../selectors.ts';
 import { stateLabel } from './VocabularyPage.tsx';
 
@@ -65,7 +66,7 @@ export function WordPage() {
       <div className="word-head">
         <div>
           <h1 className="word-head__de" lang="de">
-            {entry.display}
+            <NounDisplay entry={entry} />
           </h1>
           <p className="word-head__gloss">{say(entry.translation)}</p>
         </div>
@@ -95,7 +96,7 @@ export function WordPage() {
             {entry.article ? (
               <>
                 <dt>{t('wordArticle')}</dt>
-                <dd lang="de">{entry.article}</dd>
+                <dd lang="de">{nounArticle(entry) ? <Article article={entry.article} /> : entry.article}</dd>
               </>
             ) : null}
             {genderLabel ? (
@@ -176,8 +177,11 @@ export function WordPage() {
 
       <Card title={t('wordExamples')}>
         <div className="example">
+          {/* The word's own page teaches its gender: the example, the phrases
+              it goes with and the words beside it show their nouns' articles
+              in colour, as the heading above does. */}
           <p className="example__de" lang="de">
-            {entry.example.de}
+            <GenderedGerman text={entry.example.de} />
           </p>
           <p className="example__gloss">{say(entry.example.gloss)}</p>
           <AudioButton text={entry.example.de} compact />
@@ -189,7 +193,7 @@ export function WordPage() {
             <ul className="collocations">
               {entry.collocations.map((collocation, index) => (
                 <li key={index}>
-                  <span lang="de">{collocation.de}</span>
+                  <span lang="de"><GenderedGerman text={collocation.de} /></span>
                   {collocation.gloss ? <span className="muted"> {'—'} {say(collocation.gloss)}</span> : null}
                   <AudioButton text={collocation.de} compact />
                 </li>
@@ -206,7 +210,7 @@ export function WordPage() {
                 candidate ? (
                   <li key={candidate.id}>
                     <Link to={`/vocabulary/${candidate.id}`} lang="de">
-                      {candidate.display}
+                      <NounDisplay entry={candidate} />
                     </Link>
                   </li>
                 ) : null,
@@ -228,7 +232,7 @@ export function WordPage() {
                 </span>
                 <span aria-hidden="true">{'→'}</span>
                 <span className="mistake-list__right" lang="de">
-                  {mistake.expected}
+                  <GenderedGerman text={mistake.expected} />
                 </span>
                 <span className="muted">
                   {UI.mistakesOccurrences[lang].replace('{n}', String(mistake.occurrences))}

@@ -25,6 +25,10 @@ import type { AttemptPayload, TargetSpec } from '../../services/api/client.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AnswerInput, type AnswerInputHandle } from './AnswerInput.tsx';
 import { AudioButton } from './bits.tsx';
+import { GenderedGerman } from './Gender.tsx';
+import { Icon } from './icons.tsx';
+import { WoodScene, useSceneMode } from '../three/WoodScene.tsx';
+import { feedbackScene, ghostText, questionBlocks } from '../three/rails.ts';
 
 /**
  * The exercise engine.
@@ -196,6 +200,9 @@ export function ExercisePlayer({
   const [submitted, setSubmitted] = useState('');
   /** Read out by the live region below; see `announce`. */
   const [announcement, setAnnouncement] = useState('');
+  /** Bumped by "Show again" under a wrong answer's wooden scene. */
+  const [replays, setReplays] = useState(0);
+  const sceneMoves = useSceneMode() === 'animate';
   /*
    * The round is over and `onFinish` has been called.
    *
@@ -391,6 +398,7 @@ export function ExercisePlayer({
     setUsedBank([]);
     setSupportNote(null);
     setReplaysUsed(0);
+    setReplays(0);
     setSubmitted('');
     setAnnouncement('');
     // Focused inside the tap on Continue as well as after the render: iOS only
@@ -770,6 +778,24 @@ export function ExercisePlayer({
     .filter(Boolean)
     .join(' ');
   const hintsOnScreen = (hintsShown > 0 || revealed) && phase !== 'feedback';
+  /*
+   * The wooden scenes, for a sentence with a gap only. While the question is
+   * open: the words the screen shows either side of the gap, and a slot that
+   * holds what is typed — the scene is never given the answer. After a wrong
+   * answer that was one word off: that word tips off the rail and the
+   * correction, now on screen below, drops in. Anything else has no scene.
+   */
+  const railScene = phase === 'answer' && !isChoice && !isFree
+    ? questionBlocks({ kind: exercise.kind, scaffold: step.scaffold, hideText }, describeNoun)
+    : null;
+  const swapScene = feedback && result && !isChoice && !isFree && submitted.trim()
+    && (result.verdict === 'almost' || result.verdict === 'incorrect')
+    ? feedbackScene(
+      scaffold ? `${scaffold.before}${submitted}${scaffold.after}` : submitted,
+      scaffold ? `${scaffold.before}${result.target}${scaffold.after}` : result.target,
+      describeNoun,
+    )
+    : null;
 
   return (
     <div className="player" data-study-active="true">
@@ -827,6 +853,11 @@ export function ExercisePlayer({
         data-exercise-id={exercise.id}
         data-kind={exercise.kind}
       >
+        {/* The rail comes first, above the question, never between it and the
+            field: with a phone's keyboard open, the browser scrolls the field
+            into view, and what is pushed out of sight is then the picture,
+            not the sentence the gap belongs to. */}
+        {railScene ? <WoodScene key={step.id} spec={railScene} ghost={ghostText(value, railScene.tail)} /> : null}
         {step.instruction ? (
           <p className="task__instruction" id="player-instruction">
             {say(step.instruction)}
@@ -1083,8 +1114,10 @@ export function ExercisePlayer({
             ))}
             {revealed ? (
               <li className="hints__revealed">
+                {/* Shown because the learner asked for it: the answer is out,
+                    and its noun's article may as well be in colour. */}
                 <span className="hints__answer" lang="de">
-                  {step.answer.accepted[0]}
+                  <GenderedGerman text={step.answer.accepted[0] ?? ''} />
                 </span>
                 <span>{t('exerciseRevealType')}</span>
                 <span className="hints__warning">{t('exerciseRevealWarning')}</span>
@@ -1109,10 +1142,25 @@ export function ExercisePlayer({
               </dd>
               <dt>{t('feedbackExpected')}</dt>
               <dd lang="de" className="feedback__expected">
-                {feedback.correction}
+                <span className="feedback__answer">
+                  <GenderedGerman text={feedback.correction} />
+                </span>
                 <AudioButton text={feedback.correction} compact />
               </dd>
             </dl>
+          ) : null}
+
+          {swapScene ? (
+            /* A picture of what the comparison above already says, word for
+               word: hidden from assistive technology like the question's rail. */
+            <WoodScene key={step.id} spec={swapScene} replay={replays} after={sceneMoves ? (
+              /* Under the picture, not on it: over it, it hid the swap it replays. */
+              <button type="button" className="wood-scene__replay" aria-label={t('sceneShowAgainLabel')}
+                onClick={() => setReplays((count) => count + 1)}>
+                <Icon name="review" size={16} />
+                {t('sceneShowAgain')}
+              </button>
+            ) : null} />
           ) : null}
 
           {feedback.lines.length > 0 ? (

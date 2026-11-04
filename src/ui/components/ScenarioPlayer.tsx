@@ -3,6 +3,7 @@ import type { ScenarioBeat, ScenarioScript, TeachingLanguage } from '../../conte
 import { scriptAnswerCount } from '../../content/browser.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AudioButton } from './bits.tsx';
+import { GenderedGerman, answerWords } from './Gender.tsx';
 import { ExercisePlayer, type PlayerSummary } from './ExercisePlayer.tsx';
 
 /**
@@ -144,6 +145,13 @@ export function ScenarioPlayer({ script, onFinish, onExit }: ScenarioPlayerProps
 
   if (!current) return null;
 
+  /*
+   * The lines are German in colour, nouns' articles on their gender's block.
+   * While the learner's turn is open, every line on screen — said before it
+   * or earlier on — keeps plain any noun that turn asks for: its colour
+   * would give the gender away before the answer.
+   */
+  const withheld = current.turn ? answerWords(current.turn.exercise.steps) : undefined;
   const renderLead = (beats: ScenarioBeat[], segmentIndex: number, past: boolean) =>
     beats.map((beat, index) => {
       const key = `${segmentIndex}-${index}`;
@@ -161,7 +169,7 @@ export function ScenarioPlayer({ script, onFinish, onExit }: ScenarioPlayerProps
           <p className="chat__who">{say(script.partner)}</p>
           <div className="chat__bubble">
             <p className="chat__de" lang="de">
-              {beat.de}
+              <GenderedGerman text={beat.de} withhold={withheld} />
             </p>
             <div className="chat__tools">
               <AudioButton text={beat.de} compact />
@@ -212,7 +220,7 @@ export function ScenarioPlayer({ script, onFinish, onExit }: ScenarioPlayerProps
                     .filter((entry) => entry.segment === index)
                     .map((entry, position) => (
                       <p key={position} className="chat__de" lang="de">
-                        {entry.text}
+                        <GenderedGerman text={entry.text} withhold={withheld} />
                       </p>
                     ))}
                 </div>

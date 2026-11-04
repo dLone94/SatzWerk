@@ -1,0 +1,670 @@
+/*
+ * Holzwerk — German built from wooden blocks.
+ *
+ * The last of the three layers: styles.css holds the tokens and the shared
+ * components, studio.css the page layouts, and this one the look of the
+ * blocks — the ink toy buttons, white cards on warm paper, the floating dark
+ * tab bar (a dark rail on a desktop), and the four block colours. Every
+ * colour comes from a token at the top of styles.css, so the dark scheme
+ * (warm dark wood) follows from there; the few places that differ by scheme
+ * say why.
+ */
+:root {
+  --topbar-height: 86px;
+  /* A card: white, a hairline ring, and a solid drop under it. */
+  --card: 0 0 0 1px var(--card-ring), 0 6px 0 var(--card-drop);
+  --card-sm: 0 0 0 1px var(--card-ring), 0 4px 0 var(--card-drop);
+}
+
+/* ---------------- Type ---------------- */
+
+h1,
+h2,
+h3,
+.page__title,
+.card__title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.page__lede { margin-top: 0; color: var(--ink-soft); }
+.card__title { font-weight: 800; }
+.section-eyebrow,
+.mini-head,
+.today-tile__eyebrow,
+.today-plan__eyebrow,
+.rhythm__label { color: var(--ink-faint); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* German is never set in italic: Nunito has no true italic in this build, and
+   a slanted block reads as a different word. */
+[lang='de'] { font-style: normal; }
+
+a { color: var(--accent-ink); }
+a:not([class]) { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------------- The top bar ---------------- */
+
+.main { padding-top: 30px; }
+.topbar { min-height: var(--topbar-height); background: var(--paper); border-bottom: 0; }
+/* The top bar is sticky, so a control brought into view at the top edge (by
+   Shift+Tab, say) would land behind it; scrolling stops below it instead. */
+html { scroll-padding-top: calc(var(--topbar-height) + 8px); }
+.topbar__brand { gap: 8px; top: 22px; }
+.topbar__logo { width: 44px; height: 44px; background: transparent; border-radius: 50%; }
+.dackel-mark { width: 100%; height: 100%; flex: none; }
+.topbar__name { font-family: var(--font-display); font-size: 23px; font-weight: 900; letter-spacing: -0.02em; }
+.topbar__context p { color: var(--ink-faint); font-weight: 800; letter-spacing: 0.1em; }
+.topbar__context > span { font-size: 12px; }
+.topbar__avatar { background: var(--birch); color: var(--ink); box-shadow: 0 2px 0 var(--edge); }
+.lang-toggle { gap: 3px; padding: 3px; border: 0; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--edge); }
+.lang-toggle__btn { border-radius: 11px; font-weight: 800; color: var(--ink-soft); }
+.lang-toggle__btn.is-active { background: var(--yellow); color: var(--on-hero); box-shadow: 0 2px 0 var(--yellow-drop); }
+
+/* ---------------- Navigation ---------------- */
+
+/*
+ * A desktop: a dark wooden rail down the left, the brand at its top, the
+ * current place on a yellow block. A phone or a tablet (under 1000px): the
+ * same ink, as a floating bar of five under the thumb, icon over word, the
+ * current tab's icon on the yellow block.
+ */
+.nav {
+  position: fixed;
+  z-index: 21;
+  inset: 108px auto 20px 18px;
+  width: calc(var(--sidebar) - 36px);
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  overflow: auto;
+  /* The rail's own wood, on the links' box too: what is behind a label has
+     to be the label's own element tree, not the shell's pseudo-element. */
+  background: var(--bar);
+  border: 0;
+  /* Off on purpose, at every width: the bar is opaque. Written as the plain
+     property alone, which the build turns into both spellings. */
+  backdrop-filter: none;
+  scrollbar-width: thin;
+}
+
+.nav[hidden] { display: none; }
+
+.nav :focus-visible { outline-color: var(--focus-on-bar); }
+
+.nav__section { margin: 0 0 5px 14px; padding: 0; font-size: 11px; font-weight: 800; color: var(--bar-ink); letter-spacing: 0.12em; text-transform: uppercase; }
+.nav__section--explore { margin-top: 22px; }
+
+.nav__item {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  color: var(--bar-ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+
+.nav__item:hover { background: rgb(255 244 228 / 8%); color: var(--bar-active); text-decoration: none; }
+.nav__item.is-active { background: var(--yellow); color: var(--on-hero); font-weight: 800; box-shadow: 0 3px 0 var(--yellow-drop); }
+
+.nav__icon { position: relative; display: grid; place-items: center; width: 22px; height: 22px; flex: none; }
+.nav__icon svg { width: 20px; height: 20px; stroke-width: 2; }
+
+/* The count of reviews due. White on the deep red reads 6:1 in both schemes. */
+.nav__badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #b42a1a;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+}
+.nav__icon .nav__badge { position: absolute; top: -7px; right: -11px; box-shadow: 0 0 0 2px var(--bar); }
+
+/* More stands for the secondary tabs, which only a phone folds away. */
+.nav__item--more { display: none; }
+
+.nav__foot { position: relative; margin: auto 0 0; padding: 20px 12px 12px 72px; min-height: 100px; border-top: 1px solid rgb(255 244 228 / 12%); }
+.nav__foot .dackel-mark { position: absolute; width: 54px; height: 54px; left: 4px; top: 22px; transform: rotate(-9deg); }
+.nav__foot > span { display: block; font-family: var(--font-de); font-size: 21px; font-weight: 800; line-height: 1.15; color: var(--bar-active); }
+.nav__foot p { margin: 6px 0 0; max-width: 130px; font-size: 12px; line-height: 1.5; color: var(--bar-ink); }
+
+/* The rail itself, and the brand on it. */
+.shell::before { background: var(--bar); border-right: 0; }
+.topbar__brand { color: var(--bar-active); }
+.topbar__brand:hover { text-decoration: none; }
+.shell--welcome .topbar__brand { color: var(--ink); }
+
+@media (max-width: 999px) {
+  .topbar__brand { position: static; color: var(--ink); }
+
+  .nav {
+    inset: auto 14px calc(14px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: 560px;
+    height: 70px;
+    margin: 0 auto;
+    padding: 0 6px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    gap: 0;
+    overflow: visible;
+    border-radius: 22px;
+    background: var(--bar);
+    box-shadow: 0 6px 0 var(--bar-drop), 0 0 0 1px rgb(255 244 228 / 6%);
+  }
+
+  .nav__item--secondary,
+  .nav__section,
+  .nav__foot { display: none; }
+  .nav__item--more { display: flex; }
+
+  .nav__item {
+    flex: 1 1 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    min-height: 56px;
+    padding: 2px 0;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .nav__item:hover { background: transparent; }
+  .nav__item.is-active { background: transparent; box-shadow: none; color: var(--bar-active); font-weight: 800; }
+
+  .nav__icon { width: 52px; height: 30px; border-radius: 10px; transition: background var(--dur-2) var(--ease-out); }
+  .nav__item.is-active .nav__icon { background: var(--yellow); color: var(--on-hero); }
+  .nav__icon .nav__badge { top: -5px; right: 4px; }
+
+  /* A word may run half a rem into the room beside its tab before it is cut:
+     five equal tabs on a 320–360px phone leave 50–58px for each, and
+     "Повторение" needs 59. A name of two words, "Дневна практика", takes
+     two lines rather than losing its second word to an ellipsis; the
+     ellipsis stays for a single word too long for its tab. The line height
+     and the sliver of padding keep the second line's descenders (р, y)
+     inside the clip. */
+  .nav__label {
+    max-width: calc(100% + 1rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    line-height: 1.15;
+    padding-bottom: 0.1em;
+    white-space: normal;
+  }
+
+  /* Inside a lesson the bar gives way to the lesson's own controls. */
+  .is-playing .nav { display: none; }
+}
+
+/* ---------------- Surfaces ---------------- */
+
+/* Plain warm paper: no pattern behind the blocks. */
+body { background: var(--paper); }
+
+.card,
+.today-tile,
+.today-round,
+.rhythm,
+.today-unit,
+.studio-explore__card,
+.today-progress,
+.course-continue,
+.unit-path,
+.task,
+.more__link,
+.daily-settings,
+.daily-finished,
+.practical-progress,
+.offline-level,
+.path-card,
+.word-row,
+.vocab-row {
+  border-color: transparent;
+  background: var(--surface);
+  box-shadow: var(--card);
+}
+
+.card { border-radius: var(--radius-lg); border-width: 0; }
+
+.meter { height: 10px; border: 0; border-radius: 6px; background: var(--sand); }
+.meter__fill { border-radius: inherit; background: var(--green); }
+
+/* Small coloured blocks for icons: a fill, its darker drop, a white or ink glyph. */
+.today-tile__icon,
+.course-continue__icon,
+.more__icon,
+.studio-explore__icon,
+.today-round__icon {
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  transform: none;
+}
+
+/* ---------------- Today ---------------- */
+
+.today { gap: 18px; }
+.today__eyebrow { font-size: 13px; font-weight: 600; color: var(--ink-faint); letter-spacing: 0; }
+.today__greeting { font-family: var(--font-de); font-size: clamp(34px, 4vw, 52px); font-weight: 900; letter-spacing: -0.015em; line-height: 1.1; }
+.today__welcome { font-size: 15px; color: var(--ink-soft); }
+/* The streak is a yellow block; ink on yellow, in both schemes. */
+.today__streak { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 0; border-radius: 14px; background: var(--yellow); color: var(--on-hero); box-shadow: 0 4px 0 var(--yellow-drop); font-family: var(--font-display); font-size: 17px; font-weight: 900; transform: none; }
+
+/* A scene's slot: the wooden town, the board, or the dachshund where no
+   scene is drawn, on the same ground colour either way. */
+.hw-scene { border-radius: 24px; background: var(--sand); overflow: hidden; }
+.hw-scene--today { background: #23304b; }
+
+/*
+ * The wooden scenes (src/ui/three). The canvas lies over the picture it
+ * replaces, which keeps the slot its size until the first frame is drawn
+ * and is hidden, not removed, after. Scenes with nothing before them have
+ * a height of their own, on the sand ground of the slot they share.
+ */
+.wood-scene { position: relative; min-width: 0; isolation: isolate; }
+.wood-scene__stage { position: absolute; inset: 0; }
+.wood-scene__canvas { display: block; width: 100%; height: 100%; }
+.wood-scene.is-live > .wood-scene__fallback { visibility: hidden; }
+.wood-scene--question, .wood-scene--feedback, .wood-scene--complete { border-radius: 24px; background: var(--sand); overflow: hidden; }
+.wood-scene--question { height: clamp(140px, 21vh, 200px); margin: 4px 0 12px; }
+.wood-scene--feedback { height: clamp(140px, 20vh, 190px); margin: 4px 0 12px; }
+.wood-scene--complete { width: 100%; height: clamp(190px, 26vh, 300px); }
+/* A lesson's finish: the tower beside the score, so the way on stays on the first screen. */
+.done-hero__top { display: flex; align-items: center; justify-content: center; gap: 4px; align-self: stretch; }
+/* Beside the score it is as tall as the screen allows, and as wide as the
+   hero's empty side: on a desktop it was smaller than on a phone. */
+.done-hero__top .done-hero__tower { flex: 1 1 0; max-width: 460px; height: clamp(220px, 34vh, 320px); }
+.done-hero:has(.done-hero__tower) { padding-top: 1rem; }
+.done-hero__top:has(.done-hero__tower) .score-ring__dial { width: 7rem; height: 7rem; }
+.done-hero__top:has(.done-hero__tower) .score-ring__num { font-size: 1.7rem; }
+/*
+ * On a phone the row is too narrow to share, above all with the longer
+ * Bulgarian caption: the tower takes the full width, and the score sits in
+ * one row under it. "Next" stays on the first screen, above the floating tab
+ * bar, whatever the titles above and in it wrap to: the hero fills the
+ * screen from where it starts (under the top bar, 92px) to the tab bar
+ * (84px and the safe area), less what follows "Next" (the two buttons under
+ * it and the hero's padding, 80px), and the tower takes whatever height the
+ * text leaves — the taller, the larger its lettering.
+ */
+@media (max-width: 480px) {
+  .done-hero:has(.done-hero__tower) { padding-top: 0.75rem; min-height: calc(100vh - 104px); min-height: calc(100svh - 104px - env(safe-area-inset-bottom)); }
+  .done-hero__top:has(.done-hero__tower) { flex: 1 1 auto; flex-direction: column; gap: 6px; }
+  .done-hero__top .done-hero__tower { flex: 1 1 0; width: 100%; max-width: none; height: auto; min-height: 150px; max-height: 300px; }
+  .done-hero__top:has(.done-hero__tower) .score-ring { flex-direction: row; gap: 0.75rem; }
+  .done-hero__top:has(.done-hero__tower) .score-ring__dial { width: 4.5rem; height: 4.5rem; }
+  .done-hero__top:has(.done-hero__tower) .score-ring__num { font-size: 1.3rem; }
+  .done-hero__top:has(.done-hero__tower) .score-ring__caption { max-width: 13rem; text-align: left; }
+}
+/* The tower as a flat drawing: in its box until the first frame, and for good where no tower is drawn. Fixed colours, as the scene's are. */
+.tower-sketch { position: absolute; inset: 14px 12px 10px; width: calc(100% - 24px); height: calc(100% - 24px); }
+.tower-sketch__plinth { fill: #6e4a2c; }
+.tower-sketch--bare { inset: 0; width: 100%; height: 100%; }
+.tower-sketch__plinth-side { fill: #4f3420; }
+.tower-sketch__block { stroke: rgb(30 27 23 / 32%); stroke-width: 2; }
+.tower-sketch__text { fill: #ffffff; font-family: "Nunito", "Onest", system-ui, sans-serif; font-weight: 800; }
+.tower-sketch__text--birch { fill: #1e1b17; }
+.tower-sketch__block--birch { fill: #e9d4b0; }
+.tower-sketch__block--der { fill: #2f6fdb; }
+.tower-sketch__block--die { fill: #d9473b; }
+.tower-sketch__block--das { fill: #2e9b5a; }
+.tower-sketch__star { fill: #f5c04a; stroke: #c99a2e; stroke-width: 2; stroke-linejoin: round; }
+/* A short phone (320 x 640, 390 x 664): the German cheer gives way and the
+   score sits smaller, so the tower keeps more of the little height there is;
+   what follows "Next" is 6px shorter. On the shortest (320 x 568) the count
+   of new words goes too: the tower shows them. */
+@media (max-width: 480px) and (max-height: 740px) {
+  .done-hero:has(.done-hero__tower) { gap: 0.4rem; padding-bottom: 1rem; min-height: calc(100vh - 110px); min-height: calc(100svh - 110px - env(safe-area-inset-bottom)); }
+  .done-hero__top .done-hero__tower { min-height: 130px; }
+  .done-hero:has(.done-hero__tower) .done-hero__de { display: none; }
+  .done-hero__top:has(.done-hero__tower) .score-ring__dial { width: 3.75rem; height: 3.75rem; }
+  .done-hero__top:has(.done-hero__tower) .score-ring__num { font-size: 1.1rem; }
+  .done-hero:has(.done-hero__tower) .done-hero__actions { margin-top: 0.4rem; }
+}
+@media (max-width: 480px) and (max-height: 600px) {
+  .done-hero__top .done-hero__tower { min-height: 100px; }
+  .done-hero:has(.done-hero__tower) .done-hero__fact { display: none; }
+}
+/* The day's finish: the tower's box at the lesson finish's size, not the
+   dachshund's thumbnail — its phrases are the longest any tower carries.
+   The dachshund waits in the middle of it until the first frame. */
+.daily-finished__tower.wood-scene--complete { width: min(100%, 440px); height: clamp(200px, 30vh, 260px); margin: 0 auto 12px; border-radius: 20px; }
+.daily-finished__tower > .wood-scene__fallback { position: absolute; inset: 0; display: grid; place-items: center; }
+.daily-finished__tower .daily-finished__scene { width: auto; height: 100%; max-width: 100%; margin: 0; }
+.daily-finished__tower .daily-finished__scene img { width: auto; height: 100%; max-width: 100%; object-fit: contain; }
+/* On a short phone the answer field comes first; the rail is only decoration. */
+@media (max-height: 640px) { .wood-scene--question { display: none; } }
+/* One line at most, cut short with an ellipsis: the card above says it in full. */
+.wood-scene__chip { position: absolute; left: 12px; top: 12px; display: block; max-width: calc(100% - 24px); padding: 6px 10px; border-radius: 10px; background: #fbf6ec; color: #1e1b17; font-size: 13px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 3px 0 rgb(30 27 23 / 12%); }
+.wood-scene__chip::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 4px; background: #f2b630; vertical-align: 1px; }
+/* Under the feedback's scene, at its right, in the flow: nothing it replays passes behind it. */
+.wood-scene--feedback:has(+ .wood-scene__replay) { margin-bottom: 0; }
+.wood-scene__replay { align-self: flex-end; margin: -2px 0 4px auto; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 11px; background: var(--sand); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; box-shadow: 0 3px 0 var(--card-drop); cursor: pointer; }
+.wood-scene__replay:focus-visible { outline: 3px solid var(--focus, #2f6fdb); outline-offset: 2px; }
+
+/* The illustrated scene carries the personality; its text stays in the DOM. */
+.dackel-scene { position: relative; min-width: 0; }
+.dackel-scene img { display: block; width: 100%; height: auto; }
+.dackel-scene__hello { position: absolute; top: 4%; left: 52%; padding: 8px 16px; color: #1e1b17; background: #fbf6ec; border-radius: 14px; font-family: var(--font-de); font-size: clamp(17px, 2vw, 26px); font-weight: 900; box-shadow: 0 4px 0 rgb(0 0 0 / 22%); }
+.hw-scene .dackel-scene__hello { top: 8%; }
+
+/* Today's one step: a white card, one ink button. */
+.today-plan { position: relative; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: 20px; padding: 28px; color: var(--ink); background: var(--surface); border: 0; border-radius: var(--radius-lg); box-shadow: var(--card); overflow: hidden; }
+.today-plan__copy { z-index: 1; min-width: 0; display: flex; flex-direction: column; }
+.today-plan__eyebrow { display: flex; align-items: center; gap: 6px; margin: 0; }
+.today-plan__title { margin: 10px 0; color: var(--ink); font-size: clamp(28px, 3vw, 38px); font-weight: 900; line-height: 1.05; max-width: 470px; }
+.today-plan__detail, .today-plan__what { margin: 0 0 8px; max-width: 440px; color: var(--ink-soft); font-size: 15px; line-height: 1.45; }
+.today-plan__what { font-size: 14px; }
+.today-plan__time { white-space: nowrap; font-weight: 600; }
+.today-plan__progress { display: flex; align-items: center; gap: 12px; max-width: 420px; margin: 12px 0 0; color: var(--ink-soft); font-size: 13px; font-weight: 600; }
+.today-plan__progress .meter { flex: 1; }
+.today-plan__cta { align-self: stretch; justify-content: space-between; margin-top: 16px; max-width: 440px; }
+.today-plan__then { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 16px 0 0; color: var(--ink-soft); font-size: 14px; }
+.today-plan__then a { color: var(--ink-soft); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.today-plan__then--done svg, .today-plan__achieved svg, .today-plan--done .today-plan__eyebrow svg { color: var(--good); flex: none; }
+.today-plan__achieved { display: grid; gap: 8px; margin: 4px 0 12px; padding: 0; list-style: none; color: var(--ink); font-size: 15px; font-weight: 600; }
+.today-plan__achieved li { display: flex; align-items: center; gap: 8px; }
+.today-plan__more { margin-top: 18px; }
+.today-plan__more p { margin: 0 0 8px; color: var(--ink-soft); font-size: 13px; }
+.today-plan .today-plan__keep { white-space: normal; text-align: left; }
+.today-plan__scene { width: 100%; }
+
+.today-tiles { gap: 14px; }
+.today-tile { border-radius: 20px; padding: 18px; }
+.today-tile--review { background: var(--surface); }
+.today-tile__icon { width: 44px; height: 44px; background: var(--blue); color: #ffffff; box-shadow: 0 4px 0 var(--blue-drop); }
+.today-tile__arrow { color: var(--ink-soft); }
+.today-tile__main, .rhythm__main { font-family: var(--font-display); font-size: 17px; font-weight: 800; }
+.goal-ring__track, .goal-ring circle:first-child { stroke: var(--sand); }
+.goal-ring__value { stroke: var(--green); }
+.goal-ring__num { font-family: var(--font-display); font-weight: 900; }
+.rhythm { border-radius: 20px; }
+.rhythm__title { font-family: var(--font-display); font-weight: 800; }
+.rhythm__label strong { color: var(--ink); background: var(--surface-alt); }
+.rhythm__label strong.is-done { color: var(--good-ink); background: var(--good-soft); }
+.rhythm__day--practised .rhythm__dot { background: var(--green); color: #ffffff; box-shadow: 0 2px 0 var(--green-drop); }
+.rhythm__day[aria-current] .rhythm__dot { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+.rhythm__day--ahead .rhythm__dot, .rhythm__day--open .rhythm__dot { border-color: var(--line-strong); }
+.today-round { border-radius: 20px; }
+.today-round:hover { box-shadow: 0 0 0 2px var(--ink), 0 6px 0 var(--card-drop); }
+.today-round__icon { background: var(--yellow); color: var(--on-hero); box-shadow: 0 4px 0 var(--yellow-drop); }
+.today-unit { border-radius: 20px; padding: 22px; }
+.today-unit__head a { color: var(--ink-soft); font-weight: 700; }
+.stops__dot { border: 0; background: var(--sand); color: var(--ink-soft); font-family: var(--font-display); font-weight: 900; }
+.stops__stop--done .stops__dot { background: var(--green); color: #ffffff; box-shadow: 0 3px 0 var(--green-drop); }
+.stops__stop--now .stops__dot { border: 0; background: var(--yellow); color: var(--on-hero); box-shadow: 0 4px 0 var(--yellow-drop); }
+.studio-explore__grid { gap: 14px; }
+.studio-explore h2 { font-family: var(--font-display); font-weight: 800; }
+.studio-explore__card { border-radius: 20px; padding: 18px; color: var(--ink); }
+.studio-explore__card:hover { box-shadow: 0 0 0 2px var(--ink), 0 6px 0 var(--card-drop); text-decoration: none; }
+.studio-explore__card strong { font-family: var(--font-display); font-size: 17px; font-weight: 800; }
+.studio-explore__card > span > span { color: var(--ink-faint); font-size: 13px; }
+.studio-explore__icon { background: var(--blue); color: #ffffff; box-shadow: 0 4px 0 var(--blue-drop); }
+.studio-explore__card--conversation { background: var(--surface); color: var(--ink); }
+.studio-explore__card--conversation .studio-explore__icon { background: var(--yellow); color: var(--on-hero); box-shadow: 0 4px 0 var(--yellow-drop); }
+.practical-progress { border-radius: 20px; padding: 24px; }
+.ability-list__icon { background: var(--good-soft); color: var(--good); }
+.weekly-goal { border-radius: 12px; background: var(--surface-alt); color: var(--ink); border: 0; }
+.today-progress { border-radius: 20px; }
+
+/* ---------------- Daily practice ---------------- */
+
+.daily-intro { margin-bottom: 4px; }
+.daily-intro .page__title { font-size: clamp(33px, 4.2vw, 49px); margin: 8px 0 12px; }
+.daily-plan { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); border: 0; background: var(--surface); color: var(--ink); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--card); margin-bottom: 0; }
+.daily-plan__copy { padding: 30px; }
+.daily-plan__tag { background: var(--surface-alt); color: var(--ink-soft); border: 0; border-radius: 10px; font-weight: 700; }
+.daily-plan h2 { color: var(--ink); font-size: clamp(25px, 2.8vw, 34px); font-weight: 900; line-height: 1.1; }
+.daily-plan__copy > p { color: var(--ink-soft); }
+.daily-plan__start { margin: 14px 0 6px; gap: 20px; }
+.daily-plan__world { display: flex; flex-direction: column; justify-content: center; padding: 26px 24px 20px 0; min-width: 0; }
+.daily-plan__world .dackel-scene { margin-top: 8px; }
+.daily-plan__world-note { margin: 12px 15px 0; color: var(--ink-soft); text-align: center; font-size: 12px; line-height: 1.6; }
+.daily-plan__steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 12px 0 10px; margin: 0; gap: 12px; background: none; border: 0; }
+.daily-plan__steps li { flex-direction: column; align-items: flex-start; font-size: 13px; gap: 12px; line-height: 1.4; }
+.daily-plan__steps strong { font-weight: 700; }
+/* Five milestones, five yellow blocks: ink on yellow in both schemes, so the
+   five are drawn alike everywhere. */
+.daily-plan__steps li > span { width: 40px; height: 40px; display: grid; place-items: center; background: #f2b630; color: #1e1b17; border: 0 solid transparent; border-radius: 12px; font-family: var(--font-display); font-size: 15px; font-weight: 900; letter-spacing: 0; box-shadow: 0 4px 0 #b7861a; }
+.daily-settings { border-radius: 20px; margin: 8px 0; }
+.goal-option { border: 0; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--edge), 0 3px 0 var(--edge); font-weight: 700; }
+.goal-option.is-active { background: var(--yellow); color: var(--on-hero); box-shadow: 0 3px 0 var(--yellow-drop); }
+.learning-preferences__row select { border: 0; border-radius: 12px; box-shadow: inset 0 0 0 1.5px var(--line-strong); background: var(--surface); }
+.daily-running-head { margin-bottom: 10px; }
+.daily-stage-track { gap: 8px; margin-bottom: 28px; position: relative; }
+.daily-stage-track li { border: 0; border-radius: 14px; background: var(--surface); padding: 11px; box-shadow: var(--card-sm); font-weight: 600; color: var(--ink-soft); }
+.daily-stage-track .is-current { background: var(--yellow); color: var(--on-hero); box-shadow: 0 4px 0 var(--yellow-drop); }
+.daily-stage-track .is-done { background: var(--good-soft); color: var(--good-ink); }
+.daily-stage-track li > span:first-child { border: 0; font-weight: 900; }
+.daily-page > .card { position: relative; padding: 28px; }
+.phrase-card__buddy { display: flex; align-items: center; gap: 10px; margin: 4px 0 16px; }
+.phrase-card__buddy .dackel-mark { height: 48px; width: 48px; transform: rotate(-8deg); }
+.phrase-card__buddy > span { font-size: 12px; font-weight: 800; color: var(--ink-soft); }
+.phrase-card__buddy > .phrase-card__again { margin-left: auto; padding: 3px 10px; border: 0; border-radius: 10px; background: var(--surface-alt); }
+.phrase-card__purpose { margin: 4px 0 20px; font-size: 15px; }
+.phrase-card__german { padding: 22px; border: 0; background: var(--sand); border-radius: 22px; font-size: clamp(30px, 4.5vw, 44px); font-weight: 800; line-height: 1.3; margin-bottom: 20px; }
+.phrase-card__pattern, .phrase-card__noun { border: 0; background: var(--surface-alt); border-radius: 14px; }
+.phrase-frame__example { padding: 5px 0; }
+.shadow-lines > div { background: var(--sand); border: 0; border-radius: 20px; }
+.shadow-lines > div > p { font-weight: 800; }
+.shadow-recorder { border: 2px dashed var(--line-strong); border-radius: 20px; }
+.daily-finished { background: var(--surface); border-radius: 28px; padding-top: 25px; }
+.daily-finished h1 { font-weight: 900; }
+.daily-finished__scene { width: 260px; max-width: 100%; margin: 0 auto 12px; }
+.daily-finished__mark { height: 45px; width: 45px; margin-bottom: 20px; border-radius: 13px; background: var(--green); color: #ffffff; box-shadow: 0 4px 0 var(--green-drop); }
+.daily-finished__wins li { border-radius: 10px; color: var(--good-ink); }
+.daily-finished__wins svg { color: var(--good-ink); }
+.daily-finished__phrases li { border: 0; background: var(--surface-alt); }
+.micro-tip { border-left: 0; border-radius: 14px; background: var(--warn-soft); color: var(--ink); }
+/* On a phone the picture gives up a little height, so the one next step is on the first screen in both languages. */
+@media (max-width: 480px) {
+  .daily-finished__scene { width: 210px; margin-bottom: 6px; }
+  .daily-finished__tower.wood-scene--complete { width: 100%; max-width: 340px; height: 170px; height: clamp(170px, 26svh, 220px); margin-bottom: 10px; }
+  .daily-finished__mark { margin-bottom: 12px; }
+  /* The tower is the finish's celebration: the tick under it gives way, so
+     the larger tower costs the way on no more room than the thumbnail did. */
+  .daily-finished:has(.daily-finished__tower) .daily-finished__mark { display: none; }
+}
+
+/* ---------------- The course ---------------- */
+
+.course-welcome { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; align-items: center; padding: 24px 26px; border-radius: var(--radius-lg); background: var(--surface); border: 0; box-shadow: var(--card); }
+/* On a wide screen the board gets the room a phone gives it, and more:
+   at 260px its station numbers were 9px high. */
+@media (min-width: 1024px) { .course-welcome { grid-template-columns: minmax(0, 1fr) 360px; } .course-welcome__scene { min-height: 240px; } }
+.course-welcome .page__title { margin: 8px 0 12px; }
+.course-welcome .page__lede { margin: 0; font-size: 15px; }
+.course-welcome__scene { align-self: stretch; display: flex; align-items: flex-end; }
+/* The levels as a row of blocks, the current one in ink. */
+.levels { gap: 8px; padding: 0 0 4px; border: 0; background: none; border-radius: 0; }
+.levels__item { min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--surface); color: var(--ink-soft); font-size: 14px; font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--edge), 0 3px 0 var(--edge); }
+.levels__item.is-active { background: var(--accent); color: var(--on-accent); box-shadow: 0 3px 0 var(--toy-drop); }
+.course-continue { gap: 14px; padding: 14px 16px; border-radius: 20px; color: var(--ink); }
+.course-continue:hover { text-decoration: none; box-shadow: 0 0 0 2px var(--ink), 0 6px 0 var(--card-drop); }
+.course-continue__icon { width: 48px; height: 48px; border-radius: 14px; background: var(--blue); color: #ffffff; box-shadow: 0 4px 0 var(--blue-drop); }
+.course-continue strong { font-family: var(--font-display); font-size: 18px; font-weight: 800; }
+.course-continue > span > span { color: var(--ink-faint); font-size: 13px; }
+.level__label { color: var(--ink-faint); font-weight: 800; }
+.level__title { font-weight: 900; }
+.unit-path { border-radius: 20px; }
+.unit-path__banner { background: var(--surface); }
+.unit-path[open] > .unit-path__banner { background: var(--surface-alt); color: var(--ink); border-bottom: 0; }
+.unit-path[open] .unit-path__sub { color: var(--ink-soft); }
+.unit-path__title { font-family: var(--font-display); font-weight: 800; }
+.unit-path__n { border-radius: 12px; background: var(--sand); color: var(--ink); font-family: var(--font-display); font-weight: 900; }
+.unit-path[open] .unit-path__n { background: var(--accent); color: var(--on-accent); box-shadow: 0 3px 0 var(--toy-drop); }
+.unit-path__body { padding: 22px; }
+.unit-path__stops { position: relative; gap: 14px; }
+.unit-path__stops::before { content: ''; position: absolute; left: 43px; top: 30px; bottom: 30px; width: 34px; border-left: 3px dashed var(--line-strong); border-radius: 50%; pointer-events: none; }
+.trail-stop { z-index: 1; }
+.trail-stop:nth-child(even) { margin-left: 35px; }
+.trail-stop:nth-child(odd) { margin-right: 35px; }
+.trail-stop__link { min-height: 80px; border: 0; border-radius: 18px; background: var(--surface); padding: 14px; box-shadow: 0 0 0 1.5px var(--line), 0 4px 0 var(--line); color: var(--ink); }
+.trail-stop__link:hover { background: var(--surface-alt); text-decoration: none; }
+.trail-stop__dot { height: 44px; width: 44px; min-width: 44px; border: 0; border-radius: 14px; background: var(--sand); color: var(--ink-soft); box-shadow: 0 3px 0 var(--line); font-family: var(--font-display); font-weight: 900; }
+.trail-stop--now .trail-stop__link { background: var(--surface); box-shadow: 0 0 0 2px var(--ink), 0 4px 0 var(--ink); }
+.trail-stop--now .trail-stop__dot { color: var(--on-hero); background: var(--yellow); box-shadow: 0 4px 0 var(--yellow-drop); }
+.trail-stop--done .trail-stop__dot { background: var(--green); color: #ffffff; box-shadow: 0 3px 0 var(--green-drop); }
+.trail-stop--gate .trail-stop__dot { background: var(--birch); color: #1e1b17; box-shadow: 0 3px 0 #b8a07a; }
+.trail-stop__title { font-family: var(--font-display); font-size: 15px; font-weight: 800; }
+.level-gate { border-radius: 20px; border: 0; background: var(--warn-soft); }
+.offline-level { border-radius: 20px; }
+
+/* ---------------- Lessons and practice ---------------- */
+
+.task { border-radius: var(--radius-lg); }
+.task__prompt-de, .example__de { font-weight: 700; }
+.player-header__lesson { font-family: var(--font-display); font-weight: 900; }
+.player-header__phase, .player__objective { color: var(--ink-faint); font-weight: 800; }
+.task__audio-only { background: var(--sand); border-radius: 18px; }
+/* A hint is a pale yellow block, on the side of the one ink action. */
+.hints li { border-radius: 14px; background: var(--warn-soft); color: var(--ink); }
+.chat__bubble { border: 0; border-radius: 22px 22px 22px 6px; background: var(--surface); box-shadow: var(--card-sm); }
+/* The sheet's grab handle, in the verdict's colour. */
+.feedback::before { content: ''; align-self: center; width: 44px; height: 6px; margin-top: -4px; border-radius: 3px; background: var(--tone); }
+/* The learner's own line, dark ink on sand: the accent bubble's light text
+   would vanish on it. */
+.chat__bubble--you { border-radius: 22px 22px 6px 22px; background: var(--sand); color: var(--ink); }
+/* Earlier turns step back less: at 0.62 their names, stage lines and glosses
+   fell under 4.5:1 on the light paper. */
+.chat__past { opacity: 0.8; }
+.section-nav .btn--primary { min-width: 9rem; }
+
+/* ---------------- Vocabulary and words ---------------- */
+
+/*
+ * Der, die, das. The article keeps its own word — colour is never the only
+ * sign — and stands on a small block of its gender's colour. The article's
+ * text takes the same hue in its darker, readable tone.
+ */
+.gender {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28em;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.gender::before {
+  content: '';
+  align-self: center;
+  flex: none;
+  width: 0.62em;
+  height: 0.62em;
+  border-radius: 0.16em;
+  background: var(--gender-fill);
+  box-shadow: 0 0.1em 0 var(--gender-drop);
+}
+
+.gender--der { --gender-fill: var(--der); --gender-drop: var(--blue-drop); color: var(--der-ink); }
+.gender--die { --gender-fill: var(--die); --gender-drop: var(--red-drop); color: var(--die-ink); }
+.gender--das { --gender-fill: var(--das); --gender-drop: var(--green-drop); color: var(--das-ink); }
+
+/* Inside a highlighted answer the pill sets the colour; the block stays. */
+.feedback__answer .gender { color: inherit; }
+
+.gender-legend { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; color: var(--ink-soft); font-size: 14px; }
+.gender-legend__title { margin: 0; font-weight: 700; color: var(--ink-faint); }
+.gender-legend ul { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; padding: 0; list-style: none; }
+.gender-legend li { display: inline-flex; align-items: baseline; gap: 6px; }
+
+.word-list { gap: 10px; }
+.word-row { border-radius: 18px; }
+.word-row__de, .vocab-row__de, .word-head__de { font-family: var(--font-de); font-weight: 700; }
+.word-head__de { font-weight: 900; }
+.vocab-row { border-radius: 16px; padding: 12px 14px; }
+.searchbar { border: 0; background: var(--surface); box-shadow: inset 0 0 0 2px var(--ink); border-radius: var(--radius); }
+.fav.is-on { color: #b7861a; }
+
+/* ---------------- More, onboarding ---------------- */
+
+.more { gap: 12px; }
+.more__link { border-radius: 20px; }
+.more__link:hover, .more__link:focus-visible { box-shadow: 0 0 0 2px var(--ink), 0 6px 0 var(--card-drop); text-decoration: none; }
+.more__icon { background: var(--sand); }
+.more__label { font-family: var(--font-display); font-weight: 800; }
+.onboarding__scene { width: 330px; max-width: 85%; margin: 0 auto 20px; }
+.onboarding .path-card { border-radius: 20px; }
+.path-card.is-active { background: var(--surface); box-shadow: 0 0 0 2px var(--ink), 0 5px 0 var(--ink); }
+.onboarding__go .btn--primary { background: var(--accent); color: var(--on-accent); }
+
+/* ---------------- Widths ---------------- */
+
+@media (max-width: 900px) {
+  .course-welcome { grid-template-columns: minmax(0, 1fr) 210px; }
+}
+
+@media (max-width: 620px) {
+  :root { --topbar-height: 74px; }
+  .topbar { padding: 12px 18px; }
+  .topbar__logo { width: 38px; height: 38px; }
+  .topbar__name { font-size: 20px; }
+  .main { padding-top: 18px; }
+  .today { gap: 16px; }
+  .today__greeting { font-size: 34px; }
+  .today__welcome { font-size: 14px; }
+  /* The step's button stays above the fold on a phone: the scene goes below it. */
+  .today-plan { grid-template-columns: 1fr; padding: 18px 18px 18px; gap: 14px; }
+  .today-plan__title { font-size: 28px; margin: 8px 0; }
+  .today-plan__detail { font-size: 15px; }
+  .today-plan__cta { margin-top: 12px; }
+  .today-plan__scene { max-width: none; margin: 0; }
+  .dackel-scene__hello { font-size: 18px; padding: 6px 12px; }
+  .today-tile { padding: 14px; }
+  .rhythm { padding: 18px; }
+  .studio-explore__card { padding: 16px; }
+  .daily-intro .page__title { font-size: 34px; }
+  .daily-plan { grid-template-columns: 1fr; }
+  .daily-plan__copy { padding: 22px; }
+  .daily-plan h2 { font-size: 28px; }
+  .daily-plan__world { padding: 0 22px 22px; }
+  .daily-plan__world .dackel-scene { max-width: 330px; margin: 10px auto 0; }
+  .daily-plan__world-note { margin-top: 8px; }
+  .daily-plan__steps { grid-template-columns: 1fr; gap: 14px; padding: 20px 4px; }
+  .daily-plan__steps li { flex-direction: row; align-items: center; gap: 14px; }
+  .daily-plan__steps li > span { flex: none; }
+  .daily-running-head .page__title { font-size: 25px; }
+  .daily-stage-track li { padding: 10px 2px; }
+  .daily-page > .card { padding: 22px 18px; }
+  .phrase-card__german { padding: 18px 15px; font-size: 32px; }
+  .phrase-card__purpose { font-size: 14px; }
+  .course-welcome { display: flex; flex-direction: column; align-items: stretch; gap: 5px; padding: 22px; }
+  .course-welcome .page__title { font-size: 32px; }
+  .course-welcome__scene { width: 100%; margin: 16px 0 0; }
+  .levels { flex-wrap: nowrap; overflow-x: auto; }
+  .levels__item { flex: 1 0 auto; padding: 0 12px; font-size: 14px; }
+  .unit-path__body { padding: 18px 12px; }
+  .trail-stop:nth-child(even) { margin-left: 15px; }
+  .trail-stop:nth-child(odd) { margin-right: 15px; }
+  .trail-stop__link { padding: 12px 10px; gap: 12px; }
+  .trail-stop__dot { height: 40px; width: 40px; min-width: 40px; border-radius: 12px; }
+  .trail-stop__title { font-size: 14px; }
+  .onboarding__scene { width: 270px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active:not(:disabled),
+  .btn--primary:active:not(:disabled),
+  .char-btn:active:not(:disabled),
+  .done-hero__next:active { transform: none; }
+}

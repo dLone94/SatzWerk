@@ -1036,6 +1036,60 @@ this the app looks like it did nothing. It is guarded with an optional call
 because jsdom has no `scrollIntoView` at all — which took the whole player down
 the first time, and is now covered by a test both ways.
 
+### The wooden scenes
+
+Five places have a small three.js scene of lacquered wooden toys: Today's town
+(the building of today's step is lit), the course's board game (the pawn on the
+lesson the course sends you to next, the unit checkpoint as a tower at the end),
+a fill-in-the-gap question as blocks on a rail (the slot holds what you type and
+nothing else — the scene is never given the answer), the swap after a wrong
+answer that was one word off, and the finished lesson or practice, whose new
+words stack into a tower. Everything they show comes from the same data as the
+page around them; the decisions are plain functions in `src/ui/three/`
+(`board.ts`, `rails.ts`, `tower.ts`, `sceneData.ts`) and are tested without
+WebGL.
+
+- **They cost the first screen nothing.** three.js and the scenes are one chunk
+  (`engine-*.js`, about 620 kB, 160 kB gzipped), reached only by a dynamic
+  `import()` in `WoodScene.tsx`. Even whether WebGL exists is asked only after
+  the page has painted. The chunk is first fetched once the page has loaded
+  and nothing the learner waits for — a page's code, a level's content — has
+  been on the line for two seconds (`src/services/loading.ts`), so on a slow
+  connection it never shares the line with the lesson just opened. The
+  service worker does not download it on install; like any built file it is
+  kept the first time it is fetched, and opens offline from then on. Offline
+  before that, the import fails and the picture that was there stays.
+  `npm run test:browser` fails if three ever reaches the entry chunk, the entry
+  outgrows 340 kB, or the chunk is fetched alongside other code.
+- **They step aside.** No WebGL, WebGL drawn in software, a lost context,
+  Save-Data, a line the browser rates 3G or slower, 2 GB of memory or two
+  cores or fewer: the scene is not drawn at all and the dachshund stays — or
+  nothing, where nothing was before. `prefers-reduced-motion` draws the
+  finished pose once, with no loop and no dust. A slot the layout hides (the
+  question's rail below 640 px of height) starts nothing until it is shown.
+- **They come to rest.** The story is drawn at the display's rate, the ambient
+  motion after it at 30 frames a second, and five seconds after the last thing
+  that happened (the story ending, the pointer, typing, "Show again") the loop
+  stops on its last frame until something happens again. It also stops while
+  the canvas is scrolled away or the tab is hidden. The pixel ratio stops at 2,
+  the renderer asks for the default GPU rather than the fast one, and every
+  geometry, texture and WebGL context is given back on unmount (browsers hold
+  about sixteen). A resized slot is framed again; the board, which lies across
+  a wide slot, is laid out again when the slot changes shape past that point.
+- **They are pictures.** The canvas is hidden from assistive technology; once
+  drawn, a scene that says something has a visually hidden description beside
+  it, built from the real data ("…your pawn stands on lesson 1, Sounds and four
+  extra letters…"), with each German word marked `lang="de"`. Where the scene
+  repeats the words beside it — the question's rail, the swap after a wrong
+  answer — it says nothing. Nothing in them can be focused; the lesson list is
+  still how you open a lesson.
+
+To tune one, change its file in `src/ui/three/engine/scenes/`. Colours are sRGB
+hex as in the stylesheet (three's colour management converts them); light
+intensities in `stage.ts` are the original values times π, the scale physically
+based lights use. `npm run test:browser` draws each scene in Chromium's software
+renderer and saves `artifacts/browser/scene-*.png`.
+
 ---
 
 ## Where should I start?
