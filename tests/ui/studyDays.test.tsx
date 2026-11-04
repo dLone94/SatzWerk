@@ -20,6 +20,8 @@ const stats = {
   categoryCounts: [], retypedCorrections: 0,
 };
 let serverDays: StudyDay[] = [];
+/** Flipped to take the server away, as a tunnel does. */
+let reachable = true;
 const requests: string[] = [];
 const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
 const originalFetch = globalThis.fetch;
@@ -28,6 +30,7 @@ beforeEach(() => {
   outbox.reset();
   requests.length = 0;
   serverDays = [{ day: '2026-01-05', secondsActive: 300, answers: 4, correct: 4 }];
+  reachable = true;
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     requests.push(`${init?.method ?? 'GET'} ${url}`);
@@ -39,7 +42,15 @@ beforeEach(() => {
     }
     if (url.endsWith('/api/coach/status')) return json({ aiAvailable: false, provider: 'none', features: {} });
     if (url.endsWith('/api/learners')) return json({ learners: [{ id: 1, name: 'me', createdAt: '' }], studyingAs: 1 });
-    if (url.endsWith('/api/attempts')) return json({ attemptId: requests.length, reviewItems: [], grade: 'good', stats });
+    if (url.endsWith('/api/attempts')) {
+      if (!reachable) throw new TypeError('Failed to fetch');
+      // Filed on the server's own record, as the real one does.
+      const prior = serverDays.find((row) => row.day === todayHere());
+      serverDays = prior
+        ? serverDays.map((row) => (row === prior ? { ...row, answers: row.answers + 1 } : row))
+        : [...serverDays, { day: todayHere(), secondsActive: 0, answers: 1, correct: 1 }];
+      return json({ attemptId: requests.length, reviewItems: [], grade: 'good', stats });
+    }
     throw new Error(`unexpected request: ${url}`);
   }) as typeof fetch;
 });
@@ -81,4 +92,29 @@ it('counts today as a practice day as soon as an answer is saved', async () => {
   expect(requests.filter((request) => request === 'GET /api/state')).toHaveLength(1);
   // The days already on record are kept as they were.
   expect(state().studyDays.find((day) => day.day === '2026-01-05')).toEqual(serverDays[0]);
+});
+
+/*
+ * Offline, an answer waited in the outbox and the day only counted once the
+ * server had it. The warm-up after a break, played in a tunnel, ended on the
+ * same "Welcome back" card with the same twelve words: as far as Today knew,
+ * nothing had been answered yet.
+ */
+it('counts an answer held offline into today at once, and once only when it is sent', async () => {
+  const state = await mountState();
+  reachable = false;
+  await act(async () => {
+    await state().submitAttempt(answer());
+    await state().submitAttempt(answer({ stepId: 'daily-phrase-2' }));
+  });
+  await waitFor(() => expect(outbox.queuedCount()).toBe(2));
+  expect(state().studyDays.find((day) => day.day === todayHere())?.answers).toBe(2);
+  expect(state().stats.streak).toBe(1);
+
+  reachable = true;
+  await act(async () => {
+    await state().syncAnswers();
+  });
+  await waitFor(() => expect(outbox.queuedCount()).toBe(0));
+  expect(state().studyDays.find((day) => day.day === todayHere())?.answers).toBe(2);
 });

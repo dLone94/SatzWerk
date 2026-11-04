@@ -288,5 +288,40 @@ describe.each(['en', 'bg'] as const)('the warm-up after a break, in %s', (lang) 
     const onward = screen.getByRole('link', { name: tr('catchUpOnward', lang) });
     expect(onward).toHaveAttribute('href', '/');
     expect([...document.querySelectorAll('.btn--primary')]).toEqual([onward]);
+    // The round's last answer left the focus nowhere: it goes to the way on.
+    expect(document.activeElement).toBe(onward);
+  });
+
+  /*
+   * Offline the answers wait in the outbox, and until they are sent their
+   * items are still due here: the summary said the twelve just answered were
+   * still waiting. (This stub never sends them, as offline.)
+   */
+  it.runIf(lang === 'en')('counts what is still waiting without the items just answered', async () => {
+    const some = pile.slice(0, CATCH_UP_SIZE + 3);
+    const user = userEvent.setup();
+    open(some);
+    await play(user, catchUpExercises(some, lang), { right: () => true });
+    expect(screen.getByText(tr('catchUpRest', lang, { n: 3 }))).toBeInTheDocument();
+  });
+
+  it.runIf(lang === 'en')('keeps one primary button when the warm-up clears everything due', async () => {
+    const few = pile.slice(7, 10);
+    const user = userEvent.setup();
+    const view = open(few);
+    await play(user, catchUpExercises(few, lang), { right: () => true });
+    // The answers arrive: everything is scheduled ahead, so the page offers practising early.
+    const ahead = few.map((item) => ({ ...item, dueAt: new Date(Date.now() + 2 * 86_400_000).toISOString() }));
+    view.rerender(
+      <AppStateContext.Provider value={stubState({ reviewItems: ahead }, lang)}>
+        <MemoryRouter initialEntries={['/review?catch-up']}>
+          <ReviewPage />
+        </MemoryRouter>
+      </AppStateContext.Provider>,
+    );
+    expect(screen.getByText(tr('catchUpClear', lang))).toBeInTheDocument();
+    const onward = screen.getByRole('link', { name: tr('catchUpOnward', lang) });
+    expect([...document.querySelectorAll('.btn--primary')]).toEqual([onward]);
+    expect(screen.getByRole('button', { name: tr('reviewPracticeEarly', lang) })).toHaveClass('btn--ghost');
   });
 });

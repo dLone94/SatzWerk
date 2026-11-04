@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { grammarById } from '../../content/browser.ts';
 import type { Exercise } from '../../content/types.ts';
@@ -7,14 +7,10 @@ import { UI, tr } from '../../i18n.ts';
 import { useApp } from '../../state/AppState.tsx';
 import { AudioButton, Card, EmptyState, formatRelativeDate } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
-import { buildQueue, catchUpExercises, earlyReviewExercises, reasonKey } from '../selectors.ts';
+import { REVIEW_ROUND_SIZE, buildQueue, catchUpExercises, earlyReviewExercises, reasonKey } from '../selectors.ts';
 import { buildReviewExercises, reviewItemsForPath } from '../reviewBuilder.ts';
 
 const GRADES: RecallGrade[] = ['again', 'hard', 'good', 'easy'];
-
-/** The review queue: what is due, why, and typing it back. */
-/** How many due items one review round takes. */
-export const REVIEW_ROUND_SIZE = 20;
 
 /** A round as it was when it started. */
 interface Round {
@@ -22,9 +18,14 @@ interface Round {
   exercises: Exercise[];
   size: number;
   early: boolean;
-  /** The warm-up Today offers after a break. */
-  catchUp: boolean;
+  /**
+   * The warm-up Today offers after a break: how many are still due once it
+   * is done, as it was when it started. Undefined for any other round.
+   */
+  catchUp?: number;
 }
+
+/** The review queue: what is due, why, and typing it back. */
 
 export function ReviewPage() {
   const { t, say, lang, reviewItems, gradeReview } = useApp();
@@ -44,12 +45,31 @@ export function ReviewPage() {
    */
   const [round, setRound] = useState<Round | null>(() => {
     if (!params.has('catch-up')) return null;
-    const exercises = catchUpExercises(reviewItemsForPath(reviewItems, lang), lang);
-    return exercises.length > 0 ? { id: 1, exercises, size: exercises.length, early: false, catchUp: true } : null;
+    const path = reviewItemsForPath(reviewItems, lang);
+    const exercises = catchUpExercises(path, lang);
+    // Every warm-up item is due, one exercise each, so this is what is left.
+    const left = summarizeQueue(path).total - exercises.length;
+    return exercises.length > 0 ? { id: 1, exercises, size: exercises.length, early: false, catchUp: left } : null;
   });
   const [summary, setSummary] = useState<PlayerSummary | null>(null);
-  // Whether the summary is the warm-up's, which hands the learner back to the day.
-  const [caughtUp, setCaughtUp] = useState(false);
+  /*
+   * After the warm-up, how many are still waiting; null after any other round.
+   *
+   * Counted from the start of the warm-up as well as from the queue: an
+   * answer given offline waits in the outbox, and until it is sent its item
+   * is still due here, so the queue alone said the twelve just answered were
+   * still waiting.
+   */
+  const [caughtUp, setCaughtUp] = useState<number | null>(null);
+  /*
+   * The summary's one way on takes the focus, as the round's last answer
+   * leaves it nowhere. Not with autoFocus: React only focuses form controls
+   * for it, and on a link it did nothing.
+   */
+  const onward = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    if (summary && caughtUp !== null) onward.current?.focus();
+  }, [summary, caughtUp]);
   // Taken once: reloading the page, or coming back to it, is the review page.
   useEffect(() => {
     if (params.has('catch-up')) setParams({}, { replace: true });
@@ -58,6 +78,7 @@ export function ReviewPage() {
   const onPath = useMemo(() => reviewItemsForPath(reviewItems, lang), [reviewItems, lang]);
   const queue = useMemo(() => buildQueue(onPath), [onPath]);
   const counts = summarizeQueue(onPath);
+  const waiting = Math.max(0, Math.min(counts.total, caughtUp ?? 0));
 
   // Practising early takes the soonest items that are not yet due.
   const early = useMemo(() => earlyReviewExercises(onPath), [onPath]);
@@ -76,8 +97,8 @@ export function ReviewPage() {
 
   const start = (exercises: Exercise[], isEarly: boolean) => {
     setSummary(null);
-    setCaughtUp(false);
-    setRound({ id: (round?.id ?? 0) + 1, exercises, size: exercises.length, early: isEarly, catchUp: false });
+    setCaughtUp(null);
+    setRound({ id: (round?.id ?? 0) + 1, exercises, size: exercises.length, early: isEarly });
   };
 
   if (round && round.exercises.length > 0) {
@@ -90,7 +111,7 @@ export function ReviewPage() {
               took the focus from the summary's own button. */}
           <h1 className="player-header__lesson">{t('reviewTitle')}</h1>
           <p className="player-header__phase">
-            {round.catchUp
+            {round.catchUp !== undefined
               ? t('catchUpRound', { n: round.size })
               : round.early
                 ? t('reviewPracticeEarly')
@@ -104,7 +125,7 @@ export function ReviewPage() {
           level="pre-a1"
           onFinish={(result) => {
             setSummary(result);
-            setCaughtUp(round.catchUp);
+            setCaughtUp(round.catchUp ?? null);
             setRound(null);
             // The summary is at the top of the page, and the player had
             // scrolled down to its last feedback: the result was out of view.
@@ -125,14 +146,14 @@ export function ReviewPage() {
       {/* After the warm-up the rest of the pile is not the next thing to do:
           it is said how much waits and that it comes back over the next days,
           and the one button goes back to the day. */}
-      {summary && caughtUp ? (
+      {summary && caughtUp !== null ? (
         <Card tone="accent" title={t('catchUpDone')}>
           <p className="done-note">
             {t('exerciseScore', { correct: summary.firstTryCorrect, total: summary.total })}
           </p>
-          <p>{counts.total > 0 ? t('catchUpRest', { n: counts.total }) : t('catchUpClear')}</p>
+          <p>{waiting === 1 ? t('catchUpRestOne', { n: waiting }) : waiting > 0 ? t('catchUpRest', { n: waiting }) : t('catchUpClear')}</p>
           <div className="section-nav">
-            <Link className="btn btn--primary btn--lg" to="/" autoFocus>
+            <Link className="btn btn--primary btn--lg" to="/" ref={onward}>
               {t('catchUpOnward')}
             </Link>
           </div>
@@ -151,16 +172,17 @@ export function ReviewPage() {
             title={t('reviewNothingDue')}
             body={early.length > 0 ? t('reviewNothingDueBody') : t('reviewNothingYetBody')}
             action={
+              // After the warm-up the summary's way on is the one button.
               early.length > 0 ? (
                 <button
                   type="button"
-                  className="btn btn--primary"
+                  className={`btn ${caughtUp !== null ? 'btn--ghost' : 'btn--primary'}`}
                   onClick={() => start(early, true)}
                 >
                   {t('reviewPracticeEarly')}
                 </button>
               ) : (
-                <Link className="btn btn--primary" to="/course">
+                <Link className={`btn ${caughtUp !== null ? 'btn--ghost' : 'btn--primary'}`} to="/course">
                   {t('navCourse')}
                 </Link>
               )
@@ -181,10 +203,10 @@ export function ReviewPage() {
           <div className="section-nav">
             <button
               type="button"
-              className={`btn ${caughtUp ? 'btn--ghost' : 'btn--primary'} btn--lg`}
+              className={`btn ${caughtUp !== null ? 'btn--ghost' : 'btn--primary'} btn--lg`}
               disabled={build.exercises.length === 0}
               onClick={() => start(build.exercises.slice(0, REVIEW_ROUND_SIZE), false)}
-              autoFocus={!caughtUp}
+              autoFocus={caughtUp === null}
             >
               {t('reviewStart')}
             </button>
