@@ -472,14 +472,27 @@ export function toneColour(tone: 'birch' | 'der' | 'die' | 'das'): number {
   return tone === 'birch' ? C.birch : C[tone];
 }
 
-/** Frame a rail of width `total` with its blocks standing on it. */
+/**
+ * Frame a rail of width `total` with its blocks standing on it, for the
+ * slot's shape, and again whenever that changes.
+ *
+ * A wide slot (a desktop) is limited by its height and shows the bench
+ * round the blocks. A phone's slot is limited by its width, where every
+ * pixel of bench is a pixel less of lettering: there the blocks themselves
+ * fill it, seen from lower down, and the bench runs off the edges.
+ */
 export function railView(stage: Stage, total: number): void {
-  const half = total / 2 + 0.25;
-  const points: Vector3[] = [];
-  for (const x of [-half, half]) {
-    for (const y of [0.05, 1.0]) for (const z of [-0.45, 0.6]) points.push(new Vector3(x, y, z));
-  }
-  const { look, pos } = stage.frame(points, new Vector3(0, 0.5, 0.9), 0.9);
-  stage.cam.look.copy(look);
-  stage.cam.pos.copy(pos);
+  stage.framing(() => {
+    const narrow = stage.aspect < 2.4;
+    const half = narrow ? total / 2 + 0.02 : total / 2 + 0.25;
+    const ys = narrow ? [0.18, 0.98] : [0.05, 1.0];
+    const zs = narrow ? [-0.4, 0.42] : [-0.45, 0.6];
+    const points: Vector3[] = [];
+    for (const x of [-half, half]) {
+      for (const y of ys) for (const z of zs) points.push(new Vector3(x, y, z));
+    }
+    const { look, pos } = stage.frame(points, narrow ? new Vector3(0, 0.36, 0.9) : new Vector3(0, 0.5, 0.9), narrow ? 0.95 : 0.9);
+    stage.cam.look.copy(look);
+    stage.cam.pos.copy(pos);
+  });
 }

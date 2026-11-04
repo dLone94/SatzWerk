@@ -4714,12 +4714,25 @@ h4,
   gap: 0.75rem;
 }
 
-/* The lesson as a row of blocks: green done, yellow now, sand to come. */
+/* The lesson as a row of blocks: green done, yellow now, sand to come.
+   The row gives way to the way out rather than push it off a small phone:
+   neither it nor its gaps may make the header wider than the screen. */
+.player__progress,
+.player__segments {
+  min-width: 0;
+}
+
 .player__segments {
   display: flex;
   flex: 1;
-  gap: 5px;
+  gap: clamp(1px, 0.8vw, 5px);
   padding-bottom: 2px;
+}
+
+@media (max-width: 400px) {
+  .player__head .btn--sm {
+    padding-inline: 0.6rem;
+  }
 }
 
 .player__segments span {

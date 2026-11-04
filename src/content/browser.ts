@@ -2,6 +2,7 @@ import data from './catalog.generated.json' with { type: 'json' };
 import { createRegistry } from './registry.ts';
 import { SCENARIOS } from './outline/realLife.ts';
 import type { Checkpoint, Exercise, GrammarConcept, Level, ScenarioScript, SentencePattern, TeachingLanguage, CefrLevel, VocabEntry } from './types.ts';
+import { track } from '../services/loading.ts';
 
 /** Generated metadata only. Call ensureContent before mounting a learning route. */
 export const VOCABULARY = data.vocabulary as unknown as VocabEntry[];
@@ -45,7 +46,7 @@ const loading = new Map<string, Promise<void>>();
 function once(key: string, work: () => Promise<void>) {
   let result = loading.get(key);
   if (!result) {
-    result = work().catch(error => { loading.delete(key); throw error; });
+    result = track(work()).catch(error => { loading.delete(key); throw error; });
     loading.set(key, result);
   }
   return result;

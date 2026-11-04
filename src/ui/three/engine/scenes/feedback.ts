@@ -1,7 +1,7 @@
-import { Color, Mesh, MeshBasicMaterial, MeshPhysicalMaterial, RingGeometry, Vector3 } from 'three';
+import { BoxGeometry, Color, Mesh, MeshBasicMaterial, MeshPhysicalMaterial, RingGeometry, Vector3 } from 'three';
 import type { SceneSpec } from '../../sceneData.ts';
 import { C } from '../kit.ts';
-import { bounce, clamp01, easeInQuad, squash } from '../motion.ts';
+import { bounce, clamp01, easeInQuad, easeOutCubic, squash } from '../motion.ts';
 import { block, railView, layoutRow, motes, setSquash, toneColour, workbench } from '../pieces.ts';
 import type { Stage } from '../stage.ts';
 
@@ -9,7 +9,9 @@ import type { Stage } from '../stage.ts';
  * A wrong answer that was one word off: the wrong block trembles, is flicked
  * off the bench and tumbles away, and the right one drops into its place in
  * a burst of sparkles. Both words are the learner's own and the course's
- * correction, which the feedback below already shows.
+ * correction, which the feedback beside it already shows. A green strip on
+ * the rail stays under the word that was put right: the finished pose, the
+ * one reduced motion draws, still says which block changed.
  */
 export function feedback(s: Stage, spec: Extract<SceneSpec, { scene: 'feedback' }>): { replay(): void } {
   const wrong = block(s, spec.wrong, C.birch, { mat: { emissive: 0xff2a10 } });
@@ -43,6 +45,12 @@ export function feedback(s: Stage, spec: Extract<SceneSpec, { scene: 'feedback' 
   ring.rotation.x = -Math.PI / 2;
   ring.position.set(x, railTop + 0.02, 0);
   s.scene.add(ring);
+  // What stays once the swap is over (and all that reduced motion shows):
+  // a green strip on the rail under the block that was put right.
+  const strip = new Mesh(new BoxGeometry(Math.max(wrong.w, right.w) * 0.86, 0.06, 0.05), s.kit.lacquer(C.good, { noGrain: true, clearcoat: 1 }));
+  strip.position.set(x, railTop - 0.07, 0.61);
+  strip.scale.x = 0.001;
+  s.scene.add(strip);
   motes(s, 50, [9, 4, 4]);
   // Colour management is on: these are sRGB and converted once, here.
   const tint = new Color(0xf0a89c);
@@ -88,7 +96,8 @@ export function feedback(s: Stage, spec: Extract<SceneSpec, { scene: 'feedback' 
     const gl = clamp01((t - landAt) / 1.3);
     ringMaterial.opacity = t > landAt ? 0.9 * (1 - gl) : 0;
     ring.scale.setScalar(1 + gl * 1.6);
-    rightMaterial.emissiveIntensity = t > landAt ? 0.45 * (1 - gl) : 0;
+    rightMaterial.emissiveIntensity = t > landAt ? 0.45 * (1 - gl) + 0.12 * gl : 0;
+    strip.scale.x = Math.max(0.001, easeOutCubic(clamp01((t - landAt) / 0.5)));
     s.scene.rotation.y = Math.sin(t * 0.3) * 0.04;
   });
   return {

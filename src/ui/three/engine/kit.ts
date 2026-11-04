@@ -48,6 +48,8 @@ export interface LacquerOptions {
 
 /** The typeface of every German word in the app: Nunito, rounded, heavy. */
 const LABEL_FONT = '"Nunito", "Onest", system-ui, sans-serif';
+/** The lettering's canvas width: enough for a block about 250 CSS pixels wide on a two-pixel screen. */
+const LABEL_W = 512;
 
 function luminance(hex: number): number {
   const r = ((hex >> 16) & 255) / 255;
@@ -72,8 +74,10 @@ export class Kit {
   private readonly cache = new Map<string, Texture>();
   private readonly labels = new Set<Texture>();
   private disposed = false;
+  private repaintQueued = false;
 
-  constructor(readonly rand: () => number) {}
+  /** `repainted` is told, once a frame at most, that lettering was painted again. */
+  constructor(readonly rand: () => number, private readonly repainted: () => void = () => {}) {}
 
   canvasTexture(key: string, w: number, h: number, paint: (g: CanvasRenderingContext2D, w: number, h: number) => void, repeat?: number): Texture {
     const held = this.cache.get(key);
@@ -178,8 +182,8 @@ export class Kit {
    */
   label(text: string, w: number, h: number, ink: string): CanvasTexture {
     const canvas = document.createElement('canvas');
-    const W = 640;
-    const H = Math.max(80, Math.round((640 * h) / w));
+    const W = LABEL_W;
+    const H = Math.max(64, Math.round((LABEL_W * h) / w));
     canvas.width = W;
     canvas.height = H;
     const g = canvas.getContext('2d');
@@ -189,11 +193,13 @@ export class Kit {
     const paint = () => {
       if (!g || this.disposed || !this.labels.has(texture)) return;
       g.clearRect(0, 0, W, H);
-      let size = Math.round(H * 0.56);
-      do {
-        g.font = `800 ${size}px ${LABEL_FONT}`;
-        size -= 4;
-      } while (g.measureText(text).width > W * 0.84 && size > 12);
+      // Measured once and scaled: lettering is as wide as its size, so one
+      // measurement says what size fits, without trying size after size.
+      const largest = Math.round(H * 0.56);
+      g.font = `800 ${largest}px ${LABEL_FONT}`;
+      const wide = g.measureText(text).width;
+      const size = wide > W * 0.84 ? Math.max(12, Math.floor((largest * W * 0.84) / wide)) : largest;
+      g.font = `800 ${size}px ${LABEL_FONT}`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       const light = ink === '#FFFFFF';
@@ -205,10 +211,25 @@ export class Kit {
     };
     this.labels.add(texture);
     paint();
-    if (typeof document !== 'undefined' && document.fonts?.load) {
-      document.fonts.load(`800 48px ${LABEL_FONT}`).then(paint, () => undefined);
+    // Painted again once the typeface is in, unless it already was.
+    const font = `800 48px ${LABEL_FONT}`;
+    const fonts = typeof document === 'undefined' ? undefined : document.fonts;
+    if (fonts?.load && !fonts.check?.(font)) {
+      fonts.load(font).then(() => {
+        paint();
+        this.queueRepaint();
+      }, () => undefined);
     }
     return texture;
+  }
+
+  private queueRepaint(): void {
+    if (this.repaintQueued || this.disposed) return;
+    this.repaintQueued = true;
+    requestAnimationFrame(() => {
+      this.repaintQueued = false;
+      if (!this.disposed) this.repainted();
+    });
   }
 
   /** Let a label go before its kit does, as when the slot is retyped. */

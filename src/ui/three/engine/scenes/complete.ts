@@ -75,11 +75,15 @@ export function complete(s: Stage, spec: Extract<SceneSpec, { scene: 'complete' 
   for (const x of [-widest / 2, widest / 2]) for (const y of [0.3, height]) for (const z of [-0.4, 0.4]) frame.push(new Vector3(x, y, z));
   for (const x of [-radius, radius]) frame.push(new Vector3(x, 0, 0), new Vector3(x, 0.3, 0));
   frame.push(new Vector3(0, 0, radius));
-  const view = s.frame(frame, new Vector3(0, 0.22, 1), 0.92);
-  s.cam.look.copy(view.look);
-  s.cam.pos.copy(view.pos);
+  let view = { look: new Vector3(), pos: new Vector3() };
+  let toward = new Vector3();
+  s.framing(() => {
+    view = s.frame(frame, new Vector3(0, 0.22, 1), 0.92);
+    s.cam.look.copy(view.look);
+    s.cam.pos.copy(view.pos);
+    toward = view.look.clone().sub(view.pos);
+  });
   s.cam.parallax = 0.5;
-  const toward = view.look.clone().sub(view.pos);
   s.stillTime = 3.4;
 
   const N = 180;

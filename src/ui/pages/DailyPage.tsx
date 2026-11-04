@@ -1,13 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { checkpointById, scriptById, scriptAnswerCount, patternById } from '../../content/browser.ts';
+import { checkpointById, lessonById, scriptById, scriptAnswerCount, patternById } from '../../content/browser.ts';
 import { otherExamples, phraseFrame } from '../../content/phraseFrames.ts';
 import { todayHere } from '../../core/progress/days.ts';
 import { GOAL_LABELS, type DailyRunInput } from '../../core/progress/daily.ts';
 import { secondsPerAnswer } from '../../core/progress/session.ts';
 import { newWriteId } from '../../services/api/outbox.ts';
 import { useApp } from '../../state/AppState.tsx';
-import { chooseDailyScript, dailyListening, dailyPhrases, dailyReview, fitsGoal, goalScripts, phraseRecall } from '../dailyBuilder.ts';
+import { chooseDailyScript, dailyListening, dailyPhrases, dailyReview, fitsGoal, goalScripts, phraseNewWords, phraseRecall } from '../dailyBuilder.ts';
 import { AudioButton, Card, Meter } from '../components/bits.tsx';
 import { ExercisePlayer, type PlayerSummary } from '../components/ExercisePlayer.tsx';
 import { Icon } from '../components/icons.tsx';
@@ -203,8 +203,12 @@ function DailyPractice() {
     const freshCards = phrases.filter(card => !card.again && !earlierToday.has(card.german));
     const fresh = freshCards.length;
     const again = phrases.length - fresh;
-    // The words of the phrases met for the first time today: the tower's blocks.
-    const newWords = freshCards.flatMap(card => card.words).map(entry => ({ display: entry.display, article: nounArticle(entry) }));
+    // The words of the phrases met for the first time today that are new
+    // words too, not ones already in review or taught by a finished lesson:
+    // the tower's blocks. None new, no tower.
+    const known = new Set([...metBefore.map(item => item.refId),
+      ...Object.values(lessons).filter(progress => progress.completedAt).flatMap(progress => lessonById(progress.lessonId)?.vocabIds ?? [])]);
+    const newWords = phraseNewWords(freshCards, known).map(entry => ({ display: entry.display, article: nounArticle(entry) }));
     const onward = nextOffer(next);
     // Once the day is done, the course's next step is still offered, quietly,
     // as Today offers it: the finish used to hide it behind a tap on Today.

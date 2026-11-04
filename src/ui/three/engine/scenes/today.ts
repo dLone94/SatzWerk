@@ -143,13 +143,14 @@ export function today(s: Stage, spec: Extract<SceneSpec, { scene: 'today' }>): v
   s.scene.add(moonGlow);
   motes(s, 70, [8, 4, 6], 0xffd48a);
 
-  // The whole town in view, whatever the shape of the slot.
   // The whole town in view whatever the slot's shape, with the sky above
   // it left for the label chip.
   const base = new Vector3(0, 5.1, 9.6);
-  const k = Math.max(1.06, s.fit(8.6) / base.length());
-  s.cam.pos.copy(base).multiplyScalar(k);
-  s.cam.look.set(0, 1.15, 0);
+  s.framing(() => {
+    const k = Math.max(1.06, s.fit(8.6) / base.length());
+    s.cam.pos.copy(base).multiplyScalar(k);
+    s.cam.look.set(0, 1.15, 0);
+  });
   s.cam.parallax = 0.6;
 
   let smokeClock = 0;

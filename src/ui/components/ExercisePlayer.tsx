@@ -398,6 +398,7 @@ export function ExercisePlayer({
     setUsedBank([]);
     setSupportNote(null);
     setReplaysUsed(0);
+    setReplays(0);
     setSubmitted('');
     setAnnouncement('');
     // Focused inside the tap on Continue as well as after the render: iOS only
@@ -852,6 +853,11 @@ export function ExercisePlayer({
         data-exercise-id={exercise.id}
         data-kind={exercise.kind}
       >
+        {/* The rail comes first, above the question, never between it and the
+            field: with a phone's keyboard open, the browser scrolls the field
+            into view, and what is pushed out of sight is then the picture,
+            not the sentence the gap belongs to. */}
+        {railScene ? <WoodScene key={step.id} spec={railScene} ghost={ghostText(value, railScene.tail)} /> : null}
         {step.instruction ? (
           <p className="task__instruction" id="player-instruction">
             {say(step.instruction)}
@@ -960,7 +966,6 @@ export function ExercisePlayer({
           </div>
         ) : (
           <>
-            {railScene ? <WoodScene key={step.id} spec={railScene} ghost={ghostText(value, railScene.tail)} /> : null}
             {wordBank && phase === 'answer' ? (
               <div className="bank">
                 <p className="bank__label">{t('exerciseWordBank')}</p>
@@ -1144,14 +1149,12 @@ export function ExercisePlayer({
           ) : null}
 
           {swapScene ? (
-            <WoodScene
-              key={step.id}
-              spec={swapScene}
-              replay={replays}
-              label={t('sceneFeedbackLabel', { wrong: swapScene.wrong, right: swapScene.right })}
-            >
+            /* A picture of what the comparison above already says, word for
+               word: hidden from assistive technology like the question's rail. */
+            <WoodScene key={step.id} spec={swapScene} replay={replays}>
               {sceneMoves ? (
-                <button type="button" className="wood-scene__replay" onClick={() => setReplays((count) => count + 1)}>
+                <button type="button" className="wood-scene__replay" aria-label={t('sceneShowAgainLabel')}
+                  onClick={() => setReplays((count) => count + 1)}>
                   <Icon name="review" size={16} />
                   {t('sceneShowAgain')}
                 </button>

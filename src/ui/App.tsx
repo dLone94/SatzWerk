@@ -12,26 +12,27 @@ import { dueItems } from '../core/srs/scheduler.ts';
 import { reviewItemsForPath } from './reviewBuilder.ts';
 import { DackelMark } from './components/Dackel.tsx';
 import { arrivedAt } from '../services/offline/register.ts';
+import { track } from '../services/loading.ts';
 
 import { RouteContent, RouteLoading } from './components/RouteContent.tsx';
 
-const CoachPage = lazy(() => import('./pages/CoachPage.tsx').then(module => ({ default: module.CoachPage })));
-const DailyPage = lazy(() => import('./pages/DailyPage.tsx').then(module => ({ default: module.DailyPage })));
-const CheckpointPage = lazy(() => import('./pages/CheckpointPage.tsx').then(module => ({ default: module.CheckpointPage })));
-const CoursePage = lazy(() => import('./pages/CoursePage.tsx').then(module => ({ default: module.CoursePage })));
-const LessonPage = lazy(() => import('./pages/LessonPage.tsx').then(module => ({ default: module.LessonPage })));
-const LoginPage = lazy(() => import('./pages/LoginPage.tsx').then(module => ({ default: module.LoginPage })));
-const MistakesPage = lazy(() => import('./pages/MistakesPage.tsx').then(module => ({ default: module.MistakesPage })));
-const OnboardingPage = lazy(() => import('./pages/OnboardingPage.tsx').then(module => ({ default: module.OnboardingPage })));
-const PlacementPage = lazy(() => import('./pages/PlacementPage.tsx').then(module => ({ default: module.PlacementPage })));
-const RealLifePage = lazy(() => import('./pages/RealLifePage.tsx').then(module => ({ default: module.RealLifePage })));
-const ScenarioPage = lazy(() => import('./pages/ScenarioPage.tsx').then(module => ({ default: module.ScenarioPage })));
-const ReviewPage = lazy(() => import('./pages/ReviewPage.tsx').then(module => ({ default: module.ReviewPage })));
-const SessionPage = lazy(() => import('./pages/SessionPage.tsx').then(module => ({ default: module.SessionPage })));
-const SettingsPage = lazy(() => import('./pages/SettingsPage.tsx').then(module => ({ default: module.SettingsPage })));
-const SetupPage = lazy(() => import('./pages/SetupPage.tsx').then(module => ({ default: module.SetupPage })));
-const VocabularyPage = lazy(() => import('./pages/VocabularyPage.tsx').then(module => ({ default: module.VocabularyPage })));
-const WordPage = lazy(() => import('./pages/WordPage.tsx').then(module => ({ default: module.WordPage })));
+const CoachPage = lazy(() => track(import('./pages/CoachPage.tsx')).then(module => ({ default: module.CoachPage })));
+const DailyPage = lazy(() => track(import('./pages/DailyPage.tsx')).then(module => ({ default: module.DailyPage })));
+const CheckpointPage = lazy(() => track(import('./pages/CheckpointPage.tsx')).then(module => ({ default: module.CheckpointPage })));
+const CoursePage = lazy(() => track(import('./pages/CoursePage.tsx')).then(module => ({ default: module.CoursePage })));
+const LessonPage = lazy(() => track(import('./pages/LessonPage.tsx')).then(module => ({ default: module.LessonPage })));
+const LoginPage = lazy(() => track(import('./pages/LoginPage.tsx')).then(module => ({ default: module.LoginPage })));
+const MistakesPage = lazy(() => track(import('./pages/MistakesPage.tsx')).then(module => ({ default: module.MistakesPage })));
+const OnboardingPage = lazy(() => track(import('./pages/OnboardingPage.tsx')).then(module => ({ default: module.OnboardingPage })));
+const PlacementPage = lazy(() => track(import('./pages/PlacementPage.tsx')).then(module => ({ default: module.PlacementPage })));
+const RealLifePage = lazy(() => track(import('./pages/RealLifePage.tsx')).then(module => ({ default: module.RealLifePage })));
+const ScenarioPage = lazy(() => track(import('./pages/ScenarioPage.tsx')).then(module => ({ default: module.ScenarioPage })));
+const ReviewPage = lazy(() => track(import('./pages/ReviewPage.tsx')).then(module => ({ default: module.ReviewPage })));
+const SessionPage = lazy(() => track(import('./pages/SessionPage.tsx')).then(module => ({ default: module.SessionPage })));
+const SettingsPage = lazy(() => track(import('./pages/SettingsPage.tsx')).then(module => ({ default: module.SettingsPage })));
+const SetupPage = lazy(() => track(import('./pages/SetupPage.tsx')).then(module => ({ default: module.SetupPage })));
+const VocabularyPage = lazy(() => track(import('./pages/VocabularyPage.tsx')).then(module => ({ default: module.VocabularyPage })));
+const WordPage = lazy(() => track(import('./pages/WordPage.tsx')).then(module => ({ default: module.WordPage })));
 
 /** How often the "No connection" screen tries again on its own. */
 const OFFLINE_RETRY_MS = 15_000;

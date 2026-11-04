@@ -46,15 +46,24 @@ export interface SpawnOptions {
   gravity?: number;
 }
 
+/** One puff or burst of sparkles: its particles share one material and fade together. */
+interface Burst {
+  material: SpriteMaterial;
+  age: number;
+  life: number;
+  base: number;
+  left: number;
+}
+
 interface Particle {
   sprite: Sprite;
+  burst: Burst;
   v: Vector3;
   life: number;
   age: number;
   size: number;
   grow: number;
   gravity: number;
-  base: number;
 }
 
 export interface StageOptions {
@@ -65,6 +74,8 @@ export interface StageOptions {
   onReady: () => void;
   /** The browser took the WebGL context away. */
   onLost: () => void;
+  /** Build the scene again in a fresh canvas: its slot changed shape past what its layout allows. */
+  rebuild?: () => void;
 }
 
 /*
@@ -74,6 +85,16 @@ export interface StageOptions {
  * be compared with it and tuned in one place.
  */
 const PHYSICAL = Math.PI;
+
+/** Once the scene's story is told, the ambient motion is drawn at most this often. */
+const AMBIENT_FPS = 30;
+/**
+ * Seconds of ambient motion after the story, and after the last thing that
+ * happened (the pointer, typing, "Show again"), before the loop rests on
+ * its last frame. A picture that has settled costs no battery; the pointer
+ * or the next keystroke wakes it.
+ */
+const SETTLE_AFTER = 5;
 
 /** A soft studio surround for the lacquer to reflect: warm by day, blue at dusk. */
 function environment(renderer: WebGLRenderer, mood: Mood): WebGLRenderTarget {
@@ -128,6 +149,9 @@ export class Stage {
 
   private readonly frames: FrameFn[] = [];
   private particles: Particle[] = [];
+  private readonly framers: Array<() => void> = [];
+  /** The scene's clock when something last happened that is worth watching. */
+  private stirredAt = 0;
   private fired = new Set<string>();
   private readonly pointer = { x: 0, y: 0, tx: 0, ty: 0 };
   private readonly envTarget: WebGLRenderTarget;
@@ -143,8 +167,12 @@ export class Stage {
   constructor(readonly canvas: HTMLCanvasElement, private readonly options: StageOptions) {
     this.still = options.still;
     this.rand = seeded(7);
-    this.kit = new Kit(this.rand);
-    this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+    // Lettering repainted once the app's typeface has loaded is drawn again.
+    this.kit = new Kit(this.rand, () => this.redraw());
+    // The default GPU, not the fast one: on a laptop with two, decoration is
+    // no reason to wake the one that drains the battery. A renderer that
+    // would draw in software fails here, and the picture stays.
+    this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, failIfMajorPerformanceCaveat: true });
     // Two device pixels per CSS pixel is as sharp as a phone shows; three
     // would cost more than twice the work for nothing anyone sees.
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -187,10 +215,12 @@ export class Stage {
         const r = canvas.getBoundingClientRect();
         this.pointer.tx = ((e.clientX - r.left) / r.width) * 2 - 1;
         this.pointer.ty = ((e.clientY - r.top) / r.height) * 2 - 1;
+        this.stir();
       });
       this.listen(canvas, 'pointerleave', () => {
         this.pointer.tx = 0;
         this.pointer.ty = 0;
+        this.stir();
       });
       // Nothing is drawn while the tab is hidden or the canvas is scrolled away.
       this.listen(document, 'visibilitychange', () => this.wake());
@@ -204,14 +234,23 @@ export class Stage {
       }
     }
     if (typeof ResizeObserver !== 'undefined') {
+      // A window resized, a tablet turned, a split screen: the scene is
+      // framed again for its slot's new shape, not left cropped.
       const ro = new ResizeObserver(() => {
-        this.size();
-        if (this.still && this.started) this.draw(this.stillTime, 0);
+        if (!this.size()) return;
+        for (const framer of this.framers) framer();
+        this.invalidate();
       });
       ro.observe(canvas);
       this.cleanups.push(() => ro.disconnect());
     }
-    this.size();
+    if (!this.size()) {
+      // Not laid out (yet): a stand-in shape, never drawn at, until the
+      // ResizeObserver reports the real one.
+      this.renderer.setSize(390, 300, false);
+      this.camera.aspect = 390 / 300;
+      this.camera.updateProjectionMatrix();
+    }
   }
 
   private listen(target: EventTarget, type: string, fn: (event: Event) => void): void {
@@ -219,12 +258,29 @@ export class Stage {
     this.cleanups.push(() => target.removeEventListener(type, fn));
   }
 
-  private size(): void {
-    const w = this.canvas.clientWidth || 390;
-    const h = this.canvas.clientHeight || 300;
+  /** Match the canvas's laid-out size. False, and nothing changed, while it has none. */
+  private size(): boolean {
+    const w = this.canvas.clientWidth;
+    const h = this.canvas.clientHeight;
+    if (!w || !h) return false;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    return true;
+  }
+
+  /**
+   * Point the camera for the slot's shape: run now, and again whenever the
+   * slot is resized. A scene frames itself with this, never once only.
+   */
+  framing(fn: () => void): void {
+    this.framers.push(fn);
+    fn();
+  }
+
+  /** Ask for the scene to be built again in a fresh canvas (see StageOptions.rebuild). */
+  rebuild(): void {
+    if (this.alive) this.options.rebuild?.();
   }
 
   get aspect(): number {
@@ -300,17 +356,25 @@ export class Stage {
   /** Short-lived dust puffs and sparkles. None at all under reduced motion. */
   spawn(at: Vector3, o: SpawnOptions): void {
     if (this.still) return;
-    const glow = this.kit.glow();
-    for (let i = 0; i < (o.count ?? 10); i++) {
-      const material = new SpriteMaterial({
-        map: glow,
+    const count = o.count ?? 10;
+    const life = o.life ?? 0.8;
+    // One material for the whole burst: its particles fade together.
+    const burst: Burst = {
+      material: new SpriteMaterial({
+        map: this.kit.glow(),
         color: o.color ?? 0xffffff,
         transparent: true,
         depthWrite: false,
         opacity: o.opacity ?? 0.8,
         blending: o.additive ? AdditiveBlending : NormalBlending,
-      });
-      const sprite = new Sprite(material);
+      }),
+      age: 0,
+      life: life * 1.3,
+      base: o.opacity ?? 0.8,
+      left: count,
+    };
+    for (let i = 0; i < count; i++) {
+      const sprite = new Sprite(burst.material);
       const a = this.rand() * Math.PI * 2;
       const up = o.up ?? 0.6;
       const speed = (o.speed ?? 1) * (0.5 + this.rand());
@@ -318,42 +382,50 @@ export class Stage {
       this.scene.add(sprite);
       this.particles.push({
         sprite,
+        burst,
         v: new Vector3(Math.cos(a) * speed, up * (0.5 + this.rand()) * (o.speed ?? 1), Math.sin(a) * speed * 0.6),
-        life: (o.life ?? 0.8) * (0.7 + this.rand() * 0.6),
+        life: life * (0.7 + this.rand() * 0.6),
         age: 0,
         size: (o.size ?? 0.25) * (0.6 + this.rand() * 0.8),
         grow: o.grow ?? 1.5,
         gravity: o.gravity ?? 0,
-        base: o.opacity ?? 0.8,
       });
     }
   }
 
   private stepParticles(dt: number): void {
+    const bursts = new Set<Burst>();
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i]!;
       p.age += dt;
       const k = p.age / p.life;
       if (k >= 1) {
         this.scene.remove(p.sprite);
-        p.sprite.material.dispose();
+        if (--p.burst.left === 0) p.burst.material.dispose();
         this.particles.splice(i, 1);
         continue;
       }
+      bursts.add(p.burst);
       p.v.y -= p.gravity * dt;
       p.v.multiplyScalar(1 - dt * 1.8);
       p.sprite.position.addScaledVector(p.v, dt);
       const s = p.size * (1 + k * p.grow);
       p.sprite.scale.set(s, s, 1);
-      p.sprite.material.opacity = p.base * (1 - k) * (1 - k);
+    }
+    for (const burst of bursts) {
+      burst.age += dt;
+      const k = Math.min(1, burst.age / burst.life);
+      burst.material.opacity = burst.base * (1 - k) * (1 - k);
     }
   }
 
   private clearParticles(): void {
+    const materials = new Set<SpriteMaterial>();
     for (const p of this.particles) {
       this.scene.remove(p.sprite);
-      p.sprite.material.dispose();
+      materials.add(p.burst.material);
     }
+    materials.forEach((material) => material.dispose());
     this.particles = [];
   }
 
@@ -381,10 +453,23 @@ export class Stage {
     this.raf = 0;
     if (!this.running()) return;
     const elapsed = this.last ? (now - this.last) / 1000 : 0;
+    // The story is drawn at the display's rate; the ambient motion after it
+    // at most AMBIENT_FPS, which looks the same and costs half or less.
+    if (this.last && this.t > this.stillTime && elapsed < 1 / AMBIENT_FPS - 0.004) {
+      this.raf = requestAnimationFrame(this.tick);
+      return;
+    }
     this.last = now;
     // The story keeps to the clock on a slow phone, a quarter of a second at
     // most per frame; dust and sparkles step at most a twentieth.
     this.t += Math.min(0.25, elapsed);
+    if (this.t - Math.max(this.stillTime, this.stirredAt) > SETTLE_AFTER) {
+      // Settled: the last frame stays on the canvas, without dust in mid-air,
+      // and nothing is drawn until something happens.
+      this.clearParticles();
+      this.draw(this.t, 0);
+      return;
+    }
     this.draw(this.t, Math.min(0.05, elapsed));
     this.raf = requestAnimationFrame(this.tick);
   };
@@ -397,6 +482,20 @@ export class Stage {
     this.raf = requestAnimationFrame(this.tick);
   }
 
+  /** Something happened worth watching: keep moving a while longer, or start again. */
+  private stir(): void {
+    this.stirredAt = this.t;
+    this.wake();
+  }
+
+  /** The slot changed: show it now, whether or not the loop is running. */
+  private invalidate(): void {
+    if (!this.started || !this.alive) return;
+    if (this.still) this.draw(this.stillTime, 0);
+    else if (!this.raf) this.draw(this.t, 0);
+  }
+
+
   start(): void {
     this.started = true;
     if (this.still) {
@@ -408,9 +507,11 @@ export class Stage {
     this.wake();
   }
 
-  /** Draw again under reduced motion, after something changed. */
+  /** Something in the scene changed: draw it, once under reduced motion, else by waking the loop. */
   redraw(): void {
-    if (this.still && this.started && this.alive) this.draw(this.stillTime, 0);
+    if (!this.started || !this.alive) return;
+    if (this.still) this.draw(this.stillTime, 0);
+    else this.stir();
   }
 
   /** Play the scene from the start. */
@@ -419,8 +520,8 @@ export class Stage {
     this.clearParticles();
     this.t = 0;
     this.last = 0;
-    if (this.still) this.redraw();
-    else this.wake();
+    this.stirredAt = 0;
+    this.redraw();
   }
 
   dispose(): void {
@@ -445,7 +546,8 @@ export class Stage {
     this.renderer.dispose();
     // Give the context back now, not whenever the garbage collector gets to
     // it: a browser holds only about sixteen, and a learner moving quickly
-    // between pages would otherwise run through them.
-    this.renderer.forceContextLoss();
+    // between pages would otherwise run through them. A context the browser
+    // already took has nothing left to give.
+    if (!this.renderer.getContext().isContextLost()) this.renderer.forceContextLoss();
   }
 }

@@ -295,13 +295,26 @@ body { background: var(--paper); }
 .done-hero:has(.done-hero__tower) { padding-top: 1rem; }
 .done-hero__top:has(.done-hero__tower) .score-ring__dial { width: 7rem; height: 7rem; }
 .done-hero__top:has(.done-hero__tower) .score-ring__num { font-size: 1.7rem; }
+/* On a phone the row is too narrow to share, above all with the longer
+   Bulgarian caption: the tower takes the full width, and the score sits in
+   one row under it, so "Next" still stays on the first screen. */
+@media (max-width: 480px) {
+  .done-hero:has(.done-hero__tower) { padding-top: 0.75rem; }
+  .done-hero__top:has(.done-hero__tower) { flex-direction: column; gap: 6px; }
+  .done-hero__top .done-hero__tower { flex: none; width: 100%; max-width: none; height: 176px; }
+  .done-hero__top:has(.done-hero__tower) .score-ring { flex-direction: row; gap: 0.75rem; }
+  .done-hero__top:has(.done-hero__tower) .score-ring__dial { width: 4.5rem; height: 4.5rem; }
+  .done-hero__top:has(.done-hero__tower) .score-ring__num { font-size: 1.3rem; }
+  .done-hero__top:has(.done-hero__tower) .score-ring__caption { max-width: 13rem; text-align: left; }
+}
 /* The day's finish: the tower takes the dachshund's place at its size. */
 .daily-finished__tower.wood-scene--complete { width: 260px; max-width: 100%; height: auto; margin: 0 auto 12px; border-radius: 20px; }
 .daily-finished__tower .daily-finished__scene { margin: 0; }
 /* On a short phone the answer field comes first; the rail is only decoration. */
 @media (max-height: 640px) { .wood-scene--question { display: none; } }
-.wood-scene__chip { position: absolute; left: 12px; top: 12px; display: flex; align-items: center; gap: 6px; max-width: calc(100% - 24px); padding: 6px 10px; border-radius: 10px; background: #fbf6ec; color: #1e1b17; font-size: 13px; font-weight: 700; line-height: 1.25; box-shadow: 0 3px 0 rgb(30 27 23 / 12%); }
-.wood-scene__chip::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 4px; background: #f2b630; }
+/* One line at most, cut short with an ellipsis: the card above says it in full. */
+.wood-scene__chip { position: absolute; left: 12px; top: 12px; display: block; max-width: calc(100% - 24px); padding: 6px 10px; border-radius: 10px; background: #fbf6ec; color: #1e1b17; font-size: 13px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 3px 0 rgb(30 27 23 / 12%); }
+.wood-scene__chip::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 4px; background: #f2b630; vertical-align: 1px; }
 .wood-scene__replay { position: absolute; right: 10px; top: 10px; display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border: 0; border-radius: 11px; background: #fbf6ec; color: #1e1b17; font: inherit; font-size: 13px; font-weight: 700; box-shadow: 0 3px 0 rgb(30 27 23 / 14%); cursor: pointer; }
 .wood-scene__replay:focus-visible { outline: 3px solid var(--focus, #2f6fdb); outline-offset: 2px; }
 

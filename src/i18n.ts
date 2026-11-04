@@ -1176,10 +1176,10 @@ export const UI = {
    * are the course's own.
    */
   sceneNextStop: s('Next stop', 'Следваща спирка'),
-  sceneTodayLabel: s('A small wooden town at dusk. {place}, your next step today, is lit up.', 'Малко дървено градче привечер. {place} – следващата ти стъпка за днес – свети.'),
-  sceneTodayDoneLabel: s('A small wooden town at dusk with every window lit. {place}', 'Малко дървено градче привечер, всички прозорци светят. {place}'),
+  sceneTodayLabel: s('A small wooden town at dusk; the house of your next step is lit up.', 'Малко дървено градче привечер; къщата на следващата ти стъпка свети.'),
+  sceneTodayDoneLabel: s('A small wooden town at dusk with every window lit.', 'Малко дървено градче привечер, всички прозорци светят.'),
   sceneShowAgain: s('Show again', 'Покажи отново'),
-  sceneFeedbackLabel: s('Wooden blocks on a rail: the block {wrong} tips off, and the block {right} drops into its place.', 'Дървени блокчета върху релса: блокчето {wrong} пада, а блокчето {right} заема мястото му.'),
+  sceneShowAgainLabel: s('Show again: the blocks swap places', 'Покажи отново: блокчетата си разменят местата'),
   sceneCompleteLabel: s('{n} new words stack into a wooden tower with a star on top: {words}.', '{n} нови думи се подреждат в дървена кула със звезда на върха: {words}.'),
   sceneCompleteLabelOne: s('{n} new word sits on a wooden plinth with a star on top: {words}.', '{n} нова дума стои на дървена поставка със звезда отгоре: {words}.'),
   sceneCompleteSomeLabel: s('{shown} of the {n} new words stack into a wooden tower with a star on top: {words}.', '{shown} от {n}-те нови думи се подреждат в дървена кула със звезда на върха: {words}.'),

@@ -285,13 +285,14 @@ export function DashboardPage() {
             </p>
           ) : null}
         </div>
-        {/* The wooden town, its lit building today's step, named in its label
-            from the same title as the card; the chip only repeats it for the
-            eye. The dachshund stays wherever the town is not drawn. */}
+        {/* The wooden town, its lit building today's step. Its label does not
+            repeat the card's title, which is read just before it; the chip
+            only repeats it for the eye. The dachshund stays wherever the town
+            is not drawn. */}
         <WoodScene
           spec={todayTown({ step: step.kind, scenarioId: practising ? scenario?.id : undefined })}
           className="today-plan__scene hw-scene hw-scene--today"
-          label={t(step.kind === 'done' ? 'sceneTodayDoneLabel' : 'sceneTodayLabel', { place: title })}
+          label={t(step.kind === 'done' ? 'sceneTodayDoneLabel' : 'sceneTodayLabel')}
           fallback={<DackelScene className="today-plan__scene hw-scene hw-scene--today" />}
         >
           {step.kind === 'done' ? null : (

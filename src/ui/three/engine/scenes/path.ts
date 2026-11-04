@@ -99,7 +99,9 @@ export function path(s: Stage, spec: Extract<SceneSpec, { scene: 'path' }>): voi
         board.add(mark);
       }
     } else {
-      disc = new Mesh(stepGeometry, f < walked ? walkedMaterial : stepMaterial);
+      // Walked: up to the pawn, and only on from a lesson that is done.
+      const from = Math.floor(f / PER_GAP);
+      disc = new Mesh(stepGeometry, f < walked && spec.stations[from] === 'done' ? walkedMaterial : stepMaterial);
     }
     disc.position.set(p.x, station ? 0.07 : 0.04, p.z);
     disc.castShadow = true;
@@ -152,8 +154,9 @@ export function path(s: Stage, spec: Extract<SceneSpec, { scene: 'path' }>): voi
   halo.rotation.x = -Math.PI / 2;
   board.add(halo);
 
-  // A hop needs a station behind it: on the first lesson the pawn just stands at the start.
-  const roll = current > 0 ? PER_GAP : 0;
+  // A hop needs a finished lesson behind it: on the first lesson, or after
+  // one left undone, the pawn just stands where it is.
+  const roll = current > 0 && spec.stations[current - 1] === 'done' ? PER_GAP : 0;
   const target = current * PER_GAP;
   const startField = target - roll;
   const cube = roll > 0 ? die(s, roll) : undefined;
@@ -186,10 +189,19 @@ export function path(s: Stage, spec: Extract<SceneSpec, { scene: 'path' }>): voi
     }
   }
   if (to === total) framed.push(board.localToWorld(new Vector3(end.x + 0.9, 2.4, end.z)), board.localToWorld(new Vector3(end.x + 1.4, 0, end.z + 0.5)));
-  const { look, pos } = s.frame(framed, new Vector3(0, 0.8, 0.6));
-  s.cam.look.copy(look);
-  s.cam.pos.copy(pos);
-  const camBase = s.cam.pos.clone();
+  const camBase = new Vector3();
+  s.framing(() => {
+    // The board lies one way or the other by the slot's shape: past that
+    // point it is laid out again rather than seen side on.
+    if ((s.aspect >= 1.6) !== landscape) {
+      s.rebuild();
+      return;
+    }
+    const { look, pos } = s.frame(framed, new Vector3(0, 0.8, 0.6));
+    s.cam.look.copy(look);
+    s.cam.pos.copy(pos);
+    camBase.copy(pos);
+  });
   s.onFrame((t) => {
     if (cube) {
       const r = clamp01((t - rollT0) / rollDur);

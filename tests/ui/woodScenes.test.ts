@@ -5,7 +5,10 @@ import { splitScaffold } from '../../src/core/validation/text.ts';
 import { pathBoard } from '../../src/ui/three/board.ts';
 import { feedbackScene, feedbackSwap, ghostText, paintRow, questionBlocks, railTokens, MAX_RAIL_BLOCKS } from '../../src/ui/three/rails.ts';
 import { todayTown } from '../../src/ui/three/sceneData.ts';
-import { sceneMode } from '../../src/ui/three/sceneMode.ts';
+import { exampleGap } from '../../src/ui/reviewBuilder.ts';
+import { dailyPhrases, phraseNewWords } from '../../src/ui/dailyBuilder.ts';
+import { hintMode, sceneMode } from '../../src/ui/three/sceneMode.ts';
+import { VOCABULARY } from '../../src/content/index.ts';
 import { MAX_TOWER_WORDS, completeTower, towerRows } from '../../src/ui/three/tower.ts';
 
 /**
@@ -49,6 +52,27 @@ describe('whether a scene is drawn', () => {
     expect(sceneMode({ ...capable, saveData: true })).toBe('static');
     // Low-end wins over reduced motion: nothing is downloaded at all.
     expect(sceneMode({ ...capable, saveData: true, reducedMotion: true })).toBe('static');
+  });
+
+  /* On a 3G line the engine's download held up the next lesson by seconds. */
+  it('keeps the static picture on a line the browser rates 3G or slower', () => {
+    for (const line of ['slow-2g', '2g', '3g']) expect(sceneMode({ ...capable, effectiveType: line }), line).toBe('static');
+    expect(sceneMode({ ...capable, effectiveType: '4g' })).toBe('animate');
+  });
+
+  /*
+   * The hints are read while Today renders, so they must decide without
+   * WebGL: a phone they rule out never makes a context at all, and one they
+   * allow is asked about WebGL only after the page has painted.
+   */
+  it('decides from the hints alone, before WebGL is asked', () => {
+    const { webgl: _, ...hints } = capable;
+    expect(hintMode(hints)).toBe('animate');
+    expect(hintMode({ ...hints, reducedMotion: true })).toBe('still');
+    expect(hintMode({ ...hints, hardwareConcurrency: 2 })).toBe('static');
+    expect(hintMode({ ...hints, saveData: true })).toBe('static');
+    // No WebGL to ask about at all is known without asking.
+    expect(hintMode({ ...hints, webglApi: false })).toBe('static');
   });
 });
 
@@ -112,6 +136,27 @@ describe('the question rail', () => {
     expect(rails).toBeGreaterThan(100);
   });
 
+  /* The review deck makes gap cards of its own from each word's example. */
+  it('never holds the answer on the review deck\'s own gap cards either', () => {
+    let rails = 0;
+    for (const entry of VOCABULARY) {
+      const gap = exampleGap(entry);
+      if (!gap) continue;
+      const spec = questionBlocks({ kind: 'fillBlank', scaffold: gap.scaffold }, describeNoun);
+      if (!spec) continue;
+      rails++;
+      const { before, after } = splitScaffold(gap.scaffold);
+      const blocks = [...spec.before, ...spec.after].map((block) => block.text);
+      expect(blocks, entry.id).toEqual([...railTokens(before), ...railTokens(after.slice(spec.tail.length))]);
+      expect(blocks.length + 1, entry.id).toBeLessThanOrEqual(MAX_RAIL_BLOCKS);
+      const visible = `${before} ${after}`.toLowerCase().split(/[^\p{L}]+/u);
+      if (!visible.includes(gap.answer.toLowerCase())) {
+        expect(blocks.map((text) => text.toLowerCase().replace(/[^\p{L}\s]/gu, '')), `${entry.id} shows ${gap.answer}`).not.toContain(gap.answer.toLowerCase());
+      }
+    }
+    expect(rails).toBeGreaterThan(100);
+  });
+
   it('colours a noun only where its own article stands before it on screen', () => {
     const nouns = (noun: string) => ({ Brot: { display: 'das Brot', gender: 'n' as const, plural: 'die Brote' },
       Tochter: { display: 'die Tochter', gender: 'f' as const, plural: 'die Töchter' },
@@ -124,6 +169,29 @@ describe('the question rail', () => {
     expect(paintRow(['der', 'Tochter'], nouns).map((block) => block.tone)).toEqual(['birch', 'birch']);
     expect(paintRow(['die', 'Lehrer'], nouns).map((block) => block.tone)).toEqual(['birch', 'birch']);
     expect(paintRow(['die,', 'Tochter'], nouns).map((block) => block.tone)).toEqual(['birch', 'birch']);
+  });
+
+  /* "Der Kuchen" was birch on the rail and blue on its own page. */
+  it('colours a noun whose plural looks like it, as the rest of the app does', () => {
+    const tone = (tokens: string[]) => paintRow(tokens, describeNoun).map((block) => block.tone);
+    expect(tone(['Der', 'Kuchen', 'ist', 'lecker.'])).toEqual(['der', 'der', 'birch', 'birch']);
+    expect(tone(['Das', 'Mädchen', 'heißt', 'Lena.'])).toEqual(['das', 'das', 'birch', 'birch']);
+    expect(tone(['Das', 'Zimmer', 'ist', 'hell.'])).toEqual(['das', 'das', 'birch', 'birch']);
+    // Read as a plural, it says no gender.
+    expect(tone(['die', 'Kuchen'])).toEqual(['birch', 'birch']);
+  });
+
+  /*
+   * What the gap holds can change whose article it is ("Der Mann, der ___
+   * Zug fährt" wants "den"): the two sides of the gap are never a pair.
+   */
+  it('never pairs an article and a noun across the gap', () => {
+    const tones = (scaffold: string) => {
+      const spec = questionBlocks({ kind: 'fillBlank', scaffold }, describeNoun)!;
+      return [...spec.before, ...spec.after].map((block) => block.tone);
+    };
+    expect(tones('Der ___ Zug fährt um acht.')).toEqual(['birch', 'birch', 'birch', 'birch', 'birch']);
+    expect(tones('Das Kind, das ___ Buch liest.')).toEqual(['das', 'das', 'birch', 'birch', 'birch']);
   });
 });
 
@@ -182,6 +250,25 @@ describe('the finished tower', () => {
   it('builds rows that narrow to the top', () => {
     expect([1, 2, 3, 4, 5, 6, 9].map(towerRows)).toEqual([[1], [2], [2, 1], [2, 2], [3, 2], [3, 2, 1], [3, 2, 1]]);
     for (let n = 1; n <= MAX_TOWER_WORDS; n++) expect(towerRows(n).reduce((a, b) => a + b, 0)).toBe(n);
+  });
+});
+
+describe('the day\'s tower', () => {
+  /*
+   * A B1 learner's tower read "3 new words: die Entschuldigung, glauben,
+   * passieren", all taught long before: the phrase was new, its words not.
+   */
+  it('stacks only the words of today\'s new phrases that are new words too', () => {
+    const script = SCENARIO_SCRIPTS.find((candidate) => candidate.id === 'sc-bakery-b1')!;
+    const cards = dailyPhrases(script, 'en');
+    const all = phraseNewWords(cards, new Set());
+    expect(all.map((word) => word.id)).toEqual(expect.arrayContaining(['v-entschuldigung', 'v-glauben', 'v-passieren']));
+    expect(new Set(all.map((word) => word.id)).size).toBe(all.length);
+    const known = new Set(['v-entschuldigung', 'v-glauben']);
+    expect(phraseNewWords(cards, known).map((word) => word.id)).not.toEqual(expect.arrayContaining(['v-entschuldigung']));
+    expect(phraseNewWords(cards, known).map((word) => word.id)).toContain('v-passieren');
+    // Nothing new: no tower at all.
+    expect(completeTower(phraseNewWords(cards, new Set(all.map((word) => word.id))))).toBeNull();
   });
 });
 

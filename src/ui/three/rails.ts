@@ -11,7 +11,6 @@ const ARTICLE_OF = { m: 'der', f: 'die', n: 'das' } as const;
 
 /** The most blocks one rail holds and stays legible on a phone. */
 export const MAX_RAIL_BLOCKS = 7;
-/** The most words the finished tower stacks: three, two, one. */
 
 /**
  * Words as blocks. A token that is only punctuation ("–", "/", "…") is not a
@@ -53,8 +52,10 @@ export function paintRow(tokens: string[], describeNoun: DescribeNoun): WoodBloc
     if (!/^\p{Lu}/u.test(noun)) continue;
     const info = describeNoun(noun);
     if (!info) continue;
-    // A plural that looks like its singular ("die Lehrer") shows no gender.
-    if (info.plural !== undefined && info.plural.toLowerCase().replace(/^die\s+/, '') === noun.toLowerCase()) continue;
+    // As genderParts does: an entry that is only ever plural ("die Eltern")
+    // has no gender to show. "die Lehrer" fails on its article below; "der
+    // Kuchen" and "das Zimmer" are coloured like everywhere else.
+    if (info.plural !== undefined && info.plural.toLowerCase() === info.display.toLowerCase()) continue;
     if (ARTICLE_OF[info.gender] !== article) continue;
     blocks[index]!.tone = article;
     blocks[index + 1]!.tone = article;
@@ -94,8 +95,9 @@ export function questionBlocks(step: QuestionStepLike, describeNoun: DescribeNou
   const words = [...before, ...after].filter(isWord).length;
   if (words < 2) return null;
   if (before.length + after.length + 1 > MAX_RAIL_BLOCKS) return null;
-  const painted = paintRow([...before, ...after], describeNoun);
-  return { scene: 'question', before: painted.slice(0, before.length), after: painted.slice(before.length), tail };
+  // Each side on its own: an article before the gap and a noun after it are
+  // not a pair, since what the gap holds may change whose article it is.
+  return { scene: 'question', before: paintRow(before, describeNoun), after: paintRow(after, describeNoun), tail };
 }
 
 /** What the slot shows: the learner's own typing, or a question mark. Never the answer. */

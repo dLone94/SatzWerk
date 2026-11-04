@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CURRICULUM, LEVEL_OUTLINES, checkpointById, unitForLesson } from '../../content/browser.ts';
+import { CURRICULUM, LEVEL_OUTLINES, checkpointById, unitById, unitForLesson } from '../../content/browser.ts';
 import type { CefrLevel, Level, Unit } from '../../content/types.ts';
 import { isLessonComplete } from '../../core/progress/lesson.ts';
 import { useApp } from '../../state/AppState.tsx';
@@ -56,12 +56,16 @@ export function CoursePage() {
   const lessonFirst = Boolean(current && current.level === level.id && !checkpointHere);
   // Where you are, as a board game: the unit of the lesson in hand, its
   // lessons as they really stand. Decoration with a name; the trail below
-  // is the way into each lesson.
-  const boardUnit = current ? unitForLesson(current.id) : undefined;
+  // is the way into each lesson. When the course's next step is the
+  // checkpoint closing a unit, that unit is the board, with the pawn at its
+  // gate, as Today and the card below say. A level's checkpoint has no
+  // board of its own: the dachshund stays.
+  const gateUnit = checkpointHere?.scope === 'unit' ? unitById(checkpointHere.targetId) : undefined;
+  const boardUnit = checkpointHere ? gateUnit : current ? unitForLesson(current.id) : undefined;
   const board = boardUnit ? pathBoard(boardUnit.lessons.map((lesson) => ({
     available: lesson.status === 'available',
     complete: isLessonComplete(lesson, lessons[lesson.id] ?? empty(lesson.id)),
-    current: lesson.id === current?.id,
+    current: !gateUnit && lesson.id === current?.id,
   }))) : null;
   const pawnLesson = board && boardUnit ? boardUnit.lessons[board.current] : undefined;
   const dackel = <DackelScene className="course-welcome__scene hw-scene" />;

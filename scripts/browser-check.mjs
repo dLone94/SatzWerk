@@ -435,6 +435,17 @@ try {
   const glBrowser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, headless: true,
     args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const glContext = await glBrowser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  // Every WebGL draw call counted, to see a scene come to rest.
+  await glContext.addInitScript(() => {
+    window.__draws = 0;
+    for (const proto of [WebGLRenderingContext.prototype, WebGL2RenderingContext.prototype]) {
+      for (const name of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'drawArraysInstanced']) {
+        const original = proto[name];
+        if (typeof original !== 'function') continue;
+        proto[name] = function (...args) { window.__draws++; return original.apply(this, args); };
+      }
+    }
+  });
   const glPage = await glContext.newPage();
   const glErrors = [];
   glPage.on('pageerror', error => glErrors.push(error.message));
@@ -478,8 +489,32 @@ try {
   };
   await glOpen('/');
   await expectDrawn('today', '.today-plan .wood-scene');
-  assert.match(await glPage.locator('.today-plan [role="img"]').getAttribute('aria-label'), /\S/, 'The town is a named picture');
+  assert.match(await glPage.locator('.today-plan .wood-scene__label').textContent(), /\S/, 'The town is described');
+  assert.equal(await glPage.locator('.today-plan .wood-scene__stage').getAttribute('aria-hidden'), 'true', 'The canvas itself says nothing');
+  // The engine is fetched once the page and its content are in, and the
+  // line has been quiet a while: never alongside what the learner waits for.
+  const fetchOrder = await glPage.evaluate(chunk => {
+    const resources = performance.getEntriesByType('resource');
+    const engine = resources.find(entry => entry.name.endsWith(chunk));
+    // Code fetched before it, not the engine's own pieces fetched with it.
+    const others = resources.filter(entry => entry !== engine && /\.js(\?|$)/.test(entry.name) && entry.startTime < (engine?.startTime ?? 0));
+    return { engineStart: engine?.startTime ?? -1, othersEnd: Math.max(...others.map(entry => entry.responseEnd)) };
+  }, bundle.sceneChunk.split('/').pop());
+  assert.ok(fetchOrder.engineStart >= fetchOrder.othersEnd + 1500, `The scene chunk waits for a quiet line (${JSON.stringify(fetchOrder)})`);
   await glPage.screenshot({ path: report + '/scene-today.png' });
+  // Once its story is told and a few seconds have passed with nothing
+  // happening, the town rests: no frame is drawn until something does.
+  const settledAfter = await glPage.evaluate(async () => {
+    const start = performance.now();
+    while (performance.now() - start < 25_000) {
+      const before = window.__draws;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (window.__draws === before) return Math.round(performance.now() - start);
+    }
+    return -1;
+  });
+  assert.ok(settledAfter >= 0, 'Today\'s town comes to rest instead of drawing for as long as it is open');
+  scenes.todaySettledAfterMs = settledAfter;
   await glOpen('/course');
   await expectDrawn('course', '.course-welcome .wood-scene');
   // The board is decoration with a name; the lessons are still the links.
@@ -497,10 +532,14 @@ try {
   await glPage.getByRole('textbox').fill('von');
   await glPage.getByRole('textbox').press('Enter');
   await expectDrawn('feedback', '.wood-scene--feedback');
-  await glPage.getByRole('button', { name: tr('sceneShowAgain', 'en'), exact: true }).click();
+  await glPage.getByRole('button', { name: tr('sceneShowAgainLabel', 'en'), exact: true }).click();
   await glPage.screenshot({ path: report + '/scene-feedback.png', fullPage: true });
+  // Within the app, as a learner taps between tabs: the engine is in hand
+  // after the first scene, so each visit makes a context and gives it back.
+  await glOpen('/');
+  await glPage.locator('.today-plan .wood-scene.is-live').waitFor({ timeout: 20_000 });
   for (let visit = 0; visit < 12; visit++) {
-    await glOpen(visit % 2 ? '/course' : '/');
+    await glPage.locator(`a.nav__item[href="${visit % 2 ? '/' : '/course'}"]`).click();
     await glPage.waitForTimeout(400);
   }
   await expectDrawn('today-again', '.wood-scene');

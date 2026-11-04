@@ -12,7 +12,7 @@ import type { SceneSpec } from '../../src/ui/three/sceneData.ts';
  * mount and on a quick way off the page.
  */
 
-const env = vi.hoisted(() => ({ webgl: false, reducedMotion: false }));
+const env = vi.hoisted(() => ({ webgl: false, reducedMotion: false, probes: 0, cores: undefined as number | undefined }));
 const engine = vi.hoisted(() => ({
   mounted: [] as Array<{ spec: unknown; still: boolean; disposed: boolean; ghosts: string[]; replays: number; lose: () => void }>,
   fail: false,
@@ -25,8 +25,15 @@ vi.mock('three', () => {
 
 vi.mock('../../src/ui/three/sceneMode.ts', async (original) => ({
   ...(await original<typeof import('../../src/ui/three/sceneMode.ts')>()),
-  readEnvironment: () => ({ ...env }),
+  readHints: () => ({ reducedMotion: env.reducedMotion, hardwareConcurrency: env.cores }),
+  canUseWebgl: () => {
+    env.probes++;
+    return env.webgl;
+  },
 }));
+
+// The line is always quiet here; the wait itself is tested on its own.
+vi.mock('../../src/services/loading.ts', () => ({ whenQuiet: () => Promise.resolve(), track: <T,>(work: Promise<T>) => work }));
 
 vi.mock('../../src/ui/three/engine/index.ts', () => ({
   mountScene: (host: HTMLElement, spec: unknown, options: { still: boolean; ghost?: string; onReady: () => void; onLost: () => void }) => {
@@ -53,6 +60,8 @@ const live = () => engine.mounted.filter((record) => !record.disposed);
 beforeEach(() => {
   env.webgl = false;
   env.reducedMotion = false;
+  env.probes = 0;
+  env.cores = undefined;
   engine.mounted = [];
   engine.fail = false;
 });
@@ -66,16 +75,39 @@ describe('a wooden scene without WebGL', () => {
         <span>chip</span>
       </WoodScene>,
     );
+    await waitFor(() => expect(onStatic).toHaveBeenCalled());
     expect(container.innerHTML).toBe('<p class="dackel">Dackel</p>');
-    expect(screen.queryByRole('img')).toBeNull();
-    expect(onStatic).toHaveBeenCalled();
+    expect(screen.queryByText('A town')).toBeNull();
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(engine.mounted).toHaveLength(0);
   });
 
-  it('leaves no empty box where there was nothing before', () => {
+  it('leaves no empty box where there was nothing before', async () => {
     const { container } = render(<WoodScene spec={rail} ghost="?" />);
-    expect(container.innerHTML).toBe('');
+    await waitFor(() => expect(container.innerHTML).toBe(''));
+  });
+
+  /*
+   * Asking for a context takes the main thread, and Today's first paint
+   * waited for it. It is asked after the page has painted, never while it
+   * renders.
+   */
+  it('asks about WebGL only after the page has painted', async () => {
+    render(<WoodScene spec={town} label="A town" fallback={<p>Dackel</p>} />);
+    expect(env.probes).toBe(0);
+    await waitFor(() => expect(env.probes).toBe(1));
+  });
+
+  it('asks nothing at all where the hints already rule the scene out', async () => {
+    env.webgl = true;
+    env.cores = 2;
+    const onStatic = vi.fn();
+    const { container } = render(<WoodScene spec={town} label="A town" fallback={<p>Dackel</p>} onStatic={onStatic} />);
+    expect(container.innerHTML).toBe('<p>Dackel</p>');
+    expect(onStatic).toHaveBeenCalled();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(env.probes).toBe(0);
+    expect(engine.mounted).toHaveLength(0);
   });
 });
 
@@ -84,27 +116,33 @@ describe('a wooden scene with WebGL', () => {
     env.webgl = true;
   });
 
-  it('draws after the page, then names the picture and lays its overlay over it', async () => {
-    render(
-      <WoodScene spec={town} label="A small wooden town" fallback={<p>Dackel</p>}>
+  it('draws after the page, then describes the picture and lays its overlay over it', async () => {
+    const { container } = render(
+      <WoodScene spec={town} label={<>Blocks: <span lang="de">das Brot</span></>} fallback={<p>Dackel</p>}>
         <span className="chip">Next stop</span>
       </WoodScene>,
     );
-    // Before the first frame: the picture, hidden from assistive technology like it always was.
-    expect(screen.queryByRole('img')).toBeNull();
+    // Before the first frame: the picture, and no description yet.
+    expect(screen.queryByText(/Blocks/)).toBeNull();
     expect(screen.getByText('Dackel')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole('img', { name: 'A small wooden town' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Blocks/)).toBeInTheDocument());
     expect(engine.mounted).toHaveLength(1);
     expect(engine.mounted[0]!.still).toBe(false);
     expect(screen.getByText('Next stop')).toBeInTheDocument();
+    // The description is text, so the German in it says which language it is
+    // in — an aria-label has one language for all of it. The canvas is hidden.
+    const description = container.querySelector('.wood-scene__label')!;
+    expect(description).toHaveClass('visually-hidden');
+    expect(description.querySelector('[lang="de"]')).toHaveTextContent('das Brot');
+    expect(container.querySelector('.wood-scene__stage')).toHaveAttribute('aria-hidden', 'true');
     // Nothing in the picture can be focused.
-    expect(screen.getByRole('img').querySelector('button, a, input, [tabindex]')).toBeNull();
+    expect(container.querySelector('.wood-scene__stage')!.querySelector('button, a, input, [tabindex]')).toBeNull();
   });
 
   it('is hidden from assistive technology when it has no label of its own', async () => {
     const { container } = render(<WoodScene spec={rail} ghost="?" />);
     await waitFor(() => expect(live()).toHaveLength(1));
-    expect(screen.queryByRole('img')).toBeNull();
+    expect(container.querySelector('.wood-scene__label')).toBeNull();
     expect(container.querySelector('.wood-scene__stage')).toHaveAttribute('aria-hidden', 'true');
   });
 
@@ -153,6 +191,74 @@ describe('a wooden scene with WebGL', () => {
     expect(engine.mounted).toHaveLength(1);
     expect(engine.mounted[0]!.ghosts).toContain('aus');
     expect(engine.mounted[0]!.replays).toBe(1);
+  });
+
+  /*
+   * After one "Show again", every later feedback scene used to replay itself
+   * the moment it was drawn: the count it was born with is not a request.
+   */
+  it('replays only when asked after it was drawn, not for the count it was born with', async () => {
+    const { rerender } = render(<WoodScene spec={rail} replay={3} />);
+    await waitFor(() => expect(live()).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(engine.mounted[0]!.replays).toBe(0);
+    rerender(<WoodScene spec={rail} replay={4} />);
+    expect(engine.mounted[0]!.replays).toBe(1);
+  });
+
+  /*
+   * The question's rail is hidden by the layout on a short screen. Hidden,
+   * it used to fetch the engine, make a context and draw a frame nobody saw.
+   */
+  it('starts nothing while the layout hides it, and draws once it is shown', async () => {
+    const observers: Array<() => void> = [];
+    let shown = false;
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private readonly callback: () => void) { observers.push(() => this.callback()); }
+      observe() {}
+      disconnect() {}
+    });
+    const rects = vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(() => (shown ? [{}] : []) as unknown as DOMRectList);
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => (shown ? 300 : 0));
+    const height = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(() => (shown ? 140 : 0));
+    try {
+      render(<WoodScene spec={rail} ghost="?" />);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(env.probes).toBe(0);
+      expect(engine.mounted).toHaveLength(0);
+      shown = true;
+      act(() => observers.forEach((notify) => notify()));
+      await waitFor(() => expect(live()).toHaveLength(1));
+    } finally {
+      rects.mockRestore();
+      width.mockRestore();
+      height.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  /*
+   * The browser numbers idle callbacks and timers separately, from 1 each.
+   * Clearing a timer by an idle callback's number stopped whichever of the
+   * app's timers had it: the study clock, the minute's flush of study time,
+   * the retry of answers saved offline.
+   */
+  it('never cancels one of the app\'s own timers on the way out', async () => {
+    let ticks = 0;
+    const interval = window.setInterval(() => { ticks++; }, 20);
+    vi.stubGlobal('requestIdleCallback', () => interval);
+    vi.stubGlobal('cancelIdleCallback', vi.fn());
+    try {
+      const { unmount } = render(<WoodScene spec={town} label="A town" />);
+      unmount();
+      expect(window.cancelIdleCallback).toHaveBeenCalledWith(interval);
+      const before = ticks;
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      expect(ticks).toBeGreaterThan(before);
+    } finally {
+      window.clearInterval(interval);
+      vi.unstubAllGlobals();
+    }
   });
 
   it('falls back to the picture when the browser takes the context away', async () => {
