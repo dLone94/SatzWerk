@@ -249,8 +249,6 @@ function withStudyTime(
   return [...studyDays, { day, secondsActive: write.seconds, answers: 0, correct: 0 }].sort((a, b) => b.day.localeCompare(a.day));
 }
 
-}
-
 function indexLessons(lessons: LessonProgress[]): Record<string, LessonProgress> {
   const out: Record<string, LessonProgress> = {};
   for (const lesson of lessons) out[lesson.lessonId] = lesson;
