@@ -17,7 +17,12 @@ import { Card, learnerName } from '../components/bits.tsx';
 export function SettingsPage() {
   const { t, lang, profile, updateProfile, setTeachingLanguage, resetAll, session, signOut, changePassword } =
     useApp();
-  const [custom, setCustom] = useState('');
+  // A goal typed in once is shown in the field it was typed into. The chips
+  // offered changed (30 is no longer one), and a learner on 30 saw no chip
+  // pressed and an empty field, with their goal only in the small print.
+  const [custom, setCustom] = useState(() =>
+    (DAILY_GOAL_CHOICES as readonly number[]).includes(profile.dailyTargetMinutes) ? '' : String(profile.dailyTargetMinutes),
+  );
   const [confirm, setConfirm] = useState('');
   const [resetDone, setResetDone] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -77,7 +82,10 @@ export function SettingsPage() {
               type="button"
               className={`chip chip--choice${profile.dailyTargetMinutes === minutes ? ' is-active' : ''}`}
               aria-pressed={profile.dailyTargetMinutes === minutes}
-              onClick={() => void updateProfile({ dailyTargetMinutes: minutes })}
+              onClick={() => {
+                setCustom('');
+                void updateProfile({ dailyTargetMinutes: minutes });
+              }}
             >
               {tr('settingsMinutes', lang, { n: minutes })}
             </button>
