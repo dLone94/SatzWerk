@@ -74,6 +74,9 @@ export function DashboardPage() {
   // Nothing answered and no practice begun: the practice is this learner's first German.
   const firstTime = stats.totalAnswers === 0 && dailyRuns.length === 0;
 
+  // A warm-up or a round after a break, timed at this learner's own pace.
+  const minutesFor = (answers: number) => Math.max(1, Math.round((answers * secondsPerAnswer(stats).seconds) / 60));
+
   const courseLabel = (next: NextAction) =>
     next.kind === 'continue-lesson'
       ? t('dashboardContinue')
@@ -121,7 +124,9 @@ export function DashboardPage() {
   const title = practising
     ? say(scenario?.title ?? script.goal)
     : step.kind === 'review'
-      ? t('todayReviewTitle', { n: step.due })
+      ? step.round
+        ? t('catchUpRoundTitle', { k: step.round, n: step.due })
+        : t('todayReviewTitle', { n: step.due })
       : step.kind === 'welcome-back'
         ? t('welcomeBackTitle')
         : step.kind === 'done'
@@ -195,6 +200,12 @@ export function DashboardPage() {
                 <p className="today-plan__what">{t(firstTime ? 'todayPracticeFirst' : 'todayPracticeWhat')}</p>
               )}
             </>
+          ) : step.kind === 'review' && step.round ? (
+            // After a break, the day's one round is timed, not the whole pile.
+            <p className="today-plan__detail">
+              {t('catchUpRoundWhat')}
+              <span className="today-plan__time"> {t('dashboardEstimate', { n: minutesFor(step.round) })}</span>
+            </p>
           ) : step.kind === 'review' ? (
             <p className="today-plan__detail">
               {t('todayReviewWhat')}
@@ -210,9 +221,7 @@ export function DashboardPage() {
                   : t('welcomeBackAll', { n: step.due })}
                 <span className="today-plan__time">
                   {' '}
-                  {t('dashboardEstimate', {
-                    n: Math.max(1, Math.round((step.welcome.warmUp * secondsPerAnswer(stats).seconds) / 60)),
-                  })}
+                  {t('dashboardEstimate', { n: minutesFor(step.welcome.warmUp) })}
                 </span>
               </p>
               {/* The run of days before the break is not lost from view: it
@@ -296,16 +305,20 @@ export function DashboardPage() {
             <Icon name="review" />
           </span>
           <p className="today-tile__main">
-            {queue.total > 0 ? t('todayDue', { n: queue.total }) : t('todayNothingDue')}
+            {queue.total > 0 ? t(step.spread ? 'catchUpTileWaiting' : 'todayDue', { n: queue.total }) : t('todayNothingDue')}
           </p>
           {/* "Review early" only when there is something to review: a new
-              learner was offered it and the review page had nothing to give. */}
+              learner was offered it and the review page had nothing to give.
+              After a break the pile is not timed as one sitting: the card
+              above says it comes back over the next days, and so does this. */}
           <p className="today-tile__note">
-            {queue.total > 0
-              ? t('dashboardEstimate', { n: Math.max(1, Math.round(queue.total * 0.4)) })
-              : earlyReviewExercises(onPath, new Date(), 1).length > 0
-                ? t('reviewPracticeEarly')
-                : t('todayReviewLater')}
+            {queue.total > 0 && step.spread
+              ? t('catchUpTileSpread')
+              : queue.total > 0
+                ? t('dashboardEstimate', { n: Math.max(1, Math.round(queue.total * 0.4)) })
+                : earlyReviewExercises(onPath, new Date(), 1).length > 0
+                  ? t('reviewPracticeEarly')
+                  : t('todayReviewLater')}
           </p>
         </Link>
       </div>

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VOCABULARY, availableLessons, lessonsInOrder } from '../../src/content/browser.ts';
 import { todayHere } from '../../src/core/progress/days.ts';
 import type { DailyRun } from '../../src/core/progress/daily.ts';
@@ -10,7 +10,7 @@ import { createReviewItem } from '../../src/core/srs/scheduler.ts';
 import { tr } from '../../src/i18n.ts';
 import { AppStateContext, type AppStateValue } from '../../src/state/AppState.tsx';
 import { DashboardPage } from '../../src/ui/pages/DashboardPage.tsx';
-import { CATCH_UP_SIZE } from '../../src/ui/selectors.ts';
+import { CATCH_UP_SIZE, REVIEW_ROUND_SIZE } from '../../src/ui/selectors.ts';
 import { stubState } from './playerStub.tsx';
 
 /**
@@ -123,12 +123,22 @@ describe.each(LANGS)('Today in %s', (lang) => {
    * had gone without a word.
    */
   describe('back after a break', () => {
+    // A pinned midday, so the days counted back are the same calendar days
+    // whenever and wherever the suite runs, across a change of clocks too.
+    const NOW = new Date('2026-11-03T12:00:00');
     const DAY = 86_400_000;
-    const ago = (days: number) => todayHere(new Date(Date.now() - days * DAY));
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(NOW);
+    });
+    afterEach(() => vi.useRealTimers());
+    const ago = (days: number) => todayHere(new Date(NOW.getTime() - days * DAY));
     const before = [5, 6, 7, 8].map((days) => ({ day: ago(days), secondsActive: 900, answers: 30, correct: 26 }));
-    const waiting = VOCABULARY.filter((entry) => entry.level === 'pre-a1').slice(0, 20).map((entry) =>
-      createReviewItem({ id: `vocab:${entry.id}`, kind: 'vocab', refId: entry.id, level: 'pre-a1', now: new Date(Date.now() - 6 * DAY) }));
+    const words = (count: number) => VOCABULARY.filter((entry) => entry.level === 'pre-a1').slice(0, count).map((entry) =>
+      createReviewItem({ id: `vocab:${entry.id}`, kind: 'vocab', refId: entry.id, level: 'pre-a1', now: new Date(NOW.getTime() - 6 * DAY) }));
+    const waiting = words(20);
     const plan = (container: HTMLElement) => container.querySelector<HTMLElement>('.today-plan')!;
+    const tile = (container: HTMLElement) => container.querySelector<HTMLElement>('.today-tile--review')!;
 
     it('welcomes the learner back with one warm-up, says plainly what happened, then names the lesson', () => {
       const view = today({ studyDays: before, reviewItems: waiting, lessons: { [first.id]: { ...emptyLessonProgress(first.id), sectionsSeen: [first.sections[0]!.id] } } }, lang);
@@ -146,6 +156,10 @@ describe.each(LANGS)('Today in %s', (lang) => {
       expect(card).toHaveTextContent(tr('welcomeBackRun', lang, { n: 4 }));
       expect(card).not.toHaveTextContent(lang === 'en' ? /missed|lost|broke|behind|again\?/i : /пропусн|загуб|изгуб|изостан/i);
       expect(within(card).getByRole('link', { name: first.title[lang] })).toHaveAttribute('href', `/lesson/${first.id}`);
+      // The review tile tells the same story as the card, not the whole pile timed as one sitting.
+      expect(tile(view.container)).toHaveTextContent(tr('catchUpTileWaiting', lang, { n: 20 }));
+      expect(tile(view.container)).toHaveTextContent(tr('catchUpTileSpread', lang));
+      expect(tile(view.container)).not.toHaveTextContent(tr('dashboardEstimate', lang, { n: 8 }));
     });
 
     it('says nothing of a run of one day, and warms up with all of it when little is waiting', () => {
@@ -162,6 +176,24 @@ describe.each(LANGS)('Today in %s', (lang) => {
       expect(card).not.toHaveTextContent(tr('welcomeBackEyebrow', lang));
       expect(primaries(view.container)[0]).toHaveAccessibleName(tr('todayPracticeStart', lang));
       expect(within(card).getByRole('link', { name: first.title[lang] })).toHaveAttribute('href', `/lesson/${first.id}`);
+    });
+
+    it('offers one round of the pile the next day, timed as a round, with today\'s practice after it', () => {
+      const pile = words(45);
+      // Back yesterday after a month away; nothing answered yet today.
+      const days = [1, 31, 32].map((back) => ({ day: ago(back), secondsActive: 600, answers: 12, correct: 10 }));
+      const view = today({ studyDays: days, reviewItems: pile }, lang);
+      const [only, ...others] = primaries(view.container);
+      expect(others).toHaveLength(0);
+      expect(only).toHaveAttribute('href', '/review');
+      const card = plan(view.container);
+      expect(within(card).getByRole('heading', { name: tr('catchUpRoundTitle', lang, { k: REVIEW_ROUND_SIZE, n: pile.length }) }))
+        .toBeInTheDocument();
+      expect(card).toHaveTextContent(tr('catchUpRoundWhat', lang));
+      // Twenty answers at the default twenty seconds: about seven minutes, not the pile's eighteen.
+      expect(card).toHaveTextContent(tr('dashboardEstimate', lang, { n: 7 }));
+      expect(within(card).getByRole('link', { name: tr('todayPracticeName', lang) })).toHaveAttribute('href', '/daily');
+      expect(tile(view.container)).toHaveTextContent(tr('catchUpTileSpread', lang));
     });
   });
 

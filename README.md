@@ -560,7 +560,11 @@ the break, and offers one short warm-up (`/review?catch-up`): the twelve due
 items the review queue ranks first, the forgotten and those still being learnt
 ahead of the rest. Once something is answered that day, the day goes on as
 usual, except that the rest of the backlog no longer leads it or holds back the
-next lesson; it comes back over the following days, a round at a time.
+next lesson. For the week from the day back, the pile leads a day at most once,
+as one round of twenty ("A round of 20 · 130 waiting"), and only before anything
+else is answered that day; it never decides the course's next step, so the
+lesson or checkpoint the learner earned stays in view, and the review tile says
+the rest comes back over the next days instead of timing it as one sitting.
 
 **The mixed round: one button, ten minutes.** A lesson here is twenty-five to
 thirty minutes, which is right for meeting something new and wrong for a
